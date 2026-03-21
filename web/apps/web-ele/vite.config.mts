@@ -16,13 +16,13 @@ export default defineConfig(async () => {
           '/basic-api': {
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/basic-api/, ''),
-            // mock代理目标地址
-            target: 'http://localhost:8000',
+            // 后端API代理目标地址
+            target: 'http://192.168.0.106:8000',
             ws: true,
           },
           '/ws': {
             changeOrigin: true,
-            target: 'ws://localhost:8000',
+            target: 'ws://192.168.0.106:8000',
             ws: true,
           },
         },
