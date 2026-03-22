@@ -5,11 +5,12 @@ import { ElTable, ElTableColumn, ElTag, ElPagination } from 'element-plus';
 
 import type { FeatureAnalysisItem } from '#/api/core/feature-analysis';
 import { getFeatureListApi } from '#/api/core/feature-analysis';
+import type { ProgressFilterParams } from './FilterBar.vue';
 
 defineOptions({ name: 'FeatureTable' });
 
 const props = defineProps<{
-  version?: string;
+  filterParams: ProgressFilterParams;
 }>();
 
 const tableData = ref<FeatureAnalysisItem[]>([]);
@@ -18,14 +19,27 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const loading = ref(false);
 
+// 排序状态
+const currentSort = ref<{ prop: string; order: string | null }>({
+  prop: '',
+  order: null,
+});
+
 // 加载表格数据
 async function loadTableData() {
   loading.value = true;
   try {
+    const sortBy = currentSort.value.prop || undefined;
+    const sortOrder = currentSort.value.order
+      ? currentSort.value.order === 'ascending' ? 'asc' : 'desc'
+      : undefined;
+
     const res = await getFeatureListApi({
       page: currentPage.value,
       pageSize: pageSize.value,
-      version: props.version,
+      ...props.filterParams,
+      sortBy,
+      sortOrder,
     });
     tableData.value = res.items || [];
     total.value = res.total || 0;
@@ -34,6 +48,13 @@ async function loadTableData() {
   } finally {
     loading.value = false;
   }
+}
+
+// 排序变化
+function handleSortChange({ prop, order }: { prop: string; order: string | null }) {
+  currentSort.value = { prop, order };
+  currentPage.value = 1;
+  loadTableData();
 }
 
 // 分页变更
@@ -61,11 +82,12 @@ function getStatusType(status: string): 'success' | 'warning' | 'info' {
 }
 
 watch(
-  () => props.version,
+  () => props.filterParams,
   () => {
     currentPage.value = 1;
     loadTableData();
-  }
+  },
+  { deep: true }
 );
 
 onMounted(() => {
@@ -81,6 +103,7 @@ onMounted(() => {
       border
       stripe
       style="width: 100%"
+      @sort-change="handleSortChange"
     >
       <ElTableColumn
         prop="featureIdFather"
@@ -120,17 +143,20 @@ onMounted(() => {
         prop="featureTestExpectTime"
         label="预计转测时间"
         width="120"
+        sortable="custom"
       />
       <ElTableColumn
         prop="featureTestStartTime"
         label="实际转测情况"
         width="120"
+        sortable="custom"
       />
       <ElTableColumn
         prop="testStatus"
         label="测试状态"
         width="80"
         align="center"
+        sortable="custom"
       >
         <template #default="{ row }">
           <ElTag :type="getStatusType(row.testStatus)" size="small">

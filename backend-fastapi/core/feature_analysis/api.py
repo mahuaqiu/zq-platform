@@ -15,7 +15,8 @@ from core.feature_analysis.schema import (
     FeatureAnalysisResponse,
     PieChartDataResponse,
     PieChartDataItem,
-    VersionListResponse
+    VersionListResponse,
+    QualityEvaluationResponse
 )
 from core.feature_analysis.service import FeatureAnalysisService
 
@@ -27,14 +28,22 @@ async def get_feature_list(
     page: int = Query(default=1, ge=1, description="页码"),
     page_size: int = Query(default=20, ge=1, le=100, alias="pageSize", description="每页数量"),
     version: Optional[str] = Query(None, description="版本筛选"),
+    feature_id_father: Optional[str] = Query(None, alias="featureIdFather", description="EP编号筛选"),
+    feature_id: Optional[str] = Query(None, alias="featureId", description="FE编号筛选"),
+    feature_owner: Optional[str] = Query(None, alias="featureOwner", description="测试责任人筛选"),
+    feature_task_service: Optional[str] = Query(None, alias="featureTaskService", description="测试归属筛选"),
+    sort_by: Optional[str] = Query(None, alias="sortBy", description="排序字段"),
+    sort_order: Optional[str] = Query(None, alias="sortOrder", description="排序方式"),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取需求列表（分页）"""
-    items, total = await FeatureAnalysisService.get_list_with_version(
-        db, page=page, page_size=page_size, version=version
+    """获取需求列表（分页，支持多条件筛选和排序）"""
+    items, total = await FeatureAnalysisService.get_list_with_filters(
+        db, page=page, page_size=page_size, version=version,
+        feature_id_father=feature_id_father, feature_id=feature_id,
+        feature_owner=feature_owner, feature_task_service=feature_task_service,
+        sort_by=sort_by, sort_order=sort_order
     )
 
-    # 构建响应，添加计算字段
     response_items = []
     for item in items:
         item_dict = {
@@ -99,3 +108,43 @@ async def get_verify_status_chart(
     return PieChartDataResponse(
         seriesData=[PieChartDataItem(name=item["name"], value=item["value"]) for item in data]
     )
+
+
+@router.get("/quality", response_model=PaginatedResponse[QualityEvaluationResponse], summary="获取质量评价列表")
+async def get_quality_list(
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize", description="每页数量"),
+    version: Optional[str] = Query(None, description="版本筛选"),
+    feature_id: Optional[str] = Query(None, alias="featureId", description="FE编号筛选"),
+    feature_desc: Optional[str] = Query(None, alias="featureDesc", description="FE名称筛选"),
+    sort_by: Optional[str] = Query(None, alias="sortBy", description="排序字段"),
+    sort_order: Optional[str] = Query(None, alias="sortOrder", description="排序方式"),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取质量评价列表（分页，支持筛选和排序）"""
+    items, total = await FeatureAnalysisService.get_quality_list(
+        db, page=page, page_size=page_size, version=version,
+        feature_id=feature_id, feature_desc=feature_desc,
+        sort_by=sort_by, sort_order=sort_order
+    )
+
+    response_items = [QualityEvaluationResponse(**item) for item in items]
+    return PaginatedResponse(items=response_items, total=total)
+
+
+@router.get("/owners", response_model=VersionListResponse, summary="获取测试责任人列表")
+async def get_owners(
+    db: AsyncSession = Depends(get_db)
+):
+    """获取所有测试责任人列表（去重）"""
+    owners = await FeatureAnalysisService.get_owners(db)
+    return VersionListResponse(items=owners)
+
+
+@router.get("/task-services", response_model=VersionListResponse, summary="获取测试归属列表")
+async def get_task_services(
+    db: AsyncSession = Depends(get_db)
+):
+    """获取所有测试归属列表（去重）"""
+    services = await FeatureAnalysisService.get_task_services(db)
+    return VersionListResponse(items=services)
