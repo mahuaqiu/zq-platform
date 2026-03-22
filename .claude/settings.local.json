@@ -8,7 +8,11 @@
       "Bash(pip show:*)",
       "Bash(pip install:*)",
       "Bash(python -c \"from alembic.config import main; main\\(\\)\" revision --autogenerate -m \"add feature_analysis table\")",
-      "Bash(python scripts/init_feature_analysis_menu.py)"
+      "Bash(python scripts/init_feature_analysis_menu.py)",
+      "Bash(python -c \"from core.feature_analysis.api import router; print\\(''Backend API OK''\\)\")",
+      "Bash(python -c \"from core.feature_analysis.service import FeatureAnalysisService; print\\(''Backend Service OK''\\)\")",
+      "Bash(python -c \"from core.feature_analysis.schema import QualityEvaluationResponse; print\\(''Backend Schema OK''\\)\")",
+      "Bash(pnpm check:type)"
     ]
   }
 }
