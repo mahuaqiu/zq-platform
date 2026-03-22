@@ -3,6 +3,8 @@
  */
 import { requestClient } from '#/api/request';
 
+const BASE_URL = '/api/core/feature-analysis';
+
 // 类型定义
 export interface FeatureAnalysisItem {
   id: string;
@@ -47,14 +49,14 @@ export async function getFeatureListApi(params: {
   pageSize?: number;
   version?: string;
 }): Promise<PaginatedResponse<FeatureAnalysisItem>> {
-  return requestClient.get('/core/feature-analysis', { params });
+  return requestClient.get(BASE_URL, { params });
 }
 
 /**
  * 获取版本列表
  */
 export async function getVersionListApi(): Promise<VersionListResponse> {
-  return requestClient.get('/core/feature-analysis/versions');
+  return requestClient.get(`${BASE_URL}/versions`);
 }
 
 /**
@@ -63,7 +65,7 @@ export async function getVersionListApi(): Promise<VersionListResponse> {
 export async function getTimelyTestChartApi(
   version?: string,
 ): Promise<PieChartDataResponse> {
-  return requestClient.get('/core/feature-analysis/chart/timely-test', {
+  return requestClient.get(`${BASE_URL}/chart/timely-test`, {
     params: version ? { version } : undefined,
   });
 }
@@ -74,7 +76,7 @@ export async function getTimelyTestChartApi(
 export async function getTestStatusChartApi(
   version?: string,
 ): Promise<PieChartDataResponse> {
-  return requestClient.get('/core/feature-analysis/chart/test-status', {
+  return requestClient.get(`${BASE_URL}/chart/test-status`, {
     params: version ? { version } : undefined,
   });
 }
@@ -85,7 +87,7 @@ export async function getTestStatusChartApi(
 export async function getVerifyStatusChartApi(
   version?: string,
 ): Promise<PieChartDataResponse> {
-  return requestClient.get('/core/feature-analysis/chart/verify-status', {
+  return requestClient.get(`${BASE_URL}/chart/verify-status`, {
     params: version ? { version } : undefined,
   });
 }
