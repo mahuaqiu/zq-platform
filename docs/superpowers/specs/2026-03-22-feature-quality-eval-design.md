@@ -103,6 +103,8 @@ views/feature-analysis/eval/
 | version | string | 否 | 版本筛选（精确匹配） |
 | featureId | string | 否 | FE编号筛选（模糊匹配，包含匹配） |
 | featureDesc | string | 否 | FE名称筛选（模糊匹配，包含匹配） |
+| sortBy | string | 否 | 排序字段（delayDays, testCount, bugTotal, bugSerious, codeLines） |
+| sortOrder | string | 否 | 排序方式（asc, desc） |
 
 **参数命名规则**：
 - 前端使用驼峰命名（如 `featureId`）
@@ -232,6 +234,8 @@ export async function getQualityListApi(params: {
   version?: string;
   featureId?: string;
   featureDesc?: string;
+  sortBy?: string;
+  sortOrder?: string;
 }): Promise<PaginatedResponse<QualityEvaluationItem>> {
   return requestClient.get(`${BASE_URL}/quality`, { params });
 }
@@ -256,6 +260,28 @@ export async function getQualityListApi(params: {
 | 测试责任人 | feature_owner | 下拉选择 | 精确匹配 |
 | 测试归属 | feature_task_service | 下拉选择 | 精确匹配 |
 
+### 2.2.1 表格排序功能
+
+需求进展页面表格支持点击表头进行排序：
+
+| 可排序列 | 对应字段 | 说明 |
+|----------|----------|------|
+| 预计转测时间 | feature_test_expect_time | 日期排序 |
+| 实际转测情况 | feature_test_start_time | 日期排序 |
+| 测试状态 | test_status | 按状态排序 |
+
+**实现方式**：
+- 使用 Element Plus Table 的 `sortable` 属性
+- 后端排序（服务端排序）
+- 点击表头切换升序/降序/取消排序
+
+**后端 API 参数扩展**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| sortBy | string | 排序字段（featureTestExpectTime, featureTestStartTime, testStatus） |
+| sortOrder | string | 排序方式（asc, desc） |
+
 ### 2.3 筛选栏布局
 
 ```
@@ -274,6 +300,8 @@ export async function getQualityListApi(params: {
 | featureId | string | FE编号筛选（模糊匹配，包含匹配） |
 | featureOwner | string | 测试责任人筛选（精确匹配） |
 | featureTaskService | string | 测试归属筛选（精确匹配） |
+| sortBy | string | 排序字段（featureTestExpectTime, featureTestStartTime, testStatus） |
+| sortOrder | string | 排序方式（asc, desc） |
 
 **后端参数定义示例**：
 
@@ -287,6 +315,8 @@ async def get_feature_list(
     feature_id: Optional[str] = Query(None, alias="featureId"),
     feature_owner: Optional[str] = Query(None, alias="featureOwner"),
     feature_task_service: Optional[str] = Query(None, alias="featureTaskService"),
+    sort_by: Optional[str] = Query(None, alias="sortBy"),
+    sort_order: Optional[str] = Query(None, alias="sortOrder"),
     db: AsyncSession = Depends(get_db)
 ):
     ...
@@ -382,6 +412,8 @@ export async function getFeatureListApi(params: {
   featureId?: string;         // 新增
   featureOwner?: string;      // 新增
   featureTaskService?: string; // 新增
+  sortBy?: string;            // 新增
+  sortOrder?: string;         // 新增
 }): Promise<PaginatedResponse<FeatureAnalysisItem>> {
   return requestClient.get(BASE_URL, { params });
 }
