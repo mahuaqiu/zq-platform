@@ -127,7 +127,11 @@ def calculate_delay_days(expect_time: Optional[str], actual_time: Optional[str])
 
 - [ ] **Step 2: 新增 get_quality_list 方法**
 
+> **注意**：延期天数为计算字段，无法在 SQL 层面排序。采用方案：**获取数据后在 Python 层排序**（适用于中等数据量）。
+
 ```python
+from sqlalchemy import case
+
 @classmethod
 async def get_quality_list(
     cls,
@@ -156,29 +160,13 @@ async def get_quality_list(
     # 构建基础查询
     query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)  # noqa: E712
 
-    # 筛选条件
-    if version:
+    # 筛选条件（处理空字符串）
+    if version and version.strip():
         query = query.where(FeatureAnalysis.feature_version == version)
-    if feature_id:
+    if feature_id and feature_id.strip():
         query = query.where(FeatureAnalysis.feature_id.like(f"%{feature_id}%"))
-    if feature_desc:
+    if feature_desc and feature_desc.strip():
         query = query.where(FeatureAnalysis.feature_desc.like(f"%{feature_desc}%"))
-
-    # 排序
-    if sort_by and sort_order:
-        sort_field_map = {
-            "delayDays": FeatureAnalysis.feature_test_start_time,  # 延期天数需要特殊处理
-            "testCount": FeatureAnalysis.feature_test_count,
-            "bugTotal": FeatureAnalysis.feature_bug_total,
-            "bugSerious": FeatureAnalysis.feature_bug_serious,
-            "codeLines": FeatureAnalysis.feature_code,
-        }
-        field = sort_field_map.get(sort_by)
-        if field is not None:
-            if sort_order == "asc":
-                query = query.order_by(field.asc())
-            else:
-                query = query.order_by(field.desc())
 
     # 获取总数
     count_query = select(func.count()).select_from(query.subquery())
@@ -212,12 +200,31 @@ async def get_quality_list(
         }
         response_items.append(item_dict)
 
+    # Python 层排序（处理计算字段）
+    if sort_by and sort_order:
+        reverse = sort_order == "desc"
+
+        def get_sort_value(item: dict):
+            val = item.get(sort_by)
+            # 处理 None 值，排序时放到最后
+            if val is None:
+                return float('inf') if reverse else float('-inf')
+            # 尝试数值排序
+            try:
+                return int(val) if isinstance(val, str) else val
+            except (ValueError, TypeError):
+                return val
+
+        response_items.sort(key=get_sort_value, reverse=reverse)
+
     return response_items, total
 ```
 
 - [ ] **Step 3: 新增 get_list_with_filters 方法（筛选增强）**
 
 ```python
+from sqlalchemy import case
+
 @classmethod
 async def get_list_with_filters(
     cls,
@@ -250,31 +257,44 @@ async def get_list_with_filters(
     # 构建基础查询
     query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)  # noqa: E712
 
-    # 筛选条件
-    if version:
+    # 筛选条件（处理空字符串）
+    if version and version.strip():
         query = query.where(FeatureAnalysis.feature_version == version)
-    if feature_id_father:
+    if feature_id_father and feature_id_father.strip():
         query = query.where(FeatureAnalysis.feature_id_father.like(f"%{feature_id_father}%"))
-    if feature_id:
+    if feature_id and feature_id.strip():
         query = query.where(FeatureAnalysis.feature_id.like(f"%{feature_id}%"))
-    if feature_owner:
+    if feature_owner and feature_owner.strip():
         query = query.where(FeatureAnalysis.feature_owner == feature_owner)
-    if feature_task_service:
+    if feature_task_service and feature_task_service.strip():
         query = query.where(FeatureAnalysis.feature_task_service == feature_task_service)
 
     # 排序
     if sort_by and sort_order:
-        sort_field_map = {
-            "featureTestExpectTime": FeatureAnalysis.feature_test_expect_time,
-            "featureTestStartTime": FeatureAnalysis.feature_test_start_time,
-            "testStatus": FeatureAnalysis.feature_test_end_time,  # 用完成时间作为测试状态的排序依据
-        }
-        field = sort_field_map.get(sort_by)
-        if field is not None:
+        if sort_by == "testStatus":
+            # 测试状态排序：未开始(1) < 测试中(2) < 已完成(3)
+            status_order = case(
+                (FeatureAnalysis.feature_test_end_time.isnot(None), 3),  # 已完成
+                (FeatureAnalysis.feature_test_start_time.isnot(None), 2),  # 测试中
+                else_=1  # 未开始
+            )
             if sort_order == "asc":
-                query = query.order_by(field.asc())
+                query = query.order_by(status_order.asc())
             else:
-                query = query.order_by(field.desc())
+                query = query.order_by(status_order.desc())
+        else:
+            # 其他字段排序
+            sort_field_map = {
+                "featureTestExpectTime": FeatureAnalysis.feature_test_expect_time,
+                "featureTestStartTime": FeatureAnalysis.feature_test_start_time,
+            }
+            field = sort_field_map.get(sort_by)
+            if field is not None:
+                # 处理 NULL 值排序
+                if sort_order == "asc":
+                    query = query.order_by(field.asc().nulls_last())
+                else:
+                    query = query.order_by(field.desc().nulls_last())
 
     # 获取总数
     count_query = select(func.count()).select_from(query.subquery())
@@ -675,7 +695,8 @@ onMounted(() => {
         placeholder="请输入FE编号"
         clearable
         style="width: 180px"
-        @input="(val: string) => updateFilter('featureId', val)"
+        @blur="() => emit('update:modelValue', { ...localParams.value })"
+        @clear="() => updateFilter('featureId', undefined)"
       />
     </div>
 
@@ -686,7 +707,8 @@ onMounted(() => {
         placeholder="请输入FE名称"
         clearable
         style="width: 200px"
-        @input="(val: string) => updateFilter('featureDesc', val)"
+        @blur="() => emit('update:modelValue', { ...localParams.value })"
+        @clear="() => updateFilter('featureDesc', undefined)"
       />
     </div>
   </div>
@@ -1114,7 +1136,8 @@ onMounted(() => {
         placeholder="请输入EP编号"
         clearable
         style="width: 150px"
-        @input="(val: string) => updateFilter('featureIdFather', val)"
+        @blur="() => emit('update:modelValue', { ...localParams.value })"
+        @clear="() => updateFilter('featureIdFather', undefined)"
       />
     </div>
 
@@ -1125,7 +1148,8 @@ onMounted(() => {
         placeholder="请输入FE编号"
         clearable
         style="width: 150px"
-        @input="(val: string) => updateFilter('featureId', val)"
+        @blur="() => emit('update:modelValue', { ...localParams.value })"
+        @clear="() => updateFilter('featureId', undefined)"
       />
     </div>
 
@@ -1473,21 +1497,113 @@ git commit -m "feat: 修改需求进展主页面，支持多筛选条件"
 
 - [ ] **Step 1: 修改菜单初始化脚本**
 
-找到 `eval_menu` 的定义，修改 `component` 字段：
+> **注意**：原脚本在菜单存在时会跳过，需要添加更新逻辑。
+
+替换整个 `init_menus` 函数：
 
 ```python
-# 创建二级菜单：需求质量评价
-eval_menu = Menu(
-    id="fq_eval",
-    name="FeatureQualityEval",
-    title="需求质量评价",
-    path="/feature-quality/eval",
-    type="menu",
-    component="feature-analysis/eval/index",  # 更新此字段
-    parent_id=parent_menu.id,
-    order=2,
-    hideInMenu=False,
-)
+async def init_menus():
+    """初始化特性质量统计菜单"""
+    async with AsyncSessionLocal() as db:
+        try:
+            # 检查一级菜单是否已存在
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureQuality")
+            )
+            parent_menu = result.scalar_one_or_none()
+
+            if not parent_menu:
+                # 创建一级菜单：特性质量统计
+                parent_menu = Menu(
+                    id="fq_catalog",
+                    name="FeatureQuality",
+                    title="特性质量统计",
+                    path="/feature-quality",
+                    type="catalog",
+                    icon="lucide:chart-pie",
+                    order=50,
+                    hideInMenu=False,
+                    hideChildrenInMenu=False,
+                )
+                db.add(parent_menu)
+                await db.flush()
+                print("创建一级菜单：特性质量统计")
+
+            # 检查并更新/创建需求进展菜单
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureProgress")
+            )
+            progress_menu = result.scalar_one_or_none()
+            if not progress_menu:
+                progress_menu = Menu(
+                    id="fq_progress",
+                    name="FeatureProgress",
+                    title="需求进展",
+                    path="/feature-quality/progress",
+                    type="menu",
+                    component="feature-analysis/progress/index",
+                    parent_id=parent_menu.id,
+                    order=1,
+                    hideInMenu=False,
+                )
+                db.add(progress_menu)
+                print("创建菜单：需求进展")
+            else:
+                print("菜单已存在：需求进展")
+
+            # 检查并更新/创建需求质量评价菜单
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureQualityEval")
+            )
+            eval_menu = result.scalar_one_or_none()
+            if not eval_menu:
+                eval_menu = Menu(
+                    id="fq_eval",
+                    name="FeatureQualityEval",
+                    title="需求质量评价",
+                    path="/feature-quality/eval",
+                    type="menu",
+                    component="feature-analysis/eval/index",
+                    parent_id=parent_menu.id,
+                    order=2,
+                    hideInMenu=False,
+                )
+                db.add(eval_menu)
+                print("创建菜单：需求质量评价")
+            else:
+                # 更新已存在菜单的 component 字段
+                eval_menu.component = "feature-analysis/eval/index"
+                print("更新菜单：需求质量评价")
+
+            # 检查并更新/创建修改引入问题菜单
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureBugIntro")
+            )
+            bug_menu = result.scalar_one_or_none()
+            if not bug_menu:
+                bug_menu = Menu(
+                    id="fq_bug",
+                    name="FeatureBugIntro",
+                    title="修改引入问题",
+                    path="/feature-quality/bug-intro",
+                    type="menu",
+                    component="",
+                    parent_id=parent_menu.id,
+                    order=3,
+                    hideInMenu=False,
+                )
+                db.add(bug_menu)
+                print("创建菜单：修改引入问题")
+            else:
+                print("菜单已存在：修改引入问题")
+
+            await db.commit()
+            print("菜单初始化完成！")
+
+        except Exception as e:
+            await db.rollback()
+            print(f"初始化失败: {e}")
+            raise
 ```
 
 - [ ] **Step 2: 提交**
