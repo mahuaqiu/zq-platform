@@ -75,3 +75,22 @@ class PieChartDataResponse(BaseModel):
 class VersionListResponse(BaseModel):
     """版本列表响应"""
     items: List[str]
+
+
+class QualityEvaluationResponse(BaseModel):
+    """需求质量评价响应"""
+    id: str
+    feature_id: Optional[str] = Field(None, alias="featureId", description="需求编号")
+    feature_desc: Optional[str] = Field(None, alias="featureDesc", description="特性名称")
+    feature_owner: Optional[str] = Field(None, alias="featureOwner", description="责任人")
+    delay_days: Optional[int] = Field(None, alias="delayDays", description="延期天数")
+    test_count: Optional[str] = Field(None, alias="testCount", description="需求转测次数")
+    bug_total: Optional[str] = Field(None, alias="bugTotal", description="问题单总数")
+    bug_serious: Optional[str] = Field(None, alias="bugSerious", description="严重问题数量")
+    bug_intro_count: Optional[str] = Field(None, alias="bugIntroCount", description="修改引入数量")
+    code_lines: Optional[str] = Field(None, alias="codeLines", description="新增代码量")
+    quality_judge: Optional[str] = Field(None, alias="qualityJudge", description="特性质量评价")
+
+    class Config:
+        populate_by_name = True
+        from_attributes = True
