@@ -127,7 +127,7 @@ def calculate_delay_days(expect_time: Optional[str], actual_time: Optional[str])
 
 - [ ] **Step 2: 新增 get_quality_list 方法**
 
-> **注意**：延期天数为计算字段，无法在 SQL 层面排序。采用方案：**获取数据后在 Python 层排序**（适用于中等数据量）。
+> **注意**：延期天数为计算字段，无法在 SQL 层面排序。采用方案：**先获取全部数据，在 Python 层排序后再切片分页**（适用于中等数据量，通常质量评价数据不超过几千条）。
 
 ```python
 from sqlalchemy import case
@@ -157,7 +157,7 @@ async def get_quality_list(
     :param sort_order: 排序方式
     :return: (数据列表, 总数)
     """
-    # 构建基础查询
+    # 构建基础查询（不分页）
     query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)  # noqa: E712
 
     # 筛选条件（处理空字符串）
@@ -168,20 +168,13 @@ async def get_quality_list(
     if feature_desc and feature_desc.strip():
         query = query.where(FeatureAnalysis.feature_desc.like(f"%{feature_desc}%"))
 
-    # 获取总数
-    count_query = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_query)).scalar() or 0
-
-    # 分页
-    offset = (page - 1) * page_size
-    query = query.offset(offset).limit(page_size)
-
+    # 获取所有数据
     result = await db.execute(query)
-    items = result.scalars().all()
+    all_items = result.scalars().all()
 
     # 构建响应数据
     response_items = []
-    for item in items:
+    for item in all_items:
         item_dict = {
             "id": item.id,
             "feature_id": item.feature_id,
@@ -216,6 +209,14 @@ async def get_quality_list(
                 return val
 
         response_items.sort(key=get_sort_value, reverse=reverse)
+
+    # 计算总数
+    total = len(response_items)
+
+    # Python 层分页切片
+    start = (page - 1) * page_size
+    end = start + page_size
+    response_items = response_items[start:end]
 
     return response_items, total
 ```
