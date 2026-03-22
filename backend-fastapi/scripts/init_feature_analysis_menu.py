@@ -34,7 +34,7 @@ async def init_menus():
 
             # 创建一级菜单：特性质量统计
             parent_menu = Menu(
-                id="feature_quality_catalog",
+                id="fq_catalog",
                 name="FeatureQuality",
                 title="特性质量统计",
                 path="/feature-quality",
@@ -49,7 +49,7 @@ async def init_menus():
 
             # 创建二级菜单：需求进展
             progress_menu = Menu(
-                id="feature_progress_menu",
+                id="fq_progress",
                 name="FeatureProgress",
                 title="需求进展",
                 path="/feature-quality/progress",
@@ -63,7 +63,7 @@ async def init_menus():
 
             # 创建二级菜单：需求质量评价（占位）
             eval_menu = Menu(
-                id="feature_quality_eval_menu",
+                id="fq_eval",
                 name="FeatureQualityEval",
                 title="需求质量评价",
                 path="/feature-quality/eval",
@@ -77,7 +77,7 @@ async def init_menus():
 
             # 创建二级菜单：修改引入问题（占位）
             bug_menu = Menu(
-                id="feature_bug_intro_menu",
+                id="fq_bug",
                 name="FeatureBugIntro",
                 title="修改引入问题",
                 path="/feature-quality/bug-intro",
