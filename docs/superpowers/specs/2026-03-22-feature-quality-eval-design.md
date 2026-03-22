@@ -54,6 +54,42 @@ views/feature-analysis/eval/
 | 新增代码量 | codeLines | feature_code | 100px |
 | 特性质量评价 | qualityJudge | feature_judge | 自适应 |
 
+### 1.3.1 表格排序功能
+
+表格支持点击表头进行排序：
+
+| 可排序列 | 默认排序 |
+|----------|----------|
+| 延期天数 | ✓ |
+| 需求转测次数 | ✓ |
+| 问题单总数 | ✓ |
+| 严重问题数量 | ✓ |
+| 新增代码量 | ✓ |
+
+**实现方式**：
+- 使用 Element Plus Table 的 `sortable` 属性
+- 后端排序（服务端排序），避免前端处理大量数据
+- 点击表头切换升序/降序/取消排序
+
+**后端 API 参数扩展**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| sortBy | string | 排序字段（delayDays, testCount, bugTotal, bugSerious, codeLines） |
+| sortOrder | string | 排序方式（asc, desc） |
+
+**前端实现**：
+
+```vue
+<ElTable
+  :data="tableData"
+  @sort-change="handleSortChange"
+>
+  <ElTableColumn prop="delayDays" label="延期天数" sortable="custom" />
+  <!-- 其他列 -->
+</ElTable>
+```
+
 ### 1.4 后端 API 设计
 
 **接口路径**：`GET /api/core/feature-analysis/quality`
@@ -314,6 +350,11 @@ const filterParams = ref({
 1. 修改 props 接收完整筛选条件对象
 2. 监听筛选条件变化重新加载数据
 
+**PieCharts.vue 说明**：
+
+- 饼图 API 只需要支持 `version` 筛选，不需要支持新增的 EP编号、FE编号等筛选条件
+- PieCharts.vue 无需修改，继续只接收 `version` 参数
+
 ### 2.7 前端 API 新增
 
 在 `api/core/feature-analysis.ts` 中新增：
@@ -366,7 +407,6 @@ export async function getFeatureListApi(params: {
 | `views/feature-analysis/progress/index.vue` | 修改 | 重构筛选条件状态管理 |
 | `views/feature-analysis/progress/components/FilterBar.vue` | 修改 | 增强筛选功能，新增4个筛选项 |
 | `views/feature-analysis/progress/components/FeatureTable.vue` | 修改 | 支持新筛选参数 |
-| `views/feature-analysis/progress/components/PieCharts.vue` | 修改 | 支持新筛选参数（如需要） |
 
 ### 前端文件新增
 
