@@ -21,6 +21,20 @@ export interface FeatureAnalysisItem {
   featureRisk: string | null;
 }
 
+export interface QualityEvaluationItem {
+  id: string;
+  featureId: string | null;
+  featureDesc: string | null;
+  featureOwner: string | null;
+  delayDays: number | null;
+  testCount: string | null;
+  bugTotal: string | null;
+  bugSerious: string | null;
+  bugIntroCount: string | null;
+  codeLines: string | null;
+  qualityJudge: string | null;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
@@ -48,6 +62,12 @@ export async function getFeatureListApi(params: {
   page?: number;
   pageSize?: number;
   version?: string;
+  featureIdFather?: string;
+  featureId?: string;
+  featureOwner?: string;
+  featureTaskService?: string;
+  sortBy?: string;
+  sortOrder?: string;
 }): Promise<PaginatedResponse<FeatureAnalysisItem>> {
   return requestClient.get(BASE_URL, { params });
 }
@@ -90,4 +110,33 @@ export async function getVerifyStatusChartApi(
   return requestClient.get(`${BASE_URL}/chart/verify-status`, {
     params: version ? { version } : undefined,
   });
+}
+
+/**
+ * 获取质量评价列表
+ */
+export async function getQualityListApi(params: {
+  page?: number;
+  pageSize?: number;
+  version?: string;
+  featureId?: string;
+  featureDesc?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}): Promise<PaginatedResponse<QualityEvaluationItem>> {
+  return requestClient.get(`${BASE_URL}/quality`, { params });
+}
+
+/**
+ * 获取测试责任人列表
+ */
+export async function getOwnerListApi(): Promise<{ items: string[] }> {
+  return requestClient.get(`${BASE_URL}/owners`);
+}
+
+/**
+ * 获取测试归属列表
+ */
+export async function getTaskServiceListApi(): Promise<{ items: string[] }> {
+  return requestClient.get(`${BASE_URL}/task-services`);
 }
