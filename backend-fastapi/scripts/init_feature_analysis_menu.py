@@ -26,75 +26,95 @@ async def init_menus():
             result = await db.execute(
                 select(Menu).where(Menu.name == "FeatureQuality")
             )
-            existing = result.scalar_one_or_none()
+            parent_menu = result.scalar_one_or_none()
 
-            if existing:
-                print("菜单已存在，跳过初始化")
-                return
+            if not parent_menu:
+                # 创建一级菜单：特性质量统计
+                parent_menu = Menu(
+                    id="fq_catalog",
+                    name="FeatureQuality",
+                    title="特性质量统计",
+                    path="/feature-quality",
+                    type="catalog",
+                    icon="lucide:chart-pie",
+                    order=50,
+                    hideInMenu=False,
+                    hideChildrenInMenu=False,
+                )
+                db.add(parent_menu)
+                await db.flush()
+                print("创建一级菜单：特性质量统计")
 
-            # 创建一级菜单：特性质量统计
-            parent_menu = Menu(
-                id="fq_catalog",
-                name="FeatureQuality",
-                title="特性质量统计",
-                path="/feature-quality",
-                type="catalog",
-                icon="lucide:chart-pie",
-                order=50,  # 放在概览之前
-                hideInMenu=False,
-                hideChildrenInMenu=False,
+            # 检查并更新/创建需求进展菜单
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureProgress")
             )
-            db.add(parent_menu)
-            await db.flush()
+            progress_menu = result.scalar_one_or_none()
+            if not progress_menu:
+                progress_menu = Menu(
+                    id="fq_progress",
+                    name="FeatureProgress",
+                    title="需求进展",
+                    path="/feature-quality/progress",
+                    type="menu",
+                    component="feature-analysis/progress/index",
+                    parent_id=parent_menu.id,
+                    order=1,
+                    hideInMenu=False,
+                )
+                db.add(progress_menu)
+                print("创建菜单：需求进展")
+            else:
+                print("菜单已存在：需求进展")
 
-            # 创建二级菜单：需求进展
-            progress_menu = Menu(
-                id="fq_progress",
-                name="FeatureProgress",
-                title="需求进展",
-                path="/feature-quality/progress",
-                type="menu",
-                component="feature-analysis/progress/index",
-                parent_id=parent_menu.id,
-                order=1,
-                hideInMenu=False,
+            # 检查并更新/创建需求质量评价菜单
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureQualityEval")
             )
-            db.add(progress_menu)
+            eval_menu = result.scalar_one_or_none()
+            if not eval_menu:
+                eval_menu = Menu(
+                    id="fq_eval",
+                    name="FeatureQualityEval",
+                    title="需求质量评价",
+                    path="/feature-quality/eval",
+                    type="menu",
+                    component="feature-analysis/eval/index",
+                    parent_id=parent_menu.id,
+                    order=2,
+                    hideInMenu=False,
+                )
+                db.add(eval_menu)
+                print("创建菜单：需求质量评价")
+            else:
+                # 更新已存在菜单的 component 字段
+                eval_menu.component = "feature-analysis/eval/index"
+                print("更新菜单：需求质量评价")
 
-            # 创建二级菜单：需求质量评价（占位）
-            eval_menu = Menu(
-                id="fq_eval",
-                name="FeatureQualityEval",
-                title="需求质量评价",
-                path="/feature-quality/eval",
-                type="menu",
-                component="",  # 占位，后续实现
-                parent_id=parent_menu.id,
-                order=2,
-                hideInMenu=False,
+            # 检查并更新/创建修改引入问题菜单
+            result = await db.execute(
+                select(Menu).where(Menu.name == "FeatureBugIntro")
             )
-            db.add(eval_menu)
-
-            # 创建二级菜单：修改引入问题（占位）
-            bug_menu = Menu(
-                id="fq_bug",
-                name="FeatureBugIntro",
-                title="修改引入问题",
-                path="/feature-quality/bug-intro",
-                type="menu",
-                component="",  # 占位，后续实现
-                parent_id=parent_menu.id,
-                order=3,
-                hideInMenu=False,
-            )
-            db.add(bug_menu)
+            bug_menu = result.scalar_one_or_none()
+            if not bug_menu:
+                bug_menu = Menu(
+                    id="fq_bug",
+                    name="FeatureBugIntro",
+                    title="修改引入问题",
+                    path="/feature-quality/bug-intro",
+                    type="menu",
+                    component="",
+                    parent_id=parent_menu.id,
+                    order=3,
+                    hideInMenu=False,
+                )
+                db.add(bug_menu)
+                print("创建菜单：修改引入问题")
+            else:
+                print("菜单已存在：修改引入问题")
 
             await db.commit()
-            print("菜单初始化成功！")
-            print("- 特性质量统计（一级菜单）")
-            print("  - 需求进展")
-            print("  - 需求质量评价（占位）")
-            print("  - 修改引入问题（占位）")
+            print("菜单初始化完成！")
 
         except Exception as e:
             await db.rollback()
