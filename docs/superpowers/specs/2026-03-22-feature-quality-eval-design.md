@@ -62,11 +62,16 @@ views/feature-analysis/eval/
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | int | 否 | 页码，默认 1 |
-| pageSize | int | 否 | 每页数量，默认 20 |
+| page | int | 否 | 页码，默认 1，最小 1 |
+| pageSize | int | 否 | 每页数量，默认 20，范围 1-100 |
 | version | string | 否 | 版本筛选（精确匹配） |
-| featureId | string | 否 | FE编号筛选（模糊匹配） |
-| featureDesc | string | 否 | FE名称筛选（模糊匹配） |
+| featureId | string | 否 | FE编号筛选（模糊匹配，包含匹配） |
+| featureDesc | string | 否 | FE名称筛选（模糊匹配，包含匹配） |
+
+**参数命名规则**：
+- 前端使用驼峰命名（如 `featureId`）
+- 后端使用 `Query` 参数配合 `alias` 进行转换
+- 空字符串参数等同于未传参，不作为筛选条件
 
 **响应格式**：
 
@@ -96,6 +101,26 @@ views/feature-analysis/eval/
 后端计算，前端直接展示：
 
 ```python
+from datetime import datetime
+from typing import Optional
+
+def parse_date(date_str: str) -> datetime:
+    """
+    解析日期字符串，支持多种格式
+
+    :param date_str: 日期字符串
+    :return: datetime 对象
+    :raises ValueError: 无法解析时抛出
+    """
+    formats = ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日"]
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str.strip(), fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"无法解析日期: {date_str}")
+
+
 def calculate_delay_days(expect_time: str, actual_time: str) -> Optional[int]:
     """
     计算延期天数
@@ -108,18 +133,43 @@ def calculate_delay_days(expect_time: str, actual_time: str) -> Optional[int]:
         return None
 
     try:
-        # 解析时间字符串（格式根据实际数据确定）
         expect_date = parse_date(expect_time)
         actual_date = parse_date(actual_time)
-
-        # 计算天数差
         delta = actual_date - expect_date
         return delta.days
     except Exception:
         return None
 ```
 
-### 1.6 前端 API 定义
+**空值处理**：
+- 当 `delayDays` 为 `null` 时，前端表格显示 `-`
+- 当 `bugIntroCount` 为 `null` 时，前端表格显示 `-`
+
+### 1.6 后端 Schema 定义
+
+在 `core/feature_analysis/schema.py` 中新增：
+
+```python
+class QualityEvaluationResponse(BaseModel):
+    """需求质量评价响应"""
+    id: str
+    feature_id: Optional[str] = Field(None, alias="featureId", description="需求编号")
+    feature_desc: Optional[str] = Field(None, alias="featureDesc", description="特性名称")
+    feature_owner: Optional[str] = Field(None, alias="featureOwner", description="责任人")
+    delay_days: Optional[int] = Field(None, alias="delayDays", description="延期天数")
+    test_count: Optional[str] = Field(None, alias="testCount", description="需求转测次数")
+    bug_total: Optional[str] = Field(None, alias="bugTotal", description="问题单总数")
+    bug_serious: Optional[str] = Field(None, alias="bugSerious", description="严重问题数量")
+    bug_intro_count: Optional[str] = Field(None, alias="bugIntroCount", description="修改引入数量")
+    code_lines: Optional[str] = Field(None, alias="codeLines", description="新增代码量")
+    quality_judge: Optional[str] = Field(None, alias="qualityJudge", description="特性质量评价")
+
+    class Config:
+        populate_by_name = True
+        from_attributes = True
+```
+
+### 1.7 前端 API 定义
 
 在 `api/core/feature-analysis.ts` 中新增：
 
@@ -184,10 +234,32 @@ export async function getQualityListApi(params: {
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| featureIdFather | string | EP编号筛选（模糊匹配） |
-| featureId | string | FE编号筛选（模糊匹配） |
+| featureIdFather | string | EP编号筛选（模糊匹配，包含匹配） |
+| featureId | string | FE编号筛选（模糊匹配，包含匹配） |
 | featureOwner | string | 测试责任人筛选（精确匹配） |
 | featureTaskService | string | 测试归属筛选（精确匹配） |
+
+**后端参数定义示例**：
+
+```python
+@router.get("", response_model=PaginatedResponse[FeatureAnalysisResponse])
+async def get_feature_list(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    version: Optional[str] = Query(None),
+    feature_id_father: Optional[str] = Query(None, alias="featureIdFather"),
+    feature_id: Optional[str] = Query(None, alias="featureId"),
+    feature_owner: Optional[str] = Query(None, alias="featureOwner"),
+    feature_task_service: Optional[str] = Query(None, alias="featureTaskService"),
+    db: AsyncSession = Depends(get_db)
+):
+    ...
+```
+
+**筛选逻辑**：
+- 模糊匹配：使用 SQL `LIKE '%keyword%'` 实现
+- 精确匹配：使用 SQL `=` 实现
+- 空字符串或 `None` 参数不作为筛选条件
 
 ### 2.5 新增后端接口
 
@@ -215,11 +287,32 @@ export async function getQualityListApi(params: {
 
 ### 2.6 前端组件修改
 
-修改 `FilterBar.vue`：
+**FilterBar.vue 修改**：
 
 1. 新增 props 支持多筛选条件
 2. 新增 API 调用获取责任人/归属列表
 3. 布局调整为横向排列 5 个筛选项
+4. 使用 `v-model` 双向绑定筛选条件对象
+
+**index.vue 修改**：
+
+现有代码只传递 `version` 单个参数，需要重构为筛选条件对象：
+
+```typescript
+// 筛选条件对象
+const filterParams = ref({
+  version: undefined,
+  featureIdFather: undefined,
+  featureId: undefined,
+  featureOwner: undefined,
+  featureTaskService: undefined,
+});
+```
+
+**FeatureTable.vue 修改**：
+
+1. 修改 props 接收完整筛选条件对象
+2. 监听筛选条件变化重新加载数据
 
 ### 2.7 前端 API 新增
 
@@ -270,8 +363,10 @@ export async function getFeatureListApi(params: {
 | 文件 | 操作 | 说明 |
 |------|------|------|
 | `api/core/feature-analysis.ts` | 修改 | 新增 API 接口定义 |
-| `views/feature-analysis/progress/components/FilterBar.vue` | 修改 | 增强筛选功能 |
+| `views/feature-analysis/progress/index.vue` | 修改 | 重构筛选条件状态管理 |
+| `views/feature-analysis/progress/components/FilterBar.vue` | 修改 | 增强筛选功能，新增4个筛选项 |
 | `views/feature-analysis/progress/components/FeatureTable.vue` | 修改 | 支持新筛选参数 |
+| `views/feature-analysis/progress/components/PieCharts.vue` | 修改 | 支持新筛选参数（如需要） |
 
 ### 前端文件新增
 
@@ -285,8 +380,17 @@ export async function getFeatureListApi(params: {
 
 更新 `scripts/init_feature_analysis_menu.py` 中需求质量评价菜单的 component 字段：
 
-```
-component: "feature-analysis/eval/index"
+```python
+eval_menu = Menu(
+    id="fq_eval",
+    name="FeatureQualityEval",
+    title="需求质量评价",
+    path="/feature-quality/eval",
+    type="menu",
+    component="feature-analysis/eval/index",  # 更新此字段
+    parent_id=parent_menu.id,
+    order=2,
+)
 ```
 
 ---
