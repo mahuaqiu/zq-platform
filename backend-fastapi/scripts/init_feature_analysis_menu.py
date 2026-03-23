@@ -103,7 +103,7 @@ async def init_menus():
                     title="修改引入问题",
                     path="/feature-quality/bug-intro",
                     type="menu",
-                    component="",
+                    component="feature-analysis/bug-intro/index",
                     parent_id=parent_menu.id,
                     order=3,
                     hideInMenu=False,
@@ -111,7 +111,9 @@ async def init_menus():
                 db.add(bug_menu)
                 print("创建菜单：修改引入问题")
             else:
-                print("菜单已存在：修改引入问题")
+                # 更新已存在菜单的 component 字段
+                bug_menu.component = "feature-analysis/bug-intro/index"
+                print("更新菜单：修改引入问题")
 
             await db.commit()
             print("菜单初始化完成！")
