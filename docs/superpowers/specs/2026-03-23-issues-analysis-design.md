@@ -39,7 +39,7 @@ CREATE TABLE issues_analysis (
     sync_time VARCHAR(64),           -- 数据同步时间
     create_by VARCHAR(64),           -- 创建者
     create_time VARCHAR(64),         -- 创建时间
-    modify_time VARCHAR(64),         -- 修改时间
+    modify_time VARCHAR(64)          -- 修改时间
 );
 
 -- 索引
@@ -154,10 +154,10 @@ class IssuesAnalysis(BaseModel):
 |------|------|------|------|
 | page | int | 否 | 页码，默认 1 |
 | pageSize | int | 否 | 每页数量，默认 20 |
-| version | string | 否 | 版本筛选（精确匹配） |
-| featureDesc | string | 否 | 需求标题（模糊匹配） |
-| owner | string | 否 | 责任人（精确匹配） |
-| severity | string | 否 | 严重程度（精确匹配） |
+| version | string | 否 | 版本筛选（精确匹配 issues_version） |
+| featureDesc | string | 否 | 需求标题（模糊匹配 feature_desc LIKE '%keyword%'） |
+| issuesOwner | string | 否 | 责任人（精确匹配 issues_owner） |
+| issuesSeverity | string | 否 | 严重程度（精确匹配 issues_severity） |
 
 **固定条件**：`issues_title LIKE '%修改引入%'`
 
@@ -208,9 +208,19 @@ class IssuesAnalysis(BaseModel):
 }
 ```
 
-#### 2.4.4 版本列表接口
+#### 2.4.4 获取版本列表
 
-复用现有接口：`GET /api/core/feature-analysis/versions`
+**接口**：`GET /api/core/issues-analysis/versions`
+
+**响应格式**：
+
+```json
+{
+  "items": ["V1.0.0", "V1.1.0", "V2.0.0"]
+}
+```
+
+**说明**：查询 `issues_analysis` 表的 `issues_version` 字段去重后返回。
 
 ### 2.5 后端 Schema 定义
 
@@ -238,7 +248,67 @@ class IssuesAnalysisResponse(BaseModel):
         from_attributes = True
 ```
 
-### 2.6 前端组件结构
+### 2.6 后端 Service 实现
+
+```python
+# service.py
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+
+class IssuesAnalysisService(BaseService):
+    """问题分析服务"""
+
+    async def get_list_with_filters(
+        self,
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 20,
+        version: Optional[str] = None,
+        feature_desc: Optional[str] = None,
+        issues_owner: Optional[str] = None,
+        issues_severity: Optional[str] = None,
+    ):
+        """获取问题列表（固定条件：问题标题包含"修改引入"）"""
+        query = select(IssuesAnalysis).where(
+            IssuesAnalysis.is_deleted == False,
+            IssuesAnalysis.issues_title.like("%修改引入%")  # 固定条件
+        )
+
+        # 动态筛选条件
+        if version:
+            query = query.where(IssuesAnalysis.issues_version == version)
+        if feature_desc:
+            query = query.where(IssuesAnalysis.feature_desc.like(f"%{feature_desc}%"))
+        if issues_owner:
+            query = query.where(IssuesAnalysis.issues_owner == issues_owner)
+        if issues_severity:
+            query = query.where(IssuesAnalysis.issues_severity == issues_severity)
+
+        # 统计总数
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await db.scalar(count_query)
+
+        # 分页
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await db.execute(query)
+        items = result.scalars().all()
+
+        return {"items": items, "total": total}
+
+    async def get_distinct_values(self, db: AsyncSession, field: str) -> list:
+        """获取指定字段去重值列表"""
+        column = getattr(IssuesAnalysis, field)
+        query = select(column).distinct().where(
+            IssuesAnalysis.is_deleted == False,
+            column != None,
+            column != ""
+        ).order_by(column)
+        result = await db.execute(query)
+        return [row[0] for row in result.all()]
+```
+
+### 2.8 前端组件结构
 
 ```
 views/feature-analysis/bug-intro/
@@ -248,7 +318,7 @@ views/feature-analysis/bug-intro/
     └── IssuesTable.vue    # 问题表格
 ```
 
-### 2.7 前端 API 定义
+### 2.9 前端 API 定义
 
 ```typescript
 // api/core/issues-analysis.ts
@@ -272,8 +342,8 @@ export interface IssuesListParams {
   pageSize?: number;
   version?: string;
   featureDesc?: string;
-  owner?: string;
-  severity?: string;
+  issuesOwner?: string;
+  issuesSeverity?: string;
 }
 
 // 获取问题列表
@@ -289,6 +359,11 @@ export async function getIssuesOwnersApi(): Promise<{ items: string[] }> {
 // 获取严重程度列表
 export async function getIssuesSeveritiesApi(): Promise<{ items: string[] }> {
   return requestClient.get(`${BASE_URL}/severities`);
+}
+
+// 获取版本列表
+export async function getIssuesVersionsApi(): Promise<{ items: string[] }> {
+  return requestClient.get(`${BASE_URL}/versions`);
 }
 ```
 
