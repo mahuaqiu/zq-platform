@@ -177,7 +177,7 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
                 "test_count": item.feature_test_count,
                 "bug_total": item.feature_bug_total,
                 "bug_serious": item.feature_bug_serious,
-                "bug_intro_count": None,
+                "bug_intro_count": item.feature_bug_introduce,
                 "code_lines": item.feature_code,
                 "quality_judge": item.feature_judge,
             }

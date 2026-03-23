@@ -39,6 +39,7 @@ class FeatureAnalysis(BaseModel):
     feature_bug_general = Column(String(64), nullable=True, comment="一般数量")
     feature_bug_prompt = Column(String(64), nullable=True, comment="提示数量")
     feature_bug_detail = Column(String(255), nullable=True, comment="引入问题单号")
+    feature_bug_introduce = Column(String(64), nullable=True, comment="修改引入数量")
 
     # 进展与风险
     feature_progress = Column(Text, nullable=True, comment="测试进展")
