@@ -613,3 +613,30 @@ core/env_machine/
 2. Namespace 管理：
    - 创建/删除 namespace
    - 权限控制
+
+---
+
+## 十五、部署说明
+
+### 数据库迁移
+
+模块实现完成后，需要执行以下数据库迁移命令：
+
+```bash
+# 进入后端目录
+cd backend-fastapi
+
+# 生成迁移文件（根据 model.py 自动生成）
+alembic revision --autogenerate -m "add env_machine table"
+
+# 执行迁移
+alembic upgrade head
+```
+
+### 服务启动
+
+服务启动时会自动执行以下初始化操作：
+
+1. 重置所有 `using` 状态的机器为 `online`（服务重启后恢复）
+2. 加载机器池到 Redis 缓存
+3. 启动离线检测定时任务（每 2 分钟执行一次）

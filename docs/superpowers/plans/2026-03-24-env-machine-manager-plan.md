@@ -1703,7 +1703,7 @@ git commit -m "feat(env_machine): 添加服务启动初始化"
 **Files:**
 - Create: `backend-fastapi/alembic/versions/xxx_add_env_machine_table.py`
 
-- [ ] **Step 1: 生成迁移文件**
+- [x] **Step 1: 生成迁移文件**
 
 运行命令：
 ```bash

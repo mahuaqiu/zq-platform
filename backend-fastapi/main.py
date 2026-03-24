@@ -41,7 +41,23 @@ async def lifespan(app: FastAPI):
             
             # 加载数据库中的任务
             await scheduler_service.load_jobs_from_db()
-            
+
+            # ========== 执行机管理模块启动初始化 ==========
+            from core.env_machine.scheduler import reset_using_machines, setup_env_machine_scheduler
+            from core.env_machine.pool_manager import EnvPoolManager
+            from app.database import AsyncSessionLocal
+
+            # 1. 重置 using 状态的机器为 online（服务重启后任务丢失）
+            await reset_using_machines()
+
+            # 2. 加载机器池到 Redis
+            async with AsyncSessionLocal() as db:
+                await EnvPoolManager.load_machine_pool(db)
+
+            # 3. 启动离线检测任务
+            setup_env_machine_scheduler()
+            # ========== 执行机管理模块启动初始化结束 ==========
+
             yield
             
             # 关闭时
