@@ -112,9 +112,20 @@ TTL: 10秒
 **锁获取规则**：
 - 申请 `{namespace}` 机器时，需要同时锁住 `env_lock:{namespace}` 和 `env_lock:public`
 - 如果申请的 namespace 就是 `public`，则只需锁住 `env_lock:public`
-- 按固定顺序获取锁：先按字母序排后，再获取（避免死锁）
+- 按固定顺序获取锁：先按字母序排序后，再获取（避免死锁）
 - 带超时重试：最多等待 3 秒，每 100ms 重试一次
 - 超时返回错误，客户端可重试
+
+**示例**：
+```
+申请 meeting_gamma 命名空间的机器：
+1. 先获取 env_lock:meeting_gamma（m 排在 p 前面）
+2. 再获取 env_lock:public
+
+申请 alpha 命名空间的机器：
+1. 先获取 env_lock:alpha（a 排在 p 前面）
+2. 再获取 env_lock:public
+```
 
 ---
 
@@ -183,7 +194,9 @@ POST /env/register
    - windows/mac：device_sn 为 null，每个 IP 插入一条记录
    - android/ios：根据 device_sn 列表，每个 sn 插入一条记录
 3. 查询条件：`namespace + ip + device_type + device_sn`
-4. 不存在则插入（状态 online，启用 False）
+4. 不存在则插入：
+   - 状态设为 online（机器已在线）
+   - available 设为 False（需管理员手动启用，防止未配置账号的机器被申请）
 5. 存在则更新 sync_time、status=online
 6. 同步更新 Redis 缓存（如果该机器 available=true 且 status=online）
 
@@ -251,6 +264,15 @@ POST /env/{namespace}/application
    - 创建 1 分钟后执行的延迟释放任务
    - 合并 extra_message 中对应标签的信息返回
 9. 释放分布式锁
+
+**标签匹配规则**：
+- 申请标签需完全匹配机器 mark 字段中的某一个标签（按逗号分隔）
+- 例如：机器 `mark="windows,web"`，申请标签 `"windows"` 可匹配，`"win"` 不可匹配
+
+**响应字段合并规则**：
+- 基础字段：id, ip, port, device_type, device_sn
+- 扩展字段：从 `extra_message[申请标签]` 中取所有字段合并到响应
+- 例如：申请标签 `"windows"`，则合并 `extra_message["windows"]` 中的 account, name, password, sip 等字段
 
 **边界条件**：
 - 请求体为空：返回 `{"status": "fail", "result": "invalid request"}`
