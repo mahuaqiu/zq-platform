@@ -26,6 +26,9 @@ from core.page_manager.api import router as page_manager_router
 from core.login_log.api import router as login_log_router
 from core.data_source.api import router as data_source_router
 from core.oauth.api import router as oauth_router
+from core.feature_analysis.api import router as feature_analysis_router
+from core.issues_analysis.api import router as issues_analysis_router
+from core.env_machine.api import router as env_machine_router
 
 router = APIRouter()
 
@@ -51,3 +54,6 @@ router.include_router(page_manager_router)
 router.include_router(login_log_router)
 router.include_router(data_source_router)
 router.include_router(oauth_router)
+router.include_router(feature_analysis_router)
+router.include_router(issues_analysis_router)
+router.include_router(env_machine_router)

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(alembic revision:*)",
+      "Bash(conda activate:*)",
+      "Bash(python -m alembic revision --autogenerate -m \"add feature_analysis table\")",
+      "Bash(where python:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python -c \"from alembic.config import main; main\\(\\)\" revision --autogenerate -m \"add feature_analysis table\")",
+      "Bash(python scripts/init_feature_analysis_menu.py)",
+      "Bash(python -c \"from core.feature_analysis.api import router; print\\(''Backend API OK''\\)\")",
+      "Bash(python -c \"from core.feature_analysis.service import FeatureAnalysisService; print\\(''Backend Service OK''\\)\")",
+      "Bash(python -c \"from core.feature_analysis.schema import QualityEvaluationResponse; print\\(''Backend Schema OK''\\)\")",
+      "Bash(pnpm check:type)",
+      "Bash(python -c \":*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python -m py_compile core/issues_analysis/__init__.py core/issues_analysis/model.py core/issues_analysis/schema.py core/issues_analysis/service.py core/issues_analysis/api.py)",
+      "Bash(conda env:*)",
+      "Bash(./venv/Scripts/python.exe -m alembic revision --autogenerate -m \"add issues_analysis table and feature_bug_introduce field\")",
+      "Bash(./venv/Scripts/python.exe -m alembic upgrade head)",
+      "Bash(python -c \"from core.env_machine.lock_manager import EnvLockManager, LockAcquireError; print\\(''Import successful''\\); print\\(''EnvLockManager methods:'', [m for m in dir\\(EnvLockManager\\) if not m.startswith\\(''_''\\)]\\)\")",
+      "Bash(python -c \"from core.env_machine import EnvLockManager, LockAcquireError; print\\(''Package import successful''\\); print\\(''LockAcquireError message:'', LockAcquireError\\(\\).message\\)\")",
+      "Bash(python -c \"from core.env_machine.pool_manager import EnvPoolManager, AllocationError; print\\(''Import successful''\\); print\\(''Methods:'', [m for m in dir\\(EnvPoolManager\\) if not m.startswith\\(''_''\\)]\\)\")",
+      "Bash(python -c \"from core.env_machine.pool_manager import EnvPoolManager; print\\(''Import successful''\\); print\\(''RELEASE_DELAY_SECONDS:'', EnvPoolManager.RELEASE_DELAY_SECONDS\\); print\\(''Methods:'', [m for m in dir\\(EnvPoolManager\\) if not m.startswith\\(''_''\\)]\\)\")",
+      "Bash(python -c \"from core.env_machine import model, schema, service, api, pool_manager, lock_manager, scheduler; print\\(''All modules imported successfully''\\)\")",
+      "Bash(python -c \"import apscheduler; print\\(apscheduler.__version__\\)\")",
+      "Bash(python -c \"from apscheduler import AsyncScheduler; print\\(''AsyncScheduler OK''\\); from apscheduler.datastores import memory; print\\(''datastores OK''\\); from apscheduler.triggers.date import DateTrigger; print\\(''DateTrigger OK''\\)\")",
+      "Bash(python -c \"from apscheduler import AsyncScheduler; import dir; s = AsyncScheduler\\(\\); print\\(dir\\(s\\)\\)\")",
+      "Bash(python -c \"from apscheduler._exceptions import *; print\\(dir\\(\\)\\)\")",
+      "Bash(python -c \"from apscheduler import JobLookupError; print\\(''OK''\\)\")"
+    ]
+  }
+}
