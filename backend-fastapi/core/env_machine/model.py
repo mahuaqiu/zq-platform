@@ -45,6 +45,9 @@ class EnvMachine(BaseModel):
     # 机器端口
     port = Column(String(10), nullable=False, comment="机器端口")
 
+    # 资产编号
+    asset_number = Column(String(32), nullable=True, comment="资产编号")
+
     # 机器标签，多个用逗号分隔
     mark = Column(String(255), nullable=True, comment="机器标签")
 
@@ -100,6 +103,7 @@ class EnvMachine(BaseModel):
             "namespace": self.namespace,
             "ip": self.ip,
             "port": self.port,
+            "asset_number": self.asset_number,
             "mark": self.mark,
             "device_type": self.device_type,
             "device_sn": self.device_sn,
