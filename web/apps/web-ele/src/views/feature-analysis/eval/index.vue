@@ -13,12 +13,12 @@ const filterParams = ref<FilterParams>({});
 
 <template>
   <Page auto-content-height>
-    <div class="feature-quality-eval p-4">
+    <div class="feature-page">
       <!-- 筛选区域 -->
       <FilterBar v-model="filterParams" />
 
       <!-- 数据表格区域 -->
-      <div class="mt-4">
+      <div class="table-wrapper">
         <QualityTable :filter-params="filterParams" />
       </div>
     </div>
@@ -26,8 +26,13 @@ const filterParams = ref<FilterParams>({});
 </template>
 
 <style scoped>
-.feature-quality-eval {
+.feature-page {
   height: 100%;
   overflow-y: auto;
+  padding: 16px;
+}
+
+.table-wrapper {
+  margin-top: 16px;
 }
 </style>

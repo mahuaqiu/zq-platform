@@ -4,7 +4,7 @@ import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 
 import FilterBar, { type ProgressFilterParams } from './components/FilterBar.vue';
-import PieCharts from './components/PieCharts.vue';
+import StatsCards from './components/StatsCards.vue';
 import FeatureTable from './components/FeatureTable.vue';
 
 defineOptions({ name: 'FeatureProgress' });
@@ -14,22 +14,29 @@ const filterParams = ref<ProgressFilterParams>({});
 
 <template>
   <Page auto-content-height>
-    <div class="feature-progress p-4">
+    <div class="feature-page">
       <!-- 筛选区域 -->
       <FilterBar v-model="filterParams" />
 
-      <!-- 饼图区域 -->
-      <PieCharts :version="filterParams.version" />
+      <!-- 统计卡片区域 -->
+      <StatsCards :version="filterParams.version" />
 
       <!-- 数据表格区域 -->
-      <FeatureTable :filter-params="filterParams" />
+      <div class="table-wrapper">
+        <FeatureTable :filter-params="filterParams" />
+      </div>
     </div>
   </Page>
 </template>
 
 <style scoped>
-.feature-progress {
+.feature-page {
   height: 100%;
   overflow-y: auto;
+  padding: 16px;
+}
+
+.table-wrapper {
+  margin-top: 16px;
 }
 </style>

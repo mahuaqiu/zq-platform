@@ -82,6 +82,16 @@ function showEmpty(value: string | number | null | undefined): string {
   return String(value);
 }
 
+// 获取质量评价样式
+function getQualityClass(quality: string): string {
+  const qualityMap: Record<string, string> = {
+    '良好': 'status-success',
+    '待改进': 'status-warning',
+    '较差': 'status-danger',
+  };
+  return qualityMap[quality] || '';
+}
+
 watch(
   () => props.filterParams,
   () => {
@@ -102,24 +112,25 @@ onMounted(() => {
       v-loading="loading"
       :data="tableData"
       border
-      stripe
       style="width: 100%"
+      class="data-table"
       @sort-change="handleSortChange"
     >
       <ElTableColumn
         prop="featureId"
         label="需求编号"
-        width="150"
+        min-width="120"
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          {{ showEmpty(row.featureId) }}
+          <code v-if="row.featureId" class="code-text">{{ row.featureId }}</code>
+          <span v-else class="empty-text">-</span>
         </template>
       </ElTableColumn>
       <ElTableColumn
         prop="featureDesc"
         label="特性名称"
-        min-width="200"
+        min-width="180"
         show-overflow-tooltip
       >
         <template #default="{ row }">
@@ -129,7 +140,7 @@ onMounted(() => {
       <ElTableColumn
         prop="featureOwner"
         label="责任人"
-        width="100"
+        min-width="80"
       >
         <template #default="{ row }">
           {{ showEmpty(row.featureOwner) }}
@@ -138,18 +149,19 @@ onMounted(() => {
       <ElTableColumn
         prop="delayDays"
         label="延期天数"
-        width="100"
+        min-width="90"
         sortable="custom"
         align="center"
       >
         <template #default="{ row }">
-          {{ showEmpty(row.delayDays) }}
+          <span v-if="row.delayDays && row.delayDays > 0" class="status-danger">{{ row.delayDays }}</span>
+          <span v-else>{{ showEmpty(row.delayDays) }}</span>
         </template>
       </ElTableColumn>
       <ElTableColumn
         prop="testCount"
-        label="需求转测次数"
-        width="120"
+        label="转测次数"
+        min-width="90"
         sortable="custom"
         align="center"
       >
@@ -160,7 +172,7 @@ onMounted(() => {
       <ElTableColumn
         prop="bugTotal"
         label="问题单总数"
-        width="100"
+        min-width="100"
         sortable="custom"
         align="center"
       >
@@ -170,19 +182,20 @@ onMounted(() => {
       </ElTableColumn>
       <ElTableColumn
         prop="bugSerious"
-        label="严重问题数量"
-        width="120"
+        label="严重问题"
+        min-width="90"
         sortable="custom"
         align="center"
       >
         <template #default="{ row }">
-          {{ showEmpty(row.bugSerious) }}
+          <span v-if="row.bugSerious && row.bugSerious > 0" class="status-danger">{{ row.bugSerious }}</span>
+          <span v-else>{{ showEmpty(row.bugSerious) }}</span>
         </template>
       </ElTableColumn>
       <ElTableColumn
         prop="bugIntroCount"
-        label="修改引入数量"
-        width="120"
+        label="修改引入"
+        min-width="90"
         align="center"
       >
         <template #default="{ row }">
@@ -192,7 +205,7 @@ onMounted(() => {
       <ElTableColumn
         prop="codeLines"
         label="新增代码量"
-        width="100"
+        min-width="100"
         sortable="custom"
         align="center"
       >
@@ -202,17 +215,17 @@ onMounted(() => {
       </ElTableColumn>
       <ElTableColumn
         prop="qualityJudge"
-        label="特性质量评价"
-        min-width="150"
+        label="质量评价"
+        min-width="90"
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          {{ showEmpty(row.qualityJudge) }}
+          <span :class="getQualityClass(row.qualityJudge)">{{ showEmpty(row.qualityJudge) }}</span>
         </template>
       </ElTableColumn>
     </ElTable>
 
-    <div class="pagination-wrapper mt-4 flex justify-end">
+    <div class="pagination-wrapper">
       <ElPagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -229,6 +242,71 @@ onMounted(() => {
 <style scoped>
 .quality-table {
   background: white;
-  border-radius: 8px;
+  border-radius: 4px;
+}
+
+/* 带边框表格样式 */
+.data-table {
+  --el-table-border-color: #e8e8e8;
+  --el-table-header-bg-color: #fafafa;
+  --el-table-tr-bg-color: #fff;
+  --el-table-row-hover-bg-color: #fafafa;
+  --el-table-text-color: #333;
+  --el-table-header-text-color: #333;
+}
+
+/* 表头样式 */
+.data-table :deep(th.el-table__cell) {
+  background: #fafafa !important;
+  padding: 12px 10px !important;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  border-color: #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 表格单元格样式 */
+.data-table :deep(td.el-table__cell) {
+  padding: 12px 10px !important;
+  font-size: 13px;
+  color: #333;
+  border-color: #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 编号样式 */
+.code-text {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 13px;
+}
+
+.empty-text {
+  color: #999;
+}
+
+/* 状态颜色 */
+.status-success {
+  color: #52c41a;
+}
+
+.status-warning {
+  color: #faad14;
+}
+
+.status-danger {
+  color: #ff4d4f;
+}
+
+/* 分页 */
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 0 0 0;
 }
 </style>

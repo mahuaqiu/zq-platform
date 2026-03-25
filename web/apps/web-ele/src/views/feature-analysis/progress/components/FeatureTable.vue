@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 
-import { ElTable, ElTableColumn, ElTag, ElPagination } from 'element-plus';
+import { ElTable, ElTableColumn, ElPagination } from 'element-plus';
 
 import type { FeatureAnalysisItem } from '#/api/core/feature-analysis';
 import { getFeatureListApi } from '#/api/core/feature-analysis';
@@ -69,16 +69,14 @@ function handleSizeChange(size: number) {
   loadTableData();
 }
 
-// 获取测试状态标签类型
-function getStatusType(status: string): 'success' | 'warning' | 'info' {
-  switch (status) {
-    case '已完成':
-      return 'success';
-    case '测试中':
-      return 'warning';
-    default:
-      return 'info';
-  }
+// 获取状态样式类
+function getStatusClass(status: string): string {
+  const statusMap: Record<string, string> = {
+    '已完成': 'status-success',
+    '测试中': 'status-warning',
+    '未开始': 'status-info',
+  };
+  return statusMap[status] || '';
 }
 
 watch(
@@ -101,84 +99,92 @@ onMounted(() => {
       v-loading="loading"
       :data="tableData"
       border
-      stripe
       style="width: 100%"
+      class="data-table"
       @sort-change="handleSortChange"
     >
       <ElTableColumn
         prop="featureIdFather"
-        label="父工作项编码号"
-        width="150"
+        label="EP编号"
+        min-width="120"
         show-overflow-tooltip
-      />
+      >
+        <template #default="{ row }">
+          <code v-if="row.featureIdFather" class="code-text">{{ row.featureIdFather }}</code>
+          <span v-else class="empty-text">-</span>
+        </template>
+      </ElTableColumn>
       <ElTableColumn
         prop="featureId"
-        label="需求编号"
-        width="150"
+        label="FE编号"
+        min-width="120"
         show-overflow-tooltip
-      />
+      >
+        <template #default="{ row }">
+          <code v-if="row.featureId" class="code-text">{{ row.featureId }}</code>
+          <span v-else class="empty-text">-</span>
+        </template>
+      </ElTableColumn>
       <ElTableColumn
         prop="featureDesc"
         label="标题"
-        min-width="200"
+        min-width="180"
         show-overflow-tooltip
       />
       <ElTableColumn
         prop="featureOwner"
-        label="测试责任人"
-        width="100"
+        label="责任人"
+        min-width="80"
       />
       <ElTableColumn
         prop="featureTaskService"
-        label="测试归属"
-        width="100"
+        label="归属"
+        min-width="80"
       />
       <ElTableColumn
         prop="featureSafeTest"
-        label="涉及安全"
-        width="80"
+        label="安全"
+        min-width="60"
         align="center"
       />
       <ElTableColumn
         prop="featureTestExpectTime"
-        label="预计转测时间"
-        width="120"
+        label="预计转测"
+        min-width="100"
         sortable="custom"
       />
       <ElTableColumn
         prop="featureTestStartTime"
-        label="实际转测情况"
-        width="120"
+        label="实际转测"
+        min-width="100"
         sortable="custom"
       />
       <ElTableColumn
         prop="testStatus"
-        label="测试状态"
-        width="80"
+        label="状态"
+        min-width="80"
         align="center"
         sortable="custom"
       >
         <template #default="{ row }">
-          <ElTag :type="getStatusType(row.testStatus)" size="small">
-            {{ row.testStatus }}
-          </ElTag>
+          <span :class="getStatusClass(row.testStatus)">{{ row.testStatus || '-' }}</span>
         </template>
       </ElTableColumn>
       <ElTableColumn
         prop="featureProgress"
-        label="测试进展"
-        width="200"
+        label="进展"
+        min-width="80"
         show-overflow-tooltip
       />
       <ElTableColumn
         prop="featureRisk"
-        label="风险与关键问题"
-        width="150"
+        label="风险问题"
+        min-width="120"
         show-overflow-tooltip
       />
     </ElTable>
 
-    <div class="pagination-wrapper mt-4 flex justify-end">
+    <div class="pagination-wrapper">
       <ElPagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -195,6 +201,75 @@ onMounted(() => {
 <style scoped>
 .feature-table {
   background: white;
-  border-radius: 8px;
+  border-radius: 4px;
+}
+
+/* 带边框表格样式 */
+.data-table {
+  --el-table-border-color: #e8e8e8;
+  --el-table-header-bg-color: #fafafa;
+  --el-table-tr-bg-color: #fff;
+  --el-table-row-hover-bg-color: #fafafa;
+  --el-table-text-color: #333;
+  --el-table-header-text-color: #333;
+}
+
+/* 表头样式 */
+.data-table :deep(th.el-table__cell) {
+  background: #fafafa !important;
+  padding: 12px 10px !important;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  border-color: #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 表格单元格样式 */
+.data-table :deep(td.el-table__cell) {
+  padding: 12px 10px !important;
+  font-size: 13px;
+  color: #333;
+  border-color: #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 编号样式 */
+.code-text {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 13px;
+}
+
+.empty-text {
+  color: #999;
+}
+
+/* 状态颜色 */
+.status-success {
+  color: #52c41a;
+}
+
+.status-warning {
+  color: #faad14;
+}
+
+.status-danger {
+  color: #ff4d4f;
+}
+
+.status-info {
+  color: #1890ff;
+}
+
+/* 分页 */
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 0 0 0;
 }
 </style>

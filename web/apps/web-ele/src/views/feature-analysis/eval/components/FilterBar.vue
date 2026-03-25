@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 
-import { ElSelect, ElOption, ElInput } from 'element-plus';
+import { ElSelect, ElOption, ElInput, ElButton } from 'element-plus';
 
 import { getVersionListApi } from '#/api/core/feature-analysis';
 
@@ -45,6 +45,12 @@ function updateFilter(key: keyof FilterParams, value: string | undefined) {
   emit('update:modelValue', localParams.value);
 }
 
+// 重置筛选条件
+function handleReset() {
+  localParams.value = {};
+  emit('update:modelValue', {});
+}
+
 watch(
   () => props.modelValue,
   (val) => {
@@ -59,15 +65,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="filter-bar flex flex-wrap items-center gap-4">
-    <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-600">版本：</span>
+  <div class="filter-area">
+    <div class="filter-item">
+      <label class="filter-label">版本</label>
       <ElSelect
         v-model="localParams.version"
-        placeholder="请选择版本"
+        placeholder="请选择"
         clearable
         :loading="loading"
-        style="width: 180px"
+        style="width: 150px"
         @change="(val: string | undefined) => updateFilter('version', val)"
       >
         <ElOption
@@ -79,20 +85,20 @@ onMounted(() => {
       </ElSelect>
     </div>
 
-    <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-600">FE编号：</span>
+    <div class="filter-item">
+      <label class="filter-label">FE编号</label>
       <ElInput
         v-model="localParams.featureId"
         placeholder="请输入FE编号"
         clearable
-        style="width: 180px"
+        style="width: 150px"
         @blur="() => emit('update:modelValue', { ...localParams })"
         @clear="() => updateFilter('featureId', undefined)"
       />
     </div>
 
-    <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-600">FE名称：</span>
+    <div class="filter-item">
+      <label class="filter-label">FE名称</label>
       <ElInput
         v-model="localParams.featureDesc"
         placeholder="请输入FE名称"
@@ -102,11 +108,39 @@ onMounted(() => {
         @clear="() => updateFilter('featureDesc', undefined)"
       />
     </div>
+
+    <div class="filter-buttons">
+      <ElButton type="primary" @click="() => emit('update:modelValue', { ...localParams })">查询</ElButton>
+      <ElButton @click="handleReset">重置</ElButton>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.filter-bar {
-  padding: 12px 0;
+.filter-area {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 4px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.filter-buttons {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
 }
 </style>

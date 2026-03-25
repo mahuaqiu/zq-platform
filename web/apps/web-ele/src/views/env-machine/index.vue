@@ -19,8 +19,6 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag,
-  ElText,
 } from 'element-plus';
 
 import {
@@ -238,16 +236,29 @@ async function handleSubmit() {
   }
 }
 
-// 获取状态标签类型
-function getStatusType(status: string) {
-  const opt = STATUS_OPTIONS.find((o) => o.value === status);
-  return opt?.type || 'info';
-}
-
 // 获取状态文本
 function getStatusText(status: string) {
   const opt = STATUS_OPTIONS.find((o) => o.value === status);
   return opt?.label || status;
+}
+
+// 获取状态样式类
+function getStatusClass(status: string) {
+  const statusMap: Record<string, string> = {
+    online: 'env-status-success',
+    using: 'env-status-success',
+    offline: 'env-status-warning',
+  };
+  return statusMap[status] || '';
+}
+
+// 格式化扩展信息
+function formatExtraMessage(extra: Record<string, any>) {
+  const parts: string[] = [];
+  if (extra.CPU) parts.push(`CPU: ${extra.CPU}`);
+  if (extra.RAM) parts.push(`RAM: ${extra.RAM}`);
+  if (extra.device_model) parts.push(extra.device_model);
+  return parts.join(', ') || JSON.stringify(extra);
 }
 
 // 获取设备类型文本
@@ -272,141 +283,166 @@ onMounted(() => {
   <Page auto-content-height>
     <div class="flex h-full flex-col">
       <!-- 搜索区域 -->
-      <div class="mb-4 rounded bg-white p-4">
-        <div class="flex flex-wrap gap-4">
+      <div class="env-search-area">
+        <div class="env-search-form">
           <!-- 标准页面筛选 -->
           <template v-if="!isManual">
-            <ElSelect
-              v-model="searchForm.device_type"
-              placeholder="机器类型"
-              clearable
-              style="width: 150px"
-            >
-              <ElOption
-                v-for="opt in DEVICE_TYPE_OPTIONS"
-                :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
+            <div class="env-search-item">
+              <label class="env-search-label">机器类型</label>
+              <ElSelect
+                v-model="searchForm.device_type"
+                placeholder="请选择"
+                clearable
+                style="width: 150px"
+              >
+                <ElOption
+                  v-for="opt in DEVICE_TYPE_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </ElSelect>
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">机器信息</label>
+              <ElInput
+                v-model="searchForm.ip"
+                placeholder="搜索IP地址"
+                clearable
+                style="width: 180px"
               />
-            </ElSelect>
-            <ElInput
-              v-model="searchForm.ip"
-              placeholder="机器信息"
-              clearable
-              style="width: 180px"
-            />
-            <ElInput
-              v-model="searchForm.asset_number"
-              placeholder="资产编号"
-              clearable
-              style="width: 150px"
-            />
-            <ElInput
-              v-model="searchForm.mark"
-              placeholder="标签"
-              clearable
-              style="width: 150px"
-            />
-            <ElSelect
-              v-model="searchForm.available"
-              placeholder="是否启用"
-              clearable
-              style="width: 120px"
-            >
-              <ElOption label="是" :value="true" />
-              <ElOption label="否" :value="false" />
-            </ElSelect>
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">资产编号</label>
+              <ElInput
+                v-model="searchForm.asset_number"
+                placeholder="搜索资产编号"
+                clearable
+                style="width: 150px"
+              />
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">标签</label>
+              <ElInput
+                v-model="searchForm.mark"
+                placeholder="搜索标签"
+                clearable
+                style="width: 150px"
+              />
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">是否启用</label>
+              <ElSelect
+                v-model="searchForm.available"
+                placeholder="全部"
+                clearable
+                style="width: 100px"
+              >
+                <ElOption label="是" :value="true" />
+                <ElOption label="否" :value="false" />
+              </ElSelect>
+            </div>
           </template>
 
           <!-- 手工使用页面筛选 -->
           <template v-else>
-            <ElSelect
-              v-model="searchForm.device_type"
-              placeholder="机器类型"
-              clearable
-              style="width: 150px"
-            >
-              <ElOption
-                v-for="opt in DEVICE_TYPE_OPTIONS"
-                :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
+            <div class="env-search-item">
+              <label class="env-search-label">机器类型</label>
+              <ElSelect
+                v-model="searchForm.device_type"
+                placeholder="请选择"
+                clearable
+                style="width: 150px"
+              >
+                <ElOption
+                  v-for="opt in DEVICE_TYPE_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </ElSelect>
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">机器信息</label>
+              <ElInput
+                v-model="searchForm.ip"
+                placeholder="搜索IP地址"
+                clearable
+                style="width: 150px"
               />
-            </ElSelect>
-            <ElInput
-              v-model="searchForm.ip"
-              placeholder="机器信息"
-              clearable
-              style="width: 150px"
-            />
-            <ElInput
-              v-model="searchForm.asset_number"
-              placeholder="资产编号"
-              clearable
-              style="width: 150px"
-            />
-            <ElInput
-              v-model="searchForm.note"
-              placeholder="备注"
-              clearable
-              style="width: 150px"
-            />
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">资产编号</label>
+              <ElInput
+                v-model="searchForm.asset_number"
+                placeholder="搜索资产编号"
+                clearable
+                style="width: 150px"
+              />
+            </div>
+            <div class="env-search-item">
+              <label class="env-search-label">备注</label>
+              <ElInput
+                v-model="searchForm.note"
+                placeholder="搜索备注"
+                clearable
+                style="width: 150px"
+              />
+            </div>
           </template>
 
-          <div class="flex gap-2">
+          <div class="env-search-buttons">
             <ElButton type="primary" @click="handleSearch">查询</ElButton>
             <ElButton @click="handleReset">重置</ElButton>
           </div>
 
           <!-- 新增按钮 -->
-          <ElButton v-if="isManual" type="success" @click="handleCreate">
+          <ElButton v-if="isManual" type="success" class="env-create-btn" @click="handleCreate">
             + 新增设备
           </ElButton>
         </div>
       </div>
 
       <!-- 表格区域 -->
-      <div class="flex-1 overflow-auto rounded bg-white">
-        <ElTable :data="tableData" v-loading="loading" border stripe>
+      <div class="env-table-wrapper">
+        <ElTable :data="tableData" v-loading="loading" class="env-table" border>
           <!-- 标准页面表格列 -->
           <template v-if="!isManual">
-            <ElTableColumn prop="device_type" label="机器类型" width="100">
+            <ElTableColumn prop="device_type" label="机器类型" min-width="90">
               <template #default="{ row }">
-                <ElTag type="info">{{ getDeviceTypeText(row.device_type) }}</ElTag>
+                {{ getDeviceTypeText(row.device_type) }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="ip" label="机器信息" width="150">
+            <ElTableColumn prop="ip" label="机器信息" min-width="150">
               <template #default="{ row }">
-                <code v-if="row.ip" class="rounded bg-gray-100 px-1">{{ row.ip }}</code>
-                <span v-else class="text-gray-400">-</span>
+                <code v-if="row.ip" class="env-code">{{ row.ip }}</code>
+                <span v-else class="env-dash">-</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="device_sn" label="SN" width="140">
+            <ElTableColumn prop="device_sn" label="SN" min-width="100">
               <template #default="{ row }">
                 {{ row.device_sn || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="asset_number" label="资产编号" width="120" />
-            <ElTableColumn prop="mark" label="标签" width="120">
+            <ElTableColumn prop="asset_number" label="资产编号" min-width="110" />
+            <ElTableColumn prop="mark" label="标签" min-width="80">
               <template #default="{ row }">
                 {{ row.mark || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="status" label="状态" width="80" align="center">
+            <ElTableColumn prop="status" label="状态" min-width="70" align="center">
               <template #default="{ row }">
-                <ElTag :type="getStatusType(row.status)">
-                  {{ getStatusText(row.status) }}
-                </ElTag>
+                <span :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="available" label="是否启用" width="90" align="center">
+            <ElTableColumn prop="available" label="是否启用" min-width="90" align="center">
               <template #default="{ row }">
-                <ElTag :type="row.available ? 'success' : 'danger'">
+                <span :class="row.available ? 'env-status-success' : 'env-status-danger'">
                   {{ row.available ? '是' : '否' }}
-                </ElTag>
+                </span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="note" label="备注" min-width="120" show-overflow-tooltip>
+            <ElTableColumn prop="note" label="备注" min-width="100" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.note || '-' }}
               </template>
@@ -414,67 +450,59 @@ onMounted(() => {
             <ElTableColumn prop="extra_message" label="扩展信息" min-width="150" show-overflow-tooltip>
               <template #default="{ row }">
                 <template v-if="row.extra_message">
-                  {{ JSON.stringify(row.extra_message) }}
+                  {{ formatExtraMessage(row.extra_message) }}
                 </template>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="env-dash">-</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="version" label="版本" width="100">
+            <ElTableColumn prop="version" label="版本" min-width="90">
               <template #default="{ row }">
                 {{ row.version || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn label="操作" width="120" fixed="right">
+            <ElTableColumn label="操作" min-width="100">
               <template #default="{ row }">
-                <ElButton type="primary" link size="small" @click="handleEdit(row)">
-                  编辑
-                </ElButton>
-                <ElButton type="danger" link size="small" @click="handleDelete(row)">
-                  删除
-                </ElButton>
+                <a class="env-link" @click="handleEdit(row)">编辑</a>
+                <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
               </template>
             </ElTableColumn>
           </template>
 
           <!-- 手工使用页面表格列 -->
           <template v-else>
-            <ElTableColumn prop="device_type" label="机器类型" width="100">
+            <ElTableColumn prop="device_type" label="机器类型" min-width="100">
               <template #default="{ row }">
-                <ElTag type="info">{{ getDeviceTypeText(row.device_type) }}</ElTag>
+                {{ getDeviceTypeText(row.device_type) }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="ip" label="机器信息" width="150">
+            <ElTableColumn prop="ip" label="机器信息" min-width="180">
               <template #default="{ row }">
-                <code v-if="row.ip" class="rounded bg-gray-100 px-1">{{ row.ip }}</code>
-                <span v-else class="text-gray-400">-</span>
+                <code v-if="row.ip" class="env-code">{{ row.ip }}</code>
+                <span v-else class="env-dash">-</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="device_sn" label="SN" width="140">
+            <ElTableColumn prop="device_sn" label="SN" min-width="140">
               <template #default="{ row }">
                 {{ row.device_sn || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="asset_number" label="资产编号" width="120" />
+            <ElTableColumn prop="asset_number" label="资产编号" min-width="130" />
             <ElTableColumn prop="note" label="备注" min-width="150" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.note || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn label="操作" width="120" fixed="right">
+            <ElTableColumn label="操作" min-width="120">
               <template #default="{ row }">
-                <ElButton type="primary" link size="small" @click="handleEdit(row)">
-                  编辑
-                </ElButton>
-                <ElButton type="danger" link size="small" @click="handleDelete(row)">
-                  删除
-                </ElButton>
+                <a class="env-link" @click="handleEdit(row)">编辑</a>
+                <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
               </template>
             </ElTableColumn>
           </template>
         </ElTable>
 
         <!-- 分页 -->
-        <div class="flex justify-end p-4">
+        <div class="env-pagination">
           <ElPagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
@@ -558,7 +586,149 @@ onMounted(() => {
 </template>
 
 <style scoped>
-code {
-  font-family: 'Consolas', 'Monaco', monospace;
+/* 搜索区域 */
+.env-search-area {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+.env-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.env-search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.env-search-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+}
+
+.env-search-buttons {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.env-create-btn {
+  background: #52c41a !important;
+  border-color: #52c41a !important;
+  color: #fff !important;
+  font-weight: 500;
+}
+
+/* 表格区域 */
+.env-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+  padding: 16px;
+  border-radius: 4px;
+}
+
+/* 表格支持水平滚动 */
+.env-table-wrapper :deep(.el-table__body-wrapper) {
+  overflow-x: auto;
+}
+
+/* 带边框表格样式 */
+.env-table {
+  --el-table-border-color: #e8e8e8;
+  --el-table-header-bg-color: #fafafa;
+  --el-table-tr-bg-color: #fff;
+  --el-table-row-hover-bg-color: #fafafa;
+  --el-table-text-color: #333;
+  --el-table-header-text-color: #333;
+}
+
+/* 确保表格有外边框 */
+.env-table :deep(.el-table__inner-wrapper::before) {
+  display: none;
+}
+
+.env-table :deep(.el-table__border-left-patch) {
+  background-color: #e8e8e8 !important;
+}
+
+/* 表头样式 */
+.env-table :deep(th.el-table__cell) {
+  background: #fafafa !important;
+  padding: 12px 10px !important;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  border-color: #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+  white-space: nowrap;
+}
+
+/* 表格单元格样式 */
+.env-table :deep(td.el-table__cell) {
+  padding: 12px 10px !important;
+  font-size: 13px;
+  color: #333;
+  border-color: #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 机器信息 code 样式 */
+.env-code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.env-dash {
+  color: #999;
+}
+
+/* 状态样式 */
+.env-status-success {
+  color: #52c41a;
+}
+
+.env-status-warning {
+  color: #faad14;
+}
+
+.env-status-danger {
+  color: #ff4d4f;
+}
+
+/* 操作链接 */
+.env-link {
+  color: #1890ff;
+  cursor: pointer;
+  margin-right: 12px;
+  text-decoration: none;
+}
+
+.env-link:hover {
+  text-decoration: underline;
+}
+
+.env-link-danger {
+  color: #ff4d4f;
+  margin-right: 0;
+}
+
+/* 分页 */
+.env-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 0 0 0;
 }
 </style>
