@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>特性分析页面设计稿</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f0f2f5; padding: 24px; }
+    h2 { font-size: 20px; margin-bottom: 8px; color: #333; }
+    .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; }
+    .mockup { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px; overflow: hidden; }
+    .mockup-header { background: #fafafa; padding: 12px 16px; border-bottom: 1px solid #e8e8e8; font-weight: 500; font-size: 14px; color: #333; }
+    .mockup-body { padding: 16px; }
+
+    /* 筛选区域样式 */
+    .filter-area { display: flex; gap: 16px; padding: 16px; background: #fafafa; border-radius: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-item { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 12px; color: #666; }
+    .filter-select, .filter-input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; background: #fff; }
+    .filter-select { width: 150px; }
+    .filter-input { width: 180px; }
+    .filter-buttons { display: flex; align-items: flex-end; gap: 8px; }
+    .btn-primary { padding: 6px 16px; background: #1890ff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-default { padding: 6px 16px; background: #fff; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 14px; }
+
+    /* 表格样式 - 带边框，统一对齐 */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #e8e8e8; }
+    thead tr { background: #fafafa; }
+    th { padding: 12px 10px; text-align: left; border: 1px solid #e8e8e8; font-weight: 500; color: #333; background: #fafafa; }
+    td { padding: 12px 10px; border: 1px solid #e8e8e8; color: #333; }
+    /* 数值类列 - 标题和内容都居中 */
+    th.num, td.num { text-align: center; }
+    .status-success { color: #52c41a; }
+    .status-warning { color: #faad14; }
+    .status-danger { color: #ff4d4f; }
+    .status-info { color: #1890ff; }
+    .code-text { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: Consolas, Monaco, monospace; }
+
+    /* 分页 */
+    .pagination { display: flex; justify-content: flex-end; padding: 16px 0 0 0; font-size: 13px; color: #666; }
+
+    /* 统计卡片 */
+    .stats-row { display: flex; gap: 16px; margin-bottom: 16px; }
+    .stat-card { flex: 1; background: #fff; border: 1px solid #e8e8e8; border-radius: 4px; padding: 16px; text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 600; color: #1890ff; }
+    .stat-label { font-size: 13px; color: #666; margin-top: 4px; }
+    .stat-card.success .stat-value { color: #52c41a; }
+    .stat-card.warning .stat-value { color: #faad14; }
+    .stat-card.danger .stat-value { color: #ff4d4f; }
+  </style>
+</head>
+<body>
+
+<h2>特性分析页面设计稿</h2>
+<p class="subtitle">统一风格：筛选区域带标签、带边框表格、统一字体13px、标题与内容对齐方式一致</p>
+
+<!-- 页面1：特性质量评价 -->
+<div class="mockup">
+  <div class="mockup-header">页面一：特性质量评价</div>
+  <div class="mockup-body">
+    <!-- 筛选区域 -->
+    <div class="filter-area">
+      <div class="filter-item">
+        <label class="filter-label">版本</label>
+        <select class="filter-select">
+          <option>全部</option>
+          <option>v3.2.0</option>
+          <option>v3.1.0</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">FE编号</label>
+        <input type="text" class="filter-input" placeholder="请输入FE编号" style="width: 150px;">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">FE名称</label>
+        <input type="text" class="filter-input" placeholder="请输入FE名称" style="width: 200px;">
+      </div>
+      <div class="filter-buttons">
+        <button class="btn-primary">查询</button>
+        <button class="btn-default">重置</button>
+      </div>
+    </div>
+
+    <!-- 表格 -->
+    <table>
+      <thead>
+        <tr>
+          <th>需求编号</th>
+          <th>特性名称</th>
+          <th>责任人</th>
+          <th class="num">延期天数</th>
+          <th class="num">转测次数</th>
+          <th class="num">问题单总数</th>
+          <th class="num">严重问题</th>
+          <th class="num">修改引入</th>
+          <th class="num">新增代码量</th>
+          <th>质量评价</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="code-text">FE_2024_001</span></td>
+          <td>用户权限管理优化</td>
+          <td>张三</td>
+          <td class="num">-</td>
+          <td class="num">2</td>
+          <td class="num">5</td>
+          <td class="num"><span class="status-danger">2</span></td>
+          <td class="num">1</td>
+          <td class="num">2,450</td>
+          <td><span class="status-warning">待改进</span></td>
+        </tr>
+        <tr>
+          <td><span class="code-text">FE_2024_002</span></td>
+          <td>数据导出功能增强</td>
+          <td>李四</td>
+          <td class="num"><span class="status-danger">3</span></td>
+          <td class="num">4</td>
+          <td class="num">8</td>
+          <td class="num"><span class="status-danger">3</span></td>
+          <td class="num">2</td>
+          <td class="num">1,820</td>
+          <td><span class="status-danger">较差</span></td>
+        </tr>
+        <tr>
+          <td><span class="code-text">FE_2024_003</span></td>
+          <td>登录流程优化</td>
+          <td>王五</td>
+          <td class="num">-</td>
+          <td class="num">1</td>
+          <td class="num">2</td>
+          <td class="num">0</td>
+          <td class="num">0</td>
+          <td class="num">980</td>
+          <td><span class="status-success">良好</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">共 156 条，每页 20 条，第 1/8 页</div>
+  </div>
+</div>
+
+<!-- 页面2：特性进度 -->
+<div class="mockup">
+  <div class="mockup-header">页面二：特性进度</div>
+  <div class="mockup-body">
+    <!-- 统计卡片 -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value">48</div>
+        <div class="stat-label">特性总数</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value">32</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-value">12</div>
+        <div class="stat-label">测试中</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-value">4</div>
+        <div class="stat-label">未开始</div>
+      </div>
+    </div>
+
+    <!-- 筛选区域 -->
+    <div class="filter-area">
+      <div class="filter-item">
+        <label class="filter-label">版本</label>
+        <select class="filter-select">
+          <option>全部</option>
+          <option>v3.2.0</option>
+          <option>v3.1.0</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">EP编号</label>
+        <input type="text" class="filter-input" placeholder="请输入EP编号" style="width: 150px;">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">FE编号</label>
+        <input type="text" class="filter-input" placeholder="请输入FE编号" style="width: 150px;">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">测试责任人</label>
+        <select class="filter-select" style="width: 120px;">
+          <option>全部</option>
+          <option>张三</option>
+          <option>李四</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">测试归属</label>
+        <select class="filter-select" style="width: 140px;">
+          <option>全部</option>
+          <option>服务端</option>
+          <option>客户端</option>
+        </select>
+      </div>
+      <div class="filter-buttons">
+        <button class="btn-primary">查询</button>
+        <button class="btn-default">重置</button>
+      </div>
+    </div>
+
+    <!-- 表格 -->
+    <table>
+      <thead>
+        <tr>
+          <th>EP编号</th>
+          <th>FE编号</th>
+          <th>标题</th>
+          <th>责任人</th>
+          <th>归属</th>
+          <th class="num">安全</th>
+          <th>预计转测</th>
+          <th>实际转测</th>
+          <th class="num">状态</th>
+          <th>进展</th>
+          <th>风险问题</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="code-text">EP_2024_015</span></td>
+          <td><span class="code-text">FE_2024_001</span></td>
+          <td>用户权限管理优化</td>
+          <td>张三</td>
+          <td>服务端</td>
+          <td class="num">-</td>
+          <td>2024-03-15</td>
+          <td>2024-03-14</td>
+          <td class="num"><span class="status-success">已完成</span></td>
+          <td>100%</td>
+          <td>-</td>
+        </tr>
+        <tr>
+          <td><span class="code-text">EP_2024_016</span></td>
+          <td><span class="code-text">FE_2024_002</span></td>
+          <td>数据导出功能增强</td>
+          <td>李四</td>
+          <td>客户端</td>
+          <td class="num">是</td>
+          <td>2024-03-20</td>
+          <td>2024-03-23</td>
+          <td class="num"><span class="status-warning">测试中</span></td>
+          <td>65%</td>
+          <td>延期3天</td>
+        </tr>
+        <tr>
+          <td><span class="code-text">EP_2024_017</span></td>
+          <td><span class="code-text">FE_2024_003</span></td>
+          <td>登录流程优化</td>
+          <td>王五</td>
+          <td>服务端</td>
+          <td class="num">-</td>
+          <td>2024-03-25</td>
+          <td>-</td>
+          <td class="num"><span class="status-info">未开始</span></td>
+          <td>0%</td>
+          <td>-</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">共 48 条，每页 20 条，第 1/3 页</div>
+  </div>
+</div>
+
+<!-- 页面3：问题引入分析 -->
+<div class="mockup">
+  <div class="mockup-header">页面三：问题引入分析</div>
+  <div class="mockup-body">
+    <!-- 筛选区域 -->
+    <div class="filter-area">
+      <div class="filter-item">
+        <label class="filter-label">版本</label>
+        <select class="filter-select">
+          <option>全部</option>
+          <option>v3.2.0</option>
+          <option>v3.1.0</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">需求标题</label>
+        <input type="text" class="filter-input" placeholder="请输入需求标题" style="width: 180px;">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">责任人</label>
+        <select class="filter-select" style="width: 150px;">
+          <option>全部</option>
+          <option>张三</option>
+          <option>李四</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">严重程度</label>
+        <select class="filter-select" style="width: 150px;">
+          <option>全部</option>
+          <option>严重</option>
+          <option>一般</option>
+          <option>轻微</option>
+        </select>
+      </div>
+      <div class="filter-buttons">
+        <button class="btn-primary">查询</button>
+        <button class="btn-default">重置</button>
+      </div>
+    </div>
+
+    <!-- 表格 -->
+    <table>
+      <thead>
+        <tr>
+          <th>需求编号</th>
+          <th>需求名称</th>
+          <th>问题单</th>
+          <th>问题名称</th>
+          <th>归属</th>
+          <th>责任人</th>
+          <th class="num">严重程度</th>
+          <th class="num">重现概率</th>
+          <th class="num">问题状态</th>
+          <th class="num">发现版本</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="code-text">FE_2024_001</span></td>
+          <td>用户权限管理优化</td>
+          <td><span class="code-text">BUG_001</span></td>
+          <td>权限校验逻辑错误</td>
+          <td>服务端</td>
+          <td>张三</td>
+          <td class="num"><span class="status-danger">严重</span></td>
+          <td class="num">100%</td>
+          <td class="num"><span class="status-success">已解决</span></td>
+          <td class="num">v3.2.0</td>
+        </tr>
+        <tr>
+          <td><span class="code-text">FE_2024_002</span></td>
+          <td>数据导出功能增强</td>
+          <td><span class="code-text">BUG_002</span></td>
+          <td>导出文件乱码</td>
+          <td>客户端</td>
+          <td>李四</td>
+          <td class="num"><span class="status-warning">一般</span></td>
+          <td class="num">50%</td>
+          <td class="num"><span class="status-warning">处理中</span></td>
+          <td class="num">v3.2.0</td>
+        </tr>
+        <tr>
+          <td><span class="code-text">FE_2024_003</span></td>
+          <td>登录流程优化</td>
+          <td><span class="code-text">BUG_003</span></td>
+          <td>验证码显示异常</td>
+          <td>客户端</td>
+          <td>王五</td>
+          <td class="num"><span class="status-success">轻微</span></td>
+          <td class="num">30%</td>
+          <td class="num"><span class="status-info">待处理</span></td>
+          <td class="num">v3.2.0</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">共 89 条，每页 20 条，第 1/5 页</div>
+  </div>
+</div>
+
+<h3 style="margin-top: 24px; color: #333;">设计规范说明</h3>
+<ul style="color: #666; line-height: 2; font-size: 14px;">
+  <li><strong>筛选区域</strong>：灰色背景 #fafafa，每个筛选项有标签，统一上下结构</li>
+  <li><strong>表格</strong>：带边框，边框颜色 #e8e8e8，字体 13px，padding 12px 10px</li>
+  <li><strong>对齐规则</strong>：
+    <ul style="margin-top: 4px;">
+      <li>文本类列（编号、名称、责任人等）：标题和内容都居左</li>
+      <li>数值类列（数量、状态、百分比等）：标题和内容都居中</li>
+    </ul>
+  </li>
+  <li><strong>编号类字段</strong>：使用 code 样式，背景 #f5f5f5</li>
+  <li><strong>状态颜色</strong>：成功/良好 #52c41a、警告/进行中 #faad14、错误/严重 #ff4d4f、信息 #1890ff</li>
+  <li><strong>统计卡片</strong>：特性进度页面顶部增加统计概览</li>
+</ul>
+
+</body>
+</html>

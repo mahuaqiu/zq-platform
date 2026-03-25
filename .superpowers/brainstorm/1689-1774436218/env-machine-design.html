@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设备管理页面设计稿</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f0f2f5; padding: 24px; }
+    h2 { font-size: 20px; margin-bottom: 8px; color: #333; }
+    .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; }
+    .mockup { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px; overflow: hidden; }
+    .mockup-header { background: #fafafa; padding: 12px 16px; border-bottom: 1px solid #e8e8e8; font-weight: 500; font-size: 14px; color: #333; }
+    .mockup-body { padding: 16px; }
+
+    /* 筛选区域样式 */
+    .filter-area { display: flex; gap: 16px; padding: 16px; background: #fafafa; border-radius: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-item { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 12px; color: #666; }
+    .filter-select, .filter-input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; background: #fff; }
+    .filter-select { width: 150px; }
+    .filter-input { width: 180px; }
+    .filter-buttons { display: flex; align-items: flex-end; gap: 8px; }
+    .btn-primary { padding: 6px 16px; background: #1890ff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-default { padding: 6px 16px; background: #fff; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-success { padding: 8px 16px; background: #52c41a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }
+
+    /* 表格样式 - 带边框 */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #e8e8e8; }
+    thead tr { background: #fafafa; }
+    th { padding: 12px 10px; text-align: left; border: 1px solid #e8e8e8; font-weight: 500; color: #333; background: #fafafa; }
+    td { padding: 12px 10px; border: 1px solid #e8e8e8; color: #333; }
+    th.center, td.center { text-align: center; }
+    .status-success { color: #52c41a; }
+    .status-warning { color: #faad14; }
+    .status-danger { color: #ff4d4f; }
+    .code-text { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: Consolas, Monaco, monospace; }
+    .link { color: #1890ff; text-decoration: none; margin-right: 12px; cursor: pointer; }
+    .link-danger { color: #ff4d4f; margin-right: 0; }
+
+    /* 分页 */
+    .pagination { display: flex; justify-content: flex-end; padding: 16px 0 0 0; font-size: 13px; color: #666; }
+
+    /* 工具栏布局 */
+    .toolbar { display: flex; justify-content: space-between; margin-bottom: 16px; }
+    .toolbar .filter-area { flex: 1; margin-bottom: 0; }
+    .toolbar-actions { display: flex; align-items: center; padding-left: 16px; }
+  </style>
+</head>
+<body>
+
+<h2>设备管理页面设计稿</h2>
+<p class="subtitle">统一风格：筛选区域带标签、带边框表格、统一字体13px、状态颜色一致</p>
+
+<!-- 页面1：集成验证/APP/音视频/公共设备 -->
+<div class="mockup">
+  <div class="mockup-header">集成验证 / APP / 音视频 / 公共设备</div>
+  <div class="mockup-body">
+    <!-- 筛选区域 -->
+    <div class="filter-area">
+      <div class="filter-item">
+        <label class="filter-label">机器类型</label>
+        <select class="filter-select">
+          <option>全部</option>
+          <option>Windows</option>
+          <option>Mac</option>
+          <option>iOS</option>
+          <option>Android</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">机器信息</label>
+        <input type="text" class="filter-input" placeholder="搜索IP地址">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">资产编号</label>
+        <input type="text" class="filter-input" placeholder="搜索资产编号" style="width: 150px;">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">标签</label>
+        <input type="text" class="filter-input" placeholder="搜索标签" style="width: 150px;">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">是否启用</label>
+        <select class="filter-select" style="width: 100px;">
+          <option>全部</option>
+          <option>是</option>
+          <option>否</option>
+        </select>
+      </div>
+      <div class="filter-buttons">
+        <button class="btn-primary">查询</button>
+        <button class="btn-default">重置</button>
+      </div>
+    </div>
+
+    <!-- 表格 -->
+    <table>
+      <thead>
+        <tr>
+          <th>机器类型</th>
+          <th>机器信息</th>
+          <th>SN</th>
+          <th>资产编号</th>
+          <th>标签</th>
+          <th class="center">状态</th>
+          <th class="center">是否启用</th>
+          <th>备注</th>
+          <th>扩展信息</th>
+          <th>版本</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Windows</td>
+          <td><span class="code-text">192.168.0.102:8088</span></td>
+          <td>-</td>
+          <td>A2024582125</td>
+          <td>windows</td>
+          <td class="center"><span class="status-success">在线</span></td>
+          <td class="center"><span class="status-success">是</span></td>
+          <td>-</td>
+          <td>CPU: i7, RAM: 16G</td>
+          <td>v1.2.0</td>
+          <td>
+            <a class="link">编辑</a>
+            <a class="link link-danger">删除</a>
+          </td>
+        </tr>
+        <tr>
+          <td>Mac</td>
+          <td><span class="code-text">192.168.0.105:8088</span></td>
+          <td>C02X123ABC</td>
+          <td>A2024582126</td>
+          <td>web</td>
+          <td class="center"><span class="status-warning">离线</span></td>
+          <td class="center"><span class="status-danger">否</span></td>
+          <td>维修中</td>
+          <td>-</td>
+          <td>v1.1.5</td>
+          <td>
+            <a class="link">编辑</a>
+            <a class="link link-danger">删除</a>
+          </td>
+        </tr>
+        <tr>
+          <td>iOS</td>
+          <td>-</td>
+          <td>ABC123DEF456</td>
+          <td>A2024582127</td>
+          <td>ios</td>
+          <td class="center"><span class="status-success">在线</span></td>
+          <td class="center"><span class="status-success">是</span></td>
+          <td>-</td>
+          <td>iPhone 14 Pro</td>
+          <td>iOS 17.2</td>
+          <td>
+            <a class="link">编辑</a>
+            <a class="link link-danger">删除</a>
+          </td>
+        </tr>
+        <tr>
+          <td>Android</td>
+          <td>-</td>
+          <td>XYZ789GHI</td>
+          <td>A2024582128</td>
+          <td>android</td>
+          <td class="center"><span class="status-success">在线</span></td>
+          <td class="center"><span class="status-success">是</span></td>
+          <td>测试机A</td>
+          <td>Pixel 7</td>
+          <td>Android 14</td>
+          <td>
+            <a class="link">编辑</a>
+            <a class="link link-danger">删除</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">共 25 条，每页 20 条，第 1/2 页</div>
+  </div>
+</div>
+
+<!-- 页面2：手工使用 -->
+<div class="mockup">
+  <div class="mockup-header">手工使用</div>
+  <div class="mockup-body">
+    <!-- 工具栏 + 筛选区域 -->
+    <div class="toolbar">
+      <div class="filter-area">
+        <div class="filter-item">
+          <label class="filter-label">机器类型</label>
+          <select class="filter-select">
+            <option>全部</option>
+            <option>Windows</option>
+            <option>Mac</option>
+            <option>iOS</option>
+            <option>Android</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label class="filter-label">机器信息</label>
+          <input type="text" class="filter-input" placeholder="搜索IP地址" style="width: 150px;">
+        </div>
+        <div class="filter-item">
+          <label class="filter-label">资产编号</label>
+          <input type="text" class="filter-input" placeholder="搜索资产编号" style="width: 150px;">
+        </div>
+        <div class="filter-item">
+          <label class="filter-label">备注</label>
+          <input type="text" class="filter-input" placeholder="搜索备注" style="width: 150px;">
+        </div>
+        <div class="filter-buttons">
+          <button class="btn-primary">查询</button>
+          <button class="btn-default">重置</button>
+        </div>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn-success">+ 新增设备</button>
+      </div>
+    </div>
+
+    <!-- 表格 -->
+    <table>
+      <thead>
+        <tr>
+          <th>机器类型</th>
+          <th>机器信息</th>
+          <th>SN</th>
+          <th>资产编号</th>
+          <th>备注</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Windows</td>
+          <td><span class="code-text">192.168.0.200:8088</span></td>
+          <td>-</td>
+          <td>B2024583001</td>
+          <td>临时测试机</td>
+          <td>
+            <a class="link">编辑</a>
+            <a class="link link-danger">删除</a>
+          </td>
+        </tr>
+        <tr>
+          <td>iOS</td>
+          <td>-</td>
+          <td>XYZ789ABC</td>
+          <td>B2024583002</td>
+          <td>借用设备</td>
+          <td>
+            <a class="link">编辑</a>
+            <a class="link link-danger">删除</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">共 8 条，每页 20 条，第 1/1 页</div>
+  </div>
+</div>
+
+<!-- 新增设备弹窗 -->
+<div class="mockup">
+  <div class="mockup-header">新增设备弹窗 - Windows/Mac</div>
+  <div class="mockup-body">
+    <div style="max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e8e8e8; border-radius: 8px;">
+      <h3 style="margin: 0 0 20px 0; font-size: 16px; border-bottom: 1px solid #e8e8e8; padding-bottom: 12px;">新增设备</h3>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">机器类型 <span style="color: #ff4d4f;">*</span></label>
+        <select style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+          <option value="windows">Windows</option>
+          <option value="mac">Mac</option>
+          <option value="ios">iOS</option>
+          <option value="android">Android</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">资产编号 <span style="color: #ff4d4f;">*</span></label>
+        <input type="text" placeholder="请输入资产编号，如 A2024582125" style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">IP地址</label>
+        <input type="text" placeholder="请输入IP地址，如 192.168.0.200" style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">备注</label>
+        <textarea placeholder="请输入备注信息" style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; resize: vertical; min-height: 60px;"></textarea>
+      </div>
+      <div style="text-align: right; padding-top: 12px; border-top: 1px solid #e8e8e8;">
+        <button class="btn-default">取消</button>
+        <button class="btn-primary" style="margin-left: 8px;">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新增设备弹窗 - iOS/Android -->
+<div class="mockup">
+  <div class="mockup-header">新增设备弹窗 - iOS/Android</div>
+  <div class="mockup-body">
+    <div style="max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e8e8e8; border-radius: 8px;">
+      <h3 style="margin: 0 0 20px 0; font-size: 16px; border-bottom: 1px solid #e8e8e8; padding-bottom: 12px;">新增设备</h3>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">机器类型 <span style="color: #ff4d4f;">*</span></label>
+        <select style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+          <option value="windows">Windows</option>
+          <option value="mac">Mac</option>
+          <option value="ios" selected>iOS</option>
+          <option value="android">Android</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">资产编号 <span style="color: #ff4d4f;">*</span></label>
+        <input type="text" placeholder="请输入资产编号，如 A2024582125" style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">SN</label>
+        <input type="text" placeholder="请输入设备SN号" style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+        <p style="font-size: 12px; color: #999; margin: 4px 0 0 0;">SN 非必填</p>
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; color: #333; margin-bottom: 8px; font-weight: 500;">备注</label>
+        <textarea placeholder="请输入备注信息" style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; resize: vertical; min-height: 60px;"></textarea>
+      </div>
+      <div style="text-align: right; padding-top: 12px; border-top: 1px solid #e8e8e8;">
+        <button class="btn-default">取消</button>
+        <button class="btn-primary" style="margin-left: 8px;">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 24px; color: #333;">设计规范说明</h3>
+<ul style="color: #666; line-height: 2; font-size: 14px;">
+  <li><strong>筛选区域</strong>：灰色背景 #fafafa，每个筛选项有标签，统一上下结构</li>
+  <li><strong>表格</strong>：带边框，边框颜色 #e8e8e8，字体 13px，padding 12px 10px</li>
+  <li><strong>机器信息</strong>：使用 code 样式，背景 #f5f5f5</li>
+  <li><strong>状态颜色</strong>：在线/是 #52c41a、离线 #faad14、否 #ff4d4f</li>
+  <li><strong>操作链接</strong>：编辑 #1890ff，删除 #ff4d4f</li>
+  <li><strong>新增按钮</strong>：绿色 #52c41a</li>
+</ul>
+
+</body>
+</html>
