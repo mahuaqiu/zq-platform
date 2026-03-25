@@ -31,8 +31,8 @@ def auto_import_models():
     import importlib
     project_root = Path(__file__).parent.parent
     
-    # 需要扫描的目录
-    scan_dirs = ["zq_demo", "core", "scheduler"]
+    # 需要扫描的目录（按模块名称）
+    scan_dirs = ["core"]
     
     for scan_dir in scan_dirs:
         scan_path = project_root / scan_dir

@@ -14,13 +14,12 @@ from fastapi.security import OAuth2PasswordBearer
 
 from app.config import settings
 from utils.redis import RedisClient
-from zq_demo.router import router as zq_demo_router
 from core.router import router as core_router
 from core.websocket.router import router as websocket_router
 from utils.auth_middleware import AuthMiddleware
 
 # 全局OAuth2方案，用于Swagger显示小锁图标
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/core/auth/login/oauth2", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/core/auth/login/oauth2", auto_error=False)
 
 
 @asynccontextmanager
@@ -49,7 +48,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="一个简单的FastAPI CRUD示例",
+    description="企业级后台管理系统 API",
     version="1.0.0",
     debug=settings.DEBUG,
     lifespan=lifespan,
@@ -62,7 +61,6 @@ app = FastAPI(
 app.add_middleware(AuthMiddleware)
 
 # 注册路由（带全局OAuth2依赖，用于Swagger显示小锁图标）
-app.include_router(zq_demo_router, prefix="/api/v1", dependencies=[Depends(oauth2_scheme)])
 app.include_router(core_router, prefix="/api/core", dependencies=[Depends(oauth2_scheme)])
 # WebSocket路由（不需要OAuth2依赖，WebSocket自己处理认证）
 app.include_router(websocket_router)

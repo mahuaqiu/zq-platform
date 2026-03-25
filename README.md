@@ -49,12 +49,9 @@ zq-platform is a comprehensive enterprise-level admin management system solution
 
 - 🎯 **Complete RBAC Permission System** - Multi-dimensional permission control for users, roles, permissions, departments, and positions
 - 🔐 **JWT Authentication** - Secure token authentication with Access Token and Refresh Token support
-- 📊 **System Monitoring** - Server monitoring, Redis monitoring, database monitoring for real-time system status
-- 📁 **File Management** - Comprehensive file upload, download, and preview functionality
 - 📝 **Operation Logs** - Detailed login logs and operation auditing
-- 🗂️ **Data Dictionary** - Flexible dictionary management with multi-level classification support
-- ⏰ **Task Scheduling** - APScheduler-based scheduled task management
 - 🔌 **WebSocket Support** - Real-time communication capabilities
+- 🖥️ **Device Management** - Execution machine management with resource pool and scheduling
 - 🌐 **Multi-Database Support** - MySQL, PostgreSQL, SQL Server, SQLite
 - 🎨 **Modern UI** - Responsive design with dark mode support
 - 📦 **Monorepo Architecture** - Frontend engineering solution based on pnpm workspace
@@ -109,26 +106,32 @@ zq-platform/
 │   │   ├── permission/     # Permission Management
 │   │   ├── dept/           # Department Management
 │   │   ├── post/           # Position Management
-│   │   ├── menu/           # Menu Management
-│   │   ├── dict/           # Dictionary Management
-│   │   ├── login_log/      # Login Logs
-│   │   ├── file_manager/   # File Management
-│   │   ├── server_monitor/ # Server Monitoring
-│   │   ├── redis_monitor/  # Redis Monitoring
-│   │   ├── redis_manager/  # Redis Management
-│   │   ├── database_monitor/ # Database Monitoring
-│   │   └── database_manager/ # Database Management
-│   ├── scheduler/          # Task Scheduling Module
+│   │   └── menu/           # Menu Management
 │   ├── common/             # Common Modules
 │   ├── env/                # Environment Configuration
 │   ├── requirements.txt    # Python Dependencies
 │   └── manage.py          # Django Management Script
 │
-├── backend-fastapi/         # FastAPI Backend (Optional)
+├── backend-fastapi/         # FastAPI Backend (Recommended)
 │   ├── app/                # Core Application Module
 │   ├── core/               # Core Business Modules
-│   ├── scheduler/          # Task Scheduling Module
+│   │   ├── auth/           # Authentication & Authorization
+│   │   ├── user/           # User Management
+│   │   ├── role/           # Role Management
+│   │   ├── permission/     # Permission Management
+│   │   ├── dept/           # Department Management
+│   │   ├── post/           # Position Management
+│   │   ├── menu/           # Menu Management
+│   │   ├── login_log/      # Login Logs
+│   │   ├── oauth/          # OAuth Login
+│   │   ├── env_machine/    # Execution Machine Management
+│   │   ├── feature_analysis/ # Feature Analysis
+│   │   ├── issues_analysis/  # Issues Analysis
+│   │   └── websocket/      # WebSocket Support
 │   ├── scripts/            # Utility Scripts
+│   │   ├── dumpdata.py     # Data Export
+│   │   ├── loaddata.py     # Data Import
+│   │   └── init_env_machine_menu.py # Initialize Device Menu
 │   ├── alembic/            # Database Migration
 │   ├── env/                # Environment Configuration
 │   ├── requirements.txt    # Python Dependencies
@@ -276,14 +279,19 @@ alembic upgrade head
 python scripts/loaddata.py db_init.json
 ```
 
-6. **Start Service**
+6. **Initialize Device Management Menu (Optional)**
+```bash
+python scripts/init_env_machine_menu.py
+```
+
+7. **Start Service**
 ```bash
 python main.py
 # or
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-7. **Access API Documentation**
+8. **Access API Documentation**
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
@@ -333,23 +341,17 @@ After initializing data, you can login with the following account:
 - **Department Management**: Tree-structured department management
 - **Position Management**: Position information maintenance
 - **Menu Management**: Dynamic menu configuration, route management
-- **Dictionary Management**: System dictionary maintenance
 
-### System Monitoring
-- **Server Monitoring**: Real-time monitoring of CPU, memory, disk, network
-- **Redis Monitoring**: Redis performance metrics, key-value management
-- **Database Monitoring**: Database connection, performance monitoring
+### Device Management
+- **Execution Machine Management**: Device resource pool, scheduling, and status monitoring
+- **Multi-namespace Support**: Gamma, APP, AV, Public, Manual namespaces
+
+### Analysis Features
+- **Feature Analysis**: Feature tracking and analysis
+- **Issues Analysis**: Issue tracking and analysis
+
+### System Logs
 - **Login Logs**: User login records, IP geolocation
-
-### Task Scheduling
-- **Scheduled Tasks**: Cron expression configuration
-- **Task Logs**: Execution history, result viewing
-- **Task Management**: Start, stop, execute immediately
-
-### File Management
-- **File Upload**: Multi-file upload support
-- **File Preview**: Online preview for images and documents
-- **File Download**: Batch download functionality
 
 ## 🔐 API Documentation
 
