@@ -15,7 +15,6 @@ import {
   getUserListApi,
   resetUserPasswordApi,
 } from '#/api/core';
-import { UserAvatar } from '#/components/user-avatar';
 import { useZqTable } from '#/components/zq-table';
 
 import {
@@ -261,12 +260,18 @@ function refreshGrid() {
       <!-- 头像列 -->
       <template #cell-avatar="{ row }">
         <div class="flex items-center justify-center">
-          <UserAvatar
-            :user="row as any"
-            :size="34"
-            :font-size="16"
-            :shadow="false"
+          <img
+            v-if="row.avatar"
+            :src="row.avatar"
+            class="size-[34px] rounded-full object-cover"
+            alt="avatar"
           />
+          <div
+            v-else
+            class="flex size-[34px] items-center justify-center rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--primary)/70%)] text-[16px] font-semibold text-white"
+          >
+            {{ (row.name || row.username || 'U').charAt(0).toUpperCase() }}
+          </div>
         </div>
       </template>
 

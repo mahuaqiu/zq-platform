@@ -110,13 +110,7 @@ export function getFormSchema(): VbenFormSchema[] {
         .max(64, $t('ui.formRules.maxLength', [$t('user.userName'), 64])),
     },
     {
-      component: 'ImageSelector',
-      componentProps: {
-        enableCrop: true,
-        cropShape: 'circle',
-        maxSize: 2,
-        placeholder: $t('user.selectAvatar'),
-      },
+      component: 'Input',
       fieldName: 'avatar',
       label: $t('user.avatar'),
       help: $t('user.avatarHelp'),

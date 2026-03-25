@@ -3,8 +3,6 @@ import { computed } from 'vue';
 
 import { ElCheckbox } from 'element-plus';
 
-import { UserAvatar } from '../user-avatar';
-
 defineOptions({
   name: 'UserCard',
 });
@@ -40,6 +38,12 @@ const displayName = computed(() => {
   }
   return name;
 });
+
+// 获取头像首字母
+const avatarText = computed(() => {
+  const name = props.user.name || props.user.username;
+  return name ? name.charAt(0).toUpperCase() : 'U';
+});
 </script>
 
 <template>
@@ -53,7 +57,10 @@ const displayName = computed(() => {
     <div class="user-card-content">
       <!-- 头像 -->
       <div class="user-card-avatar">
-        <UserAvatar :user="user" :size="56" :font-size="24" :shadow="true" />
+        <img v-if="user.avatar" :src="user.avatar" class="avatar-image" alt="avatar" />
+        <div v-else class="avatar-placeholder">
+          {{ avatarText }}
+        </div>
       </div>
 
       <!-- 用户信息 -->
@@ -140,6 +147,28 @@ const displayName = computed(() => {
     justify-content: center;
     width: 100%;
     transition: transform 0.3s ease;
+
+    .avatar-image,
+    .avatar-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+    }
+
+    .avatar-image {
+      object-fit: cover;
+    }
+
+    .avatar-placeholder {
+      font-size: 24px;
+      font-weight: 600;
+      color: white;
+      background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 70%));
+    }
   }
 
   &-info {

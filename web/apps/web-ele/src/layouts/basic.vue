@@ -10,7 +10,6 @@ import { preferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
-import { getFileStreamUrl } from '#/api/core/file';
 import NotificationPopup from '#/components/notification/NotificationPopup.vue';
 import { useNotification } from '#/composables/useNotification';
 import { $t } from '#/locales';
@@ -19,16 +18,10 @@ import LoginForm from '#/views/_core/authentication/login.vue';
 
 // 使用消息通知 composable
 const {
-  notifications,
-  messageUnreadCount,
   announcements,
   announcementUnreadCount,
-  activeTab,
   showDot,
-  markAsRead,
   markAnnouncementAsRead,
-  markAllAsRead,
-  clearReadMessages,
   viewAllMessages,
   init: initNotification,
   cleanup: cleanupNotification,
@@ -81,25 +74,14 @@ const menus = computed(() => [
 const avatar = computed(() => {
   const avatarPath = userStore.userInfo?.avatar;
   if (avatarPath) {
-    return getFileStreamUrl(avatarPath);
+    // 直接使用头像路径
+    return avatarPath;
   }
   return preferences.app.defaultAvatar;
 });
 
 async function handleLogout() {
   await authStore.logout(false);
-}
-
-function handleNoticeClear() {
-  clearReadMessages();
-}
-
-function handleMakeAll() {
-  markAllAsRead();
-}
-
-function handleNoticeRead(item: any) {
-  markAsRead(item);
 }
 
 function handleAnnouncementRead(item: any) {
@@ -110,9 +92,6 @@ function handleViewAll() {
   viewAllMessages();
 }
 
-function handleTabChange(tab: 'announcement' | 'message') {
-  activeTab.value = tab;
-}
 watch(
   () => ({
     enable: preferences.app.watermark,
@@ -150,17 +129,10 @@ watch(
     <template #notification>
       <NotificationPopup
         :dot="showDot"
-        :notifications="notifications"
-        :message-unread-count="messageUnreadCount"
         :announcements="announcements"
         :announcement-unread-count="announcementUnreadCount"
-        :active-tab="activeTab"
-        @clear="handleNoticeClear"
-        @make-all="handleMakeAll"
-        @read-message="handleNoticeRead"
         @read-announcement="handleAnnouncementRead"
         @view-all="handleViewAll"
-        @update:active-tab="handleTabChange"
       />
     </template>
     <template #extra>

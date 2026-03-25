@@ -60,16 +60,6 @@ const RoleSelector = defineAsyncComponent(() =>
     (res) => res.default,
   ),
 );
-const FileSelector = defineAsyncComponent(() =>
-  import('#/components/zq-form/file-selector/file-selector.vue').then(
-    (res) => res.default,
-  ),
-);
-const ImageSelector = defineAsyncComponent(() =>
-  import('#/components/zq-form/image-selector/image-selector.vue').then(
-    (res) => res.default,
-  ),
-);
 const UserSelector = defineAsyncComponent(() =>
   import('#/components/zq-form/user-selector/user-selector.vue').then(
     (res) => res.default,
@@ -203,9 +193,7 @@ export type ComponentType =
   | 'DatePicker'
   | 'DeptSelector'
   | 'Divider'
-  | 'FileSelector'
   | 'IconPicker'
-  | 'ImageSelector'
   | 'Input'
   | 'InputNumber'
   | 'JsonEditor'
@@ -285,13 +273,11 @@ async function initComponentAdapter() {
     PostSelector: withDefaultPlaceholder(PostSelector, 'select'),
     RoleSelector: withDefaultPlaceholder(RoleSelector, 'select'),
     Divider: ElDivider,
-    FileSelector: withDefaultPlaceholder(FileSelector, 'select'),
     IconPicker: withDefaultPlaceholder(IconPicker, 'select', {
       iconSlot: 'append',
       modelValueProp: 'model-value',
       inputComponent: ElInput,
     }),
-    ImageSelector: withDefaultPlaceholder(ImageSelector, 'select'),
     Input: withDefaultPlaceholder(ElInput, 'input'),
     CodeEditor,
     CronSelector,

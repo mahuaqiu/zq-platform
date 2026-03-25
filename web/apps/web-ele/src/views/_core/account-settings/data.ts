@@ -32,13 +32,7 @@ export function getProfileFormSchema(): VbenFormSchema[] {
         .or(z.literal('')),
     },
     {
-      component: 'ImageSelector',
-      componentProps: {
-        enableCrop: true,
-        cropShape: 'circle',
-        maxSize: 2,
-        placeholder: $t('user.selectAvatar'),
-      },
+      component: 'Input',
       fieldName: 'avatar',
       label: $t('user.avatar'),
       help: $t('user.avatarHelp'),

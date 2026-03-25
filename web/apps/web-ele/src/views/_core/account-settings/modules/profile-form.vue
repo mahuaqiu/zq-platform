@@ -18,7 +18,6 @@ import {
 } from 'element-plus';
 
 import { patchUserProfileApi } from '#/api/core';
-import { ImageSelector } from '#/components/zq-form/image-selector';
 
 defineOptions({ name: 'ProfileForm' });
 
@@ -185,14 +184,10 @@ loadUserProfile();
     <ElFormItem :label="$t('user.avatar')">
       <div class="flex items-center gap-6">
         <div class="flex-1">
-          <ImageSelector
+          <ElInput
             v-model="profileForm.avatar"
-            :enable-crop="true"
-            crop-shape="circle"
-            :max-size="2"
-            :size="100"
             :placeholder="$t('user.selectAvatar')"
-            @update:model-value="handleAvatarChange"
+            clearable
           />
           <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
             {{ $t('user.avatarHelp') }}

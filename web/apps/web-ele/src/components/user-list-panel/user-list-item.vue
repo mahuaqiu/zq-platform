@@ -3,8 +3,6 @@ import { computed } from 'vue';
 
 import { ElCheckbox } from 'element-plus';
 
-import { UserAvatar } from '../user-avatar';
-
 defineOptions({
   name: 'UserListItem',
 });
@@ -38,6 +36,12 @@ const handleClick = () => {
 const displayName = computed(() => {
   return props.user.name || props.user.username;
 });
+
+// 获取头像首字母
+const avatarText = computed(() => {
+  const name = props.user.name || props.user.username;
+  return name ? name.charAt(0).toUpperCase() : 'U';
+});
 </script>
 
 <template>
@@ -49,7 +53,10 @@ const displayName = computed(() => {
 
     <!-- 头像 -->
     <div class="user-list-item-avatar">
-      <UserAvatar :user="user" :size="40" :font-size="16" :shadow="false" />
+      <img v-if="user.avatar" :src="user.avatar" class="avatar-image" alt="avatar" />
+      <div v-else class="avatar-placeholder">
+        {{ avatarText }}
+      </div>
     </div>
 
     <!-- 用户信息 -->
@@ -108,6 +115,27 @@ const displayName = computed(() => {
 
   &-avatar {
     flex-shrink: 0;
+
+    .avatar-image,
+    .avatar-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+
+    .avatar-image {
+      object-fit: cover;
+    }
+
+    .avatar-placeholder {
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 70%));
+    }
   }
 
   &-info {
