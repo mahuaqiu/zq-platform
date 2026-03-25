@@ -164,6 +164,61 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
 
     @classmethod
+    async def get_list_with_filters(
+        cls,
+        db: AsyncSession,
+        namespace: str,
+        device_type: Optional[str] = None,
+        ip: Optional[str] = None,
+        asset_number: Optional[str] = None,
+        mark: Optional[str] = None,
+        available: Optional[bool] = None,
+        note: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> Tuple[List[EnvMachine], int]:
+        """
+        多条件查询执行机列表
+
+        :param db: 数据库会话
+        :param namespace: 机器分类（必填）
+        :param device_type: 机器类型
+        :param ip: IP地址（模糊查询）
+        :param asset_number: 资产编号（模糊查询）
+        :param mark: 标签（模糊查询）
+        :param available: 是否启用
+        :param note: 备注（模糊查询）
+        :param page: 页码
+        :param page_size: 每页数量
+        :return: (机器列表, 总数)
+        """
+        filters = [EnvMachine.namespace == namespace, EnvMachine.is_deleted == False]
+
+        if device_type:
+            filters.append(EnvMachine.device_type == device_type)
+
+        if ip:
+            escaped_ip = ip.replace("%", r"\%").replace("_", r"\_")
+            filters.append(EnvMachine.ip.ilike(f"%{escaped_ip}%"))
+
+        if asset_number:
+            escaped_asset_number = asset_number.replace("%", r"\%").replace("_", r"\_")
+            filters.append(EnvMachine.asset_number.ilike(f"%{escaped_asset_number}%"))
+
+        if mark:
+            escaped_mark = mark.replace("%", r"\%").replace("_", r"\_")
+            filters.append(EnvMachine.mark.ilike(f"%{escaped_mark}%"))
+
+        if available is not None:
+            filters.append(EnvMachine.available == available)
+
+        if note:
+            escaped_note = note.replace("%", r"\%").replace("_", r"\_")
+            filters.append(EnvMachine.note.ilike(f"%{escaped_note}%"))
+
+        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+
+    @classmethod
     async def get_online_machines(
         cls,
         db: AsyncSession,
