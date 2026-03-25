@@ -5,15 +5,16 @@
 @Contact: 939589097@qq.com
 @Time: 2025-03-25
 @File: api.py
-@Desc: 执行机管理 API - 注册、申请、保持使用、释放接口
+@Desc: 执行机管理 API - 注册、申请、保持使用、释放、CRUD 接口
 """
 import logging
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.base_schema import PaginatedResponse
 from app.database import get_db
 from core.env_machine.model import EnvMachine
 from core.env_machine.schema import (
@@ -21,6 +22,10 @@ from core.env_machine.schema import (
     EnvMachineIdItem,
     EnvSuccessResponse,
     EnvFailResponse,
+    EnvMachineListRequest,
+    EnvMachineCreateRequest,
+    EnvMachineUpdateRequest,
+    EnvMachineResponse,
 )
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
@@ -299,3 +304,111 @@ async def release_env_machines(
         await db.rollback()
         logger.error(f"释放执行机失败: {e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
+
+
+@router.get("", response_model=PaginatedResponse[EnvMachineResponse], summary="查询执行机列表")
+async def list_env_machines(
+    namespace: str,
+    device_type: Optional[str] = None,
+    ip: Optional[str] = None,
+    asset_number: Optional[str] = None,
+    mark: Optional[str] = None,
+    available: Optional[bool] = None,
+    note: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db)
+) -> PaginatedResponse[EnvMachineResponse]:
+    """
+    查询执行机列表
+
+    支持 namespace 必填筛选，其他条件可选。
+    """
+    machines, total = await EnvMachineService.get_list_with_filters(
+        db,
+        namespace=namespace,
+        device_type=device_type,
+        ip=ip,
+        asset_number=asset_number,
+        mark=mark,
+        available=available,
+        note=note,
+        page=page,
+        page_size=page_size,
+    )
+
+    return PaginatedResponse(
+        items=[EnvMachineResponse.model_validate(m) for m in machines],
+        total=total,
+    )
+
+
+@router.post("", response_model=EnvMachineResponse, summary="新增执行机")
+async def create_env_machine(
+    data: EnvMachineCreateRequest,
+    db: AsyncSession = Depends(get_db)
+) -> EnvMachineResponse:
+    """
+    新增执行机（手工使用场景）
+
+    根据设备类型自动处理：
+    - Windows/Mac：填写 IP
+    - iOS/Android：填写 device_sn
+    """
+    # 构建端口默认值
+    port = data.ip.split(":")[1] if data.ip and ":" in data.ip else "8088"
+    ip = data.ip.split(":")[0] if data.ip and ":" in data.ip else data.ip
+
+    machine = EnvMachine(
+        namespace=data.namespace,
+        device_type=data.device_type,
+        asset_number=data.asset_number,
+        ip=ip or "",
+        port=port,
+        device_sn=data.device_sn,
+        note=data.note,
+        status="offline",
+        available=False,
+    )
+    db.add(machine)
+    await db.commit()
+    await db.refresh(machine)
+
+    return EnvMachineResponse.model_validate(machine)
+
+
+@router.put("/{machine_id}", response_model=EnvMachineResponse, summary="更新执行机")
+async def update_env_machine(
+    machine_id: str,
+    data: EnvMachineUpdateRequest,
+    db: AsyncSession = Depends(get_db)
+) -> EnvMachineResponse:
+    """更新执行机信息"""
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="执行机不存在")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(machine, key, value)
+
+    await db.commit()
+    await db.refresh(machine)
+
+    return EnvMachineResponse.model_validate(machine)
+
+
+@router.delete("/{machine_id}", summary="删除执行机")
+async def delete_env_machine(
+    machine_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """删除执行机（软删除）"""
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="执行机不存在")
+
+    await EnvMachineService.delete(db, machine_id)
+    await db.commit()
+
+    return {"status": "success", "message": "删除成功"}
