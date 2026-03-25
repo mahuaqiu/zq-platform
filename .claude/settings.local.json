@@ -29,7 +29,15 @@
       "Bash(python -c \"from apscheduler import AsyncScheduler; print\\(''AsyncScheduler OK''\\); from apscheduler.datastores import memory; print\\(''datastores OK''\\); from apscheduler.triggers.date import DateTrigger; print\\(''DateTrigger OK''\\)\")",
       "Bash(python -c \"from apscheduler import AsyncScheduler; import dir; s = AsyncScheduler\\(\\); print\\(dir\\(s\\)\\)\")",
       "Bash(python -c \"from apscheduler._exceptions import *; print\\(dir\\(\\)\\)\")",
-      "Bash(python -c \"from apscheduler import JobLookupError; print\\(''OK''\\)\")"
+      "Bash(python -c \"from apscheduler import JobLookupError; print\\(''OK''\\)\")",
+      "Bash(bash \"C:\\\\Users\\\\Administrator\\\\.claude\\\\skills\\\\brainstorming\\\\scripts\\\\start-server.sh\" --project-dir \"D:\\\\code\\\\zq-platform\")",
+      "Bash(python -m alembic revision --autogenerate -m \"add asset_number to env_machine\")",
+      "Bash(python -m alembic upgrade head)",
+      "Bash(timeout 10 python main.py)",
+      "Bash(timeout 10 python -c \"from core.env_machine.api import router; print\\(''API module OK''\\)\")",
+      "Bash(curl -s http://localhost:8000/docs -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s \"http://localhost:8000/api/core/env?namespace=meeting_manual&page=1&page_size=10\" -H 'Content-Type: application/json')",
+      "Bash(python -m json.tool)"
     ]
   }
 }

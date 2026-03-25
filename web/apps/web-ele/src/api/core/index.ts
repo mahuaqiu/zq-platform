@@ -11,3 +11,5 @@ export * from './user';
 // import { getLoginLogListApi, ... } from '#/api/core/login-log';
 // 注意: ai-platform 模块请直接导入以避免类型冲突
 // import { ... } from '#/api/core/ai-platform';
+// 注意: env-machine 模块请直接导入以避免 PaginatedResponse 类型冲突
+// import { getEnvMachineListApi, ... } from '#/api/core/env-machine';

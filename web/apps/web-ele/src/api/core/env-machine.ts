@@ -36,6 +36,7 @@ export interface EnvMachineQueryParams {
   asset_number?: string;
   mark?: string;
   available?: boolean;
+  status?: string;
   note?: string;
   page: number;
   page_size: number;
