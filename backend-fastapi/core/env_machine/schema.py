@@ -22,6 +22,39 @@ class EnvRegisterRequest(BaseModel):
     devices: Dict[str, List[str]] = Field(..., description="设备列表，key为device_type，value为device_sn列表")
 
 
+class EnvMachineListRequest(BaseModel):
+    """执行机列表查询请求 Schema"""
+    namespace: str = Field(..., description="机器分类")
+    device_type: Optional[str] = Field(None, description="机器类型")
+    ip: Optional[str] = Field(None, description="IP地址（模糊查询）")
+    asset_number: Optional[str] = Field(None, description="资产编号（模糊查询）")
+    mark: Optional[str] = Field(None, description="标签（模糊查询）")
+    available: Optional[bool] = Field(None, description="是否启用")
+    note: Optional[str] = Field(None, description="备注（模糊查询）")
+    page: int = Field(default=1, ge=1, description="页码")
+    page_size: int = Field(default=20, ge=1, le=100, description="每页数量")
+
+
+class EnvMachineCreateRequest(BaseModel):
+    """新增执行机请求 Schema"""
+    namespace: str = Field(..., description="机器分类")
+    device_type: str = Field(..., description="机器类型：windows/mac/ios/android")
+    asset_number: str = Field(..., description="资产编号（必填）")
+    ip: Optional[str] = Field(None, description="IP地址（Windows/Mac）")
+    device_sn: Optional[str] = Field(None, description="设备SN（iOS/Android）")
+    note: Optional[str] = Field(None, description="备注")
+
+
+class EnvMachineUpdateRequest(BaseModel):
+    """更新执行机请求 Schema"""
+    asset_number: Optional[str] = Field(None, description="资产编号")
+    ip: Optional[str] = Field(None, description="IP地址")
+    device_sn: Optional[str] = Field(None, description="设备SN")
+    mark: Optional[str] = Field(None, description="标签")
+    available: Optional[bool] = Field(None, description="是否启用")
+    note: Optional[str] = Field(None, description="备注")
+
+
 class EnvMachineAllocation(BaseModel):
     """执行机申请请求 Schema"""
     id: str = Field(..., description="机器ID")
@@ -56,6 +89,7 @@ class EnvMachineResponse(BaseModel):
     namespace: str = Field(..., description="机器分类")
     ip: str = Field(..., description="机器IP")
     port: str = Field(..., description="机器端口")
+    asset_number: Optional[str] = Field(None, description="资产编号")
     mark: Optional[str] = Field(None, description="机器标签")
     device_type: str = Field(..., description="机器类型")
     device_sn: Optional[str] = Field(None, description="设备SN")
