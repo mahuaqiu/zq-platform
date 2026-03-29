@@ -38,7 +38,12 @@
       "Bash(curl -s http://localhost:8000/docs -o /dev/null -w \"%{http_code}\")",
       "Bash(curl -s \"http://localhost:8000/api/core/env?namespace=meeting_manual&page=1&page_size=10\" -H 'Content-Type: application/json')",
       "Bash(python -m json.tool)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(findstr scheduler:*)",
+      "Bash(source venv/Scripts/activate)",
+      "Bash(python -c \"from core.router import router\")",
+      "Bash(python -c \"from apscheduler import AsyncScheduler; help\\(AsyncScheduler\\)\")",
+      "Bash(python -c \"from apscheduler import AsyncScheduler; s = AsyncScheduler.__doc__; print\\(s\\)\")"
     ]
   }
 }

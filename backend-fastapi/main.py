@@ -26,6 +26,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/core/auth/login/oauth2", aut
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时
+    # ========== 调度器初始化 ==========
+    from scheduler.service import scheduler_service
+    await scheduler_service.init_scheduler()
+    # ========== 调度器初始化结束 ==========
+
     # ========== 执行机管理模块启动初始化 ==========
     from core.env_machine.scheduler import reset_using_machines, setup_env_machine_scheduler
     from core.env_machine.pool_manager import EnvPoolManager
@@ -44,6 +49,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # 关闭时
+    await scheduler_service.shutdown()
     await RedisClient.close()
 
 app = FastAPI(
