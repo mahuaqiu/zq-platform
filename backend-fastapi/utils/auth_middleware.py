@@ -22,6 +22,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from utils.security import verify_access_token
+from utils.logging_config import get_logger
+
+logger = get_logger("auth")
 
 
 # 默认白名单路由（不需要认证）
@@ -155,6 +158,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
         
         return None
 
+    def _get_client_ip(self, request: Request) -> str:
+        """获取客户端 IP"""
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip
+        if request.client:
+            return request.client.host
+        return "unknown"
+
     async def dispatch(self, request: Request, call_next: Callable):
         """
         处理请求
@@ -176,6 +191,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # 提取Token（支持Header和Query两种方式）
         token = self._extract_token(request)
         if not token:
+            logger.warning(f"认证失败 | 路径: {path} | 原因: 未提供认证凭据 | IP: {self._get_client_ip(request)}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": "未提供认证凭据"},
@@ -185,6 +201,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # 验证Token
         payload = verify_access_token(token)
         if not payload:
+            logger.warning(f"认证失败 | 路径: {path} | 原因: 无效或过期的Token | IP: {self._get_client_ip(request)}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": "无效或过期的Token"},
