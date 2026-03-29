@@ -345,7 +345,7 @@ function getStatusText(status: string) {
 function getStatusClass(status: string) {
   const statusMap: Record<string, string> = {
     online: 'env-status-success',
-    using: 'env-status-success',
+    using: 'env-status-orange',
     offline: 'env-status-warning',
   };
   return statusMap[status] || '';
@@ -814,6 +814,10 @@ onMounted(() => {
 /* 状态样式 */
 .env-status-success {
   color: #52c41a;
+}
+
+.env-status-orange {
+  color: #e6a23c;
 }
 
 .env-status-warning {
