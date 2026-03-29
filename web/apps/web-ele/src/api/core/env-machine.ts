@@ -64,6 +64,7 @@ export interface EnvMachineUpdateParams {
   mark?: string;
   available?: boolean;
   note?: string;
+  extra_message?: Record<string, any>;
 }
 
 /**

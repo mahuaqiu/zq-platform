@@ -53,6 +53,7 @@ class EnvMachineUpdateRequest(BaseModel):
     mark: Optional[str] = Field(None, description="标签")
     available: Optional[bool] = Field(None, description="是否启用")
     note: Optional[str] = Field(None, description="备注")
+    extra_message: Optional[Dict[str, Any]] = Field(None, description="扩展信息(JSON格式，包含机器使用的账号信息)")
 
 
 class EnvMachineAllocation(BaseModel):

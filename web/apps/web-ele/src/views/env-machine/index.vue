@@ -67,7 +67,37 @@ const formData = ref({
   note: '',
   mark: '',
   available: false,
+  extra_message_raw: '', // 扩展信息 JSON 字符串
 });
+
+// JSON 格式错误提示
+const jsonError = ref('');
+
+// 扩展信息示例 JSON（按标签存储）
+const EXTRA_MESSAGE_EXAMPLE = `{
+  "标签名": {
+    "username": "admin",
+    "password": "123456"
+  }
+}`;
+
+// 验证扩展信息是否包含标签对应的账号信息
+function validateExtraMessageWithTag(): boolean {
+  const raw = formData.value.extra_message_raw.trim();
+  const mark = formData.value.mark?.trim();
+
+  if (!raw || !mark) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    // 检查扩展信息中是否包含对应标签的key
+    return parsed.hasOwnProperty(mark) && typeof parsed[mark] === 'object';
+  } catch {
+    return false;
+  }
+}
 
 // 从路由获取 namespace
 const namespaceKey = computed(() => {
@@ -154,7 +184,9 @@ function handleCreate() {
     note: '',
     mark: '',
     available: false,
+    extra_message_raw: '',
   };
+  jsonError.value = '';
   dialogVisible.value = true;
 }
 
@@ -170,7 +202,9 @@ function handleEdit(row: EnvMachine) {
     note: row.note || '',
     mark: row.mark || '',
     available: row.available,
+    extra_message_raw: row.extra_message ? JSON.stringify(row.extra_message, null, 2) : '',
   };
+  jsonError.value = '';
   dialogVisible.value = true;
 }
 
@@ -195,12 +229,69 @@ function handleDelete(row: EnvMachine) {
 // 资产编号是否必填：手工使用页面必填，或非手工使用页面的新增模式必填
 const assetNumberRequired = computed(() => isManual.value || !isEdit.value);
 
+// 验证 JSON 格式
+function validateJson(): Record<string, any> | null {
+  const raw = formData.value.extra_message_raw.trim();
+  if (!raw) {
+    jsonError.value = '';
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    jsonError.value = '';
+    return parsed;
+  } catch (e) {
+    jsonError.value = 'JSON 格式不正确，请检查格式';
+    return null;
+  }
+}
+
 // 提交表单
 async function handleSubmit() {
   // 资产编号必填校验
   if (assetNumberRequired.value && !formData.value.asset_number) {
     ElMessage.warning('请输入资产编号');
     return;
+  }
+
+  // 非手工页面编辑模式下，验证扩展信息
+  if (!isManual.value && isEdit.value) {
+    const extraMessage = validateJson();
+    if (extraMessage === null) {
+      ElMessage.warning('扩展信息 JSON 格式不正确，请修正后再保存');
+      return;
+    }
+
+    // 启用时检查标签和扩展信息
+    if (formData.value.available) {
+      const mark = formData.value.mark?.trim();
+
+      // 检查标签是否填写
+      if (!mark) {
+        ElMessageBox.alert(
+          '启用设备时必须填写标签。\n\n标签用于匹配扩展信息中的账号配置。',
+          '无法启用',
+          {
+            confirmButtonText: '确定',
+            type: 'warning',
+          }
+        );
+        return;
+      }
+
+      // 检查扩展信息是否填写且包含对应标签
+      if (!validateExtraMessageWithTag()) {
+        ElMessageBox.alert(
+          `需要填入扩展信息（机器使用的账号信息）才能启用设备。\n\n扩展信息需要包含标签 "${mark}" 对应的账号配置。\n\n示例格式：\n${EXTRA_MESSAGE_EXAMPLE.replace('标签名', mark)}`,
+          '无法启用',
+          {
+            confirmButtonText: '确定',
+            type: 'warning',
+          }
+        );
+        return;
+      }
+    }
   }
 
   dialogLoading.value = true;
@@ -215,6 +306,10 @@ async function handleSubmit() {
         available: formData.value.available,
         note: formData.value.note,
       };
+      // 非手工页面添加扩展信息
+      if (!isManual.value && formData.value.extra_message_raw.trim()) {
+        updateData.extra_message = JSON.parse(formData.value.extra_message_raw.trim());
+      }
       await updateEnvMachineApi(editId.value, updateData);
       ElMessage.success('更新成功');
     } else {
@@ -565,6 +660,23 @@ onMounted(() => {
               <ElOption label="是" :value="true" />
               <ElOption label="否" :value="false" />
             </ElSelect>
+          </ElFormItem>
+          <!-- 非手工页面的扩展信息编辑 -->
+          <ElFormItem v-if="!isManual" label="扩展信息">
+            <div style="width: 100%">
+              <ElInput
+                v-model="formData.extra_message_raw"
+                type="textarea"
+                :rows="4"
+                placeholder="JSON格式，按标签存储账号信息。如：{ &quot;标签&quot;: { &quot;username&quot;: &quot;admin&quot; } }"
+              />
+              <div v-if="jsonError" style="color: #f56c6c; font-size: 12px; margin-top: 4px">
+                {{ jsonError }}
+              </div>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px">
+                示例：<code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px">{{ EXTRA_MESSAGE_EXAMPLE }}</code>
+              </div>
+            </div>
           </ElFormItem>
         </template>
 
