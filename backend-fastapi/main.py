@@ -54,6 +54,11 @@ async def lifespan(app: FastAPI):
     setup_env_machine_scheduler()
     # ========== 执行机管理模块启动初始化结束 ==========
 
+    # ========== 测试报告模块启动初始化 ==========
+    from core.test_report.scheduler import setup_test_report_scheduler
+    setup_test_report_scheduler()
+    # ========== 测试报告模块启动初始化结束 ==========
+
     yield
 
     # 关闭时
