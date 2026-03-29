@@ -1,7 +1,4 @@
 {
-  "overview": "Overview",
-  "analytics": "Analytics",
-  "workspace": "Workspace",
   "home": "Home",
   "systemManagement": "System Management",
   "userManagement": "User Management",
@@ -12,21 +9,5 @@
   "roleManagement": "Role Management",
   "userCenter": "User Center",
   "loginLog": "Login Log",
-  "accountSettings": "Account Settings",
-  "contractManagement": "Contract Management",
-  "contractList": "Contract List",
-  "templateManagement": "Template Management",
-  "crowdUsers": "Crowd Users",
-  "workflowManagement": "Workflow Management",
-  "formManagement": "Form Management",
-  "approvalProcess": "Approval Process",
-  "myTasks": "My Tasks",
-  "initiatedProcesses": "Initiate Process",
-  "myPending": "My Pending",
-  "myInitiated": "My Initiated",
-  "ccToMe": "CC to Me",
-  "announcementList": "Announcement List",
-  "announcementManagement": "Announcement Management",
-  "dataScreen": "Data Screen",
-  "screenManagement": "Screen Management"
+  "accountSettings": "Account Settings"
 }

@@ -1,7 +1,4 @@
 {
-  "overview": "概覽",
-  "analytics": "分析頁",
-  "workspace": "工作台",
   "home": "首頁",
   "systemManagement": "系統管理",
   "userManagement": "用戶管理",
@@ -12,21 +9,5 @@
   "roleManagement": "角色管理",
   "userCenter": "用戶中心",
   "loginLog": "登錄日誌",
-  "accountSettings": "賬號設置",
-  "contractManagement": "合同管理",
-  "contractList": "合同列表",
-  "templateManagement": "模板管理",
-  "crowdUsers": "眾籌用戶",
-  "workflowManagement": "流程管理",
-  "formManagement": "表單管理",
-  "approvalProcess": "審批流程",
-  "myTasks": "我的已辦",
-  "initiatedProcesses": "發起流程",
-  "myPending": "我的待辦",
-  "myInitiated": "我發起的",
-  "ccToMe": "抄送我的",
-  "announcementList": "公告列表",
-  "announcementManagement": "公告管理",
-  "dataScreen": "數據大屏",
-  "screenManagement": "大屏管理"
+  "accountSettings": "賬號設置"
 }

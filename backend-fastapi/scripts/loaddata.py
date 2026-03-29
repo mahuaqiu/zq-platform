@@ -22,6 +22,7 @@ from typing import Dict, Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from app.database import AsyncSessionLocal, Base
 
 
@@ -64,22 +65,32 @@ def parse_datetime(value):
     return value
 
 
-async def load_data(file_path: str):
+async def load_data(file_path: str, clean_mode: bool = False):
     """从 JSON 文件加载数据"""
     # 读取 JSON 文件
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    
+
     print(f"读取到 {len(data)} 条记录")
-    
+
     # 构建模型映射
     model_map: Dict[str, Any] = {}
     for mapper in Base.registry.mappers:
         model_class = mapper.class_
         model_key = f"{model_class.__module__}.{model_class.__name__}"
         model_map[model_key] = model_class
-    
+
     async with AsyncSessionLocal() as session:
+        # 清空模式：删除所有相关表的数据
+        if clean_mode:
+            print("清空模式：删除现有数据...")
+            for model_name in set(item.get("model") for item in data if item.get("model") in model_map):
+                model_class = model_map[model_name]
+                table_name = model_class.__table__.name
+                await session.execute(text(f"DELETE FROM {table_name}"))
+                print(f"  清空表: {table_name}")
+            await session.commit()
+
         success_count = 0
         error_count = 0
         
@@ -103,7 +114,8 @@ async def load_data(file_path: str):
                 
                 # 创建实例
                 instance = model_class(**fields)
-                session.add(instance)
+                # 使用 merge 而不是 add，如果记录已存在则更新
+                await session.merge(instance)
                 
                 success_count += 1
                 
@@ -131,17 +143,19 @@ async def load_data(file_path: str):
 async def main():
     """主函数"""
     if len(sys.argv) < 2:
-        print("用法: python scripts/loaddata.py <json_file>")
+        print("用法: python scripts/loaddata.py <json_file> [--clean]")
+        print("  --clean: 清空表后再导入")
         sys.exit(1)
-    
+
     file_path = sys.argv[1]
-    
+    clean_mode = "--clean" in sys.argv
+
     if not Path(file_path).exists():
         print(f"错误: 文件不存在 - {file_path}")
         sys.exit(1)
-    
+
     print(f"从文件导入数据: {file_path}")
-    await load_data(file_path)
+    await load_data(file_path, clean_mode)
 
 
 if __name__ == "__main__":

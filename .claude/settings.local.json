@@ -43,7 +43,16 @@
       "Bash(source venv/Scripts/activate)",
       "Bash(python -c \"from core.router import router\")",
       "Bash(python -c \"from apscheduler import AsyncScheduler; help\\(AsyncScheduler\\)\")",
-      "Bash(python -c \"from apscheduler import AsyncScheduler; s = AsyncScheduler.__doc__; print\\(s\\)\")"
+      "Bash(python -c \"from apscheduler import AsyncScheduler; s = AsyncScheduler.__doc__; print\\(s\\)\")",
+      "Bash(grep -c '\"\"model\"\"' D:/code/zq-platform/backend-fastapi/db_init.json)",
+      "Bash(grep '\"\"model\"\": \"\"core.user.model.User\"\"' D:/code/zq-platform/backend-fastapi/db_init.json)",
+      "Bash(python -c \"import json; json.load\\(open\\(''db_init.json''\\)\\); print\\(''JSON有效''\\)\")",
+      "Bash(python -c \"import json; json.load\\(open\\(''db_init.json'', encoding=''utf-8''\\)\\); print\\(''JSON有效''\\)\")",
+      "Bash(alembic upgrade:*)",
+      "Bash(python scripts/loaddata.py db_init.json)",
+      "Bash(python scripts/dumpdata.py -o db_current.json -f)",
+      "Bash(python scripts/init_env_machine_menu.py)",
+      "Bash(python scripts/dumpdata.py -o db_init.json -f)"
     ]
   }
 }
