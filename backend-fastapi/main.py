@@ -17,6 +17,8 @@ from utils.redis import RedisClient
 from core.router import router as core_router
 from core.websocket.router import router as websocket_router
 from utils.auth_middleware import AuthMiddleware
+from utils.logging_config import setup_logging
+from utils.request_log_middleware import RequestLogMiddleware
 
 # 全局OAuth2方案，用于Swagger显示小锁图标
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/core/auth/login/oauth2", auto_error=False)
@@ -26,6 +28,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/core/auth/login/oauth2", aut
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时
+    # ========== 日志系统初始化 ==========
+    setup_logging()
+    # ========== 日志系统初始化结束 ==========
+
     # ========== 调度器初始化 ==========
     from scheduler.service import scheduler_service
     await scheduler_service.init_scheduler()
@@ -66,6 +72,9 @@ app = FastAPI(
 
 # 添加全局认证中间件（白名单内的路由无需认证）
 app.add_middleware(AuthMiddleware)
+
+# 添加请求日志中间件
+app.add_middleware(RequestLogMiddleware)
 
 # 注册路由（带全局OAuth2依赖，用于Swagger显示小锁图标）
 app.include_router(core_router, prefix="/api/core", dependencies=[Depends(oauth2_scheme)])
