@@ -80,7 +80,13 @@
 - 示例：断言失败 ████████████ 8
 
 #### 失败记录表格（Tab分类）
-- Tab分类：最终失败、每轮都失败、不稳定用例、全部记录
+
+**术语定义**：
+- **本轮失败**：最后一轮失败的用例（对应 fail_total）
+- **全程失败**：所有轮次均失败的用例（对应 fail_always）
+- **不稳定用例**：前几轮失败，最后一轮通过的用例（对应 fail_unstable）
+
+- Tab分类：本轮失败、全程失败、不稳定用例、全部记录
 - 表格字段：
   - 用例名称
   - 失败步骤
@@ -129,18 +135,32 @@
 
 ### 3.3 汇总分析流程
 
-触发条件：超过配置的超时时间（默认30分钟）无新数据推送
+**触发机制**：使用 APScheduler 定时任务（每5分钟扫描一次）
+
+扫描逻辑：
+1. 查询 `test_report_detail` 表中存在记录但 `test_report_summary` 表无对应 task_id 的数据
+2. 按 task_id 分组，取每组最后一条记录的 `sys_create_datetime` 作为 `last_report_time`
+3. 判断 `now() - last_report_time > ANALYZE_TIMEOUT_MINUTES`
+4. 满足条件则触发汇总分析
 
 分析逻辑：
 1. 查询该 task_id 所有明细记录
 2. 统计各轮次失败数 → round_stats
-3. 统计最终失败用例（最后一轮失败）→ fail_total
-4. 统计每轮都失败用例 → fail_always
-5. 统计不稳定用例 → fail_unstable
+3. 统计最后一轮失败的用例 → fail_total
+4. 统计所有轮次都失败的用例 → fail_always
+5. 统计不稳定用例（前几轮失败，最后一轮无记录）→ fail_unstable
 6. 统计失败步骤分布 → step_distribution
-7. 计算通过率 → pass_rate
-8. 查询上次同任务执行记录 → compare_change
-9. 存储汇总数据
+7. 计算通过率 → pass_rate = (total_cases - fail_total) / total_cases * 100
+8. 查询上次同任务执行记录（按 task_base_name 匹配）→ compare_change, last_fail_total
+9. 设置 execute_time = 第一条失败记录的 fail_time
+10. 设置 analysis_status = pending
+11. 存储汇总数据到 test_report_summary
+
+**同比计算说明**：
+- task_base_name = task_name 去除日期后缀（如 "登录模块回归测试_2026-03-29" → "登录模块回归测试")
+- 查询 task_base_name 相同且 execute_time < 当前任务 execute_time 的最近一条记录
+- compare_change = fail_total - last_fail_total（正数表示上升↑，负数表示下降↓）
+- 首次执行时 compare_change = null
 
 ---
 
@@ -153,6 +173,7 @@
 | id | String(21) | Y | 主键（NanoId） |
 | task_id | String(21) | Y | 任务执行ID |
 | task_name | String(100) | Y | 任务名称 |
+| total_cases | Integer | Y | 用例总数（每次上报携带，用于汇总） |
 | case_name | String(200) | Y | 用例标题 |
 | case_fail_step | String(100) | Y | 失败步骤名称 |
 | case_fail_log | Text | Y | 失败日志 |
@@ -164,6 +185,7 @@
 
 **索引**：
 - `idx_task_id`：task_id（查询明细）
+- `idx_task_case_round`：(task_id, case_name, case_round)（统计同用例多轮次）
 
 ---
 
@@ -174,24 +196,29 @@
 | id | String(21) | Y | 主键（NanoId） |
 | task_id | String(21) | Y | 任务执行ID |
 | task_name | String(100) | Y | 任务名称 |
+| task_base_name | String(100) | N | 任务基础名称（去除日期后缀，用于同比计算） |
 | total_cases | Integer | Y | 用例总数 |
-| fail_total | Integer | Y | 失败总数（最后一轮） |
+| fail_total | Integer | Y | 失败总数（最后一轮失败的用例） |
 | pass_rate | String(10) | Y | 通过率（如 "90%"） |
 | compare_change | Integer | N | 同比变化（正数↑，负数↓，null首次） |
+| last_fail_total | Integer | N | 上次执行失败数（用于同比计算） |
 | round_stats | JSON | N | 轮次统计 |
-| fail_always | Integer | N | 每轮都失败数 |
-| fail_unstable | Integer | N | 不稳定用例数 |
+| fail_always | Integer | N | 每轮都失败数（所有轮次均失败） |
+| fail_unstable | Integer | N | 不稳定用例数（前几轮失败，最后一轮通过） |
 | step_distribution | JSON | N | 失败步骤分布 |
 | ai_analysis | Text | N | AI分析结论 |
 | analysis_status | String(20) | N | 分析状态（pending/completed） |
-| execute_time | DateTime | N | 执行时间 |
+| execute_time | DateTime | N | 执行时间（取第一条失败记录的 fail_time） |
+| last_report_time | DateTime | N | 最后上报时间（用于超时判断） |
 
 **继承 BaseModel 字段**
 
 **索引**：
 - `uq_task_id`：task_id（唯一）
 - `idx_task_name`：task_name（模糊搜索）
+- `idx_task_base_name`：task_base_name（同比查询）
 - `idx_execute_time`：execute_time（排序查询）
+- `idx_last_report_time`：last_report_time（超时扫描）
 
 **JSON 字段格式**：
 
@@ -215,26 +242,37 @@ step_distribution：
 
 ---
 
-### 4.3 系统配置
+### 4.3 系统配置（集成到 Settings 类）
 
-| 配置项 | 默认值 | 说明 |
-|------|------|------|
-| ANALYZE_TIMEOUT_MINUTES | 30 | 超时自动分析时间（分钟） |
-| AI_ANALYSIS_SERVICE_URL | - | 本地AI服务地址（后续规划） |
+在 `app/config.py` 的 `Settings` 类中添加：
+
+```python
+# 测试报告配置
+ANALYZE_TIMEOUT_MINUTES: int = 30  # 超时自动分析时间（分钟）
+AI_ANALYSIS_SERVICE_URL: Optional[str] = None  # 本地AI服务地址（后续规划）
+TEST_REPORT_API_TOKEN: Optional[str] = None  # 上报API专用Token（认证）
+```
 
 ---
 
 ## 5. API 接口设计
 
-### 5.1 上报接口
+### 5.1 认证说明
+
+- 上报接口 `POST /api/test-report/fail` 使用独立 Token 认证
+- 测试框架携带配置的 `TEST_REPORT_API_TOKEN` 在请求头：`Authorization: Bearer {token}`
+- 查询接口使用系统标准的 JWT 认证（登录后访问）
+
+### 5.2 上报接口
 
 - `POST /api/test-report/fail` - 推送失败用例记录
 
-### 5.2 查询接口
+### 5.3 查询接口
 
 - `GET /api/test-report/list` - 获取报告列表（支持 task_name 筛选、分页）
 - `GET /api/test-report/summary/{task_id}` - 获取单个报告汇总
-- `GET /api/test-report/detail/{task_id}` - 获取报告明细列表（支持分类筛选）
+- `GET /api/test-report/detail/{task_id}` - 获取报告明细列表
+  - 查询参数 `category`：分类筛选（`final_fail` / `always_fail` / `unstable` / `all`）
 - `GET /api/test-report/log/{task_id}/{case_name}` - 获取用例完整日志（或直接返回 log_url）
 
 ---
@@ -265,9 +303,11 @@ test_report/
 ├── __init__.py
 ├── model.py        # 数据模型定义
 ├── schema.py       # Pydantic Schema 定义
-├── service.py      # 业务逻辑（汇总分析等）
+├── service.py      # 业务逻辑（CRUD + 汇总分析）
 ├── api.py          # FastAPI 路由定义
-└── analyzer.py     # 汇总分析逻辑（超时触发）
+├── scheduler.py    # APScheduler 定时任务（超时扫描触发汇总）
+├── auth.py         # Token认证中间件（上报接口专用）
+└── utils.py        # 工具函数（task_name解析等）
 ```
 
 前端模块位于 `web/apps/web-ele/src/views/test-report/`：
