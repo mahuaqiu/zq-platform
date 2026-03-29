@@ -667,7 +667,7 @@ git commit -m "feat(test_report): 添加服务层实现"
 **Files:**
 - Create: `backend-fastapi/core/test_report/scheduler.py`
 
-- [ ] **Step 1: 创建 scheduler.py**
+- [ ] **Step 1: 创建 scheduler.py（使用 APScheduler 4.x API）**
 
 ```python
 #!/usr/bin/env python
@@ -676,17 +676,22 @@ git commit -m "feat(test_report): 添加服务层实现"
 测试报告定时任务 - Test Report Scheduler
 """
 import logging
+import asyncio
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, func, and_, not_, exists
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, not_
+from apscheduler.triggers.interval import IntervalTrigger
 
-from app.database import async_session_factory
+from app.database import AsyncSessionLocal
 from app.config import settings
 from core.test_report.model import TestReportDetail, TestReportSummary
 from core.test_report.service import TestReportSummaryService
+from scheduler.service import scheduler_service
 
 logger = logging.getLogger(__name__)
+
+ANALYZE_JOB_ID = "test_report_analyze"  # 分析任务 ID
+ANALYZE_INTERVAL_MINUTES = 5  # 执行间隔（分钟）
 
 
 async def check_and_analyze_timeout_reports():
@@ -701,10 +706,9 @@ async def check_and_analyze_timeout_reports():
     timeout_minutes = settings.ANALYZE_TIMEOUT_MINUTES
     logger.info(f"开始扫描超时测试报告，超时时间: {timeout_minutes} 分钟")
 
-    async with async_session_factory() as db:
+    async with AsyncSessionLocal() as db:
         try:
             # 查询有明细但无汇总的 task_id
-            # 并且最后上报时间超过超时时间
             subquery = select(TestReportSummary.task_id).where(
                 TestReportSummary.is_deleted == False
             )
@@ -740,21 +744,56 @@ async def check_and_analyze_timeout_reports():
             logger.error(f"扫描超时测试报告失败: {e}")
 
 
-def setup_scheduler(scheduler):
-    """
-    配置定时任务
+async def _analyze_job_wrapper():
+    """分析任务包装函数"""
+    try:
+        await check_and_analyze_timeout_reports()
+    except Exception as e:
+        logger.error(f"分析任务执行失败: {str(e)}")
 
-    :param scheduler: APScheduler AsyncScheduler 实例
+
+def setup_test_report_scheduler() -> bool:
     """
-    # 每5分钟执行一次
-    scheduler.add_job(
-        check_and_analyze_timeout_reports,
-        "interval",
-        minutes=5,
-        id="test_report_analyze",
-        replace_existing=True
-    )
-    logger.info("测试报告定时任务已配置，每5分钟执行一次")
+    设置测试报告定时任务
+
+    使用 APScheduler 4.x API 注册周期任务
+
+    Returns:
+        bool: 是否设置成功
+    """
+    scheduler = scheduler_service.get_scheduler()
+    if not scheduler:
+        logger.warning("调度器未初始化，无法设置测试报告定时任务")
+        return False
+
+    try:
+        async def _setup():
+            job_id = ANALYZE_JOB_ID
+
+            # 注册任务函数
+            await scheduler.configure_task(job_id, func=_analyze_job_wrapper)
+
+            # 添加周期调度（每 5 分钟执行一次）
+            await scheduler.add_schedule(
+                func_or_task_id=job_id,
+                trigger=IntervalTrigger(minutes=ANALYZE_INTERVAL_MINUTES),
+                id=job_id,
+            )
+
+            logger.info(f"测试报告定时任务已启动，间隔: {ANALYZE_INTERVAL_MINUTES} 分钟")
+
+        # 尝试在当前事件循环中运行
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.create_task(_setup())
+        except RuntimeError:
+            # 没有运行中的事件循环，创建新的
+            asyncio.run(_setup())
+
+        return True
+    except Exception as e:
+        logger.error(f"设置测试报告定时任务失败: {str(e)}")
+        return False
 ```
 
 - [ ] **Step 2: 提交**
@@ -851,7 +890,7 @@ async def report_fail(
 
 # ==================== 查询接口 ====================
 
-@router.get("/list", response_model=PaginatedResponse[TestReportListItem], summary="获取报告列表")
+@router.get("", response_model=PaginatedResponse[TestReportListItem], summary="获取报告列表")
 async def get_report_list(
     page: int = Query(default=1, ge=1, description="页码"),
     page_size: int = Query(default=20, ge=1, le=100, alias="pageSize", description="每页数量"),
@@ -953,7 +992,15 @@ router.include_router(test_report_router)
 
 - [ ] **Step 2: 在 main.py 配置定时任务**
 
-查看 main.py 中是否已有 APScheduler 配置，如果有则添加 scheduler 导入和启动；如果没有则需要添加基础配置。
+在 `lifespan` 函数中添加定时任务初始化（参考现有 env_machine_scheduler 的模式）：
+
+```python
+# 在 lifespan 函数中添加（在现有的 scheduler 初始化代码之后）
+from core.test_report.scheduler import setup_test_report_scheduler
+setup_test_report_scheduler()
+```
+
+具体位置：查看 `main.py` 中 `setup_env_machine_scheduler()` 的调用位置，在其后添加。
 
 - [ ] **Step 3: 提交**
 
