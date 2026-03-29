@@ -35,6 +35,23 @@ from utils.security import (
     verify_refresh_token,
     get_current_user,
 )
+from utils.logging_config import get_logger
+
+logger = get_logger("auth_api")
+
+
+def _get_client_ip(request: Request) -> str:
+    """获取客户端 IP"""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    if request.client:
+        return request.client.host
+    return "unknown"
+
 
 router = APIRouter(prefix="", tags=["认证管理"])
 
@@ -166,7 +183,9 @@ async def login(
         device_type=client_info["device_type"],
         login_type="password",
     )
-    
+
+    logger.info(f"登录成功 | 用户: {user.username} | IP: {client_info['login_ip']}")
+
     return TokenResponse(
         accessToken=access_token,
         refreshToken=refresh_token,
@@ -375,7 +394,9 @@ async def refresh_token(
         new_refresh_token,
         ex=int(refresh_token_expires.total_seconds())
     )
-    
+
+    logger.info(f"Token刷新成功 | 用户: {user.username}")
+
     return TokenResponse(
         accessToken=new_access_token,
         refreshToken=new_refresh_token,
@@ -396,7 +417,9 @@ async def logout(request: Request):
     user_id = request.state.user_id
     redis = await RedisClient.get_client()
     await redis.delete(f"{REFRESH_TOKEN_PREFIX}{user_id}")
-    
+
+    logger.info(f"用户登出 | 用户ID: {user_id}")
+
     return ResponseModel(message="登出成功")
 
 
