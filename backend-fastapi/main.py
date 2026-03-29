@@ -16,6 +16,7 @@ from app.config import settings
 from utils.redis import RedisClient
 from core.router import router as core_router
 from core.websocket.router import router as websocket_router
+from core.env_machine.api import router as env_machine_router
 from utils.auth_middleware import AuthMiddleware
 from utils.logging_config import setup_logging
 from utils.request_log_middleware import RequestLogMiddleware
@@ -80,6 +81,8 @@ app.add_middleware(RequestLogMiddleware)
 app.include_router(core_router, prefix="/api/core", dependencies=[Depends(oauth2_scheme)])
 # WebSocket路由（不需要OAuth2依赖，WebSocket自己处理认证）
 app.include_router(websocket_router)
+# 执行机管理路由（公开接口，供外部 worker 调用，无需认证）
+app.include_router(env_machine_router)
 
 
 @app.get("/", tags=["根路径"])

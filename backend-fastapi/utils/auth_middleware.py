@@ -62,6 +62,8 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     *WEBSOCKET_WHITE_LIST_PATTERNS,  # WebSocket相关接口
     # 执行机管理接口（供外部 worker 调用，无需认证）
     r"^/api/core/env/.*",
+    # 公开接口（无需认证）
+    r"^/env/.*",
 ]
 
 # 允许使用Query参数传递Token的API路径模式（出于安全考虑，仅限特定接口）
