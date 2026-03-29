@@ -59,7 +59,8 @@
       "Bash(.venv/Scripts/python.exe -c \"from utils.auth_middleware import AuthMiddleware, logger; print\\(''模块导入成功''\\); print\\(f''Logger name: {logger.name}''\\)\")",
       "Bash(venv/Scripts/python.exe -c \"from utils.auth_middleware import AuthMiddleware, logger; print\\(''模块导入成功''\\); print\\(f''Logger name: {logger.name}''\\)\")",
       "Bash(venv/Scripts/pip.exe install:*)",
-      "Bash(bash scripts/start-server.sh --project-dir \"D:/code/zq-platform\")"
+      "Bash(bash scripts/start-server.sh --project-dir \"D:/code/zq-platform\")",
+      "Bash(source .venv/Scripts/activate)"
     ]
   }
 }

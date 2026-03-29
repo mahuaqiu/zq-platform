@@ -1,0 +1,133 @@
+<h2>测试报告列表页布局方案（修订版）</h2>
+<p class="subtitle">简化同比变化展示</p>
+
+<div class="mockup">
+  <div class="mockup-header">测试报告列表页</div>
+  <div class="mockup-body">
+    <!-- 筛选区 -->
+    <div style="background:#fff;padding:16px;border-bottom:1px solid #e8e8e8;">
+      <div style="display:flex;gap:16px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:13px;color:#666;">任务名称：</span>
+          <input type="text" class="mock-input" placeholder="请输入任务名称" style="width:240px;padding:6px 12px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px;">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="mock-button" style="padding:6px 16px;background:#1890ff;color:#fff;border-radius:4px;">查询</button>
+          <button class="mock-button" style="padding:6px 16px;border:1px solid #d9d9d9;border-radius:4px;">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据表格区 -->
+    <div style="padding:16px;background:#f5f7fa;">
+      <div style="background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#fafafa;">
+              <th style="padding:10px;border-bottom:1px solid #e8e8e8;text-align:left;width:35%;">任务名称</th>
+              <th style="padding:10px;border-bottom:1px solid #e8e8e8;text-align:left;width:20%;">执行时间</th>
+              <th style="padding:10px;border-bottom:1px solid #e8e8e8;text-align:center;width:15%;">最终失败总数</th>
+              <th style="padding:10px;border-bottom:1px solid #e8e8e8;text-align:center;width:15%;">同比变化</th>
+              <th style="padding:10px;border-bottom:1px solid #e8e8e8;text-align:center;width:15%;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">登录模块回归测试_2026-03-29</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">2026-03-29 14:30</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="font-size:16px;font-weight:600;color:#ff4d4f;">12</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="color:#52c41a;font-weight:600;">↓3</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <a style="color:#1890ff;cursor:pointer;">查看详情</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">登录模块回归测试_2026-03-28</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">2026-03-28 10:15</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="font-size:16px;font-weight:600;color:#ff4d4f;">15</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="color:#ff4d4f;font-weight:600;">↑2</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <a style="color:#1890ff;cursor:pointer;">查看详情</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">订单模块回归测试_2026-03-29</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">2026-03-29 16:00</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="font-size:16px;font-weight:600;color:#52c41a;">0</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="color:#52c41a;font-weight:600;">↓5</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <a style="color:#1890ff;cursor:pointer;">查看详情</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">支付模块回归测试_2026-03-29</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">2026-03-29 18:30</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="font-size:16px;font-weight:600;color:#ff4d4f;">8</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="color:#999;">--</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <a style="color:#1890ff;cursor:pointer;">查看详情</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">登录模块回归测试_2026-03-27</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;">2026-03-27 09:00</td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="font-size:16px;font-weight:600;color:#ff4d4f;">13</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <span style="color:#999;">--</span>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">
+                <a style="color:#1890ff;cursor:pointer;">查看详情</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 分页 -->
+        <div style="display:flex;justify-content:flex-end;padding:12px 0;margin-top:12px;border-top:1px solid #f0f0f0;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#666;">
+            <span>共 5 条</span>
+            <span style="margin-left:16px;">第 1 / 1 页</span>
+            <button class="mock-button" style="padding:4px 8px;border:1px solid #d9d9d9;border-radius:4px;">上一页</button>
+            <button class="mock-button" style="padding:4px 8px;border:1px solid #d9d9d9;border-radius:4px;">下一页</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:16px;color:#666;">请查看修订后的列表页，同比变化只显示↓3 或 ↑2：</p>
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>满意，继续设计表结构</h3>
+      <p>列表页布局确认，可以继续设计数据库表结构</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>还需要调整</h3>
+      <p>请在回复中说明需要修改的地方</p>
+    </div>
+  </div>
+</div>

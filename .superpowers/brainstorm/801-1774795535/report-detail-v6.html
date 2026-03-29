@@ -1,0 +1,160 @@
+<h2>测试报告详情页布局方案（修订版 V6）</h2>
+<p class="subtitle">增加用例总数和通过率字段</p>
+
+<div class="mockup">
+  <div class="mockup-header">测试报告详情页</div>
+  <div class="mockup-body">
+    <!-- 顶部信息区 -->
+    <div style="background:#f5f7fa;padding:12px 16px;border-bottom:1px solid #e8e8e8;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span style="font-size:18px;font-weight:600;">任务名称：登录模块回归测试_2026-03-29</span>
+          <span style="margin-left:12px;color:#666;">执行时间：2026-03-29 14:30</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="mock-button" style="padding:4px 12px;">导出报告</button>
+          <button class="mock-button" style="padding:4px 12px;background:#1890ff;color:#fff;">返回列表</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计卡片区（增加用例总数、通过率） -->
+    <div style="display:flex;gap:16px;padding:16px;background:#fff;">
+      <div style="flex:1;background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:600;color:#1890ff;">120</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">用例总数</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:600;color:#52c41a;">90%</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">通过率</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:600;color:#ff4d4f;">12</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">失败总数</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:600;color:#52c41a;">↓3</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">同比上次执行</div>
+        <div style="font-size:11px;color:#999;margin-top:2px;">上次失败15个</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:600;color:#faad14;">5</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">每轮都失败</div>
+        <div style="font-size:11px;color:#999;margin-top:2px;">重点关注</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid #e8e8e8;border-radius:4px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:600;color:#1890ff;">7</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">不稳定用例</div>
+        <div style="font-size:11px;color:#999;margin-top:2px;">重试后通过</div>
+      </div>
+    </div>
+
+    <!-- AI分析区 -->
+    <div style="padding:16px;background:#fff;border-top:1px solid #e8e8e8;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px;">🤖 AI 分析结论</div>
+      <div style="background:#f5f7fa;border-radius:4px;padding:16px;color:#666;">
+        <p style="margin:0;">等待AI分析任务执行...（可配置定时任务触发分析）</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#999;">分析内容将包括：失败原因归类、可能的根因建议、需要关注的用例列表</p>
+      </div>
+    </div>
+
+    <!-- 轮次分析区 -->
+    <div style="padding:16px;background:#f5f7fa;border-top:1px solid #e8e8e8;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px;">轮次分析</div>
+      <div style="display:flex;gap:12px;">
+        <div style="background:#fff;border:1px solid #ff4d4f;border-radius:4px;padding:12px 20px;display:flex;align-items:center;gap:8px;">
+          <div style="font-size:24px;font-weight:600;color:#ff4d4f;">17</div>
+          <div style="font-size:13px;color:#666;">第1轮失败</div>
+        </div>
+        <div style="background:#fff;border:1px solid #faad14;border-radius:4px;padding:12px 20px;display:flex;align-items:center;gap:8px;">
+          <div style="font-size:24px;font-weight:600;color:#faad14;">12</div>
+          <div style="font-size:13px;color:#666;">第2轮失败</div>
+        </div>
+        <div style="background:#fff;border:1px solid #52c41a;border-radius:4px;padding:12px 20px;display:flex;align-items:center;gap:8px;">
+          <div style="font-size:24px;font-weight:600;color:#52c41a;">12</div>
+          <div style="font-size:13px;color:#666;">第3轮失败</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 失败步骤分布 -->
+    <div style="padding:16px;background:#fff;border-top:1px solid #e8e8e8;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px;">失败步骤分布（Top 20）</div>
+      <div style="background:#f5f7fa;border-radius:4px;padding:16px;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;">
+            <div style="width:140px;font-size:13px;color:#333;">断言失败</div>
+            <div style="background:#ff4d4f;height:20px;border-radius:2px;width:160px;display:inline-block;"></div>
+            <span style="font-size:13px;color:#666;margin-left:6px;">8</span>
+          </div>
+          <div style="display:flex;align-items:center;">
+            <div style="width:140px;font-size:13px;color:#333;">元素定位失败</div>
+            <div style="background:#faad14;height:20px;border-radius:2px;width:100px;display:inline-block;"></div>
+            <span style="font-size:13px;color:#666;margin-left:6px;">5</span>
+          </div>
+          <div style="display:flex;align-items:center;">
+            <div style="width:140px;font-size:13px;color:#333;">超时等待</div>
+            <div style="background:#1890ff;height:20px;border-radius:2px;width:80px;display:inline-block;"></div>
+            <span style="font-size:13px;color:#666;margin-left:6px;">4</span>
+          </div>
+          <div style="display:flex;align-items:center;">
+            <div style="width:140px;font-size:13px;color:#333;">接口异常</div>
+            <div style="background:#52c41a;height:20px;border-radius:2px;width:40px;display:inline-block;"></div>
+            <span style="font-size:13px;color:#666;margin-left:6px;">2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分类详情Tab区 -->
+    <div style="padding:16px;background:#f5f7fa;border-top:1px solid #e8e8e8;">
+      <div style="display:flex;gap:4px;margin-bottom:16px;">
+        <div style="background:#1890ff;color:#fff;padding:8px 16px;border-radius:4px 4px 0 0;font-size:13px;">最终失败（12）</div>
+        <div style="background:#fff;padding:8px 16px;border-radius:4px 4px 0 0;font-size:13px;border:1px solid #e8e8e8;border-bottom:none;">每轮都失败（5）</div>
+        <div style="background:#fff;padding:8px 16px;border-radius:4px 4px 0 0;font-size:13px;border:1px solid #e8e8e8;border-bottom:none;">不稳定用例（7）</div>
+        <div style="background:#fff;padding:8px 16px;border-radius:4px 4px 0 0;font-size:13px;border:1px solid #e8e8e8;border-bottom:none;">全部记录（24）</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e8e8e8;border-radius:0 4px 4px 4px;padding:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#fafafa;">
+              <th style="padding:8px;border-bottom:1px solid #e8e8e8;text-align:left;width:25%;">用例名称</th>
+              <th style="padding:8px;border-bottom:1px solid #e8e8e8;text-align:left;width:15%;">失败步骤</th>
+              <th style="padding:8px;border-bottom:1px solid #e8e8e8;text-align:left;width:40%;">失败日志</th>
+              <th style="padding:8px;border-bottom:1px solid #e8e8e8;text-align:left;width:10%;">失败时间</th>
+              <th style="padding:8px;border-bottom:1px solid #e8e8e8;text-align:center;width:10%;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;">登录-密码错误提示验证</td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#ff4d4f;">断言失败</td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;">
+                <div style="background:#fafafa;padding:6px 10px;border-radius:4px;font-size:12px;color:#666;max-height:40px;overflow:hidden;">
+                  AssertionError: Expected '密码错误' but got '账户不存在'...
+                </div>
+                <a style="font-size:12px;color:#1890ff;margin-top:4px;cursor:pointer;">点击展开</a>
+              </td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;">14:35</td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:center;"><a style="color:#1890ff;cursor:pointer;">查看完整日志</a></td>
+            </tr>
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;">登录-账号锁定验证</td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#faad14;">元素定位失败</td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;">
+                <div style="background:#fafafa;padding:6px 10px;border-radius:4px;font-size:12px;color:#666;max-height:40px;overflow:hidden;">
+                  NoSuchElementException: Unable to locate element...
+                </div>
+                <a style="font-size:12px;color:#1890ff;margin-top:4px;cursor:pointer;">点击展开</a>
+              </td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;">14:38</td>
+              <td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:center;"><a style="color:#1890ff;cursor:pointer;">查看完整日志</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:16px;color:#666;">详情页统计区已增加用例总数、通过率，共6个卡片。</p>
