@@ -22,14 +22,14 @@ logger = get_logger("request")
 # 最大响应体记录大小（10KB）
 MAX_RESPONSE_BODY_SIZE = 10 * 1024
 
-# 跳过日志记录的静态路径
-SKIP_LOG_PATHS = {
-    "/",
+# 不记录日志的路径（静态资源、文档等）
+SKIP_PATHS = [
     "/docs",
     "/redoc",
     "/openapi.json",
     "/health",
-}
+    "/",
+]
 
 
 class RequestLogMiddleware(BaseHTTPMiddleware):
@@ -50,7 +50,7 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # 跳过静态路径
-        if path in SKIP_LOG_PATHS:
+        if path in SKIP_PATHS:
             return await call_next(request)
 
         # 跳过 WebSocket 请求
