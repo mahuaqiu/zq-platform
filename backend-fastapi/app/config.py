@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Access Token过期时间（分钟）
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh Token过期时间（天）
 
+    # 测试报告配置
+    ANALYZE_TIMEOUT_MINUTES: int = 30  # 超时自动分析时间（分钟）
+    AI_ANALYSIS_SERVICE_URL: Optional[str] = None  # 本地AI服务地址（后续规划）
+    TEST_REPORT_API_TOKEN: Optional[str] = None  # 上报API专用Token（认证）
+
     # 文件存储配置
     FILE_STORAGE_TYPE: str = "minio"  # local/oss/minio/azure
     FILE_STORAGE_LOCAL_PATH: Optional[str] = None  # 本地存储路径
