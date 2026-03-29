@@ -84,7 +84,20 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
         logger.info(f"HTTP Request: {json.dumps(log_data, ensure_ascii=False)}")
 
         # 调用下一个中间件/路由处理器
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            # 记录请求异常
+            elapsed_time = time.perf_counter() - start_time
+            logger.error(f"HTTP Request Exception: {json.dumps({
+                'type': 'exception',
+                'method': request.method,
+                'path': path,
+                'client_ip': client_ip,
+                'elapsed_ms': round(elapsed_time * 1000, 2),
+                'error': str(e)
+            }, ensure_ascii=False)}")
+            raise
 
         # 计算耗时
         elapsed_time = time.perf_counter() - start_time
