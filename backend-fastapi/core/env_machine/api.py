@@ -388,6 +388,12 @@ async def update_env_machine(
     if not machine:
         raise HTTPException(status_code=404, detail="执行机不存在")
 
+    # 校验 mark 字段中的每个标签
+    if data.mark:
+        is_valid, error_msg = EnvPoolManager.validate_mark_field(data.mark)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
+
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(machine, key, value)

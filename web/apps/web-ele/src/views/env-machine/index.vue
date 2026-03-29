@@ -29,7 +29,7 @@ import {
 } from '#/api/core/env-machine';
 import type { EnvMachineCreateParams, EnvMachineUpdateParams } from '#/api/core/env-machine';
 
-import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice } from './types';
+import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice, validateMarkField, ALLOWED_TAG_PREFIXES } from './types';
 
 defineOptions({ name: 'EnvMachinePage' });
 
@@ -72,6 +72,12 @@ const formData = ref({
 
 // JSON 格式错误提示
 const jsonError = ref('');
+
+// 标签格式错误提示
+const markError = ref('');
+
+// 标签格式提示
+const MARK_FORMAT_TIP = `标签格式：前缀(_可选后缀)，多个用逗号分隔。前缀可选：${ALLOWED_TAG_PREFIXES.join('/')}。例如：windows, web, android_phone`;
 
 // 扩展信息示例 JSON（按标签存储）
 const EXTRA_MESSAGE_EXAMPLE = `{
@@ -187,6 +193,7 @@ function handleCreate() {
     extra_message_raw: '',
   };
   jsonError.value = '';
+  markError.value = '';
   dialogVisible.value = true;
 }
 
@@ -205,6 +212,7 @@ function handleEdit(row: EnvMachine) {
     extra_message_raw: row.extra_message ? JSON.stringify(row.extra_message, null, 2) : '',
   };
   jsonError.value = '';
+  markError.value = '';
   dialogVisible.value = true;
 }
 
@@ -246,12 +254,33 @@ function validateJson(): Record<string, any> | null {
   }
 }
 
+// 验证标签格式
+function validateMark(): boolean {
+  const mark = formData.value.mark?.trim();
+  const result = validateMarkField(mark || '');
+  markError.value = result.error;
+  return result.valid;
+}
+
+// 监听标签变化，实时校验
+watch(() => formData.value.mark, () => {
+  validateMark();
+});
+
 // 提交表单
 async function handleSubmit() {
   // 资产编号必填校验
   if (assetNumberRequired.value && !formData.value.asset_number) {
     ElMessage.warning('请输入资产编号');
     return;
+  }
+
+  // 标签格式校验（编辑模式下）
+  if (isEdit.value && formData.value.mark) {
+    if (!validateMark()) {
+      ElMessage.warning(markError.value);
+      return;
+    }
   }
 
   // 非手工页面编辑模式下，验证扩展信息
@@ -653,7 +682,15 @@ onMounted(() => {
         <!-- 编辑模式额外字段 -->
         <template v-if="isEdit">
           <ElFormItem label="标签">
-            <ElInput v-model="formData.mark" placeholder="请输入标签" />
+            <div style="width: 100%">
+              <ElInput v-model="formData.mark" placeholder="请输入标签，多个用逗号分隔" />
+              <div v-if="markError" style="color: #f56c6c; font-size: 12px; margin-top: 4px">
+                {{ markError }}
+              </div>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px">
+                {{ MARK_FORMAT_TIP }}
+              </div>
+            </div>
           </ElFormItem>
           <ElFormItem label="是否启用">
             <ElSelect v-model="formData.available" style="width: 100%">

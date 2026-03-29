@@ -8,6 +8,7 @@
 @Desc: 执行机池缓存管理器 - Redis 缓存操作和机器分配逻辑
 """
 import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -52,6 +53,70 @@ class EnvPoolManager:
     POOL_PREFIX = "env_pool:"  # 机器池缓存前缀
     MANUAL_NAMESPACE = "manual"  # 不加入缓存的 namespace
     PUBLIC_NAMESPACE = "public"  # 公共机器池
+
+    # 标签允许的前缀列表
+    ALLOWED_TAG_PREFIXES = ("windows", "web", "android", "ios", "mac")
+
+    @classmethod
+    def validate_single_tag(cls, tag: str) -> tuple[bool, str]:
+        """
+        校验单个标签格式
+
+        规则：
+        - 必须小写
+        - 前缀必须是允许列表之一：windows/web/android/ios/mac
+        - 下划线后必须有内容（不能以 _ 结尾）
+
+        Args:
+            tag: 单个标签字符串
+
+        Returns:
+            tuple: (是否合法, 错误信息)
+        """
+        if not tag:
+            return False, "标签不能为空"
+
+        if not tag.islower():
+            return False, "标签必须小写"
+
+        prefix = tag.split("_")[0]
+        if prefix not in cls.ALLOWED_TAG_PREFIXES:
+            return False, f"标签前缀必须是 {cls.ALLOWED_TAG_PREFIXES} 之一"
+
+        # 检查下划线后是否有内容
+        if "_" in tag:
+            suffix = tag.split("_", 1)[1]
+            if not suffix:
+                return False, "标签下划线后必须有内容"
+
+        return True, ""
+
+    @classmethod
+    def validate_mark_field(cls, mark: Optional[str]) -> tuple[bool, str]:
+        """
+        校验 mark 字段（多个标签用逗号分隔）
+
+        支持英文逗号、中文逗号、顿号作为分隔符
+
+        Args:
+            mark: 标签字符串，如 "windows,web" 或 "windows，web" 或 "windows、web"
+
+        Returns:
+            tuple: (是否合法, 错误信息)
+        """
+        if not mark:
+            return True, ""  # 空 mark 是允许的
+
+        # 支持多种分隔符：英文逗号、中文逗号、顿号
+        tags = [t.strip() for t in re.split(r'[,,、]', mark)]
+        for tag in tags:
+            if not tag:
+                continue
+            is_valid, error_msg = cls.validate_single_tag(tag)
+            if not is_valid:
+                return False, f"标签 '{tag}' 不合法：{error_msg}"
+
+        return True, ""
 
     @classmethod
     def _get_pool_key(cls, namespace: str) -> str:
@@ -184,10 +249,11 @@ class EnvPoolManager:
         """
         检查机器标签是否匹配申请标签
 
-        申请标签需完全匹配机器 mark 字段中的某一个标签（按逗号分隔）
+        申请标签需完全匹配机器 mark 字段中的某一个标签
+        支持多种分隔符：英文逗号、中文逗号、顿号
 
         Args:
-            mark: 机器标签字符串（如 "windows,web"）
+            mark: 机器标签字符串（如 "windows,web" 或 "windows、web"）
             request_tag: 申请的标签
 
         Returns:
@@ -196,7 +262,7 @@ class EnvPoolManager:
         if not mark:
             return False
 
-        tags = [t.strip() for t in mark.split(",")]
+        tags = [t.strip() for t in re.split(r'[,,、]', mark)]
         return request_tag in tags
 
     @classmethod
@@ -211,6 +277,9 @@ class EnvPoolManager:
         基础字段：id, ip, port, device_type, device_sn
         扩展字段：从 extra_message[申请标签] 中取所有字段合并到响应
 
+        注意：返回的 device_type 是从申请标签提取的前缀，
+        例如申请 web_browser 标签时返回 device_type: web
+
         Args:
             machine_data: 机器缓存数据
             request_tag: 申请的标签
@@ -218,12 +287,15 @@ class EnvPoolManager:
         Returns:
             dict: 合并后的分配信息
         """
+        # 从申请标签提取 device_type（取前缀）
+        device_type = request_tag.split("_")[0]
+
         # 基础字段
         result = {
             "id": machine_data.get("id"),
             "ip": machine_data.get("ip"),
             "port": machine_data.get("port"),
-            "device_type": machine_data.get("device_type"),
+            "device_type": device_type,  # 使用标签前缀
             "device_sn": machine_data.get("device_sn"),
         }
 
@@ -561,7 +633,8 @@ class EnvPoolManager:
             stats["by_device_type"][device_type] = stats["by_device_type"].get(device_type, 0) + 1
 
             mark = machine_data.get("mark", "")
-            for tag in mark.split(","):
+            # 支持多种分隔符：英文逗号、中文逗号、顿号
+            for tag in re.split(r'[,,、]', mark):
                 tag = tag.strip()
                 if tag:
                     stats["by_mark"][tag] = stats["by_mark"].get(tag, 0) + 1
