@@ -13,7 +13,6 @@ WebSocket 基础消费者类
 """
 import asyncio
 import json
-import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, Set
 from urllib.parse import parse_qs
@@ -21,9 +20,10 @@ from urllib.parse import parse_qs
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.config import settings
+from utils.logging_config import get_logger
 from utils.security import verify_access_token
 
-logger = logging.getLogger(__name__)
+logger = get_logger("websocket")
 
 
 class ConnectionManager:
@@ -117,7 +117,7 @@ class TokenAuthWebSocketConsumer:
                 token = token_list[0]
         
         if not token:
-            logger.warning("WebSocket connection rejected: No token provided")
+            logger.warning(f"WebSocket连接被拒绝: 未提供Token | 路径: {self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'}")
             # 必须先accept才能close
             await self.websocket.accept()
             await self.websocket.close(code=4001)
@@ -128,25 +128,25 @@ class TokenAuthWebSocketConsumer:
             payload = verify_access_token(token)
             
             if not payload:
-                logger.warning("WebSocket connection rejected: Invalid token")
+                logger.warning(f"WebSocket连接被拒绝: Token无效 | 路径: {self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'}")
                 await self.websocket.accept()
                 await self.websocket.close(code=4001)
                 return False
-            
+
             user_id = payload.get('sub')
             if not user_id:
-                logger.warning("WebSocket connection rejected: Invalid token payload")
+                logger.warning(f"WebSocket连接被拒绝: Token payload无效 | 路径: {self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'}")
                 await self.websocket.accept()
                 await self.websocket.close(code=4001)
                 return False
-            
+
             self.user_id = user_id
             self.is_authenticated = True
-            logger.info(f"WebSocket connection accepted for user {user_id}")
+            logger.info(f"WebSocket连接建立 | 路径: {self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'} | 用户ID: {user_id}")
             return True
-            
+
         except Exception as e:
-            logger.error(f"WebSocket authentication failed: {str(e)}")
+            logger.error(f"WebSocket认证失败 | 路径: {self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'} | 异常: {str(e)}")
             await self.websocket.accept()
             await self.websocket.close(code=4001)
             return False
@@ -158,9 +158,12 @@ class TokenAuthWebSocketConsumer:
     
     async def disconnect(self, close_code: int = 1000):
         """断开连接"""
+        path = self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'
         if self.user_id:
             manager.disconnect(self.websocket, self.user_id)
-        logger.info(f"WebSocket disconnected with code {close_code}")
+            logger.info(f"WebSocket连接断开 | 路径: {path} | 用户ID: {self.user_id} | 关闭码: {close_code}")
+        else:
+            logger.info(f"WebSocket连接断开 | 路径: {path} | 关闭码: {close_code}")
     
     async def receive(self, text_data: str):
         """接收消息的基础处理"""
@@ -177,7 +180,8 @@ class TokenAuthWebSocketConsumer:
         except json.JSONDecodeError:
             await self.send_error('Invalid JSON format')
         except Exception as e:
-            logger.error(f"Error receiving message: {str(e)}")
+            path = self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'
+            logger.error(f"WebSocket接收消息异常 | 路径: {path} | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.send_error(f'处理消息时出错: {str(e)}')
     
     async def handle_message(self, data: Dict[str, Any]):
@@ -214,5 +218,6 @@ class TokenAuthWebSocketConsumer:
         except WebSocketDisconnect as e:
             await self.disconnect(e.code)
         except Exception as e:
-            logger.error(f"WebSocket error: {str(e)}")
+            path = self.websocket.url.path if hasattr(self.websocket, 'url') else 'unknown'
+            logger.error(f"WebSocket异常 | 路径: {path} | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.disconnect(1011)

@@ -11,14 +11,14 @@
 服务器监控 WebSocket 消费者
 """
 import asyncio
-import logging
 from typing import Dict, Any, Optional
 
 from fastapi import WebSocket
 
 from core.websocket.consumers.base import TokenAuthWebSocketConsumer, manager
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("websocket")
 
 
 class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
@@ -39,7 +39,7 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
                 from core.server_monitor.server_info import ServerInfoCollector
                 self.server_collector = ServerInfoCollector()
             except ImportError:
-                logger.warning("ServerInfoCollector not available")
+                logger.warning(f"ServerInfoCollector未安装 | 用户ID: {self.user_id or 'unknown'}")
         return self.server_collector
     
     async def connect(self):
@@ -89,9 +89,10 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
         if self.is_monitoring:
             await self.send_message('monitor_status', '监控已在运行')
             return
-        
+
         self.is_monitoring = True
         self.monitor_task = asyncio.create_task(self.monitor_loop())
+        logger.info(f"服务器监控开始 | 用户ID: {self.user_id or 'unknown'} | 间隔: {self.monitor_interval}秒")
         await self.send_message('monitor_started', f'开始监控，间隔{self.monitor_interval}秒')
     
     async def stop_monitoring(self):
@@ -104,6 +105,7 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
             except asyncio.CancelledError:
                 pass
             self.monitor_task = None
+        logger.info(f"服务器监控停止 | 用户ID: {self.user_id or 'unknown'}")
         await self.send_message('monitor_stopped', '监控已停止')
     
     async def restart_monitoring(self):
@@ -119,19 +121,19 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
                 try:
                     await self.send_realtime_stats()
                 except Exception as e:
-                    logger.error(f"发送实时数据失败: {str(e)}")
+                    logger.error(f"发送实时数据失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
                     # 发送错误消息但不停止监控循环
                     try:
                         await self.send_error(f'获取监控数据失败: {str(e)}')
                     except:
                         pass
-                
+
                 # 等待下一次监控间隔
                 await asyncio.sleep(self.monitor_interval)
         except asyncio.CancelledError:
-            logger.info("监控循环被取消")
+            logger.info(f"监控循环被取消 | 用户ID: {self.user_id or 'unknown'}")
         except Exception as e:
-            logger.error(f"监控循环严重错误: {str(e)}")
+            logger.error(f"监控循环严重错误 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             self.is_monitoring = False
     
     async def send_server_overview(self):
@@ -141,14 +143,14 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
             if collector is None:
                 await self.send_error('服务器监控模块未安装')
                 return
-            
+
             # 在线程池中执行同步方法
             loop = asyncio.get_event_loop()
             overview_data = await loop.run_in_executor(None, collector.get_all_info)
-            
+
             await self.send_message('server_overview', '服务器概览信息', overview_data)
         except Exception as e:
-            logger.error(f"获取服务器概览失败: {str(e)}")
+            logger.error(f"获取服务器概览失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.send_error(f'获取服务器概览失败: {str(e)}')
     
     async def send_realtime_stats(self):
@@ -158,12 +160,12 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
             if collector is None:
                 await self.send_error('服务器监控模块未安装')
                 return
-            
+
             # 在线程池中执行同步方法
             loop = asyncio.get_event_loop()
             realtime_data = await loop.run_in_executor(None, collector.get_realtime_stats)
-            
+
             await self.send_message('realtime_stats', '实时统计信息', realtime_data)
         except Exception as e:
-            logger.error(f"获取实时统计失败: {str(e)}")
+            logger.error(f"获取实时统计失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.send_error(f'获取实时统计失败: {str(e)}')

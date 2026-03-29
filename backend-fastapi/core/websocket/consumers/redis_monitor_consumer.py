@@ -11,15 +11,15 @@
 Redis 监控 WebSocket 消费者
 """
 import asyncio
-import logging
 from typing import Dict, Any, Optional
 
 from fastapi import WebSocket
 
 from app.config import settings
 from core.websocket.consumers.base import TokenAuthWebSocketConsumer, manager
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("websocket")
 
 
 class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
@@ -80,9 +80,10 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
         if self.is_monitoring:
             await self.send_message('monitor_status', 'Redis监控已在运行')
             return
-        
+
         self.is_monitoring = True
         self.monitor_task = asyncio.create_task(self.monitor_loop())
+        logger.info(f"Redis监控开始 | 用户ID: {self.user_id or 'unknown'}")
         await self.send_message('monitor_started', f'开始Redis监控，间隔{self.monitor_interval}秒')
     
     async def stop_monitoring(self):
@@ -95,6 +96,7 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
             except asyncio.CancelledError:
                 pass
             self.monitor_task = None
+        logger.info(f"Redis监控停止 | 用户ID: {self.user_id or 'unknown'}")
         await self.send_message('monitor_stopped', 'Redis监控已停止')
     
     async def restart_monitoring(self):
@@ -110,35 +112,35 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
                 try:
                     await self.send_realtime_stats()
                 except Exception as e:
-                    logger.error(f"发送Redis实时数据失败: {str(e)}")
+                    logger.error(f"发送Redis实时数据失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
                     # 发送错误消息但不停止监控循环
                     try:
                         await self.send_error(f'获取Redis监控数据失败: {str(e)}')
                     except:
                         pass
-                
+
                 # 等待下一次监控间隔
                 await asyncio.sleep(self.monitor_interval)
         except asyncio.CancelledError:
-            logger.info("Redis监控循环被取消")
+            logger.info(f"Redis监控循环被取消 | 用户ID: {self.user_id or 'unknown'}")
         except Exception as e:
-            logger.error(f"Redis监控循环严重错误: {str(e)}")
+            logger.error(f"Redis监控循环严重错误 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             self.is_monitoring = False
     
     def _get_redis_collector(self):
         """获取Redis信息收集器"""
         try:
             from core.redis_monitor import RedisInfoCollector
-            
+
             # 从配置中获取Redis配置
             redis_host = settings.REDIS_HOST
             redis_port = settings.REDIS_PORT
             redis_password = settings.REDIS_PASSWORD or None
             redis_db = settings.REDIS_DB
-            
+
             if redis_password == '':
                 redis_password = None
-            
+
             return RedisInfoCollector(
                 host=redis_host,
                 port=redis_port,
@@ -146,7 +148,7 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
                 db=redis_db
             )
         except ImportError:
-            logger.warning("RedisInfoCollector not available")
+            logger.warning(f"RedisInfoCollector未安装 | 用户ID: {self.user_id or 'unknown'}")
             return None
     
     async def send_redis_overview(self):
@@ -156,19 +158,19 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
             if collector is None:
                 await self.send_error('Redis监控模块未安装')
                 return
-            
+
             # 在线程池中执行同步方法
             loop = asyncio.get_event_loop()
             overview_data = await loop.run_in_executor(
-                None, 
-                collector.get_all_info, 
-                'project_redis', 
+                None,
+                collector.get_all_info,
+                'project_redis',
                 '项目Redis'
             )
-            
+
             await self.send_message('redis_overview', 'Redis概览信息', overview_data)
         except Exception as e:
-            logger.error(f"获取Redis概览失败: {str(e)}")
+            logger.error(f"获取Redis概览失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.send_error(f'获取Redis概览失败: {str(e)}')
     
     async def send_realtime_stats(self):
@@ -178,7 +180,7 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
             if collector is None:
                 await self.send_error('Redis监控模块未安装')
                 return
-            
+
             # 在线程池中执行同步方法
             loop = asyncio.get_event_loop()
             realtime_data = await loop.run_in_executor(
@@ -186,10 +188,10 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
                 collector.get_realtime_stats,
                 'project_redis'
             )
-            
+
             await self.send_message('redis_realtime', 'Redis实时统计', realtime_data)
         except Exception as e:
-            logger.error(f"获取Redis实时统计失败: {str(e)}")
+            logger.error(f"获取Redis实时统计失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.send_error(f'获取Redis实时统计失败: {str(e)}')
     
     async def test_redis_connection(self):
@@ -199,12 +201,12 @@ class RedisMonitorConsumer(TokenAuthWebSocketConsumer):
             if collector is None:
                 await self.send_error('Redis监控模块未安装')
                 return
-            
+
             # 在线程池中执行同步方法
             loop = asyncio.get_event_loop()
             test_result = await loop.run_in_executor(None, collector.test_connection)
-            
+
             await self.send_message('connection_test', 'Redis连接测试结果', test_result)
         except Exception as e:
-            logger.error(f"Redis连接测试失败: {str(e)}")
+            logger.error(f"Redis连接测试失败 | 用户ID: {self.user_id or 'unknown'} | 异常: {str(e)}")
             await self.send_error(f'Redis连接测试失败: {str(e)}')
