@@ -8,12 +8,12 @@
 @Desc: APScheduler 调度器服务 - 单例模式封装
 """
 import asyncio
-import logging
 from typing import Optional
 
 from apscheduler import AsyncScheduler
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("scheduler")
 
 
 class SchedulerService:
