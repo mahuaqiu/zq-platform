@@ -21,6 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.base_service import BaseService
 from core.user.model import User
 from core.user.schema import UserCreate, UserUpdate
+from utils.logging_config import get_logger
+
+logger = get_logger("user_service")
 
 # 密码加密上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -129,13 +132,46 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
         user_data = data.model_dump()
         # 加密密码
         user_data["password"] = cls.hash_password('123456')
-        
+
         db_obj = User(**user_data)
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)
+        logger.info(f"用户创建 | 用户名: {db_obj.username}")
         return db_obj
-    
+
+    @classmethod
+    async def update(
+        cls,
+        db: AsyncSession,
+        record_id: str,
+        data: UserUpdate,
+        auto_commit: bool = True
+    ) -> Optional[User]:
+        """
+        更新用户
+        """
+        result = await super().update(db, record_id, data, auto_commit)
+        if result:
+            logger.info(f"用户更新 | 用户ID: {record_id}")
+        return result
+
+    @classmethod
+    async def delete(
+        cls,
+        db: AsyncSession,
+        record_id: str,
+        hard: bool = False,
+        auto_commit: bool = True
+    ) -> bool:
+        """
+        删除用户
+        """
+        result = await super().delete(db, record_id, hard, auto_commit)
+        if result:
+            logger.info(f"用户删除 | 用户ID: {record_id}")
+        return result
+
     @classmethod
     async def get_by_username(cls, db: AsyncSession, username: str) -> Optional[User]:
         """
