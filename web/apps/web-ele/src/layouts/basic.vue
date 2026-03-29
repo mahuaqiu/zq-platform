@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, watch } from 'vue';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
@@ -10,36 +10,14 @@ import { preferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
-import NotificationPopup from '#/components/notification/NotificationPopup.vue';
-import { useNotification } from '#/composables/useNotification';
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
-
-// 使用消息通知 composable
-const {
-  announcements,
-  announcementUnreadCount,
-  showDot,
-  markAnnouncementAsRead,
-  viewAllMessages,
-  init: initNotification,
-  cleanup: cleanupNotification,
-} = useNotification();
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const accessStore = useAccessStore();
 const { destroyWatermark, updateWatermark } = useWatermark();
-
-// 初始化消息通知
-onMounted(() => {
-  initNotification();
-});
-
-onUnmounted(() => {
-  cleanupNotification();
-});
 
 const menus = computed(() => [
   {
@@ -74,7 +52,6 @@ const menus = computed(() => [
 const avatar = computed(() => {
   const avatarPath = userStore.userInfo?.avatar;
   if (avatarPath) {
-    // 直接使用头像路径
     return avatarPath;
   }
   return preferences.app.defaultAvatar;
@@ -82,14 +59,6 @@ const avatar = computed(() => {
 
 async function handleLogout() {
   await authStore.logout(false);
-}
-
-function handleAnnouncementRead(item: any) {
-  markAnnouncementAsRead(item);
-}
-
-function handleViewAll() {
-  viewAllMessages();
 }
 
 watch(
@@ -124,15 +93,6 @@ watch(
         description="jiangzhikj@outlook.com"
         tag-text="Pro"
         @logout="handleLogout"
-      />
-    </template>
-    <template #notification>
-      <NotificationPopup
-        :dot="showDot"
-        :announcements="announcements"
-        :announcement-unread-count="announcementUnreadCount"
-        @read-announcement="handleAnnouncementRead"
-        @view-all="handleViewAll"
       />
     </template>
     <template #extra>
