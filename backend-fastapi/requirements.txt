@@ -21,3 +21,4 @@ httpx==0.27.0
 minio==7.2.16
 psutil==7.2.1
 websockets==15.0.1
+loguru>=0.7.0
