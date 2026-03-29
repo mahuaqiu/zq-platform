@@ -8,7 +8,6 @@
 @Desc: 执行机池缓存管理器 - Redis 缓存操作和机器分配逻辑
 """
 import json
-import logging
 from datetime import datetime
 from typing import Optional
 
@@ -19,12 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.env_machine.lock_manager import EnvLockManager, LockAcquireError
 from core.env_machine.model import EnvMachine
 from core.env_machine.schema import EnvMachineAllocation
+from utils.logging_config import get_logger
 from utils.redis import RedisClient, cache
 
 # 延迟释放任务管理
 from core.env_machine.scheduler import create_release_job, remove_release_job, modify_release_job
 
-logger = logging.getLogger(__name__)
+logger = get_logger("env_machine")
 
 
 class EnvPoolManager:
@@ -103,6 +103,8 @@ class EnvPoolManager:
             pool_key = cls._get_pool_key(namespace)
             if machine_data:
                 await client.hset(pool_key, mapping=machine_data)
+
+        logger.info(f"执行机池加载完成 | 机器数: {len(machines)}")
 
     @classmethod
     async def sync_machine_to_cache(cls, machine: EnvMachine) -> None:
@@ -307,6 +309,8 @@ class EnvPoolManager:
                     # 记录分配结果
                     allocations[user] = allocated
                     allocated_machine_ids.append(allocated["id"])
+                    # 记录分配日志
+                    logger.info(f"执行机分配 | 机器ID: {allocated['id']} | 用户: {user} | 标签: {request_tag}")
 
                 # 6. 分配成功，更新数据库
                 now = datetime.now()
@@ -463,9 +467,14 @@ class EnvPoolManager:
         if not machine:
             return False, "机器不存在"
 
+        # 记录状态变更
+        old_status = machine.status
         # 更新状态
         machine.status = status
         await db.commit()
+
+        # 记录状态变更日志
+        logger.info(f"执行机状态变更 | 机器ID: {machine_id} | 状态: {old_status} -> {status}")
 
         # 同步到缓存
         await cls.sync_machine_to_cache(machine)
