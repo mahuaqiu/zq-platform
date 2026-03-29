@@ -192,9 +192,13 @@ function handleDelete(row: EnvMachine) {
   });
 }
 
+// 资产编号是否必填：手工使用页面必填，或非手工使用页面的新增模式必填
+const assetNumberRequired = computed(() => isManual.value || !isEdit.value);
+
 // 提交表单
 async function handleSubmit() {
-  if (!formData.value.asset_number) {
+  // 资产编号必填校验
+  if (assetNumberRequired.value && !formData.value.asset_number) {
     ElMessage.warning('请输入资产编号');
     return;
   }
@@ -537,7 +541,7 @@ onMounted(() => {
         </ElFormItem>
 
         <!-- 资产编号 -->
-        <ElFormItem label="资产编号" required>
+        <ElFormItem label="资产编号" :required="assetNumberRequired">
           <ElInput v-model="formData.asset_number" placeholder="请输入资产编号，如 A2024582125" />
         </ElFormItem>
 
