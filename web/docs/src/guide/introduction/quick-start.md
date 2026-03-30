@@ -26,37 +26,11 @@ git -v
 
 ## 启动项目
 
-### 获取源码
-
-::: code-group
-
-```sh [GitHub]
-# clone 代码
-git clone https://github.com/jiangzhikj/zq-platform.git
-```
-
-```sh [Gitee]
-# clone 代码
-# Gitee 的代码可能不是最新的
-git clone https://gitee.com/annsion/vue-vben-admin.git
-```
-
-:::
-
-::: danger 注意
-
-注意存放代码的目录及所有父级目录不能存在中文、韩文、日文以及空格，否则安装依赖后启动会出错。
-
-:::
-
 ### 安装依赖
 
 在你的代码目录内打开终端，并执行以下命令:
 
 ```bash
-# 进入项目目录
-cd vue-vben-admin
-
 # 使用项目指定的pnpm版本进行依赖安装
 npm i -g corepack
 

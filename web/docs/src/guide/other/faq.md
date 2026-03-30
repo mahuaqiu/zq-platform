@@ -2,7 +2,7 @@
 
 ::: tip 列举了一些常见的问题
 
-有问题可以先来这里寻找，如果没有可以在 [GitHub Issue](https://github.com/jiangzhikj/zq-platform/issues) 搜索或者提交你的问题, 如果是讨论性的问题可以在 [GitHub Discussions](https://github.com/jiangzhikj/zq-platform/discussions)
+有问题可以先来这里寻找。
 
 :::
 
@@ -10,11 +10,8 @@
 
 遇到问题,可以先从以下几个方面查找
 
-1. 对应模块的 GitHub 仓库 [issue](https://github.com/jiangzhikj/zq-platform/issues) 搜索
-2. 从[google](https://www.google.com)搜索问题
-3. 从[百度](https://www.baidu.com)搜索问题
-4. 在下面列表找不到问题可以到 issue 提问 [issues](https://github.com/jiangzhikj/zq-platform/issues)
-5. 如果不是问题类型的，需要讨论的，请到 [discussions](https://github.com/jiangzhikj/zq-platform/discussions) 讨论
+1. 从[google](https://www.google.com)搜索问题
+2. 从[百度](https://www.baidu.com)搜索问题
 
 ## 依赖问题
 

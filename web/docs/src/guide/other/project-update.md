@@ -10,42 +10,30 @@
 
 ::: tip 推荐
 
-建议关注仓库动态，积极去合并，不要长时间积累，否则将会导致合并冲突过多，增加合并难度。
+建议关注项目动态，积极去合并，不要长时间积累，否则将会导致合并冲突过多，增加合并难度。
 
 :::
 
 ## 使用 Git 更新代码
 
-1. 克隆代码
-
-```bash
-git clone https://github.com/jiangzhikj/zq-platform.git
-```
-
-2. 添加自己的公司 git 源地址
+1. 添加自己的 git 源地址
 
 ```bash
 # up 为源名称,可以随意设置
-# gitUrl为开源最新代码
+# gitUrl 为代码源地址
 git remote add up gitUrl;
 ```
 
-3. 提交代码到自己公司 git
+2. 提交代码到自己 git
 
 ```bash
-# 提交代码到自己公司
+# 提交代码
 # main为分支名 需要自行根据情况修改
 git push up main
 
-# 同步公司的代码
+# 同步代码
 # main为分支名 需要自行根据情况修改
 git pull up main
-```
-
-4. 如何同步开源最新代码
-
-```bash
-git pull origin main
 ```
 
 ::: tip 提示

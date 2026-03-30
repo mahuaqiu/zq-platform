@@ -34,7 +34,7 @@ export const shared = defineConfig({
   pwa: pwa(),
   srcDir: 'src',
   themeConfig: {
-    i18nRouting: true,
+    i18nRouting: false,
     logo: 'https://unpkg.com/@vbenjs/static-source@0.1.7/source/logo-v1.webp',
     search: {
       options: {
@@ -44,12 +44,9 @@ export const shared = defineConfig({
       },
       provider: 'local',
     },
-    siteTitle: 'Vben Admin',
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/jiangzhikj/zq-platform' },
-    ],
+    siteTitle: 'ZQ Platform',
   },
-  title: 'Vben Admin',
+  title: 'ZQ Platform',
   vite: {
     build: {
       chunkSizeWarningLimit: Infinity,
@@ -73,22 +70,7 @@ export const shared = defineConfig({
     },
     plugins: [
       GitChangelog({
-        mapAuthors: [
-          {
-            mapByNameAliases: ['Vben'],
-            name: 'vben',
-            username: 'anncwb',
-          },
-          {
-            name: 'vince',
-            username: 'vince292007',
-          },
-          {
-            name: 'Li Kui',
-            username: 'likui628',
-          },
-        ],
-        repoURL: () => 'https://github.com/jiangzhikj/zq-platform',
+        repoURL: () => '',
       }),
       GitChangelogMarkdownSection(),
       viteArchiverPlugin({ outputDir: '.vitepress' }),
@@ -111,11 +93,11 @@ export const shared = defineConfig({
 
 function head(): HeadConfig[] {
   return [
-    ['meta', { content: 'Vbenjs Team', name: 'author' }],
+    ['meta', { content: 'ZQ Platform Team', name: 'author' }],
     [
       'meta',
       {
-        content: 'vben, vitejs, vite, shacdn-ui, vue',
+        content: 'zq-platform, vitejs, vite, vue',
         name: 'keywords',
       },
     ],
@@ -128,14 +110,8 @@ function head(): HeadConfig[] {
         name: 'viewport',
       },
     ],
-    ['meta', { content: 'vben admin docs', name: 'keywords' }],
+    ['meta', { content: 'zq-platform docs', name: 'keywords' }],
     ['link', { href: '/favicon.ico', rel: 'icon' }],
-    // [
-    //   'script',
-    //   {
-    //     src: 'https://cdn.tailwindcss.com',
-    //   },
-    // ],
   ];
 }
 
@@ -144,7 +120,7 @@ function pwa(): PwaOptions {
     includeManifestIcons: false,
     manifest: {
       description:
-        'Vben Admin is a modern admin dashboard template based on Vue 3. ',
+        'ZQ Platform 是一个企业级后台管理系统框架。',
       icons: [
         {
           sizes: '192x192',
@@ -158,8 +134,8 @@ function pwa(): PwaOptions {
         },
       ],
       id: '/',
-      name: 'Vben Admin Doc',
-      short_name: 'vben_admin_doc',
+      name: 'ZQ Platform Doc',
+      short_name: 'zq_platform_doc',
       theme_color: '#ffffff',
     },
     outDir: resolve(process.cwd(), '.vitepress/dist'),

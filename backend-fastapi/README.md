@@ -407,6 +407,3 @@ python main.py
 
 检查 `env/dev.env` 中的 `DATABASE_URL` 配置是否正确。
 
-## 许可证
-
-MIT License

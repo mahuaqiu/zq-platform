@@ -5,7 +5,7 @@ import { defineConfig } from 'vitepress';
 import { version } from '../../../package.json';
 
 export const zh = defineConfig({
-  description: 'Vben Admin & 企业级管理系统框架',
+  description: 'ZQ Platform & 企业级管理系统框架',
   lang: 'zh-Hans',
   themeConfig: {
     darkModeSwitchLabel: '主题',
@@ -14,14 +14,8 @@ export const zh = defineConfig({
       next: '下一页',
       prev: '上一页',
     },
-    editLink: {
-      pattern:
-        'https://github.com/jiangzhikj/zq-platform/edit/main/docs/src/:path',
-      text: '在 GitHub 上编辑此页面',
-    },
     footer: {
       copyright: `Copyright © 2020-${new Date().getFullYear()} ZQ-Platform`,
-      message: '基于 MIT 许可发布.',
     },
     langMenuLabel: '多语言',
     lastUpdated: {
@@ -40,7 +34,6 @@ export const zh = defineConfig({
     returnToTopLabel: '回到顶部',
 
     sidebar: {
-      '/commercial/': { base: '/commercial/', items: sidebarCommercial() },
       '/components/': { base: '/components/', items: sidebarComponents() },
       '/guide/': { base: '/guide/', items: sidebarGuide() },
     },
@@ -56,7 +49,7 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
       items: [
         {
           link: 'introduction/vben',
-          text: '关于 Vben Admin',
+          text: '关于 ZQ Platform',
         },
         {
           link: 'introduction/why',
@@ -118,23 +111,6 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
         { link: 'other/remove-code', text: '移除代码' },
         { link: 'other/faq', text: '常见问题' },
       ],
-    },
-  ];
-}
-
-function sidebarCommercial(): DefaultTheme.SidebarItem[] {
-  return [
-    {
-      link: 'community',
-      text: '交流群',
-    },
-    {
-      link: 'technical-support',
-      text: '技术支持',
-    },
-    {
-      link: 'customized',
-      text: '定制开发',
     },
   ];
 }
@@ -229,87 +205,18 @@ function nav(): DefaultTheme.NavItem[] {
       ],
     },
     {
-      text: '演示',
-      items: [
-        {
-          text: 'Vben Admin',
-          items: [
-            {
-              link: 'https://www.vben.pro',
-              text: '演示版本',
-            },
-            {
-              link: 'https://ant.vben.pro',
-              text: 'Ant Design Vue 版本',
-            },
-            {
-              link: 'https://naive.vben.pro',
-              text: 'Naive 版本',
-            },
-            {
-              link: 'https://ele.vben.pro',
-              text: 'Element Plus版本',
-            },
-          ],
-        },
-        {
-          text: '其他',
-          items: [
-            {
-              link: 'https://vben.vvbin.cn',
-              text: 'Vben Admin 2.x',
-            },
-          ],
-        },
-      ],
-    },
-    {
       text: version,
       items: [
         {
-          link: 'https://github.com/jiangzhikj/zq-platform/releases',
+          link: '/guide/introduction/changelog',
           text: '更新日志',
         },
         {
-          link: 'https://github.com/orgs/vbenjs/projects/5',
+          link: '/guide/introduction/roadmap',
           text: '路线图',
-        },
-        {
-          link: 'https://github.com/jiangzhikj/zq-platform/blob/main/.github/contributing.md',
-          text: '贡献',
         },
       ],
     },
-    {
-      link: '/commercial/technical-support',
-      text: '🦄 技术支持',
-    },
-    {
-      link: '/sponsor/personal',
-      text: '✨ 赞助',
-    },
-    {
-      link: '/commercial/community',
-      text: '👨‍👦‍👦 交流群',
-      // items: [
-      //   {
-      //     link: 'https://qun.qq.com/qqweb/qunpro/share?_wv=3&_wwv=128&appChannel=share&inviteCode=22ySzj7pKiw&businessType=9&from=246610&biz=ka&mainSourceId=share&subSourceId=others&jumpsource=shorturl#/pc',
-      //     text: 'QQ频道',
-      //   },
-      //   {
-      //     link: 'https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=mjZmlhgVzzUxvdxllB6C1vHpX8O8QRL0&authKey=DBdFbBwERmfaKY95JvRWqLCJIRGJAmKyZbrpzZ41EKDMZ5SR6MfbjOBaaNRN73fr&noverify=0&group_code=4286109',
-      //     text: 'QQ群',
-      //   },
-      //   {
-      //     link: 'https://discord.gg/VU62jTecad',
-      //     text: 'Discord',
-      //   },
-      // ],
-    },
-    // {
-    //   link: '/friend-links/',
-    //   text: '🤝 友情链接',
-    // },
   ];
 }
 

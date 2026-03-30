@@ -237,7 +237,7 @@ const defaultPreferences: Preferences = {
   },
   copyright: {
     companyName: 'ZQ-Platform',
-    companySiteLink: 'https://github.com/jiangzhikj/zq-platform',
+    companySiteLink: '',
     date: '2024',
     enable: true,
     icp: '',
