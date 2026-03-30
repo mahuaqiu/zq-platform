@@ -19,7 +19,7 @@ class FailReportCreate(BaseModel):
     case_fail_step: str = Field(..., alias="caseFailStep", description="失败步骤")
     case_fail_log: str = Field(..., alias="caseFailLog", description="失败日志")
     case_round: int = Field(..., alias="caseRound", description="失败轮次")
-    log_url: Optional[str] = Field(None, alias="logUrl", description="日志地址")
+    log_url: Optional[str] = Field(None, alias="logUrl", description="日志HTML文件路径")
     fail_time: Optional[datetime] = Field(None, alias="failTime", description="失败时间")
 
     class Config:

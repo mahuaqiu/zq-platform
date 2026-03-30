@@ -4,13 +4,11 @@
 测试报告 API - Test Report API
 """
 from typing import Optional
-from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Header, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.config import settings
 from app.base_schema import PaginatedResponse, ResponseModel
 from core.test_report.schema import (
     FailReportCreate,
@@ -19,7 +17,6 @@ from core.test_report.schema import (
     TestReportListItem,
 )
 from core.test_report.service import (
-    TestReportDetailService,
     TestReportSummaryService,
     TestReportDetailQueryService,
 )
@@ -28,34 +25,14 @@ from core.test_report.model import TestReportDetail
 router = APIRouter(prefix="/test-report", tags=["测试报告"])
 
 
-# ==================== Token 认证（上报接口专用） ====================
-
-async def verify_api_token(authorization: Optional[str] = Header(None)):
-    """验证 API Token"""
-    if not settings.TEST_REPORT_API_TOKEN:
-        # 未配置 Token 时允许所有请求（开发模式）
-        return True
-
-    if not authorization:
-        raise HTTPException(status_code=401, detail="缺少 Authorization 头")
-
-    token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
-
-    if token != settings.TEST_REPORT_API_TOKEN:
-        raise HTTPException(status_code=401, detail="Token 无效")
-
-    return True
-
-
 # ==================== 上报接口 ====================
 
 @router.post("/fail", response_model=ResponseModel, summary="推送失败用例记录")
 async def report_fail(
     data: FailReportCreate,
-    db: AsyncSession = Depends(get_db),
-    _: bool = Depends(verify_api_token)
+    db: AsyncSession = Depends(get_db)
 ):
-    """推送失败用例记录（使用独立 Token 认证）"""
+    """推送失败用例记录"""
     # 创建明细记录
     detail = TestReportDetail(
         task_id=data.task_id,
