@@ -132,6 +132,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ### 迁移命令
 
 ```bash
+psql -U superset -c "CREATE DATABASE fastapi_db;"
 # 查看当前版本
 alembic current
 
