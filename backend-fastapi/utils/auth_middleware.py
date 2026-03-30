@@ -64,6 +64,8 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     r"^/api/core/env/.*",
     # 公开接口（无需认证）
     r"^/env/.*",
+    # 测试报告 HTML 静态文件（公开访问）
+    r"^/test-reports-html/.*",
 ]
 
 # 允许使用Query参数传递Token的API路径模式（出于安全考虑，仅限特定接口）

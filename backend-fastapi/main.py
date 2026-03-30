@@ -8,9 +8,11 @@
 @Desc: 应用生命周期管理 - # 启动时
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Depends
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from utils.redis import RedisClient
@@ -56,6 +58,9 @@ async def lifespan(app: FastAPI):
 
     # ========== 测试报告模块启动初始化 ==========
     from core.test_report.scheduler import setup_test_report_scheduler
+    # 创建 HTML 存储目录（如果不存在）
+    html_path = Path(settings.TEST_REPORT_HTML_PATH)
+    html_path.mkdir(parents=True, exist_ok=True)
     setup_test_report_scheduler()
     # ========== 测试报告模块启动初始化结束 ==========
 
@@ -88,6 +93,11 @@ app.include_router(core_router, prefix="/api/core", dependencies=[Depends(oauth2
 app.include_router(websocket_router)
 # 执行机管理路由（公开接口，供外部 worker 调用，无需认证）
 app.include_router(env_machine_router)
+
+# 测试报告 HTML 静态文件（公开访问，无需认证）
+html_path = Path(settings.TEST_REPORT_HTML_PATH)
+if html_path.exists():
+    app.mount("/test-reports-html", StaticFiles(directory=str(html_path)), name="test-reports")
 
 
 @app.get("/", tags=["根路径"])
