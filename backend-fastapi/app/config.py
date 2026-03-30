@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     AI_ANALYSIS_SERVICE_URL: Optional[str] = None  # 本地AI服务地址（后续规划）
     TEST_REPORT_API_TOKEN: Optional[str] = None  # 上报API专用Token（认证）
 
+    # 测试报告 HTML 存储配置
+    TEST_REPORT_HTML_PATH: str = "/data/test_reports"  # HTML 文件存储路径
+    TEST_REPORT_HTML_CLEANUP_DAYS: int = 15  # HTML 文件保留天数
+    TEST_REPORT_DETAIL_CLEANUP_DAYS: int = 30  # 明细记录保留天数
+
     # 文件存储配置
     FILE_STORAGE_TYPE: str = "minio"  # local/oss/minio/azure
     FILE_STORAGE_LOCAL_PATH: Optional[str] = None  # 本地存储路径
