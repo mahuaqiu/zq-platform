@@ -93,7 +93,7 @@ http://{host}/test-reports-html/{task_id}/{case_round}/{filename}.html
 
 | 项目 | 值 |
 |------|------|
-| 执行周期 | 每天凌晨 2:00 |
+| 执行周期 | 每天晚上 23:00 |
 | 任务 ID | `test_report_cleanup` |
 
 **清理逻辑：**
