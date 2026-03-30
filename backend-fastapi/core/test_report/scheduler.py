@@ -5,10 +5,13 @@
 """
 import logging
 import asyncio
+import shutil
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from sqlalchemy import select, func, not_
+from sqlalchemy import select, func, not_, delete
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 
 from app.database import AsyncSessionLocal
 from app.config import settings
@@ -20,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 ANALYZE_JOB_ID = "test_report_analyze"  # 分析任务 ID
 ANALYZE_INTERVAL_MINUTES = 5  # 执行间隔（分钟）
+
+CLEANUP_JOB_ID = "test_report_cleanup"  # 清理任务 ID
 
 
 async def check_and_analyze_timeout_reports():
@@ -80,6 +85,91 @@ async def _analyze_job_wrapper():
         logger.error(f"分析任务执行失败: {str(e)}")
 
 
+async def cleanup_old_reports():
+    """
+    清理过期的测试报告
+
+    清理规则：
+    1. HTML 文件：删除超过 TEST_REPORT_HTML_CLEANUP_DAYS 天的文件
+    2. 空目录：清理空目录
+    3. 数据库明细记录：删除超过 TEST_REPORT_DETAIL_CLEANUP_DAYS 天的记录
+    4. test_report_summary 不删除
+    """
+    html_cleanup_days = settings.TEST_REPORT_HTML_CLEANUP_DAYS
+    detail_cleanup_days = settings.TEST_REPORT_DETAIL_CLEANUP_DAYS
+    html_path = Path(settings.TEST_REPORT_HTML_PATH)
+
+    logger.info(f"开始清理过期测试报告，HTML保留天数: {html_cleanup_days}，明细保留天数: {detail_cleanup_days}")
+
+    # 1. 清理 HTML 文件
+    html_deleted_count = 0
+    html_error_count = 0
+    cutoff_time = datetime.now() - timedelta(days=html_cleanup_days)
+
+    if html_path.exists():
+        try:
+            for html_file in html_path.rglob("*.html"):
+                try:
+                    # 获取文件修改时间
+                    file_mtime = datetime.fromtimestamp(html_file.stat().st_mtime)
+                    if file_mtime < cutoff_time:
+                        html_file.unlink()
+                        html_deleted_count += 1
+                        logger.debug(f"已删除过期 HTML 文件: {html_file}")
+                except Exception as e:
+                    html_error_count += 1
+                    logger.warning(f"删除 HTML 文件失败 {html_file}: {e}")
+
+            # 2. 清理空目录
+            for dir_path in sorted(html_path.rglob("*"), key=lambda x: len(x.parts), reverse=True):
+                if dir_path.is_dir():
+                    try:
+                        if not any(dir_path.iterdir()):  # 目录为空
+                            dir_path.rmdir()
+                            logger.debug(f"已删除空目录: {dir_path}")
+                    except Exception as e:
+                        logger.warning(f"删除空目录失败 {dir_path}: {e}")
+
+        except Exception as e:
+            logger.error(f"清理 HTML 文件目录失败: {e}")
+    else:
+        logger.warning(f"HTML 文件存储路径不存在: {html_path}")
+
+    # 3. 清理数据库明细记录
+    db_deleted_count = 0
+    async with AsyncSessionLocal() as db:
+        try:
+            detail_cutoff_time = datetime.now() - timedelta(days=detail_cleanup_days)
+
+            # 删除超过保留天数的明细记录
+            result = await db.execute(
+                delete(TestReportDetail).where(
+                    TestReportDetail.sys_create_datetime < detail_cutoff_time
+                )
+            )
+            db_deleted_count = result.rowcount
+            await db.commit()
+
+            logger.info(f"已删除 {db_deleted_count} 条过期明细记录")
+
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"清理数据库明细记录失败: {e}")
+
+    logger.info(
+        f"清理完成 - HTML文件: 删除 {html_deleted_count} 个, 错误 {html_error_count} 个; "
+        f"数据库明细: 删除 {db_deleted_count} 条"
+    )
+
+
+async def _cleanup_job_wrapper():
+    """清理任务包装函数"""
+    try:
+        await cleanup_old_reports()
+    except Exception as e:
+        logger.error(f"清理任务执行失败: {str(e)}")
+
+
 def setup_test_report_scheduler() -> bool:
     """
     设置测试报告定时任务
@@ -96,19 +186,25 @@ def setup_test_report_scheduler() -> bool:
 
     try:
         async def _setup():
+            # 分析任务
             job_id = ANALYZE_JOB_ID
-
-            # 注册任务函数
             await scheduler.configure_task(job_id, func=_analyze_job_wrapper)
-
-            # 添加周期调度（每 5 分钟执行一次）
             await scheduler.add_schedule(
                 func_or_task_id=job_id,
                 trigger=IntervalTrigger(minutes=ANALYZE_INTERVAL_MINUTES),
                 id=job_id,
             )
+            logger.info(f"测试报告分析任务已启动，间隔: {ANALYZE_INTERVAL_MINUTES} 分钟")
 
-            logger.info(f"测试报告定时任务已启动，间隔: {ANALYZE_INTERVAL_MINUTES} 分钟")
+            # 清理任务（每天晚上 23:00）
+            cleanup_job_id = CLEANUP_JOB_ID
+            await scheduler.configure_task(cleanup_job_id, func=_cleanup_job_wrapper)
+            await scheduler.add_schedule(
+                func_or_task_id=cleanup_job_id,
+                trigger=CronTrigger(hour=23, minute=0),
+                id=cleanup_job_id,
+            )
+            logger.info(f"测试报告清理任务已启动，执行时间: 每天 23:00")
 
         # 尝试在当前事件循环中运行
         try:
