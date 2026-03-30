@@ -376,7 +376,7 @@ class EnvPoolManager:
 
                     if not allocated:
                         # 分配失败
-                        return False, f"机器不足，无法分配 {request_tag} 类型的机器"
+                        return False, "env not enough"
 
                     # 记录分配结果
                     allocations[user] = allocated
