@@ -4,8 +4,6 @@
 测试报告定时任务 - Test Report Scheduler
 """
 import logging
-import asyncio
-import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -141,10 +139,11 @@ async def cleanup_old_reports():
         try:
             detail_cutoff_time = datetime.now() - timedelta(days=detail_cleanup_days)
 
-            # 删除超过保留天数的明细记录
+            # 删除超过保留天数的明细记录（仅删除未软删除的记录）
             result = await db.execute(
                 delete(TestReportDetail).where(
-                    TestReportDetail.sys_create_datetime < detail_cutoff_time
+                    TestReportDetail.sys_create_datetime < detail_cutoff_time,
+                    TestReportDetail.is_deleted == False
                 )
             )
             db_deleted_count = result.rowcount
