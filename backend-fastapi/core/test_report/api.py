@@ -3,6 +3,7 @@
 """
 测试报告 API - Test Report API
 """
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -61,22 +62,32 @@ async def upload_html(
     file: UploadFile = File(..., description="HTML 文件"),
 ):
     """上传测试报告 HTML 文件"""
+    # 验证 task_id 格式（仅允许安全字符，防止路径遍历）
+    if not re.match(r'^[\w\-]+$', task_id):
+        raise HTTPException(status_code=400, detail="task_id 格式无效")
+
     # 验证文件扩展名
     if not file.filename or not file.filename.endswith(".html"):
         raise HTTPException(status_code=400, detail="仅支持 .html 文件")
+
+    # 仅提取文件名，防止路径遍历攻击
+    safe_filename = Path(file.filename).name
 
     # 构建存储路径
     storage_path = Path(settings.TEST_REPORT_HTML_PATH) / task_id / str(case_round)
     storage_path.mkdir(parents=True, exist_ok=True)
 
-    # 保存文件
-    file_path = storage_path / file.filename
+    # 保存文件（添加异常处理）
+    file_path = storage_path / safe_filename
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
+    except IOError as e:
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
 
-    # 构建访问 URL
-    url = f"/test-reports-html/{task_id}/{case_round}/{file.filename}"
+    # 构建访问 URL（使用安全的文件名）
+    url = f"/test-reports-html/{task_id}/{case_round}/{safe_filename}"
 
     return ResponseModel(message="上传成功", data={"url": url})
 
