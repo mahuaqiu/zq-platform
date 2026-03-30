@@ -170,7 +170,7 @@ async def _cleanup_job_wrapper():
         logger.error(f"清理任务执行失败: {str(e)}")
 
 
-def setup_test_report_scheduler() -> bool:
+async def setup_test_report_scheduler() -> bool:
     """
     设置测试报告定时任务
 
@@ -185,34 +185,25 @@ def setup_test_report_scheduler() -> bool:
         return False
 
     try:
-        async def _setup():
-            # 分析任务
-            job_id = ANALYZE_JOB_ID
-            await scheduler.configure_task(job_id, func=_analyze_job_wrapper)
-            await scheduler.add_schedule(
-                func_or_task_id=job_id,
-                trigger=IntervalTrigger(minutes=ANALYZE_INTERVAL_MINUTES),
-                id=job_id,
-            )
-            logger.info(f"测试报告分析任务已启动，间隔: {ANALYZE_INTERVAL_MINUTES} 分钟")
+        # 分析任务
+        job_id = ANALYZE_JOB_ID
+        await scheduler.configure_task(job_id, func=_analyze_job_wrapper)
+        await scheduler.add_schedule(
+            func_or_task_id=job_id,
+            trigger=IntervalTrigger(minutes=ANALYZE_INTERVAL_MINUTES),
+            id=job_id,
+        )
+        logger.info(f"测试报告分析任务已启动，间隔: {ANALYZE_INTERVAL_MINUTES} 分钟")
 
-            # 清理任务（每天晚上 23:00）
-            cleanup_job_id = CLEANUP_JOB_ID
-            await scheduler.configure_task(cleanup_job_id, func=_cleanup_job_wrapper)
-            await scheduler.add_schedule(
-                func_or_task_id=cleanup_job_id,
-                trigger=CronTrigger(hour=23, minute=0),
-                id=cleanup_job_id,
-            )
-            logger.info(f"测试报告清理任务已启动，执行时间: 每天 23:00")
-
-        # 尝试在当前事件循环中运行
-        try:
-            loop = asyncio.get_running_loop()
-            asyncio.create_task(_setup())
-        except RuntimeError:
-            # 没有运行中的事件循环，创建新的
-            asyncio.run(_setup())
+        # 清理任务（每天晚上 23:00）
+        cleanup_job_id = CLEANUP_JOB_ID
+        await scheduler.configure_task(cleanup_job_id, func=_cleanup_job_wrapper)
+        await scheduler.add_schedule(
+            func_or_task_id=cleanup_job_id,
+            trigger=CronTrigger(hour=23, minute=0),
+            id=cleanup_job_id,
+        )
+        logger.info(f"测试报告清理任务已启动，执行时间: 每天 23:00")
 
         return True
     except Exception as e:

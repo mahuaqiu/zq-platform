@@ -285,7 +285,7 @@ async def _offline_check_job_wrapper():
         logger.error(f"离线检测任务执行失败: {str(e)}")
 
 
-def setup_env_machine_scheduler() -> bool:
+async def setup_env_machine_scheduler() -> bool:
     """
     设置执行机定时任务
 
@@ -300,33 +300,19 @@ def setup_env_machine_scheduler() -> bool:
         return False
 
     try:
-        # 使用 APScheduler 4.x 的方式注册周期任务
-        # 注意：这里需要通过 scheduler_service 来添加任务
-        import asyncio
+        job_id = EnvMachineScheduler.OFFLINE_CHECK_JOB_ID
 
-        async def _setup():
-            job_id = EnvMachineScheduler.OFFLINE_CHECK_JOB_ID
+        # 注册任务函数
+        await scheduler.configure_task(job_id, func=_offline_check_job_wrapper)
 
-            # 注册任务函数
-            await scheduler.configure_task(job_id, func=_offline_check_job_wrapper)
+        # 添加周期调度（每 2 分钟执行一次）
+        await scheduler.add_schedule(
+            func_or_task_id=job_id,
+            trigger=IntervalTrigger(minutes=EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES),
+            id=job_id,
+        )
 
-            # 添加周期调度（每 2 分钟执行一次）
-            await scheduler.add_schedule(
-                func_or_task_id=job_id,
-                trigger=IntervalTrigger(minutes=EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES),
-                id=job_id,
-            )
-
-            logger.info(f"离线检测任务已启动，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
-
-        # 尝试在当前事件循环中运行
-        try:
-            loop = asyncio.get_running_loop()
-            asyncio.create_task(_setup())
-        except RuntimeError:
-            # 没有运行中的事件循环，创建新的
-            asyncio.run(_setup())
-
+        logger.info(f"离线检测任务已启动，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
         return True
     except Exception as e:
         logger.error(f"设置执行机定时任务失败: {str(e)}")

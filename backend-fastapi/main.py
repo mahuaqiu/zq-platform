@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
         await EnvPoolManager.load_machine_pool(db)
 
     # 3. 启动离线检测任务
-    setup_env_machine_scheduler()
+    await setup_env_machine_scheduler()
     # ========== 执行机管理模块启动初始化结束 ==========
 
     # ========== 测试报告模块启动初始化 ==========
@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
     # 创建 HTML 存储目录（如果不存在）
     html_path = Path(settings.TEST_REPORT_HTML_PATH)
     html_path.mkdir(parents=True, exist_ok=True)
-    setup_test_report_scheduler()
+    await setup_test_report_scheduler()
     # ========== 测试报告模块启动初始化结束 ==========
 
     yield
