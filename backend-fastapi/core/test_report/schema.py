@@ -95,3 +95,10 @@ class TestReportListItem(BaseModel):
     class Config:
         populate_by_name = True
         from_attributes = True
+
+
+# ==================== 上传相关 ====================
+
+class UploadResponse(BaseModel):
+    """上传响应"""
+    url: str = Field(..., description="HTML 文件访问 URL")
