@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.types import DateTime, Date
 from app.database import AsyncSessionLocal, Base
 
 
@@ -62,6 +63,20 @@ def parse_datetime(value):
             return datetime.fromisoformat(value)
         except ValueError:
             return value
+    return value
+
+
+def parse_date(value):
+    """解析日期字符串"""
+    if isinstance(value, str):
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError:
+            try:
+                # 尝试 ISO 格式
+                return datetime.fromisoformat(value).date()
+            except ValueError:
+                return value
     return value
 
 
@@ -106,11 +121,21 @@ async def load_data(file_path: str, clean_mode: bool = False):
                 
                 model_class = model_map[model_name]
                 
+                # 获取模型的 DateTime 和 Date 类型列
+                datetime_columns = set()
+                date_columns = set()
+                for column in model_class.__table__.columns:
+                    if isinstance(column.type, DateTime):
+                        datetime_columns.add(column.key)
+                    elif isinstance(column.type, Date):
+                        date_columns.add(column.key)
+
                 # 转换日期时间字段
                 for key, value in fields.items():
-                    if (isinstance(value, str) and 'datetime' in key.lower()) \
-                        or (model_name == "core.user.model.User" and key in ("birthday", "last_login")):
+                    if isinstance(value, str) and key in datetime_columns:
                         fields[key] = parse_datetime(value)
+                    elif isinstance(value, str) and key in date_columns:
+                        fields[key] = parse_date(value)
                 
                 # 创建实例
                 instance = model_class(**fields)
