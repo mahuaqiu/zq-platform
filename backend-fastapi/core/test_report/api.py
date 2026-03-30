@@ -3,11 +3,13 @@
 """
 测试报告 API - Test Report API
 """
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.base_schema import PaginatedResponse, ResponseModel
 from core.test_report.schema import (
@@ -15,6 +17,7 @@ from core.test_report.schema import (
     TestReportDetailResponse,
     TestReportSummaryResponse,
     TestReportListItem,
+    UploadResponse,
 )
 from core.test_report.service import (
     TestReportSummaryService,
@@ -49,6 +52,33 @@ async def report_fail(
     await db.commit()
 
     return ResponseModel(message="上报成功")
+
+
+@router.post("/upload", response_model=ResponseModel, summary="上传测试报告 HTML")
+async def upload_html(
+    task_id: str = Form(..., description="任务执行ID"),
+    case_round: int = Form(..., description="执行轮次"),
+    file: UploadFile = File(..., description="HTML 文件"),
+):
+    """上传测试报告 HTML 文件"""
+    # 验证文件扩展名
+    if not file.filename or not file.filename.endswith(".html"):
+        raise HTTPException(status_code=400, detail="仅支持 .html 文件")
+
+    # 构建存储路径
+    storage_path = Path(settings.TEST_REPORT_HTML_PATH) / task_id / str(case_round)
+    storage_path.mkdir(parents=True, exist_ok=True)
+
+    # 保存文件
+    file_path = storage_path / file.filename
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # 构建访问 URL
+    url = f"/test-reports-html/{task_id}/{case_round}/{file.filename}"
+
+    return ResponseModel(message="上传成功", data={"url": url})
 
 
 # ==================== 查询接口 ====================
