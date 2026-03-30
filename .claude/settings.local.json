@@ -60,7 +60,16 @@
       "Bash(venv/Scripts/python.exe -c \"from utils.auth_middleware import AuthMiddleware, logger; print\\(''模块导入成功''\\); print\\(f''Logger name: {logger.name}''\\)\")",
       "Bash(venv/Scripts/pip.exe install:*)",
       "Bash(bash scripts/start-server.sh --project-dir \"D:/code/zq-platform\")",
-      "Bash(source .venv/Scripts/activate)"
+      "Bash(source .venv/Scripts/activate)",
+      "Bash(curl:*)",
+      "Read(//d/data/test_reports/**)",
+      "Bash(pkill -f \"uvicorn main:app\")",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(.venvScriptsactivate)",
+      "Bash(timeout 10 tail -f \"C:\\\\Users\\\\ADMINI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--code-zq-platform\\\\2d56ad33-5ba2-4784-aea2-97eb331e2804\\\\tasks\\\\b47fj66mc.output\")",
+      "Bash(taskkill /F /PID 22992)",
+      "Bash(.venvScriptspython.exe -m py_compile coretest_reportapi.py)",
+      "Bash(D:/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m py_compile D:/code/zq-platform/backend-fastapi/core/test_report/api.py)"
     ]
   }
 }
