@@ -237,6 +237,23 @@ function handleDelete(row: EnvMachine) {
 // 资产编号是否必填：手工使用页面必填，或非手工使用页面的新增模式必填
 const assetNumberRequired = computed(() => isManual.value || !isEdit.value);
 
+// 清理 JSON 中的 key/value 首尾空格
+function trimJsonKeysAndValues(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const trimmedKey = key.trim();
+    const value = obj[key];
+    if (typeof value === 'string') {
+      result[trimmedKey] = value.trim();
+    } else if (typeof value === 'object' && value !== null) {
+      result[trimmedKey] = trimJsonKeysAndValues(value);
+    } else {
+      result[trimmedKey] = value;
+    }
+  }
+  return result;
+}
+
 // 验证 JSON 格式
 function validateJson(): Record<string, any> | null {
   const raw = formData.value.extra_message_raw.trim();
@@ -247,7 +264,8 @@ function validateJson(): Record<string, any> | null {
   try {
     const parsed = JSON.parse(raw);
     jsonError.value = '';
-    return parsed;
+    // 返回清理后的 JSON
+    return trimJsonKeysAndValues(parsed);
   } catch (e) {
     jsonError.value = 'JSON 格式不正确，请检查格式';
     return null;
@@ -704,7 +722,7 @@ onMounted(() => {
               <ElInput
                 v-model="formData.extra_message_raw"
                 type="textarea"
-                :rows="4"
+                :rows="8"
                 placeholder="JSON格式，按标签存储账号信息。如：{ &quot;标签&quot;: { &quot;username&quot;: &quot;admin&quot; } }"
               />
               <div v-if="jsonError" style="color: #f56c6c; font-size: 12px; margin-top: 4px">
