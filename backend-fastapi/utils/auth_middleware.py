@@ -41,6 +41,7 @@ DEFAULT_WHITE_LIST = [
     "/health",
     # 执行机管理接口（供外部 worker 调用，无需认证）
     "/api/core/env/register",
+    "/unregister",  # 执行机注销接口
 ]
 
 # OAuth白名单正则模式

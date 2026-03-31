@@ -401,6 +401,9 @@ async def update_env_machine(
     await db.commit()
     await db.refresh(machine)
 
+    # 同步更新 Redis 缓存
+    await EnvPoolManager.sync_machine_to_cache(machine)
+
     return EnvMachineResponse.model_validate(machine)
 
 
@@ -414,7 +417,13 @@ async def delete_env_machine(
     if not machine:
         raise HTTPException(status_code=404, detail="执行机不存在")
 
+    # 记录 namespace 用于缓存清理
+    namespace = machine.namespace
+
     await EnvMachineService.delete(db, machine_id)
     await db.commit()
+
+    # 从 Redis 缓存中移除
+    await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
 
     return {"status": "success", "message": "删除成功"}

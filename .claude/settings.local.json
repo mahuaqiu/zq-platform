@@ -74,7 +74,8 @@
       "Bash(find D:/code/zq-platform/backend-fastapi -name \"*.pyc\" -delete)",
       "Bash(find D:/code/zq-platform/backend-fastapi -name \"__pycache__\" -type d -exec rm -rf {} +)",
       "WebSearch",
-      "WebFetch(domain:apscheduler.readthedocs.io)"
+      "WebFetch(domain:apscheduler.readthedocs.io)",
+      "Bash(find . -name *.log -type f -mmin -60)"
     ]
   }
 }
