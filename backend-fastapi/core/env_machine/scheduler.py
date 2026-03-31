@@ -294,18 +294,25 @@ async def setup_env_machine_scheduler() -> bool:
     Returns:
         bool: 是否设置成功
     """
+    logger.info("开始设置执行机定时任务...")
+
     scheduler = scheduler_service.get_scheduler()
     if not scheduler:
         logger.warning("调度器未初始化，无法设置执行机定时任务")
         return False
 
+    logger.info(f"调度器获取成功: {scheduler}")
+
     try:
         job_id = EnvMachineScheduler.OFFLINE_CHECK_JOB_ID
 
         # 注册任务函数
+        logger.info(f"正在注册任务函数: {job_id}")
         await scheduler.configure_task(job_id, func=_offline_check_job_wrapper)
+        logger.info(f"任务函数注册成功: {job_id}")
 
         # 添加周期调度（每 2 分钟执行一次）
+        logger.info(f"正在添加周期调度，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
         await scheduler.add_schedule(
             func_or_task_id=job_id,
             trigger=IntervalTrigger(minutes=EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES),
@@ -315,7 +322,7 @@ async def setup_env_machine_scheduler() -> bool:
         logger.info(f"离线检测任务已启动，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
         return True
     except Exception as e:
-        logger.error(f"设置执行机定时任务失败: {str(e)}")
+        logger.error(f"设置执行机定时任务失败: {str(e)}", exc_info=True)
         return False
 
 

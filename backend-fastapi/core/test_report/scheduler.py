@@ -178,14 +178,19 @@ async def setup_test_report_scheduler() -> bool:
     Returns:
         bool: 是否设置成功
     """
+    logger.info("开始设置测试报告定时任务...")
+
     scheduler = scheduler_service.get_scheduler()
     if not scheduler:
         logger.warning("调度器未初始化，无法设置测试报告定时任务")
         return False
 
+    logger.info(f"调度器获取成功: {scheduler}")
+
     try:
         # 分析任务
         job_id = ANALYZE_JOB_ID
+        logger.info(f"正在注册分析任务: {job_id}")
         await scheduler.configure_task(job_id, func=_analyze_job_wrapper)
         await scheduler.add_schedule(
             func_or_task_id=job_id,
@@ -196,6 +201,7 @@ async def setup_test_report_scheduler() -> bool:
 
         # 清理任务（每天晚上 23:00）
         cleanup_job_id = CLEANUP_JOB_ID
+        logger.info(f"正在注册清理任务: {cleanup_job_id}")
         await scheduler.configure_task(cleanup_job_id, func=_cleanup_job_wrapper)
         await scheduler.add_schedule(
             func_or_task_id=cleanup_job_id,
@@ -206,5 +212,5 @@ async def setup_test_report_scheduler() -> bool:
 
         return True
     except Exception as e:
-        logger.error(f"设置测试报告定时任务失败: {str(e)}")
+        logger.error(f"设置测试报告定时任务失败: {str(e)}", exc_info=True)
         return False

@@ -69,7 +69,12 @@
       "Bash(timeout 10 tail -f \"C:\\\\Users\\\\ADMINI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--code-zq-platform\\\\2d56ad33-5ba2-4784-aea2-97eb331e2804\\\\tasks\\\\b47fj66mc.output\")",
       "Bash(taskkill /F /PID 22992)",
       "Bash(.venvScriptspython.exe -m py_compile coretest_reportapi.py)",
-      "Bash(D:/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m py_compile D:/code/zq-platform/backend-fastapi/core/test_report/api.py)"
+      "Bash(D:/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m py_compile D:/code/zq-platform/backend-fastapi/core/test_report/api.py)",
+      "Bash(tasklist)",
+      "Bash(find D:/code/zq-platform/backend-fastapi -name \"*.pyc\" -delete)",
+      "Bash(find D:/code/zq-platform/backend-fastapi -name \"__pycache__\" -type d -exec rm -rf {} +)",
+      "WebSearch",
+      "WebFetch(domain:apscheduler.readthedocs.io)"
     ]
   }
 }

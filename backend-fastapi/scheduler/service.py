@@ -41,8 +41,8 @@ class SchedulerService:
         """
         初始化并启动调度器
 
-        APScheduler 4.x 需要通过 async with 来启动调度器。
-        我们创建一个后台任务来保持调度器运行。
+        APScheduler 4.x 需要通过 async with 来启动调度器，
+        并调用 run_until_stopped() 来让调度器真正执行任务。
 
         Returns:
             AsyncScheduler: 调度器实例
@@ -51,15 +51,14 @@ class SchedulerService:
             self._scheduler = AsyncScheduler()
 
         if not self._running:
-            # 创建后台任务来运行调度器上下文
+            # 创建后台任务来运行调度器
             async def run_scheduler_context():
                 async with self._scheduler:
                     self._running = True
                     logger.info("APScheduler 调度器已启动")
-                    # 保持运行直到被取消
                     try:
-                        # 创建一个永不完成的任务来保持调度器运行
-                        await asyncio.Event().wait()
+                        # run_until_stopped 是关键！让调度器真正执行任务
+                        await self._scheduler.run_until_stopped()
                     except asyncio.CancelledError:
                         logger.info("调度器上下文任务被取消")
                         raise
@@ -81,6 +80,15 @@ class SchedulerService:
 
     async def shutdown(self):
         """关闭调度器"""
+        # 先调用 scheduler.stop() 优雅停止
+        if self._scheduler is not None and self._running:
+            try:
+                await self._scheduler.stop()
+                logger.info("已调用 scheduler.stop()")
+            except Exception as e:
+                logger.warning(f"调用 scheduler.stop() 失败: {e}")
+
+        # 然后取消后台任务
         if self._context_task is not None:
             self._context_task.cancel()
             try:
