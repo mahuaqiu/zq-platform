@@ -12,7 +12,7 @@ defineOptions({
 });
 
 withDefaults(defineProps<Props>(), {
-  companyName: 'ZQ-Platform',
+  companyName: 'Meeting Test',
   companySiteLink: '',
   date: '2025',
   icp: '',

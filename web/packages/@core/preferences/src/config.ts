@@ -41,7 +41,7 @@ const defaultPreferences: Preferences = {
     styleType: 'normal',
   },
   copyright: {
-    companyName: 'ZQ-Platform',
+    companyName: 'Meeting Test',
     companySiteLink: 'https://django-ninja.zq-platform.cn/analytics',
     date: '2025',
     enable: true,

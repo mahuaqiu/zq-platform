@@ -20,7 +20,7 @@ export const overridesPreferences = defineOverridesPreferences({
     mode: 'light',
   },
   copyright: {
-    companyName: 'ZQ-Platform',
+    companyName: import.meta.env.VITE_APP_TITLE,
     companySiteLink: 'https://django-ninja.zq-platform.cn/analytics',
     date: '2025',
     enable: true,
