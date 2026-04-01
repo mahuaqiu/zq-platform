@@ -82,16 +82,37 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
     @classmethod
     async def get_test_status_chart(cls, db: AsyncSession, version: Optional[str] = None) -> List[dict]:
         """
-        获取需求转测情况饼图数据（预留）
+        获取需求转测情况饼图数据
 
         :param db: 数据库会话
         :param version: 版本筛选
         :return: 饼图数据
         """
-        # TODO: 后续补充 SQL 查询逻辑
+        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)
+        if version and version.strip():
+            query = query.where(FeatureAnalysis.feature_version == version)
+
+        result = await db.execute(query)
+        items = result.scalars().all()
+
+        # 统计各状态数量
+        status_count = {
+            "已完成": 0,
+            "测试中": 0,
+            "未开始": 0,
+            "延期": 0,
+        }
+
+        for item in items:
+            status = item.get_test_status()
+            if status in status_count:
+                status_count[status] += 1
+
         return [
-            {"name": "已转测", "value": 0},
-            {"name": "未转测", "value": 0},
+            {"name": "已完成", "value": status_count["已完成"]},
+            {"name": "测试中", "value": status_count["测试中"]},
+            {"name": "未开始", "value": status_count["未开始"]},
+            {"name": "延期", "value": status_count["延期"]},
         ]
 
     @classmethod

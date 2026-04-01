@@ -20,6 +20,7 @@ const stats = ref({
   completed: 0,
   testing: 0,
   notStarted: 0,
+  delayed: 0,
 });
 
 // 加载统计数据
@@ -34,6 +35,7 @@ async function loadStats() {
     stats.value.completed = data.find((item: PieChartDataItem) => item.name === '已完成')?.value || 0;
     stats.value.testing = data.find((item: PieChartDataItem) => item.name === '测试中')?.value || 0;
     stats.value.notStarted = data.find((item: PieChartDataItem) => item.name === '未开始')?.value || 0;
+    stats.value.delayed = data.find((item: PieChartDataItem) => item.name === '延期')?.value || 0;
   } catch (error) {
     console.error('加载统计数据失败:', error);
   } finally {
@@ -67,9 +69,13 @@ onMounted(() => {
       <div class="stat-value">{{ stats.testing }}</div>
       <div class="stat-label">测试中</div>
     </div>
-    <div class="stat-card danger">
+    <div class="stat-card info">
       <div class="stat-value">{{ stats.notStarted }}</div>
       <div class="stat-label">未开始</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-value">{{ stats.delayed }}</div>
+      <div class="stat-label">延期</div>
     </div>
   </div>
 </template>
@@ -108,6 +114,10 @@ onMounted(() => {
 
 .stat-card.warning .stat-value {
   color: #faad14;
+}
+
+.stat-card.info .stat-value {
+  color: #909399;
 }
 
 .stat-card.danger .stat-value {

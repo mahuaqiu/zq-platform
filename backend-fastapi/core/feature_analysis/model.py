@@ -62,9 +62,48 @@ class FeatureAnalysis(BaseModel):
 
     def get_test_status(self) -> str:
         """获取测试状态"""
+        from datetime import datetime
+
         if self.feature_test_end_time:
             return "已完成"
         elif self.feature_test_start_time:
+            # 如果有实际转测时间，判断是否延期
+            if self.feature_test_expect_time:
+                try:
+                    formats = ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日"]
+                    expect_date = None
+                    actual_date = None
+                    for fmt in formats:
+                        try:
+                            expect_date = datetime.strptime(self.feature_test_expect_time.strip(), fmt)
+                            break
+                        except ValueError:
+                            continue
+                    for fmt in formats:
+                        try:
+                            actual_date = datetime.strptime(self.feature_test_start_time.strip(), fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if expect_date and actual_date and actual_date > expect_date:
+                        return "延期"
+                except Exception:
+                    pass
             return "测试中"
         else:
+            # 如果未开始，判断是否已超过预计转测时间
+            if self.feature_test_expect_time:
+                try:
+                    formats = ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日"]
+                    expect_date = None
+                    for fmt in formats:
+                        try:
+                            expect_date = datetime.strptime(self.feature_test_expect_time.strip(), fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if expect_date and datetime.now() > expect_date:
+                        return "延期"
+                except Exception:
+                    pass
             return "未开始"

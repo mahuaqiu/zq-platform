@@ -75,6 +75,7 @@ function getStatusClass(status: string): string {
     '已完成': 'status-success',
     '测试中': 'status-warning',
     '未开始': 'status-info',
+    '延期': 'status-delayed',
   };
   return statusMap[status] || '';
 }
@@ -258,12 +259,12 @@ onMounted(() => {
   color: #faad14;
 }
 
-.status-danger {
+.status-delayed {
   color: #ff4d4f;
 }
 
 .status-info {
-  color: #1890ff;
+  color: #909399;
 }
 
 /* 分页 */
