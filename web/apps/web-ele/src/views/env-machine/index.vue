@@ -699,7 +699,8 @@ onMounted(() => {
 
         <!-- 编辑模式额外字段 -->
         <template v-if="isEdit">
-          <ElFormItem label="标签">
+          <!-- 非手工页面才显示标签 -->
+          <ElFormItem v-if="!isManual" label="标签">
             <div style="width: 100%">
               <ElInput v-model="formData.mark" placeholder="请输入标签，多个用逗号分隔" />
               <div v-if="markError" style="color: #f56c6c; font-size: 12px; margin-top: 4px">
