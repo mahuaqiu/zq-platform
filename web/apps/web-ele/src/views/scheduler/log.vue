@@ -26,6 +26,7 @@ import {
   getLogStatusClass,
   LOG_STATUS_OPTIONS,
 } from './data';
+import LogDetailModal from './modules/log-detail-modal.vue';
 
 defineOptions({ name: 'SchedulerLogPage' });
 
@@ -54,6 +55,10 @@ const searchForm = ref({
   startTimeGte: '',
   startTimeLte: '',
 });
+
+// 日志详情弹窗
+const logDetailVisible = ref(false);
+const currentLogId = ref<string>();
 
 // 加载任务列表（用于下拉选择）
 async function loadJobOptions() {
@@ -142,8 +147,9 @@ function handleSizeChange(size: number) {
 }
 
 // 查看详情
-function handleDetail(_row: SchedulerLog) {
-  ElMessage.info('日志详情功能开发中...');
+function handleDetail(row: SchedulerLog) {
+  currentLogId.value = row.id;
+  logDetailVisible.value = true;
 }
 
 // 格式化成功率
@@ -314,6 +320,12 @@ onMounted(() => {
           />
         </div>
       </div>
+
+      <!-- 日志详情弹窗 -->
+      <LogDetailModal
+        v-model:visible="logDetailVisible"
+        :log-id="currentLogId"
+      />
     </div>
   </Page>
 </template>
