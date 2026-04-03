@@ -107,39 +107,9 @@ class SchedulerService:
                     except Exception as e:
                         logger.error(f"加载任务失败 {job.code}: {str(e)}")
 
-                # 启动定期清理任务
-                await self._start_cleanup_job()
-                
                 logger.info(f"任务加载完成，共加载 {len(jobs)} 个任务")
         except Exception as e:
             logger.error(f"从数据库加载任务失败: {str(e)}")
-
-    async def _start_cleanup_job(self):
-        """启动定期清理过期任务的定时任务"""
-        if not self._scheduler:
-            return
-
-        cleanup_job_id = '_scheduler_cleanup'
-
-        try:
-            # 先注册任务
-            await self._scheduler.configure_task(cleanup_job_id, func=self._cleanup_expired_jobs_wrapper)
-
-            # 每天凌晨3点清理过期任务
-            await self._scheduler.add_schedule(
-                func_or_task_id=cleanup_job_id,
-                trigger=CronTrigger(hour=3, minute=0),
-                id=cleanup_job_id,
-            )
-            logger.info("定期清理任务已启动（每天凌晨3点）")
-        except Exception as e:
-            # APScheduler 4.0.0a6 alpha 版本可能不支持在初始化期间调用这些方法
-            # 在此情况下，跳过清理任务，后续可以手动触发
-            logger.warning(f"启动定期清理任务失败（可忽略）: {str(e)}")
-
-    async def _cleanup_expired_jobs_wrapper(self):
-        """清理过期任务的包装函数"""
-        await self.cleanup_expired_jobs(days=7)
 
     async def add_job(self, job_obj) -> bool:
         """添加任务到调度器"""
@@ -161,23 +131,39 @@ class SchedulerService:
                 return False
 
             # 解析任务参数
-            args = json.loads(job_obj.task_args) if job_obj.task_args else []
             kwargs = json.loads(job_obj.task_kwargs) if job_obj.task_kwargs else {}
             kwargs['job_code'] = job_obj.code
 
             # 创建带日志记录的包装函数
-            wrapper_func = self._create_job_wrapper(task_func, job_obj.code, args, kwargs)
+            wrapper_func = self._create_job_wrapper(task_func, job_obj.code, kwargs)
 
             # APScheduler 4.x: 需要先使用 configure_task 注册任务
             task_id = job_obj.code
             await self._scheduler.configure_task(task_id, func=wrapper_func)
-            
+
             # 添加任务调度
-            await self._scheduler.add_schedule(
+            schedule = await self._scheduler.add_schedule(
                 func_or_task_id=task_id,
                 trigger=trigger,
                 id=job_obj.code,
             )
+
+            # 更新数据库中的下次执行时间
+            if schedule and schedule.next_fire_time:
+                from app.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as db:
+                    from sqlalchemy import select
+                    result = await db.execute(
+                        select(SchedulerJob).where(SchedulerJob.code == job_obj.code)
+                    )
+                    db_job = result.scalar_one_or_none()
+                    if db_job:
+                        # 将带时区的时间转换为不带时区的时间
+                        next_fire = schedule.next_fire_time
+                        if next_fire and next_fire.tzinfo is not None:
+                            next_fire = next_fire.replace(tzinfo=None)
+                        db_job.next_run_time = next_fire
+                        await db.commit()
 
             logger.info(f"任务 {job_obj.code} 已添加到调度器")
             return True
@@ -185,34 +171,31 @@ class SchedulerService:
             logger.error(f"添加任务失败 {job_obj.code}: {str(e)}")
             return False
     
-    def _create_job_wrapper(self, task_func, job_code: str, args: list, kwargs: dict):
+    def _create_job_wrapper(self, task_func, job_code: str, kwargs: dict):
         """创建带日志记录的任务包装函数"""
         async def wrapper():
-            return await self._execute_job(task_func, job_code, args, kwargs)
+            return await self._execute_job(task_func, job_code, kwargs)
         return wrapper
 
-    async def _execute_job(self, task_func, job_code: str, args: list, kwargs: dict):
+    async def _execute_job(self, task_func, job_code: str, kwargs: dict):
         """执行任务并记录日志"""
         from app.database import AsyncSessionLocal
         from core.scheduler.model import SchedulerJob, SchedulerLog
         from sqlalchemy import select
-        
+
         start_time = datetime.now()
         exception_info = None
         result = None
-        
+
         try:
             # 执行任务
-            if args:
-                result = await task_func(*args, **kwargs)
-            else:
-                result = await task_func(**kwargs)
+            result = await task_func(**kwargs)
         except Exception as e:
             exception_info = e
-            logger.error(f"任务 {job_code} 执行失败: {str(e)}")
-        
+            logger.error(f"[{job_code}] 任务执行失败: {str(e)}")
+
         end_time = datetime.now()
-        
+
         # 记录日志和更新任务状态
         try:
             async with AsyncSessionLocal() as db:
@@ -222,52 +205,70 @@ class SchedulerService:
                 )
                 job_obj = query_result.scalar_one_or_none()
 
-                if job_obj:
-                    # 创建执行日志
-                    log = SchedulerLog(
-                        job_id=job_obj.id,
-                        job_name=job_obj.name,
-                        job_code=job_obj.code,
-                        start_time=start_time,
-                        end_time=end_time,
-                        duration=(end_time - start_time).total_seconds(),
-                        hostname=socket.gethostname(),
-                        process_id=os.getpid(),
-                    )
+                if not job_obj:
+                    logger.error(f"[{job_code}] 未找到任务记录")
+                    return result
 
-                    if exception_info:
-                        # 执行失败
-                        job_obj.last_run_status = 'failed'
-                        job_obj.last_run_result = str(exception_info)
-                        job_obj.failure_count += 1
-                        log.status = 'failed'
-                        log.exception = str(exception_info)
-                        import traceback
-                        log.traceback = traceback.format_exc()
-                    else:
-                        # 执行成功
-                        job_obj.last_run_status = 'success'
-                        job_obj.last_run_result = str(result) if result else None
-                        job_obj.success_count += 1
-                        log.status = 'success'
-                        log.result = str(result) if result else None
+                # 创建执行日志
+                log = SchedulerLog(
+                    job_id=str(job_obj.id),
+                    job_name=job_obj.name,
+                    job_code=job_obj.code,
+                    start_time=start_time,
+                    end_time=end_time,
+                    duration=(end_time - start_time).total_seconds(),
+                    hostname=socket.gethostname(),
+                    process_id=os.getpid(),
+                )
 
-                    job_obj.total_run_count += 1
-                    job_obj.last_run_time = end_time
+                if exception_info:
+                    # 执行失败
+                    job_obj.last_run_status = 'failed'
+                    job_obj.last_run_result = str(exception_info)
+                    job_obj.failure_count += 1
+                    log.status = 'failed'
+                    log.exception = str(exception_info)
+                    import traceback
+                    log.traceback = traceback.format_exc()
+                else:
+                    # 执行成功
+                    job_obj.last_run_status = 'success'
+                    job_obj.last_run_result = str(result) if result else None
+                    job_obj.success_count += 1
+                    log.status = 'success'
+                    log.result = str(result) if result else None
 
-                    db.add(log)
-                    await db.commit()
+                job_obj.total_run_count += 1
+                job_obj.last_run_time = end_time
 
-                    # 一次性任务（date 类型）执行后自动清理
-                    if job_obj.trigger_type == 'date':
-                        await self._cleanup_one_time_job(db, job_obj)
+                # 更新下次执行时间
+                try:
+                    schedules = await self._scheduler.get_schedules()
+                    for schedule in schedules:
+                        if schedule.id == job_code:
+                            # 将带时区的时间转换为不带时区的时间
+                            next_fire = schedule.next_fire_time
+                            if next_fire and next_fire.tzinfo is not None:
+                                next_fire = next_fire.replace(tzinfo=None)
+                            job_obj.next_run_time = next_fire
+                            break
+                except Exception as e:
+                    logger.warning(f"[{job_code}] 获取下次执行时间失败: {str(e)}")
+
+                db.add(log)
+                await db.commit()
+                logger.info(f"[{job_code}] 执行完成，状态: {log.status}")
+
+                # 一次性任务（date 类型）执行后自动清理
+                if job_obj.trigger_type == 'date':
+                    await self._cleanup_one_time_job(db, job_obj)
 
         except Exception as e:
-            logger.error(f"记录任务执行日志失败: {str(e)}")
-        
+            logger.error(f"[{job_code}] 记录任务执行日志失败: {str(e)}")
+
         if exception_info:
             raise exception_info
-        
+
         return result
 
     async def remove_job(self, job_code: str) -> bool:
@@ -327,34 +328,37 @@ class SchedulerService:
     async def run_job_now(self, job_code: str) -> bool:
         """立即执行任务"""
         if not self._scheduler:
+            logger.error("调度器未初始化")
             return False
-            
+
         try:
-            # 在 APScheduler 4.x 中，使用 run_job 立即执行
             from sqlalchemy import select
             from app.database import AsyncSessionLocal
             from core.scheduler.model import SchedulerJob
-            
+
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
                     select(SchedulerJob).where(SchedulerJob.code == job_code)
                 )
                 job_obj = result.scalar_one_or_none()
-                
-                if job_obj:
-                    # 解析任务参数
-                    args = json.loads(job_obj.task_args) if job_obj.task_args else []
-                    kwargs = json.loads(job_obj.task_kwargs) if job_obj.task_kwargs else {}
-                    kwargs['job_code'] = job_obj.code
-                    
-                    # 导入并执行任务函数
-                    task_func = self._import_task_func(job_obj.task_func)
-                    if task_func:
-                        await self._execute_job(task_func, job_code, args, kwargs)
-                        logger.info(f"任务 {job_code} 已立即执行")
-                        return True
-            
-            return False
+
+                if not job_obj:
+                    logger.error(f"任务不存在: {job_code}")
+                    return False
+
+                # 解析任务参数
+                kwargs = json.loads(job_obj.task_kwargs) if job_obj.task_kwargs else {}
+                kwargs['job_code'] = job_obj.code
+
+                # 导入任务函数
+                task_func = self._import_task_func(job_obj.task_func)
+                if not task_func:
+                    logger.error(f"无法导入任务函数: {job_obj.task_func}")
+                    return False
+
+                await self._execute_job(task_func, job_code, kwargs)
+                return True
+
         except Exception as e:
             logger.error(f"立即执行任务失败 {job_code}: {str(e)}")
             return False

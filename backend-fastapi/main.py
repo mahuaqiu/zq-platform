@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     # ========== 调度器初始化结束 ==========
 
     # ========== 执行机管理模块启动初始化 ==========
-    from core.env_machine.scheduler import reset_using_machines, setup_env_machine_scheduler
+    from core.env_machine.scheduler import reset_using_machines
     from core.env_machine.pool_manager import EnvPoolManager
     from app.database import AsyncSessionLocal
 
@@ -51,17 +51,12 @@ async def lifespan(app: FastAPI):
     # 2. 加载机器池到 Redis
     async with AsyncSessionLocal() as db:
         await EnvPoolManager.load_machine_pool(db)
-
-    # 3. 启动离线检测任务
-    await setup_env_machine_scheduler()
     # ========== 执行机管理模块启动初始化结束 ==========
 
     # ========== 测试报告模块启动初始化 ==========
-    from core.test_report.scheduler import setup_test_report_scheduler
     # 创建 HTML 存储目录（如果不存在）
     html_path = Path(settings.TEST_REPORT_HTML_PATH)
     html_path.mkdir(parents=True, exist_ok=True)
-    await setup_test_report_scheduler()
     # ========== 测试报告模块启动初始化结束 ==========
 
     yield

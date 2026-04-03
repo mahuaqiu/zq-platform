@@ -25,7 +25,7 @@ ANALYZE_INTERVAL_MINUTES = 5  # 执行间隔（分钟）
 CLEANUP_JOB_ID = "test_report_cleanup"  # 清理任务 ID
 
 
-async def check_and_analyze_timeout_reports():
+async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
     """
     检查并分析超时的测试报告
 
@@ -33,9 +33,13 @@ async def check_and_analyze_timeout_reports():
     1. 查询有明细但无汇总的 task_id
     2. 判断最后上报时间是否超过配置的超时时间
     3. 触发汇总分析
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        **kwargs: 其他参数
     """
     timeout_minutes = settings.ANALYZE_TIMEOUT_MINUTES
-    logger.info(f"开始扫描超时测试报告，超时时间: {timeout_minutes} 分钟")
+    logger.info(f"[{job_code}] 开始扫描超时测试报告，超时时间: {timeout_minutes} 分钟")
 
     async with AsyncSessionLocal() as db:
         try:
@@ -83,7 +87,7 @@ async def _analyze_job_wrapper():
         logger.error(f"分析任务执行失败: {str(e)}")
 
 
-async def cleanup_old_reports():
+async def cleanup_old_reports(job_code: str = None, **kwargs):
     """
     清理过期的测试报告
 
@@ -92,12 +96,16 @@ async def cleanup_old_reports():
     2. 空目录：清理空目录
     3. 数据库明细记录：删除超过 TEST_REPORT_DETAIL_CLEANUP_DAYS 天的记录
     4. test_report_summary 不删除
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        **kwargs: 其他参数
     """
     html_cleanup_days = settings.TEST_REPORT_HTML_CLEANUP_DAYS
     detail_cleanup_days = settings.TEST_REPORT_DETAIL_CLEANUP_DAYS
     html_path = Path(settings.TEST_REPORT_HTML_PATH)
 
-    logger.info(f"开始清理过期测试报告，HTML保留天数: {html_cleanup_days}，明细保留天数: {detail_cleanup_days}")
+    logger.info(f"[{job_code}] 开始清理过期测试报告，HTML保留天数: {html_cleanup_days}，明细保留天数: {detail_cleanup_days}")
 
     # 1. 清理 HTML 文件
     html_deleted_count = 0

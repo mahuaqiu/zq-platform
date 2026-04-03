@@ -156,7 +156,7 @@ function handleDetail(row: SchedulerLog) {
   logDetailVisible.value = true;
 }
 
-// 格式化成功率
+// 格式化成功率（前端计算的是小数形式，如 0.6667 表示 66.67%）
 function formatSuccessRate(rate: number): string {
   if (rate === 0) return '0%';
   return `${(rate * 100).toFixed(1)}%`;
@@ -294,9 +294,9 @@ onMounted(() => {
               {{ formatDuration(row.duration) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="result" label="执行结果/异常信息" min-width="200" show-overflow-tooltip>
+          <ElTableColumn prop="result" label="执行结果" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
-              {{ row.result || row.exception || '-' }}
+              {{ row.result || '-' }}
             </template>
           </ElTableColumn>
           <ElTableColumn prop="hostname" label="执行主机" min-width="120" show-overflow-tooltip>

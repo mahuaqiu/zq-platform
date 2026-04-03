@@ -135,7 +135,7 @@ const [Form, formApi] = useVbenForm({
         .min(1, '请输入任务函数路径')
         .max(200, '任务函数路径最多200个字符'),
       componentProps: {
-        placeholder: '例如: scheduler.tasks.cleanup_task',
+        placeholder: '例如: core.scheduler.tasks.cleanup_task',
       },
       help: 'Python函数的完整路径，模块名.函数名',
     },

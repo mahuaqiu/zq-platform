@@ -68,7 +68,7 @@ class SchedulerJob(BaseModel):
     # 指定执行时间（用于 date 类型）
     run_date = Column(DateTime, nullable=True, comment="指定执行时间")
     
-    # 任务函数路径（如：scheduler.tasks.test_task）
+    # 任务函数路径（如：core.scheduler.tasks.cleanup_task）
     task_func = Column(String(256), nullable=False, comment="任务函数路径")
 
     # 任务参数（JSON格式）

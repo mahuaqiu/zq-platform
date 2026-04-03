@@ -61,7 +61,6 @@ def _build_job_response(job: SchedulerJob) -> SchedulerJobResponse:
         interval_seconds=job.interval_seconds,
         run_date=job.run_date,
         task_func=job.task_func,
-        task_args=job.task_args,
         task_kwargs=job.task_kwargs,
         status=job.status,
         status_display=job.get_status_display(),

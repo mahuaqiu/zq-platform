@@ -229,16 +229,20 @@ class EnvMachineScheduler:
                 logger.debug(f"机器 {machine_id} 状态为 {machine.status}，无需释放")
 
 
-async def check_offline_machines() -> int:
+async def check_offline_machines(job_code: str = None, **kwargs) -> int:
     """
     离线检测任务
 
     检查 sync_time 超过 10 分钟的机器，标记为 offline
 
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        **kwargs: 其他参数
+
     Returns:
         int: 检测到的离线机器数量
     """
-    logger.info("执行离线检测任务")
+    logger.info(f"[{job_code}] 执行离线检测任务")
     threshold = datetime.now() - timedelta(minutes=EnvMachineScheduler.OFFLINE_THRESHOLD_MINUTES)
 
     async with AsyncSessionLocal() as db:

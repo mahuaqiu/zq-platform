@@ -155,6 +155,7 @@ function handleExecute(row: SchedulerJob) {
       await executeSchedulerJobApi({ job_id: row.id });
       ElMessage.success('任务已开始执行');
       loadData();
+      loadStatistics();
     } catch (error: any) {
       const msg = error?.response?.data?.detail || '执行失败';
       ElMessage.error(msg);
@@ -182,10 +183,10 @@ function handleDelete(row: SchedulerJob) {
   });
 }
 
-// 格式化成功率
+// 格式化成功率（后端返回的是百分比数值，如 66.67 表示 66.67%）
 function formatSuccessRate(rate: number): string {
   if (rate === 0) return '0%';
-  return `${(rate * 100).toFixed(1)}%`;
+  return `${rate.toFixed(1)}%`;
 }
 
 // 初始加载
