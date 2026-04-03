@@ -65,9 +65,9 @@ watch(
   { immediate: true },
 );
 
-// 关闭弹窗
-function handleClose() {
-  emit('update:visible', false);
+// 同步弹窗状态给父组件
+function handleUpdateVisible(val: boolean) {
+  emit('update:visible', val);
 }
 
 // 获取状态标签类型
@@ -95,8 +95,8 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
     width="900px"
     :show-confirm-button="false"
     cancel-text="关闭"
-    @update:model-value="handleClose"
-    @cancel="handleClose"
+    @update:model-value="handleUpdateVisible"
+    @cancel="handleUpdateVisible(false)"
   >
     <div v-if="loading" class="loading-wrapper">
       <span>加载中...</span>

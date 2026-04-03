@@ -34,6 +34,7 @@ import {
   JOB_STATUS_OPTIONS,
   TRIGGER_TYPE_OPTIONS,
 } from './data';
+import TaskFormModal from './modules/task-form-modal.vue';
 
 defineOptions({ name: 'SchedulerJobPage' });
 
@@ -63,6 +64,10 @@ const searchForm = ref({
   status: undefined as number | undefined,
   group: '',
 });
+
+// 任务表单弹窗
+const taskFormModalRef = ref();
+const currentJobId = ref<string>();
 
 // 加载数据
 async function loadData() {
@@ -128,12 +133,14 @@ function handleSizeChange(size: number) {
 
 // 新增
 function handleCreate() {
-  ElMessage.info('任务表单弹窗功能开发中...');
+  currentJobId.value = undefined;
+  taskFormModalRef.value?.open();
 }
 
 // 编辑
-function handleEdit(_row: SchedulerJob) {
-  ElMessage.info('任务表单弹窗功能开发中...');
+function handleEdit(row: SchedulerJob) {
+  currentJobId.value = row.id;
+  taskFormModalRef.value?.open(row.id);
 }
 
 // 执行任务
@@ -348,6 +355,9 @@ onMounted(() => {
           />
         </div>
       </div>
+
+      <!-- 任务表单弹窗 -->
+      <TaskFormModal ref="taskFormModalRef" @success="loadData" />
     </div>
   </Page>
 </template>

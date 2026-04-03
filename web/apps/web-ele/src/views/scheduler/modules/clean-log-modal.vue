@@ -63,9 +63,9 @@ watch(
   },
 );
 
-// 关闭弹窗
-function handleClose() {
-  emit('update:visible', false);
+// 同步弹窗状态给父组件
+function handleUpdateVisible(val: boolean) {
+  emit('update:visible', val);
 }
 
 // 提交清理
@@ -92,7 +92,7 @@ async function handleSubmit() {
     ElMessage.success(`成功清理 ${result.count} 条日志记录`);
 
     // 关闭弹窗
-    handleClose();
+    handleUpdateVisible(false);
 
     // 触发成功事件
     emit('success');
@@ -111,7 +111,7 @@ async function handleSubmit() {
     :title="dialogTitle"
     width="500px"
     :confirm-loading="confirmLoading"
-    @update:model-value="handleClose"
+    @update:model-value="handleUpdateVisible"
     @confirm="handleSubmit"
   >
     <div class="clean-log-form">

@@ -27,6 +27,7 @@ import {
   LOG_STATUS_OPTIONS,
 } from './data';
 import LogDetailModal from './modules/log-detail-modal.vue';
+import CleanLogModal from './modules/clean-log-modal.vue';
 
 defineOptions({ name: 'SchedulerLogPage' });
 
@@ -59,6 +60,9 @@ const searchForm = ref({
 // 日志详情弹窗
 const logDetailVisible = ref(false);
 const currentLogId = ref<string>();
+
+// 清理日志弹窗
+const cleanLogVisible = ref(false);
 
 // 加载任务列表（用于下拉选择）
 async function loadJobOptions() {
@@ -131,7 +135,7 @@ function handleReset() {
 
 // 清理日志
 function handleCleanLogs() {
-  ElMessage.info('清理日志功能开发中...');
+  cleanLogVisible.value = true;
 }
 
 // 分页
@@ -325,6 +329,12 @@ onMounted(() => {
       <LogDetailModal
         v-model:visible="logDetailVisible"
         :log-id="currentLogId"
+      />
+
+      <!-- 清理日志弹窗 -->
+      <CleanLogModal
+        v-model:visible="cleanLogVisible"
+        @success="loadData"
       />
     </div>
   </Page>
