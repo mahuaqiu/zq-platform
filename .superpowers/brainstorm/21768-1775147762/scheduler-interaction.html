@@ -1,0 +1,160 @@
+<h2>定时任务管理界面设计 - 交互补充</h2>
+<p class="subtitle">执行确认弹窗 + 日志查看交互</p>
+
+<div class="mockup">
+  <div class="mockup-header">执行确认弹窗</div>
+  <div class="mockup-body" style="padding: 20px;">
+    <div style="text-align: center; padding: 20px 0;">
+      <div style="font-size: 48px; color: #faad14; margin-bottom: 16px;">⚠️</div>
+      <h3 style="margin: 0 0 8px 0;">确定立即执行该任务吗？</h3>
+      <p style="color: #666; margin: 0;">任务：测试报告清理 (clean_report)</p>
+      <p style="color: #999; font-size: 12px; margin-top: 8px;">立即执行不影响原有的定时调度计划</p>
+    </div>
+    <div style="display: flex; justify-content: center; gap: 16px; margin-top: 24px;">
+      <button class="mock-button">取消</button>
+      <button class="mock-button" style="background: #1890ff; color: white;">确认执行</button>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>任务列表交互方式选择</h3>
+  <p style="color: #666; margin-bottom: 16px;">请选择你更喜欢的日志查看交互方式：</p>
+
+  <div class="options">
+    <div class="option" data-choice="expand" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>点击行展开日志</h3>
+        <p>点击任务行，下方展开显示该任务的执行历史记录（当前设计）</p>
+        <div style="margin-top: 12px; padding: 8px; background: #f6f8fa; border-radius: 4px; font-size: 12px;">
+          ✓ 操作简单，一页完成<br>
+          ✓ 不需要跳转页面<br>
+          ⚠ 大量日志时可能占用空间
+        </div>
+      </div>
+    </div>
+    <div class="option" data-choice="button" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>操作列添加"日志"按钮</h3>
+        <p>在操作列增加"日志"链接，点击弹出日志弹窗</p>
+        <div style="margin-top: 12px; padding: 8px; background: #f6f8fa; border-radius: 4px; font-size: 12px;">
+          ✓ 不影响表格布局<br>
+          ✓ 弹窗可显示更多日志<br>
+          ⚠ 需要额外点击
+        </div>
+      </div>
+    </div>
+    <div class="option" data-choice="page" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>独立执行日志页面</h3>
+        <p>侧边菜单单独增加"执行日志"页面，可查看所有任务的执行历史</p>
+        <div style="margin-top: 12px; padding: 8px; background: #f6f8fa; border-radius: 4px; font-size: 12px;">
+          ✓ 全局日志管理<br>
+          ✓ 支持批量清理日志<br>
+          ⚠ 需要页面跳转
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>操作列按钮布局（补充日志入口）</h3>
+  <div class="mockup" style="max-width: 600px;">
+    <div class="mockup-header">表格操作列设计</div>
+    <div class="mockup-body" style="padding: 16px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff; margin-right: 12px; cursor: pointer;">执行</a>
+              <a style="color: #52c41a; margin-right: 12px; cursor: pointer;">日志</a>
+              <a style="color: #1890ff; margin-right: 12px; cursor: pointer;">编辑</a>
+              <a style="color: #ff4d4f; cursor: pointer;">删除</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 16px; padding: 12px; background: #f6f8fa; border-radius: 6px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 14px;">按钮说明</h4>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #666;">
+          <li><b style="color: #1890ff;">执行</b> - 弹出确认框，立即触发任务运行</li>
+          <li><b style="color: #52c41a;">日志</b> - 打开该任务的执行历史弹窗/页面</li>
+          <li><b style="color: #1890ff;">编辑</b> - 打开任务配置编辑弹窗</li>
+          <li><b style="color: #ff4d4f;">删除</b> - 弹出确认框后删除任务</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>执行日志弹窗设计（点击"日志"按钮后）h3>
+  <div class="mockup" style="max-width: 700px;">
+    <div class="mockup-header">执行日志 - clean_report（测试报告清理）</div>
+    <div class="mockup-body" style="padding: 0;">
+      <!-- 筛选区 -->
+      <div style="background: #fafafa; padding: 12px 16px; border-bottom: 1px solid #e8e8e8; display: flex; gap: 12px; align-items: center;">
+        <select class="mock-input" style="width: 100px;">
+          <option>全部状态</option>
+          <option>成功</option>
+          <option>失败</option>
+        </select>
+        <input class="mock-input" style="width: 140px;" type="date" placeholder="开始日期">
+        <input class="mock-input" style="width: 140px;" type="date" placeholder="结束日期">
+        <button class="mock-button" style="background: #1890ff; color: white;">查询</button>
+      </div>
+      <!-- 日志表格 -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: left;">执行时间</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">状态</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">耗时</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: left;">执行结果</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e8e8e8;">2026-04-02 23:00:15</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a; background: #f6ffed; padding: 2px 8px; border-radius: 4px;">成功</span></td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">2.3s</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; color: #666;">清理了 45 条过期日志</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e8e8e8;">2026-04-01 23:00:12</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a; background: #f6ffed; padding: 2px 8px; border-radius: 4px;">成功</span></td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">1.8s</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; color: #666;">清理了 32 条过期日志</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e8e8e8;">2026-03-31 23:00:08</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #ff4d4f; background: #fff2f0; padding: 2px 8px; border-radius: 4px;">失败</span></td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">0.5s</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; color: #ff4d4f;">数据库连接超时</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+        </tbody>
+      </table>
+      <!-- 分页 -->
+      <div style="display: flex; justify-content: flex-end; padding: 12px 16px; gap: 8px; align-items: center; border-top: 1px solid #e8e8e8;">
+        <span style="color: #666; font-size: 13px;">共 128 条</span>
+        <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">&lt;</button>
+        <button class="mock-button" style="padding: 4px 8px; font-size: 12px; background: #1890ff; color: white;">1</button>
+        <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">2</button>
+        <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">&gt;</button>
+      </div>
+    </div>
+  </div>
+</div>

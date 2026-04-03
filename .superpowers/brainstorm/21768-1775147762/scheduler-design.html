@@ -1,0 +1,271 @@
+<h2>定时任务管理界面设计</h2>
+<p class="subtitle">基于设备管理界面的简洁实用风格</p>
+
+<div class="mockup">
+  <div class="mockup-header">定时任务管理页面预览</div>
+  <div class="mockup-body" style="padding: 0;">
+    <!-- 搜索区域 -->
+    <div style="background: #fafafa; padding: 16px; border-bottom: 1px solid #e8e8e8;">
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">任务名称</span>
+          <input class="mock-input" style="width: 150px;" placeholder="搜索名称">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">触发类型</span>
+          <select class="mock-input" style="width: 120px;">
+            <option>全部</option>
+            <option>Cron</option>
+            <option>Interval</option>
+            <option>Date</option>
+          </select>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">任务状态</span>
+          <select class="mock-input" style="width: 100px;">
+            <option>全部</option>
+            <option>启用</option>
+            <option>禁用</option>
+            <option>暂停</option>
+          </select>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">任务分组</span>
+          <input class="mock-input" style="width: 120px;" placeholder="搜索分组">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="mock-button" style="background: #1890ff; color: white;">查询</button>
+          <button class="mock-button">重置</button>
+        </div>
+        <button class="mock-button" style="background: #52c41a; color: white; margin-left: auto;">+ 新增任务</button>
+      </div>
+    </div>
+
+    <!-- 统计卡片区域 -->
+    <div style="padding: 16px; background: #fff; border-bottom: 1px solid #e8e8e8;">
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px; border-radius: 8px; color: white;">
+          <div style="font-size: 12px; opacity: 0.9;">总任务数</div>
+          <div style="font-size: 28px; font-weight: 600; margin-top: 8px;">12</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 16px; border-radius: 8px; color: white;">
+          <div style="font-size: 12px; opacity: 0.9;">启用任务</div>
+          <div style="font-size: 28px; font-weight: 600; margin-top: 8px;">8</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 16px; border-radius: 8px; color: white;">
+          <div style="font-size: 12px; opacity: 0.9;">执行成功率</div>
+          <div style="font-size: 28px; font-weight: 600; margin-top: 8px;">95.2%</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 16px; border-radius: 8px; color: white;">
+          <div style="font-size: 12px; opacity: 0.9;">今日执行</div>
+          <div style="font-size: 28px; font-weight: 600; margin-top: 8px;">156</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 表格区域 -->
+    <div style="padding: 16px; background: #fff;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left; font-weight: 500;">任务名称</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left; font-weight: 500;">任务编码</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left; font-weight: 500;">触发类型</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left; font-weight: 500;">触发配置</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left; font-weight: 500;">任务函数</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center; font-weight: 500;">状态</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center; font-weight: 500;">执行次数</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left; font-weight: 500;">下次执行</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center; font-weight: 500;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">测试报告清理</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">clean_report</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">Cron</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">0 23 * * *</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #666;">scheduler.tasks.cleanup</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a;">启用</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">128</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">今天 23:00</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff; margin-right: 8px;">执行</a>
+              <a style="color: #1890ff; margin-right: 8px;">编辑</a>
+              <a style="color: #ff4d4f;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">数据同步任务</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">sync_data</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">Interval</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">每 300 秒</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #666;">scheduler.tasks.sync</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a;">启用</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">1,245</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">14:35:20</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff; margin-right: 8px;">执行</a>
+              <a style="color: #1890ff; margin-right: 8px;">编辑</a>
+              <a style="color: #ff4d4f;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">日志清理</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">clean_logs</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">Cron</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">0 3 * * *</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #666;">scheduler.tasks.log_clean</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #faad14;">暂停</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">45</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">-</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff; margin-right: 8px;">执行</a>
+              <a style="color: #1890ff; margin-right: 8px;">编辑</a>
+              <a style="color: #ff4d4f;">删除</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 分页 -->
+      <div style="display: flex; justify-content: flex-end; padding: 16px 0 0 0; gap: 8px; align-items: center;">
+        <span style="color: #666; font-size: 13px;">共 12 条</span>
+        <select style="padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px;">
+          <option>10条/页</option>
+          <option>20条/页</option>
+          <option>50条/页</option>
+        </select>
+        <div style="display: flex; gap: 4px;">
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">&lt;</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px; background: #1890ff; color: white;">1</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">2</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">&gt;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>功能说明</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: #f6f8fa; padding: 16px; border-radius: 8px;">
+      <h4 style="margin: 0 0 12px 0; font-size: 14px;">搜索筛选</h4>
+      <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #666;">
+        <li>任务名称模糊搜索</li>
+        <li>触发类型筛选（Cron/Interval/Date）</li>
+        <li>任务状态筛选（启用/禁用/暂停）</li>
+        <li>任务分组筛选</li>
+      </ul>
+    </div>
+    <div style="background: #f6f8fa; padding: 16px; border-radius: 8px;">
+      <h4 style="margin: 0 0 12px 0; font-size: 14px;">快捷操作</h4>
+      <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #666;">
+        <li><b>执行</b> - 立即触发任务运行</li>
+        <li><b>编辑</b> - 修改任务配置</li>
+        <li><b>删除</b> - 移除任务</li>
+        <li>点击行可查看执行日志</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>新增/编辑任务弹窗设计</h3>
+  <div class="mockup" style="max-width: 500px;">
+    <div class="mockup-header">新增定时任务</div>
+    <div class="mockup-body" style="padding: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">任务名称 *</label>
+          <input class="mock-input" style="width: 100%;" placeholder="如：测试报告清理">
+        </div>
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">任务编码 *</label>
+          <input class="mock-input" style="width: 100%;" placeholder="如：clean_report（唯一标识）">
+        </div>
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">触发类型 *</label>
+          <select class="mock-input" style="width: 100%;">
+            <option>Cron - 定时表达式</option>
+            <option>Interval - 固定间隔</option>
+            <option>Date - 指定时间</option>
+          </select>
+        </div>
+        <div style="background: #f6f8fa; padding: 12px; border-radius: 6px;">
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">Cron 表达式 *</label>
+          <input class="mock-input" style="width: 100%;" placeholder="0 23 * * *（每天23:00）">
+          <div style="font-size: 12px; color: #999; margin-top: 6px;">
+            格式：秒 分 时 日 月 周 | 示例：0 9 * * 1-5（工作日9点）
+          </div>
+        </div>
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">任务函数路径 *</label>
+          <input class="mock-input" style="width: 100%;" placeholder="scheduler.tasks.cleanup_task">
+        </div>
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">任务参数（JSON）</label>
+          <textarea class="mock-input" style="width: 100%; height: 60px; resize: vertical;" placeholder='{"days": 30}'></textarea>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1;">
+            <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">任务分组</label>
+            <input class="mock-input" style="width: 100%;" placeholder="default">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">任务状态</label>
+            <select class="mock-input" style="width: 100%;">
+              <option>启用</option>
+              <option>禁用</option>
+              <option>暂停</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+          <button class="mock-button">取消</button>
+          <button class="mock-button" style="background: #1890ff; color: white;">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>执行日志查看（点击任务行展开）</h3>
+  <div class="mockup">
+    <div class="mockup-header">任务执行日志 - clean_report</div>
+    <div class="mockup-body" style="padding: 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: left;">执行时间</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">状态</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">耗时</th>
+            <th style="padding: 10px; border: 1px solid #e8e8e8; text-align: left;">执行结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e8e8e8;">2026-04-02 23:00:15</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a;">成功</span></td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">2.3s</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; color: #666;">清理了 45 条过期日志</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e8e8e8;">2026-04-01 23:00:12</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a;">成功</span></td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">1.8s</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; color: #666;">清理了 32 条过期日志</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e8e8e8;">2026-03-31 23:00:08</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #ff4d4f;">失败</span></td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; text-align: center;">0.5s</td>
+            <td style="padding: 10px; border: 1px solid #e8e8e8; color: #ff4d4f;">数据库连接超时</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

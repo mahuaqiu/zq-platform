@@ -1,0 +1,233 @@
+<h2>执行日志独立页面设计</h2>
+<p class="subtitle">侧边菜单单独入口，查看所有任务的执行历史</p>
+
+<div class="mockup">
+  <div class="mockup-header">执行日志页面 - 全局日志管理</div>
+  <div class="mockup-body" style="padding: 0;">
+    <!-- 搜索区域 -->
+    <div style="background: #fafafa; padding: 16px; border-bottom: 1px solid #e8e8e8;">
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">任务名称</span>
+          <select class="mock-input" style="width: 180px;">
+            <option>全部任务</option>
+            <option>测试报告清理</option>
+            <option>数据同步任务</option>
+            <option>日志清理</option>
+          </select>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">执行状态</span>
+          <select class="mock-input" style="width: 100px;">
+            <option>全部</option>
+            <option>成功</option>
+            <option>失败</option>
+            <option>超时</option>
+          </select>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">开始时间</span>
+          <input class="mock-input" style="width: 140px;" type="date">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 12px; color: #666;">结束时间</span>
+          <input class="mock-input" style="width: 140px;" type="date">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="mock-button" style="background: #1890ff; color: white;">查询</button>
+          <button class="mock-button">重置</button>
+        </div>
+        <button class="mock-button" style="background: #ff4d4f; color: white; margin-left: auto;">清理日志</button>
+      </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div style="padding: 16px; background: #fff; border-bottom: 1px solid #e8e8e8;">
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+        <div style="background: #f6f8fa; padding: 12px 16px; border-radius: 8px; border: 1px solid #e8e8e8;">
+          <div style="font-size: 12px; color: #666;">总执行次数</div>
+          <div style="font-size: 24px; font-weight: 600; color: #333; margin-top: 4px;">1,245</div>
+        </div>
+        <div style="background: #f6ffed; padding: 12px 16px; border-radius: 8px; border: 1px solid #b7eb8f;">
+          <div style="font-size: 12px; color: #666;">成功次数</div>
+          <div style="font-size: 24px; font-weight: 600; color: #52c41a; margin-top: 4px;">1,180</div>
+        </div>
+        <div style="background: #fff2f0; padding: 12px 16px; border-radius: 8px; border: 1px solid #ffccc7;">
+          <div style="font-size: 12px; color: #666;">失败次数</div>
+          <div style="font-size: 24px; font-weight: 600; color: #ff4d4f; margin-top: 4px;">65</div>
+        </div>
+        <div style="background: #e6f7ff; padding: 12px 16px; border-radius: 8px; border: 1px solid #91d5ff;">
+          <div style="font-size: 12px; color: #666;">成功率</div>
+          <div style="font-size: 24px; font-weight: 600; color: #1890ff; margin-top: 4px;">94.8%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日志表格 -->
+    <div style="padding: 16px; background: #fff;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left;">任务名称</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left;">执行时间</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">状态</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">耗时</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left;">执行结果/异常信息</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: left;">执行主机</th>
+            <th style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">测试报告清理</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">2026-04-02 23:00:15</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a; background: #f6ffed; padding: 2px 8px; border-radius: 4px;">成功</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">2.3s</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #666;">清理了 45 条过期日志</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">server-01</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">数据同步任务</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">2026-04-02 14:35:20</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #52c41a; background: #f6ffed; padding: 2px 8px; border-radius: 4px;">成功</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">5.2s</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #666;">同步完成，处理 128 条记录</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">server-02</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">日志清理</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">2026-03-31 23:00:08</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #ff4d4f; background: #fff2f0; padding: 2px 8px; border-radius: 4px;">失败</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">0.5s</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #ff4d4f;">数据库连接超时: Connection refused</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">server-01</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">测试报告清理</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;">2026-03-30 23:00:18</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><span style="color: #faad14; background: #fffbe6; padding: 2px 8px; border-radius: 4px;">超时</span></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;">60s</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; color: #faad14;">任务执行超时，已自动终止</td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">server-03</code></td>
+            <td style="padding: 12px 10px; border: 1px solid #e8e8e8; text-align: center;"><a style="color: #1890ff; cursor: pointer;">详情</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 分页 -->
+      <div style="display: flex; justify-content: flex-end; padding: 16px 0 0 0; gap: 8px; align-items: center;">
+        <span style="color: #666; font-size: 13px;">共 1,245 条</span>
+        <select style="padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px;">
+          <option>20条/页</option>
+          <option>50条/页</option>
+          <option>100条/页</option>
+        </select>
+        <div style="display: flex; gap: 4px;">
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">&lt;</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px; background: #1890ff; color: white;">1</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">2</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">...</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">63</button>
+          <button class="mock-button" style="padding: 4px 8px; font-size: 12px;">&gt;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>清理日志弹窗</h3>
+  <div class="mockup" style="max-width: 400px;">
+    <div class="mockup-header">清理执行日志</div>
+    <div class="mockup-body" style="padding: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">保留最近</label>
+          <select class="mock-input" style="width: 100%;">
+            <option>7 天</option>
+            <option>30 天</option>
+            <option>90 天</option>
+            <option>180 天</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 13px; color: #666; display: block; margin-bottom: 6px;">清理状态（可选）</label>
+          <select class="mock-input" style="width: 100%;">
+            <option>全部状态</option>
+            <option>仅失败记录</option>
+            <option>仅成功记录</option>
+          </select>
+        </div>
+        <div style="background: #fffbe6; padding: 12px; border-radius: 6px; border: 1px solid #ffe58f;">
+          <span style="color: #d48806; font-size: 13px;">⚠️ 清理后无法恢复，请谨慎操作</span>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="mock-button">取消</button>
+          <button class="mock-button" style="background: #ff4d4f; color: white;">确认清理</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>日志详情弹窗</h3>
+  <div class="mockup" style="max-width: 550px;">
+    <div class="mockup-header">执行日志详情</div>
+    <div class="mockup-body" style="padding: 20px;">
+      <div style="display: grid; grid-template-columns: 100px 1fr; gap: 12px; font-size: 13px;">
+        <span style="color: #666;">任务名称</span>
+        <span>测试报告清理</span>
+        <span style="color: #666;">任务编码</span>
+        <span><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">clean_report</code></span>
+        <span style="color: #666;">执行状态</span>
+        <span><span style="color: #52c41a; background: #f6ffed; padding: 2px 8px; border-radius: 4px;">成功</span></span>
+        <span style="color: #666;">开始时间</span>
+        <span>2026-04-02 23:00:15</span>
+        <span style="color: #666;">结束时间</span>
+        <span>2026-04-02 23:00:17</span>
+        <span style="color: #666;">执行耗时</span>
+        <span>2.3 秒</span>
+        <span style="color: #666;">执行主机</span>
+        <span><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">server-01</code></span>
+        <span style="color: #666;">进程ID</span>
+        <span>12845</span>
+        <span style="color: #666;">重试次数</span>
+        <span>0</span>
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8e8e8;">
+        <label style="font-size: 13px; color: #666; display: block; margin-bottom: 8px;">执行结果</label>
+        <div style="background: #f6f8fa; padding: 12px; border-radius: 6px; font-size: 13px;">
+          清理了 45 条过期日志，释放磁盘空间 128MB
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <label style="font-size: 13px; color: #666; display: block; margin-bottom: 8px;">异常堆栈（失败时显示）</label>
+        <div style="background: #fff2f0; padding: 12px; border-radius: 6px; font-size: 12px; color: #ff4d4f; font-family: monospace;">
+          Traceback (most recent call last):<br>
+          &nbsp;&nbsp;File "scheduler/tasks.py", line 45, in cleanup_task<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;await db.execute(...)<br>
+          ConnectionError: Database connection timeout
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>侧边菜单结构</h3>
+  <div class="mockup" style="max-width: 250px;">
+    <div class="mockup-body" style="padding: 0; background: #001529;">
+      <div style="padding: 16px; color: #fff; font-size: 14px; font-weight: 500;">系统管理</div>
+      <div style="padding: 10px 16px; color: #fff; font-size: 13px; background: rgba(255,255,255,0.1);">用户管理</div>
+      <div style="padding: 10px 16px; color: #fff; font-size: 13px;">角色管理</div>
+      <div style="padding: 10px 16px; color: #fff; font-size: 13px;">菜单管理</div>
+      <div style="padding: 16px; color: #fff; font-size: 14px; font-weight: 500; margin-top: 8px;">任务管理</div>
+      <div style="padding: 10px 16px; color: #fff; font-size: 13px; background: #1890ff;">定时任务</div>
+      <div style="padding: 10px 16px; color: #fff; font-size: 13px;">执行日志</div>
+    </div>
+  </div>
+</div>

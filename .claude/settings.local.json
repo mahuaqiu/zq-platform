@@ -75,7 +75,10 @@
       "Bash(find D:/code/zq-platform/backend-fastapi -name \"__pycache__\" -type d -exec rm -rf {} +)",
       "WebSearch",
       "WebFetch(domain:apscheduler.readthedocs.io)",
-      "Bash(find . -name *.log -type f -mmin -60)"
+      "Bash(find . -name *.log -type f -mmin -60)",
+      "Bash(/Users/ma/.claude/skills/brainstorming/scripts/start-server.sh:*)",
+      "Bash(bash:*)",
+      "Bash(/Users/ma/.claude/skills/brainstorming/scripts/stop-server.sh:*)"
     ]
   }
 }
