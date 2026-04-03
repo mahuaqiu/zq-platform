@@ -89,6 +89,9 @@ class SchedulerJob(BaseModel):
     # 超时时间（秒），0表示不限制
     timeout = Column(Integer, default=0, comment="超时时间（秒）")
 
+    # 执行主机IP（指定任务只能在特定IP的机器上执行，为空则任意机器可执行）
+    execute_host_ip = Column(String(64), nullable=True, comment="执行主机IP")
+
     # 是否合并执行（如果上次未执行完，是否跳过本次）
     coalesce = Column(Boolean, default=False, comment="是否合并执行")
     
@@ -205,8 +208,8 @@ class SchedulerLog(BaseModel):
     # 异常堆栈
     traceback = Column(Text, nullable=True, comment="异常堆栈")
     
-    # 执行主机
-    hostname = Column(String(128), nullable=True, comment="执行主机")
+    # 执行主机IP
+    hostname = Column(String(128), nullable=True, comment="执行主机IP")
     
     # 进程ID
     process_id = Column(Integer, nullable=True, comment="进程ID")
