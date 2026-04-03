@@ -185,6 +185,16 @@ const [Form, formApi] = useVbenForm({
         placeholder: '请选择任务状态',
       },
     },
+    {
+      component: 'Input',
+      fieldName: 'execute_host_ip',
+      label: '执行主机IP',
+      formItemClass: 'col-span-2',
+      componentProps: {
+        placeholder: '如 192.168.1.100，为空则任意机器可执行',
+      },
+      help: '指定任务执行的机器IP，需配合服务端 HOST_IP 配置使用',
+    },
   ],
   showDefaultActions: false,
 });
