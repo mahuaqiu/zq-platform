@@ -15,7 +15,7 @@ from app.database import AsyncSessionLocal
 from app.config import settings
 from core.test_report.model import TestReportDetail, TestReportSummary
 from core.test_report.service import TestReportSummaryService
-from scheduler.service import scheduler_service
+from core.scheduler.service import scheduler_service
 
 logger = logging.getLogger(__name__)
 

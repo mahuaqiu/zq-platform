@@ -78,7 +78,12 @@
       "Bash(find . -name *.log -type f -mmin -60)",
       "Bash(/Users/ma/.claude/skills/brainstorming/scripts/start-server.sh:*)",
       "Bash(bash:*)",
-      "Bash(/Users/ma/.claude/skills/brainstorming/scripts/stop-server.sh:*)"
+      "Bash(/Users/ma/.claude/skills/brainstorming/scripts/stop-server.sh:*)",
+      "Bash(taskkill /F /PID 21260)",
+      "Bash(taskkill /F /PID 6032)",
+      "Bash(taskkill /F /PID 14640)",
+      "Bash(grep -n \"component.*index\" D:/code/zq-platform/backend-fastapi/scripts/init_*.py)",
+      "Bash(head -20 D:/code/zq-platform/backend-fastapi/scripts/*.py)"
     ]
   }
 }

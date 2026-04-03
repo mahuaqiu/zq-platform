@@ -19,6 +19,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 from apscheduler import AsyncScheduler
+from apscheduler.datastores.memory import MemoryDataStore
+from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -81,7 +83,7 @@ class SchedulerService:
         try:
             from sqlalchemy import select
             from app.database import AsyncSessionLocal
-            from scheduler.model import SchedulerJob
+            from core.scheduler.model import SchedulerJob
 
             async with AsyncSessionLocal() as db:
                 # 获取所有启用的任务
@@ -116,19 +118,24 @@ class SchedulerService:
         """启动定期清理过期任务的定时任务"""
         if not self._scheduler:
             return
-            
+
         cleanup_job_id = '_scheduler_cleanup'
 
-        # 先注册任务
-        await self._scheduler.configure_task(cleanup_job_id, func=self._cleanup_expired_jobs_wrapper)
-        
-        # 每天凌晨3点清理过期任务
-        await self._scheduler.add_schedule(
-            func_or_task_id=cleanup_job_id,
-            trigger=CronTrigger(hour=3, minute=0),
-            id=cleanup_job_id,
-        )
-        logger.info("定期清理任务已启动（每天凌晨3点）")
+        try:
+            # 先注册任务
+            await self._scheduler.configure_task(cleanup_job_id, func=self._cleanup_expired_jobs_wrapper)
+
+            # 每天凌晨3点清理过期任务
+            await self._scheduler.add_schedule(
+                func_or_task_id=cleanup_job_id,
+                trigger=CronTrigger(hour=3, minute=0),
+                id=cleanup_job_id,
+            )
+            logger.info("定期清理任务已启动（每天凌晨3点）")
+        except Exception as e:
+            # APScheduler 4.0.0a6 alpha 版本可能不支持在初始化期间调用这些方法
+            # 在此情况下，跳过清理任务，后续可以手动触发
+            logger.warning(f"启动定期清理任务失败（可忽略）: {str(e)}")
 
     async def _cleanup_expired_jobs_wrapper(self):
         """清理过期任务的包装函数"""
@@ -187,7 +194,7 @@ class SchedulerService:
     async def _execute_job(self, task_func, job_code: str, args: list, kwargs: dict):
         """执行任务并记录日志"""
         from app.database import AsyncSessionLocal
-        from scheduler.model import SchedulerJob, SchedulerLog
+        from core.scheduler.model import SchedulerJob, SchedulerLog
         from sqlalchemy import select
         
         start_time = datetime.now()
@@ -326,7 +333,7 @@ class SchedulerService:
             # 在 APScheduler 4.x 中，使用 run_job 立即执行
             from sqlalchemy import select
             from app.database import AsyncSessionLocal
-            from scheduler.model import SchedulerJob
+            from core.scheduler.model import SchedulerJob
             
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
@@ -464,7 +471,7 @@ class SchedulerService:
             from datetime import timedelta
             from sqlalchemy import select
             from app.database import AsyncSessionLocal
-            from scheduler.model import SchedulerJob
+            from core.scheduler.model import SchedulerJob
 
             cutoff = datetime.now() - timedelta(days=days)
 
@@ -497,6 +504,65 @@ class SchedulerService:
         except Exception as e:
             logger.error(f"清理过期任务失败: {str(e)}")
             return 0
+
+    async def init_scheduler(self):
+        """
+        初始化调度器
+
+        创建 AsyncScheduler 实例，启动调度器，并从数据库加载任务
+
+        注意：APScheduler 4.0.0a6 版本需要调用 __aenter__ 来初始化调度器，
+        然后才能调用 configure_task、add_schedule 等方法。
+        """
+        try:
+            # 创建事件代理和数据存储
+            # APScheduler 4.0.0a6: 需要手动设置 _event_broker 属性（alpha 版本 bug）
+            event_broker = LocalEventBroker()
+            data_store = MemoryDataStore()
+            data_store._event_broker = event_broker  # 修复 alpha 版本 bug
+
+            # 创建调度器实例
+            self._scheduler = AsyncScheduler(
+                data_store=data_store,
+                event_broker=event_broker
+            )
+
+            # 手动调用 __aenter__ 初始化调度器
+            # 这是 APScheduler 4.0.0a6 的要求，只有初始化后才能调用其他方法
+            await self._scheduler.__aenter__()
+
+            self._running = True
+            logger.info("调度器已初始化并启动")
+
+            # 从数据库加载任务
+            await self.load_jobs_from_db()
+
+            return True
+        except Exception as e:
+            logger.error(f"初始化调度器失败: {str(e)}")
+            self._running = False
+            return False
+
+    async def shutdown(self):
+        """
+        关闭调度器
+
+        注意：APScheduler 4.0.0a6 需要调用 __aexit__ 来正确关闭调度器
+        """
+        if not self._scheduler:
+            return
+
+        try:
+            # 先停止调度器
+            await self._scheduler.stop()
+            # 调用 __aexit__ 清理资源
+            await self._scheduler.__aexit__(None, None, None)
+            logger.info("调度器已关闭")
+        except Exception as e:
+            logger.error(f"关闭调度器失败: {str(e)}")
+
+        self._running = False
+        self._scheduler = None
 
 
 # 全局调度器服务实例

@@ -1158,5 +1158,74 @@
       "sys_creator_id": null,
       "sys_modifier_id": null
     }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "scheduler-root",
+    "fields": {
+      "id": "scheduler-root",
+      "name": "Scheduler",
+      "title": "定时任务",
+      "path": "/scheduler",
+      "type": "catalog",
+      "icon": "mdi:clock-outline",
+      "component": null,
+      "parent_id": null,
+      "order": 110,
+      "sort": 110,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "scheduler-task",
+    "fields": {
+      "id": "scheduler-task",
+      "name": "SchedulerTask",
+      "title": "任务列表",
+      "path": "/scheduler",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/scheduler/index",
+      "parent_id": "scheduler-root",
+      "order": 1,
+      "sort": 1,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "scheduler-log",
+    "fields": {
+      "id": "scheduler-log",
+      "name": "SchedulerLog",
+      "title": "执行日志",
+      "path": "/scheduler/log",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/scheduler/log",
+      "parent_id": "scheduler-root",
+      "order": 2,
+      "sort": 2,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
   }
 ]

@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from core.env_machine.model import EnvMachine
-from scheduler.service import scheduler_service
+from core.scheduler.service import scheduler_service
 
 logger = logging.getLogger(__name__)
 

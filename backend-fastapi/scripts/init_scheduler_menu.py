@@ -47,7 +47,7 @@ MENUS = [
         "title": "执行日志",
         "path": "/scheduler/log",
         "type": "menu",
-        "component": "/views/scheduler/log/index",
+        "component": "/views/scheduler/log",
         "parent_id": "scheduler-root",
         "order": 2,
     },

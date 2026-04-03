@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     # ========== 日志系统初始化结束 ==========
 
     # ========== 调度器初始化 ==========
-    from scheduler.service import scheduler_service
+    from core.scheduler.service import scheduler_service
     await scheduler_service.init_scheduler()
     # ========== 调度器初始化结束 ==========
 

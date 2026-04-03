@@ -102,17 +102,40 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 ### 4. 数据库迁移
 
 ```bash
-# 首次使用：生成初始迁移
-alembic revision --autogenerate -m "init tables"
-
-# 执行迁移
+# 执行数据库迁移（创建所有表）
 alembic upgrade head
+```
 
-# 导入数据
+### 5. 初始化数据
+
+**方式一：使用初始化数据文件（推荐）**
+
+```bash
+# 导入基础初始化数据（包含管理员账号、菜单、角色等）
 python scripts/loaddata.py db_init.json
 ```
 
-### 5. 启动服务
+**方式二：单独初始化各模块菜单**
+
+如果使用方式一后仍缺少某些模块菜单，可以单独执行：
+
+```bash
+# 执行机管理菜单
+python scripts/init_env_machine_menu.py
+
+# 特性分析菜单
+python scripts/init_feature_analysis_menu.py
+
+# 定时任务菜单
+python scripts/init_scheduler_menu.py
+
+# 测试报告菜单
+python scripts/init_test_report_menu.py
+```
+
+> **注意**：`db_init.json` 已包含所有模块菜单，通常只需执行方式一即可。
+
+### 6. 启动服务
 
 ```bash
 # 开发模式（自动重载）

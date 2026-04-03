@@ -54,7 +54,7 @@ async def cleanup_task(job_code: str = None, days: int = 30, **kwargs):
         from datetime import timedelta
         from sqlalchemy import select, delete
         from app.database import AsyncSessionLocal
-        from scheduler.model import SchedulerLog
+        from core.scheduler.model import SchedulerLog
         
         cutoff = datetime.now() - timedelta(days=days)
         

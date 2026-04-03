@@ -21,8 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.config import settings
 from app.base_schema import PaginatedResponse, ResponseModel
-from scheduler.model import SchedulerJob, SchedulerLog
-from scheduler.schema import (
+from core.scheduler.model import SchedulerJob, SchedulerLog
+from core.scheduler.schema import (
     SchedulerJobCreate,
     SchedulerJobUpdate,
     SchedulerJobResponse,
@@ -42,7 +42,7 @@ from scheduler.schema import (
     SchedulerLogCleanOut,
     SchedulerStatusOut,
 )
-from scheduler.service import scheduler_service
+from core.scheduler.service import scheduler_service
 
 router = APIRouter(prefix="/scheduler", tags=["定时任务管理"])
 
