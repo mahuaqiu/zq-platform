@@ -109,9 +109,16 @@ alembic upgrade head
 python scripts/loaddata.py db_init.json
 ```
 
-6. **初始化执行机管理菜单（可选）**
+6. **初始化菜单和定时任务数据（可选）**
 ```bash
+# 初始化执行机管理菜单
 python scripts/init_env_machine_menu.py
+
+# 初始化定时任务菜单
+python scripts/init_scheduler_menu.py
+
+# 初始化定时任务数据（设备离线检测、报告分析清理、日志清理等）
+python scripts/init_scheduler_jobs.py
 ```
 
 7. **启动服务**

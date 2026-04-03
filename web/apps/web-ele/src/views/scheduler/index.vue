@@ -21,6 +21,7 @@ import {
 import {
   deleteSchedulerJobApi,
   executeSchedulerJobApi,
+  getSchedulerJobGroupsApi,
   getSchedulerJobListApi,
   getSchedulerStatisticsApi,
 } from '#/api/core/scheduler';
@@ -65,6 +66,9 @@ const searchForm = ref({
   group: '',
 });
 
+// 分组列表
+const groupOptions = ref<string[]>([]);
+
 // 任务表单弹窗
 const taskFormModalRef = ref();
 const currentJobId = ref<string>();
@@ -98,6 +102,16 @@ async function loadStatistics() {
     statistics.value = res;
   } catch (error) {
     console.error('加载统计数据失败:', error);
+  }
+}
+
+// 加载分组列表
+async function loadGroupOptions() {
+  try {
+    const groups = await getSchedulerJobGroupsApi();
+    groupOptions.value = groups || [];
+  } catch (error) {
+    console.error('加载分组列表失败:', error);
   }
 }
 
@@ -193,6 +207,7 @@ function formatSuccessRate(rate: number): string {
 onMounted(() => {
   loadData();
   loadStatistics();
+  loadGroupOptions();
 });
 </script>
 
@@ -245,12 +260,19 @@ onMounted(() => {
           </div>
           <div class="scheduler-search-item">
             <label class="scheduler-search-label">任务分组</label>
-            <ElInput
+            <ElSelect
               v-model="searchForm.group"
-              placeholder="请输入任务分组"
+              placeholder="请选择"
               clearable
               style="width: 150px"
-            />
+            >
+              <ElOption
+                v-for="group in groupOptions"
+                :key="group"
+                :label="group"
+                :value="group"
+              />
+            </ElSelect>
           </div>
 
           <div class="scheduler-search-buttons">
@@ -296,8 +318,9 @@ onMounted(() => {
       <!-- 表格区域 -->
       <div class="scheduler-table-wrapper">
         <ElTable :data="tableData" v-loading="loading" class="scheduler-table" border>
+          <ElTableColumn prop="group" label="任务分组" min-width="100" show-overflow-tooltip />
           <ElTableColumn prop="name" label="任务名称" min-width="150" show-overflow-tooltip />
-          <ElTableColumn prop="code" label="任务编码" min-width="140" show-overflow-tooltip>
+          <ElTableColumn prop="code" label="任务编码" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
               <code class="scheduler-code">{{ row.code }}</code>
             </template>
@@ -310,11 +333,6 @@ onMounted(() => {
           <ElTableColumn prop="trigger_config" label="触发配置" min-width="140" show-overflow-tooltip>
             <template #default="{ row }">
               <code class="scheduler-code">{{ formatTriggerConfig(row) }}</code>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="task_func" label="任务函数" min-width="160" show-overflow-tooltip>
-            <template #default="{ row }">
-              <code class="scheduler-code">{{ row.task_func }}</code>
             </template>
           </ElTableColumn>
           <ElTableColumn prop="status" label="状态" min-width="80" align="center">

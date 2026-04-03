@@ -236,6 +236,13 @@ export interface CleanLogResponse {
 // ==================== 任务管理 API ====================
 
 /**
+ * 获取任务分组列表
+ */
+export async function getSchedulerJobGroupsApi() {
+  return requestClient.get<string[]>('/api/core/scheduler/job/groups');
+}
+
+/**
  * 获取定时任务列表（分页）
  */
 export async function getSchedulerJobListApi(params: SchedulerJobQueryParams) {

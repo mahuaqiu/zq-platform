@@ -109,6 +109,18 @@ def _build_log_response(log: SchedulerLog) -> SchedulerLogResponse:
 
 # ==================== SchedulerJob APIs ====================
 
+@router.get("/job/groups", summary="获取任务分组列表")
+async def get_scheduler_job_groups(db: AsyncSession = Depends(get_db)):
+    """获取所有任务分组（去重）"""
+    result = await db.execute(
+        select(SchedulerJob.group).where(
+            SchedulerJob.is_deleted == False  # noqa: E712
+        ).distinct()
+    )
+    groups = [row[0] for row in result.all()]
+    return groups
+
+
 @router.post("/job", response_model=SchedulerJobResponse, summary="创建定时任务")
 async def create_scheduler_job(data: SchedulerJobCreate, db: AsyncSession = Depends(get_db)):
     """创建新的定时任务"""
