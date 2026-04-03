@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue';
 
 import { ZqDialog } from '#/components/zq-dialog';
 
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElOption, ElSelect } from 'element-plus';
 
 import { cleanSchedulerLogsApi } from '#/api/core/scheduler';
 
@@ -47,7 +47,7 @@ const statusOptions = [
 ];
 
 // 计算弹窗标题
-const dialogTitle = computed(() => '清理日志');
+const dialogTitle = computed(() => '清理执行日志');
 
 // 监听visible变化，重置表单
 watch(
@@ -70,22 +70,6 @@ function handleUpdateVisible(val: boolean) {
 
 // 提交清理
 async function handleSubmit() {
-  // 二次确认
-  try {
-    await ElMessageBox.confirm(
-      `确定要清理 ${formData.value.days} 天前的日志吗？此操作不可恢复！`,
-      '确认清理',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    );
-  } catch {
-    // 用户取消
-    return;
-  }
-
   confirmLoading.value = true;
   try {
     const result = await cleanSchedulerLogsApi(formData.value);
@@ -111,54 +95,52 @@ async function handleSubmit() {
     :title="dialogTitle"
     width="500px"
     :confirm-loading="confirmLoading"
+    confirm-text="确认清理"
+    confirm-button-type="danger"
     @update:model-value="handleUpdateVisible"
     @confirm="handleSubmit"
   >
     <div class="clean-log-form">
-      <!-- 警告提示 -->
-      <div class="warning-box">
-        <span class="warning-icon">⚠️</span>
-        <span class="warning-text">清理后无法恢复，请谨慎操作</span>
-      </div>
-
       <!-- 表单内容 -->
       <div class="form-content">
         <!-- 保留最近 -->
         <div class="form-item">
-          <label class="form-label">保留最近</label>
-          <el-select
+          <label class="form-label required">保留最近</label>
+          <ElSelect
             v-model="formData.days"
             placeholder="请选择保留天数"
             style="width: 100%"
           >
-            <el-option
+            <ElOption
               v-for="item in retentionOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"
             />
-          </el-select>
+          </ElSelect>
         </div>
 
         <!-- 清理状态 -->
         <div class="form-item">
-          <label class="form-label">清理状态</label>
-          <el-select
+          <label class="form-label">清理状态（可选）</label>
+          <ElSelect
             v-model="formData.status"
             placeholder="请选择要清理的状态"
             style="width: 100%"
             clearable
           >
-            <el-option
+            <ElOption
               v-for="item in statusOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"
             />
-          </el-select>
-          <div class="form-help">
-            不选择则清理所有状态的日志记录
-          </div>
+          </ElSelect>
+        </div>
+
+        <!-- 警告提示 -->
+        <div class="warning-box">
+          <span style="color: #d48806; font-size: 13px;">⚠️ 清理后无法恢复，请谨慎操作</span>
         </div>
       </div>
     </div>
@@ -210,7 +192,7 @@ async function handleSubmit() {
   color: #333;
 }
 
-.form-label::before {
+.form-label.required::before {
   content: '*';
   color: #ff4d4f;
   margin-right: 4px;

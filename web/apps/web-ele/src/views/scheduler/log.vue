@@ -249,26 +249,26 @@ onMounted(() => {
       <div class="scheduler-statistics">
         <ElCard class="stat-card stat-card-gray" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.total_executions }}</div>
             <div class="stat-label">总执行次数</div>
+            <div class="stat-value">{{ statistics.total_executions }}</div>
           </div>
         </ElCard>
         <ElCard class="stat-card stat-card-success" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.success_executions }}</div>
             <div class="stat-label">成功次数</div>
+            <div class="stat-value">{{ statistics.success_executions }}</div>
           </div>
         </ElCard>
         <ElCard class="stat-card stat-card-fail" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.failed_executions }}</div>
             <div class="stat-label">失败次数</div>
+            <div class="stat-value">{{ statistics.failed_executions }}</div>
           </div>
         </ElCard>
         <ElCard class="stat-card stat-card-rate" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ formatSuccessRate(statistics.success_rate) }}</div>
             <div class="stat-label">成功率</div>
+            <div class="stat-value">{{ formatSuccessRate(statistics.success_rate) }}</div>
           </div>
         </ElCard>
       </div>
@@ -284,27 +284,28 @@ onMounted(() => {
           </ElTableColumn>
           <ElTableColumn prop="status" label="状态" min-width="80" align="center">
             <template #default="{ row }">
-              <span :class="`scheduler-status-${getLogStatusClass(row.status)}`">
+              <span :class="`log-status-tag log-status-${getLogStatusClass(row.status)}`">
                 {{ getLogStatusLabel(row.status) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="duration" label="耗时" min-width="100" align="right">
+          <ElTableColumn prop="duration" label="耗时" min-width="100" align="center">
             <template #default="{ row }">
               {{ formatDuration(row.duration) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="result" label="执行结果" min-width="200" show-overflow-tooltip>
+          <ElTableColumn prop="result" label="执行结果/异常信息" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
               {{ row.result || row.exception || '-' }}
             </template>
           </ElTableColumn>
           <ElTableColumn prop="hostname" label="执行主机" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
-              {{ row.hostname || '-' }}
+              <code v-if="row.hostname" class="scheduler-code">{{ row.hostname }}</code>
+              <span v-else>-</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" min-width="80" fixed="right">
+          <ElTableColumn label="操作" min-width="80" fixed="right" align="center">
             <template #default="{ row }">
               <a class="scheduler-link" @click="handleDetail(row)">详情</a>
             </template>
@@ -397,22 +398,22 @@ onMounted(() => {
 }
 
 .stat-card :deep(.el-card__body) {
-  padding: 20px;
+  padding: 12px 16px;
 }
 
 .stat-content {
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  text-align: left;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 12px;
   color: #666;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 /* 简洁风格背景（非渐变）*/
@@ -526,6 +527,45 @@ onMounted(() => {
 .scheduler-status-info {
   color: #1890ff;
   font-weight: 500;
+}
+
+/* 状态标签样式（带背景色）*/
+.log-status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.log-status-success {
+  color: #52c41a;
+  background: #f6ffed;
+}
+
+.log-status-danger {
+  color: #ff4d4f;
+  background: #fff2f0;
+}
+
+.log-status-warning {
+  color: #faad14;
+  background: #fffbe6;
+}
+
+.log-status-info {
+  color: #1890ff;
+  background: #e6f7ff;
+}
+
+/* 代码样式 */
+.scheduler-code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  color: #333;
 }
 
 /* 操作链接 */

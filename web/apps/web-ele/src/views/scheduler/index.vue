@@ -268,26 +268,26 @@ onMounted(() => {
       <div class="scheduler-statistics">
         <ElCard class="stat-card stat-card-purple" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.total_jobs }}</div>
             <div class="stat-label">总任务数</div>
+            <div class="stat-value">{{ statistics.total_jobs }}</div>
           </div>
         </ElCard>
         <ElCard class="stat-card stat-card-green" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.enabled_jobs }}</div>
             <div class="stat-label">启用任务</div>
+            <div class="stat-value">{{ statistics.enabled_jobs }}</div>
           </div>
         </ElCard>
         <ElCard class="stat-card stat-card-pink" shadow="hover">
           <div class="stat-content">
-            <div class="stat-value">{{ formatSuccessRate(statistics.success_rate) }}</div>
             <div class="stat-label">执行成功率</div>
+            <div class="stat-value">{{ formatSuccessRate(statistics.success_rate) }}</div>
           </div>
         </ElCard>
         <ElCard class="stat-card stat-card-blue" shadow="hover">
           <div class="stat-content">
+            <div class="stat-label">今日执行</div>
             <div class="stat-value">{{ statistics.total_executions }}</div>
-            <div class="stat-label">执行次数</div>
           </div>
         </ElCard>
       </div>
@@ -318,7 +318,7 @@ onMounted(() => {
           </ElTableColumn>
           <ElTableColumn prop="status" label="状态" min-width="80" align="center">
             <template #default="{ row }">
-              <span :class="`scheduler-status-${getJobStatusClass(row.status)}`">
+              <span :class="`job-status-tag job-status-${getJobStatusClass(row.status)}`">
                 {{ getJobStatusLabel(row.status) }}
               </span>
             </template>
@@ -333,7 +333,7 @@ onMounted(() => {
               {{ formatDateTime(row.next_run_time) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" min-width="140" fixed="right">
+          <ElTableColumn label="操作" min-width="140" fixed="right" align="center">
             <template #default="{ row }">
               <a class="scheduler-link" @click="handleExecute(row)">执行</a>
               <a class="scheduler-link" @click="handleEdit(row)">编辑</a>
@@ -423,22 +423,23 @@ onMounted(() => {
 }
 
 .stat-card :deep(.el-card__body) {
-  padding: 20px;
+  padding: 16px;
 }
 
 .stat-content {
-  text-align: center;
+  text-align: left;
+}
+
+.stat-label {
+  font-size: 12px;
+  opacity: 0.9;
 }
 
 .stat-value {
   font-size: 28px;
   font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
+  margin-top: 8px;
+  color: #fff;
 }
 
 /* 渐变背景 */
@@ -446,36 +447,16 @@ onMounted(() => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.stat-card-purple .stat-value,
-.stat-card-purple .stat-label {
-  color: #fff;
-}
-
 .stat-card-green {
   background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
-}
-
-.stat-card-green .stat-value,
-.stat-card-green .stat-label {
-  color: #fff;
 }
 
 .stat-card-pink {
   background: linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%);
 }
 
-.stat-card-pink .stat-value,
-.stat-card-pink .stat-label {
-  color: #fff;
-}
-
 .stat-card-blue {
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
-}
-
-.stat-card-blue .stat-value,
-.stat-card-blue .stat-label {
-  color: #fff;
 }
 
 /* 表格区域 */
@@ -563,6 +544,35 @@ onMounted(() => {
 .scheduler-status-info {
   color: #1890ff;
   font-weight: 500;
+}
+
+/* 状态标签样式（带背景色）*/
+.job-status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.job-status-success {
+  color: #52c41a;
+  background: #f6ffed;
+}
+
+.job-status-danger {
+  color: #ff4d4f;
+  background: #fff2f0;
+}
+
+.job-status-warning {
+  color: #faad14;
+  background: #fffbe6;
+}
+
+.job-status-info {
+  color: #1890ff;
+  background: #e6f7ff;
 }
 
 /* 操作链接 */
