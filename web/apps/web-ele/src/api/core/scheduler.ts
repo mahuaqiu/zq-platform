@@ -86,6 +86,16 @@ export interface SchedulerStatistics {
 }
 
 /**
+ * 日志统计类型定义
+ */
+export interface SchedulerLogStatistics {
+  total_executions: number;
+  success_executions: number;
+  failed_executions: number;
+  success_rate: number;
+}
+
+/**
  * 调度器状态类型定义
  */
 export interface SchedulerStatus {
@@ -157,6 +167,18 @@ export interface SchedulerJobUpdateParams {
 export interface SchedulerLogQueryParams {
   page: number;
   pageSize: number;
+  job_id?: string;
+  job_code?: string;
+  job_name?: string;
+  status?: string;
+  startTimeGte?: string;
+  startTimeLte?: string;
+}
+
+/**
+ * 日志统计查询参数
+ */
+export interface SchedulerLogStatisticsParams {
   job_id?: string;
   job_code?: string;
   job_name?: string;
@@ -340,6 +362,15 @@ export async function searchSchedulerJobsApi(
 }
 
 // ==================== 执行日志 API ====================
+
+/**
+ * 获取日志统计信息
+ */
+export async function getSchedulerLogStatisticsApi(params?: SchedulerLogStatisticsParams) {
+  return requestClient.get<SchedulerLogStatistics>('/api/core/scheduler/log/statistics/data', {
+    params,
+  });
+}
 
 /**
  * 获取执行日志列表（分页）

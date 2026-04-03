@@ -249,6 +249,14 @@ class SchedulerLogCleanOut(BaseModel):
     count: int = Field(..., description="清理数量")
 
 
+class SchedulerLogStatisticsOut(BaseModel):
+    """日志统计输出"""
+    total_executions: int = Field(..., description="总执行次数")
+    success_executions: int = Field(..., description="成功执行次数")
+    failed_executions: int = Field(..., description="失败执行次数")
+    success_rate: float = Field(..., description="成功率（百分比）")
+
+
 # ==================== Scheduler Status Schemas ====================
 
 class SchedulerStatusOut(BaseModel):

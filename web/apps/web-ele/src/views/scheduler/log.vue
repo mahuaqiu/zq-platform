@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { SchedulerLog, SchedulerJobSimple } from '#/api/core/scheduler';
+import type { SchedulerLog, SchedulerJobSimple, SchedulerLogStatistics } from '#/api/core/scheduler';
 
 import { onMounted, ref } from 'vue';
 
@@ -17,7 +17,11 @@ import {
   ElDatePicker,
 } from 'element-plus';
 
-import { getSchedulerLogListApi, getSchedulerJobAllApi } from '#/api/core/scheduler';
+import {
+  getSchedulerLogListApi,
+  getSchedulerJobAllApi,
+  getSchedulerLogStatisticsApi,
+} from '#/api/core/scheduler';
 
 import {
   formatDateTime,
@@ -39,7 +43,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 
 // 统计数据
-const statistics = ref({
+const statistics = ref<SchedulerLogStatistics>({
   total_executions: 0,
   success_executions: 0,
   failed_executions: 0,
@@ -88,9 +92,6 @@ async function loadData() {
     });
     tableData.value = res.items || [];
     total.value = res.total || 0;
-
-    // 计算统计数据（从当前页数据）
-    calculateStatistics(res.items || []);
   } catch (error) {
     console.error('加载数据失败:', error);
     ElMessage.error('加载数据失败');
@@ -99,26 +100,26 @@ async function loadData() {
   }
 }
 
-// 计算统计数据
-function calculateStatistics(logs: SchedulerLog[]) {
-  // 这里暂时从当前页面数据计算，后续可以从 API 获取
-  const total_executions = total.value;
-  const success_executions = logs.filter((log) => log.status === 'success').length;
-  const failed_executions = logs.filter((log) => log.status === 'failed').length;
-  const success_rate = total_executions > 0 ? success_executions / total_executions : 0;
-
-  statistics.value = {
-    total_executions,
-    success_executions,
-    failed_executions,
-    success_rate,
-  };
+// 加载统计数据
+async function loadStatistics() {
+  try {
+    const res = await getSchedulerLogStatisticsApi({
+      job_id: searchForm.value.job_id || undefined,
+      status: searchForm.value.status || undefined,
+      startTimeGte: searchForm.value.startTimeGte || undefined,
+      startTimeLte: searchForm.value.startTimeLte || undefined,
+    });
+    statistics.value = res;
+  } catch (error) {
+    console.error('加载统计数据失败:', error);
+  }
 }
 
 // 搜索
 function handleSearch() {
   currentPage.value = 1;
   loadData();
+  loadStatistics(); // 同时刷新统计数据
 }
 
 // 重置
@@ -131,6 +132,7 @@ function handleReset() {
   };
   currentPage.value = 1;
   loadData();
+  loadStatistics(); // 同时刷新统计数据
 }
 
 // 清理日志
@@ -156,16 +158,17 @@ function handleDetail(row: SchedulerLog) {
   logDetailVisible.value = true;
 }
 
-// 格式化成功率（前端计算的是小数形式，如 0.6667 表示 66.67%）
+// 格式化成功率（后端返回的是百分比数值，如 66.67 表示 66.67%）
 function formatSuccessRate(rate: number): string {
   if (rate === 0) return '0%';
-  return `${(rate * 100).toFixed(1)}%`;
+  return `${rate.toFixed(1)}%`;
 }
 
 // 初始加载
 onMounted(() => {
   loadJobOptions();
   loadData();
+  loadStatistics();
 });
 </script>
 

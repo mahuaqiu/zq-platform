@@ -119,6 +119,7 @@ async function loadGroupOptions() {
 function handleSearch() {
   currentPage.value = 1;
   loadData();
+  loadStatistics(); // 同时刷新统计数据
 }
 
 // 重置
@@ -131,6 +132,7 @@ function handleReset() {
   };
   currentPage.value = 1;
   loadData();
+  loadStatistics(); // 同时刷新统计数据
 }
 
 // 分页

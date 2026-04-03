@@ -40,6 +40,7 @@ from core.scheduler.schema import (
     SchedulerLogBatchDeleteOut,
     SchedulerLogCleanIn,
     SchedulerLogCleanOut,
+    SchedulerLogStatisticsOut,
     SchedulerStatusOut,
 )
 from core.scheduler.service import scheduler_service
@@ -486,6 +487,63 @@ async def delete_scheduler_job(
 
 
 # ==================== SchedulerLog APIs ====================
+
+@router.get("/log/statistics/data", response_model=SchedulerLogStatisticsOut, summary="获取日志统计信息")
+async def get_scheduler_log_statistics(
+    job_id: Optional[str] = Query(default=None, description="任务ID"),
+    job_code: Optional[str] = Query(default=None, description="任务编码"),
+    job_name: Optional[str] = Query(default=None, description="任务名称"),
+    status: Optional[str] = Query(default=None, description="执行状态"),
+    start_time_gte: Optional[datetime] = Query(default=None, alias="startTimeGte", description="开始时间>="),
+    start_time_lte: Optional[datetime] = Query(default=None, alias="startTimeLte", description="开始时间<="),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取日志统计信息（支持筛选条件）"""
+    # 构建筛选条件
+    filters = []
+    if job_id:
+        filters.append(SchedulerLog.job_id == job_id)
+    if job_code:
+        filters.append(SchedulerLog.job_code.ilike(f"%{job_code}%"))
+    if job_name:
+        filters.append(SchedulerLog.job_name.ilike(f"%{job_name}%"))
+    if status:
+        filters.append(SchedulerLog.status == status)
+    if start_time_gte:
+        filters.append(SchedulerLog.start_time >= start_time_gte)
+    if start_time_lte:
+        filters.append(SchedulerLog.start_time <= start_time_lte)
+
+    # 统计总数
+    total_result = await db.execute(
+        select(func.count(SchedulerLog.id)).where(*filters) if filters else select(func.count(SchedulerLog.id))
+    )
+    total_executions = total_result.scalar() or 0
+
+    # 统计成功次数
+    success_filters = filters + [SchedulerLog.status == 'success']
+    success_result = await db.execute(
+        select(func.count(SchedulerLog.id)).where(*success_filters)
+    )
+    success_executions = success_result.scalar() or 0
+
+    # 统计失败次数
+    failed_filters = filters + [SchedulerLog.status == 'failed']
+    failed_result = await db.execute(
+        select(func.count(SchedulerLog.id)).where(*failed_filters)
+    )
+    failed_executions = failed_result.scalar() or 0
+
+    # 计算成功率（百分比）
+    success_rate = round(success_executions / total_executions * 100, 2) if total_executions > 0 else 0
+
+    return SchedulerLogStatisticsOut(
+        total_executions=total_executions,
+        success_executions=success_executions,
+        failed_executions=failed_executions,
+        success_rate=success_rate,
+    )
+
 
 @router.get("/log", response_model=PaginatedResponse[SchedulerLogResponse], summary="获取任务执行日志列表")
 async def get_scheduler_log_list(
