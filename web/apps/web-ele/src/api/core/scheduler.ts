@@ -16,6 +16,7 @@ export interface SchedulerJob {
   run_date?: string;
   task_func: string;
   task_kwargs?: string;
+  execute_host_ip?: string;
   status: number;
   status_display?: string;
   priority: number;
@@ -139,6 +140,7 @@ export interface SchedulerJobCreateParams {
   interval_seconds?: number;
   run_date?: string;
   task_kwargs?: string;
+  execute_host_ip?: string;
   status?: number;
   sort?: number;
 }
@@ -157,6 +159,7 @@ export interface SchedulerJobUpdateParams {
   run_date?: string;
   task_func?: string;
   task_kwargs?: string;
+  execute_host_ip?: string;
   status?: number;
   sort?: number;
 }
