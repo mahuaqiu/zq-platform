@@ -302,7 +302,7 @@ onMounted(() => {
               {{ row.result || '-' }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="hostname" label="执行主机" min-width="120" show-overflow-tooltip>
+          <ElTableColumn prop="hostname" label="执行主机IP" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <code v-if="row.hostname" class="scheduler-code">{{ row.hostname }}</code>
               <span v-else>-</span>
