@@ -48,7 +48,7 @@ from core.scheduler.service import scheduler_service
 router = APIRouter(prefix="/scheduler", tags=["定时任务管理"])
 
 
-def _build_job_response(job: SchedulerJob) -> SchedulerJobResponse:
+def _build_job_response(job: SchedulerJob, today_run_count: int = 0) -> SchedulerJobResponse:
     """构建任务响应"""
     return SchedulerJobResponse(
         id=job.id,
@@ -73,6 +73,7 @@ def _build_job_response(job: SchedulerJob) -> SchedulerJobResponse:
         coalesce=job.coalesce,
         allow_concurrent=job.allow_concurrent,
         total_run_count=job.total_run_count,
+        today_run_count=today_run_count,
         success_count=job.success_count,
         failure_count=job.failure_count,
         success_rate=job.get_success_rate(),
@@ -200,8 +201,18 @@ async def get_scheduler_job_list(
     )
     jobs = result.scalars().all()
 
+    # 批量查询每个任务今日执行次数
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    job_ids = [str(job.id) for job in jobs]
+    today_count_result = await db.execute(
+        select(SchedulerLog.job_id, func.count(SchedulerLog.id))
+        .where(SchedulerLog.start_time >= today_start, SchedulerLog.job_id.in_(job_ids))
+        .group_by(SchedulerLog.job_id)
+    )
+    today_count_map = {row[0]: row[1] for row in today_count_result.all()}
+
     return PaginatedResponse(
-        items=[_build_job_response(job) for job in jobs],
+        items=[_build_job_response(job, today_count_map.get(str(job.id), 0)) for job in jobs],
         total=total
     )
 
@@ -333,8 +344,18 @@ async def search_scheduler_jobs(
     )
     jobs = result.scalars().all()
 
+    # 批量查询每个任务今日执行次数
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    job_ids = [str(job.id) for job in jobs]
+    today_count_result = await db.execute(
+        select(SchedulerLog.job_id, func.count(SchedulerLog.id))
+        .where(SchedulerLog.start_time >= today_start, SchedulerLog.job_id.in_(job_ids))
+        .group_by(SchedulerLog.job_id)
+    )
+    today_count_map = {row[0]: row[1] for row in today_count_result.all()}
+
     return PaginatedResponse(
-        items=[_build_job_response(job) for job in jobs],
+        items=[_build_job_response(job, today_count_map.get(str(job.id), 0)) for job in jobs],
         total=total
     )
 
@@ -424,7 +445,17 @@ async def get_scheduler_job(job_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    return _build_job_response(job)
+    # 查询今日执行次数
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    today_count_result = await db.execute(
+        select(func.count(SchedulerLog.id)).where(
+            SchedulerLog.job_id == str(job.id),
+            SchedulerLog.start_time >= today_start
+        )
+    )
+    today_run_count = today_count_result.scalar() or 0
+
+    return _build_job_response(job, today_run_count)
 
 
 @router.put("/job/{job_id}", response_model=SchedulerJobResponse, summary="更新定时任务")
@@ -466,7 +497,17 @@ async def update_scheduler_job(
     if scheduler_service.is_running():
         await scheduler_service.modify_job(job)
 
-    return _build_job_response(job)
+    # 查询今日执行次数
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    today_count_result = await db.execute(
+        select(func.count(SchedulerLog.id)).where(
+            SchedulerLog.job_id == str(job.id),
+            SchedulerLog.start_time >= today_start
+        )
+    )
+    today_run_count = today_count_result.scalar() or 0
+
+    return _build_job_response(job, today_run_count)
 
 
 @router.delete("/job/{job_id}", response_model=ResponseModel, summary="删除定时任务")

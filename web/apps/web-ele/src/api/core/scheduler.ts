@@ -26,6 +26,7 @@ export interface SchedulerJob {
   coalesce: boolean;
   allow_concurrent: boolean;
   total_run_count: number;
+  today_run_count: number; // 今日执行次数
   success_count: number;
   failure_count: number;
   success_rate?: number;

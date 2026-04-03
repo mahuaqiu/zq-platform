@@ -311,7 +311,7 @@ onMounted(() => {
         </ElCard>
         <ElCard class="stat-card stat-card-blue" shadow="hover">
           <div class="stat-content">
-            <div class="stat-label">今日执行</div>
+            <div class="stat-label">今天总执行</div>
             <div class="stat-value">{{ statistics.total_executions }}</div>
           </div>
         </ElCard>
@@ -344,9 +344,9 @@ onMounted(() => {
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="total_run_count" label="执行次数" min-width="90" align="center">
+          <ElTableColumn prop="today_run_count" label="今日执行" min-width="90" align="center">
             <template #default="{ row }">
-              {{ row.total_run_count || 0 }}
+              {{ row.today_run_count || 0 }}
             </template>
           </ElTableColumn>
           <ElTableColumn prop="next_run_time" label="下次执行时间" min-width="160">

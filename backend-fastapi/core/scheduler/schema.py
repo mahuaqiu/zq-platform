@@ -130,6 +130,7 @@ class SchedulerJobResponse(BaseModel):
     coalesce: bool
     allow_concurrent: bool
     total_run_count: int
+    today_run_count: int = 0  # 今日执行次数
     success_count: int
     failure_count: int
     success_rate: Optional[float] = None
