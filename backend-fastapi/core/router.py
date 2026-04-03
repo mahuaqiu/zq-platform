@@ -18,6 +18,7 @@ from core.feature_analysis.api import router as feature_analysis_router
 from core.issues_analysis.api import router as issues_analysis_router
 from core.env_machine.api import router as env_machine_router
 from core.test_report.api import router as test_report_router
+from core.scheduler.api import router as scheduler_router
 
 router = APIRouter()
 
@@ -35,3 +36,4 @@ router.include_router(feature_analysis_router)
 router.include_router(issues_analysis_router)
 router.include_router(env_machine_router)
 router.include_router(test_report_router)
+router.include_router(scheduler_router)
