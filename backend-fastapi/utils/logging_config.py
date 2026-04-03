@@ -14,6 +14,7 @@ from loguru import logger
 # 日志配置参数
 LOG_DIR = "logs"
 LOG_FILE = "app.log"
+SCHEDULER_LOG_FILE = "scheduler.log"  # 定时任务专用日志文件
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 RETENTION_COUNT = 5  # 5 个文件，总计 100MB
 LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
@@ -24,8 +25,9 @@ def setup_logging():
     初始化日志配置，应用启动时调用
 
     配置内容：
-    - 文件日志：RotatingFileHandler，自动旋转
-    - 控制台日志：stderr 输出（开发环境）
+    - 主日志文件：app.log，记录应用主要日志
+    - 定时任务日志文件：scheduler.log，记录定时任务执行日志
+    - 控制台日志：仅输出 INFO 及以上级别，避免大量调试日志
     """
     # 确保日志目录存在
     if not os.path.exists(LOG_DIR):
@@ -34,23 +36,37 @@ def setup_logging():
     # 移除默认 handler
     logger.remove()
 
-    # 添加文件 handler（旋转）
+    # 添加主日志文件 handler（记录所有模块）
     logger.add(
         os.path.join(LOG_DIR, LOG_FILE),
         format=LOG_FORMAT,
-        rotation=MAX_FILE_SIZE,  # 文件大小达到阈值时旋转
-        retention=RETENTION_COUNT,  # 保留文件数量
-        compression="zip",  # 压缩旧日志文件
+        rotation=MAX_FILE_SIZE,
+        retention=RETENTION_COUNT,
+        compression="zip",
         level="DEBUG",
         encoding="utf-8",
-        enqueue=True,  # 异步写入，避免阻塞
+        enqueue=True,
+        filter=lambda record: "scheduler" not in record["name"].lower(),  # 排除定时任务日志
     )
 
-    # 添加控制台 handler（开发环境）
+    # 添加定时任务专用日志文件 handler
+    logger.add(
+        os.path.join(LOG_DIR, SCHEDULER_LOG_FILE),
+        format=LOG_FORMAT,
+        rotation=MAX_FILE_SIZE,
+        retention=RETENTION_COUNT,
+        compression="zip",
+        level="DEBUG",
+        encoding="utf-8",
+        enqueue=True,
+        filter=lambda record: any(keyword in record["name"].lower() for keyword in ["scheduler", "apscheduler"]),  # 只记录定时任务相关日志
+    )
+
+    # 添加控制台 handler（仅INFO及以上级别，避免大量调试日志）
     logger.add(
         sys.stderr,
         format=LOG_FORMAT,
-        level="DEBUG",
+        level="INFO",  # 控制台只显示 INFO 及以上级别
         colorize=True,
     )
 

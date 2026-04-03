@@ -16,8 +16,10 @@ from app.config import settings
 from core.test_report.model import TestReportDetail, TestReportSummary
 from core.test_report.service import TestReportSummaryService
 from core.scheduler.service import scheduler_service
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+# 使用专门的 scheduler logger
+logger = get_logger("scheduler.test_report")
 
 ANALYZE_JOB_ID = "test_report_analyze"  # 分析任务 ID
 ANALYZE_INTERVAL_MINUTES = 5  # 执行间隔（分钟）

@@ -20,8 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from core.env_machine.model import EnvMachine
 from core.scheduler.service import scheduler_service
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+# 使用专门的 scheduler logger
+logger = get_logger("scheduler.env_machine")
 
 
 class EnvMachineScheduler:

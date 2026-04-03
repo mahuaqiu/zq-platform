@@ -26,11 +26,10 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
+from utils.logging_config import get_logger
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-
-logger = logging.getLogger(__name__)
+# 使用专门的 scheduler logger
+logger = get_logger("scheduler")
 
 
 class SchedulerService:

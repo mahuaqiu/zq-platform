@@ -14,10 +14,10 @@ from sqlalchemy.orm import declarative_base
 
 from app.config import settings
 
-# 创建异步引擎
+# 创建异步引擎（关闭 echo，避免控制台大量SQL日志）
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
+    echo=False,  # 关闭SQL日志输出
 )
 
 # 创建异步会话工厂

@@ -14,8 +14,10 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from core.scheduler.model import SchedulerLog
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+# 使用专门的 scheduler logger
+logger = get_logger("scheduler.tasks")
 
 
 async def cleanup_task(job_code: str = None, days: int = 30, **kwargs):
