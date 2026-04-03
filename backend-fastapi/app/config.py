@@ -59,7 +59,11 @@ class Settings(BaseSettings):
     # 测试报告配置
     ANALYZE_TIMEOUT_MINUTES: int = 30  # 超时自动分析时间（分钟）
     AI_ANALYSIS_SERVICE_URL: Optional[str] = None  # 本地AI服务地址（后续规划）
+    # 测试报告 API Token
     TEST_REPORT_API_TOKEN: Optional[str] = None  # 上报API专用Token（认证）
+
+    # 执行主机IP（用于定时任务IP匹配）
+    HOST_IP: str = ""
 
     # 测试报告 HTML 存储配置
     TEST_REPORT_HTML_PATH: str = "/data/test_reports"  # HTML 文件存储路径
