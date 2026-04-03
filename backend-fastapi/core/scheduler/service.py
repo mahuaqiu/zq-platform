@@ -141,25 +141,35 @@ class SchedulerService:
             task_id = job_obj.code
             await self._scheduler.configure_task(task_id, func=wrapper_func)
 
-            # 添加任务调度
-            schedule = await self._scheduler.add_schedule(
+            # 添加任务调度（返回的是 schedule ID，不是 schedule 对象）
+            schedule_id = await self._scheduler.add_schedule(
                 func_or_task_id=task_id,
                 trigger=trigger,
                 id=job_obj.code,
             )
 
+            # 获取 schedule 对象以更新下次执行时间
+            schedules = await self._scheduler.get_schedules()
+            schedule_obj = None
+            for schedule in schedules:
+                if schedule.id == schedule_id:
+                    schedule_obj = schedule
+                    break
+
             # 更新数据库中的下次执行时间
-            if schedule and schedule.next_fire_time:
+            if schedule_obj and schedule_obj.next_fire_time:
                 from app.database import AsyncSessionLocal
+                from sqlalchemy import select
+                from core.scheduler.model import SchedulerJob
+
                 async with AsyncSessionLocal() as db:
-                    from sqlalchemy import select
                     result = await db.execute(
                         select(SchedulerJob).where(SchedulerJob.code == job_obj.code)
                     )
                     db_job = result.scalar_one_or_none()
                     if db_job:
                         # 将带时区的时间转换为不带时区的时间
-                        next_fire = schedule.next_fire_time
+                        next_fire = schedule_obj.next_fire_time
                         if next_fire and next_fire.tzinfo is not None:
                             next_fire = next_fire.replace(tzinfo=None)
                         db_job.next_run_time = next_fire
@@ -534,6 +544,9 @@ class SchedulerService:
             # 手动调用 __aenter__ 初始化调度器
             # 这是 APScheduler 4.0.0a6 的要求，只有初始化后才能调用其他方法
             await self._scheduler.__aenter__()
+
+            # 启动调度器后台运行（这才是真正让调度器执行任务的关键！）
+            await self._scheduler.start_in_background()
 
             self._running = True
             logger.info("调度器已初始化并启动")
