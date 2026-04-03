@@ -21,6 +21,9 @@ import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
+// 防重复认证标志位，确保多个401请求只触发一次logout
+let isReAuthenticating = false;
+
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   const client = new RequestClient({
     ...options,
@@ -44,19 +47,37 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 
   /**
    * 重新认证逻辑
+   * 添加防重复机制：当多个请求同时收到401时，只执行一次logout流程
    */
   async function doReAuthenticate() {
+    // 防止重复调用：如果已经在认证流程中，直接返回
+    if (isReAuthenticating) {
+      return;
+    }
+    isReAuthenticating = true;
+
     console.warn('Access token or refresh token is invalid or expired. ');
     const accessStore = useAccessStore();
     const authStore = useAuthStore();
+
+    // 立即清除 token 和标记状态，阻止后续请求发起
     accessStore.setAccessToken(null);
+    accessStore.setIsAccessChecked(false);
+
     if (
       preferences.app.loginExpiredMode === 'modal' &&
       accessStore.isAccessChecked
     ) {
       accessStore.setLoginExpired(true);
+      isReAuthenticating = false;
     } else {
-      await authStore.logout();
+      // 使用 setTimeout 确保 logout 不阻塞当前请求处理
+      // logout 会调用 logoutApi（可能因401而慢），但不应阻塞其他请求的401处理
+      setTimeout(() => {
+        authStore.logout().finally(() => {
+          isReAuthenticating = false;
+        });
+      }, 0);
     }
   }
 
@@ -135,6 +156,11 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   // 通用的错误处理,如果没有进入上面的错误处理逻辑，就会进入这里
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
+      // 如果正在重新认证，不显示重复的错误消息
+      if (isReAuthenticating && error?.response?.status === 401) {
+        return;
+      }
+
       // 这里可以根据业务进行定制,你可以拿到 error 内的信息进行定制化处理，根据不同的 code 做不同的提示，而不是直接使用 message.error 提示 msg
       const responseData = error?.response?.data ?? {};
       const status = error?.response?.status;

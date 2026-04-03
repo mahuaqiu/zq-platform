@@ -87,11 +87,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(redirect: boolean = true) {
-    try {
-      await logoutApi();
-    } catch {
-      // 不做任何处理
-    }
+    // 不等待 logoutApi() 响应，直接清除本地状态
+    // 因为 token 可能已过期，logoutApi 也会返回 401，等待会造成延迟
+    logoutApi().catch(() => {
+      // 忽略 logoutApi 的错误，token 过期时这是正常情况
+    });
     resetAllStores();
     accessStore.setLoginExpired(false);
 
