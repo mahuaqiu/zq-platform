@@ -30,6 +30,7 @@ class SchedulerJobBase(BaseModel):
     run_date: Optional[datetime] = Field(None, description="指定执行时间")
     task_func: str = Field(..., max_length=256, description="任务函数路径")
     task_kwargs: Optional[str] = Field(None, description="任务参数（JSON）")
+    execute_host_ip: Optional[str] = Field(None, max_length=64, description="执行主机IP")
     status: int = Field(default=0, description="任务状态：0-禁用，1-启用，2-暂停")
     sort: int = Field(default=0, description="排序")
     
@@ -100,6 +101,7 @@ class SchedulerJobUpdate(BaseModel):
     run_date: Optional[datetime] = Field(None, description="指定执行时间")
     task_func: Optional[str] = Field(None, max_length=256, description="任务函数路径")
     task_kwargs: Optional[str] = Field(None, description="任务参数（JSON）")
+    execute_host_ip: Optional[str] = Field(None, max_length=64, description="执行主机IP")
     status: Optional[int] = Field(None, description="任务状态")
     sort: Optional[int] = Field(None, description="排序")
 
@@ -118,6 +120,7 @@ class SchedulerJobResponse(BaseModel):
     run_date: Optional[datetime] = None
     task_func: str
     task_kwargs: Optional[str] = None
+    execute_host_ip: Optional[str] = None
     status: int
     status_display: Optional[str] = None
     priority: int
