@@ -432,7 +432,7 @@ onMounted(() => {
 
 .stat-label {
   font-size: 12px;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .stat-value {
@@ -448,15 +448,15 @@ onMounted(() => {
 }
 
 .stat-card-green {
-  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
 }
 
 .stat-card-pink {
-  background: linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%);
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
 .stat-card-blue {
-  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
 /* 表格区域 */

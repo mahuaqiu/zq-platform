@@ -70,12 +70,9 @@ class SchedulerJob(BaseModel):
     
     # 任务函数路径（如：scheduler.tasks.test_task）
     task_func = Column(String(256), nullable=False, comment="任务函数路径")
-    
+
     # 任务参数（JSON格式）
-    task_args = Column(Text, nullable=True, comment="任务位置参数（JSON数组格式）")
-    
-    # 任务关键字参数（JSON格式）
-    task_kwargs = Column(Text, nullable=True, comment="任务关键字参数（JSON对象格式）")
+    task_kwargs = Column(Text, nullable=True, comment="任务参数（JSON格式）")
     
     # 任务状态
     status = Column(Integer, default=0, index=True, comment="任务状态（0-禁用，1-启用，2-暂停）")
@@ -89,11 +86,11 @@ class SchedulerJob(BaseModel):
     # 错误重试次数
     max_retries = Column(Integer, default=0, comment="错误重试次数")
     
-    # 超时时间（秒）
-    timeout = Column(Integer, nullable=True, comment="超时时间（秒）")
-    
+    # 超时时间（秒），0表示不限制
+    timeout = Column(Integer, default=0, comment="超时时间（秒）")
+
     # 是否合并执行（如果上次未执行完，是否跳过本次）
-    coalesce = Column(Boolean, default=True, comment="是否合并执行")
+    coalesce = Column(Boolean, default=False, comment="是否合并执行")
     
     # 是否允许并发执行
     allow_concurrent = Column(Boolean, default=False, comment="是否允许并发执行")

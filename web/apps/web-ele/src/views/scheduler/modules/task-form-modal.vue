@@ -32,11 +32,13 @@ const triggerType = ref('cron');
 
 const [Form, formApi] = useVbenForm({
   layout: 'vertical',
+  wrapperClass: 'grid-cols-2 gap-x-4',
   schema: [
     {
       component: 'Input',
       fieldName: 'name',
       label: '任务名称',
+      formItemClass: 'col-span-2',
       rules: z
         .string()
         .min(1, '请输入任务名称')
@@ -49,6 +51,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: 'code',
       label: '任务编码',
+      formItemClass: 'col-span-2',
       rules: z
         .string()
         .min(1, '请输入任务编码')
@@ -62,6 +65,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Select',
       fieldName: 'trigger_type',
       label: '触发类型',
+      formItemClass: 'col-span-2',
       rules: z.string().min(1, '请选择触发类型'),
       defaultValue: 'cron',
       componentProps: {
@@ -73,6 +77,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: 'cron_expression',
       label: 'Cron表达式',
+      formItemClass: 'col-span-2',
       dependencies: {
         triggerFields: ['trigger_type'],
         if: (values) => values.trigger_type === 'cron',
@@ -88,6 +93,7 @@ const [Form, formApi] = useVbenForm({
       component: 'InputNumber',
       fieldName: 'interval_seconds',
       label: '间隔秒数',
+      formItemClass: 'col-span-2',
       dependencies: {
         triggerFields: ['trigger_type'],
         if: (values) => values.trigger_type === 'interval',
@@ -104,6 +110,7 @@ const [Form, formApi] = useVbenForm({
       component: 'DatePicker',
       fieldName: 'run_date',
       label: '执行时间',
+      formItemClass: 'col-span-2',
       dependencies: {
         triggerFields: ['trigger_type'],
         if: (values) => values.trigger_type === 'date',
@@ -122,6 +129,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: 'task_func',
       label: '任务函数路径',
+      formItemClass: 'col-span-2',
       rules: z
         .string()
         .min(1, '请输入任务函数路径')
@@ -133,31 +141,11 @@ const [Form, formApi] = useVbenForm({
     },
     {
       component: 'Textarea',
-      fieldName: 'task_args',
-      label: '任务参数(位置参数)',
-      componentProps: {
-        placeholder: 'JSON数组格式，例如: ["arg1", "arg2"]',
-        rows: 3,
-      },
-      rules: z.string().optional().refine(
-        (val) => {
-          if (!val || val.trim() === '') return true;
-          try {
-            JSON.parse(val);
-            return true;
-          } catch {
-            return false;
-          }
-        },
-        { message: '任务参数必须是有效的JSON数组格式' },
-      ),
-    },
-    {
-      component: 'Textarea',
       fieldName: 'task_kwargs',
-      label: '任务参数(关键字参数)',
+      label: '任务参数（JSON）',
+      formItemClass: 'col-span-2',
       componentProps: {
-        placeholder: 'JSON对象格式，例如: {"key": "value"}',
+        placeholder: '{"days": 30}',
         rows: 3,
       },
       rules: z.string().optional().refine(
@@ -170,7 +158,7 @@ const [Form, formApi] = useVbenForm({
             return false;
           }
         },
-        { message: '任务参数必须是有效的JSON对象格式' },
+        { message: '任务参数必须是有效的JSON格式' },
       ),
     },
     {
@@ -178,8 +166,9 @@ const [Form, formApi] = useVbenForm({
       fieldName: 'group',
       label: '任务分组',
       defaultValue: 'default',
+      formItemClass: 'col-span-1',
       componentProps: {
-        placeholder: '默认分组: default',
+        placeholder: 'default',
       },
     },
     {
@@ -187,91 +176,13 @@ const [Form, formApi] = useVbenForm({
       fieldName: 'status',
       label: '任务状态',
       defaultValue: 1,
+      formItemClass: 'col-span-1',
       componentProps: {
         options: JOB_STATUS_OPTIONS.map((opt) => ({
           label: opt.label,
           value: opt.value,
         })),
         placeholder: '请选择任务状态',
-      },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'priority',
-      label: '优先级',
-      defaultValue: 5,
-      componentProps: {
-        min: 1,
-        max: 10,
-        placeholder: '优先级(1-10，数值越大优先级越高)',
-        style: { width: '100%' },
-      },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'max_instances',
-      label: '最大实例数',
-      defaultValue: 1,
-      componentProps: {
-        min: 1,
-        max: 10,
-        placeholder: '同时运行的最大实例数',
-        style: { width: '100%' },
-      },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'max_retries',
-      label: '最大重试次数',
-      defaultValue: 0,
-      componentProps: {
-        min: 0,
-        max: 10,
-        placeholder: '任务失败后的最大重试次数',
-        style: { width: '100%' },
-      },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'timeout',
-      label: '超时时间(秒)',
-      componentProps: {
-        min: 0,
-        placeholder: '任务执行超时时间(秒)，0表示不限制',
-        style: { width: '100%' },
-      },
-    },
-    {
-      component: 'Switch',
-      fieldName: 'coalesce',
-      label: '合并执行',
-      defaultValue: false,
-      help: '如果任务错过了执行时间，是否只执行一次',
-      componentProps: {
-        activeText: '是',
-        inactiveText: '否',
-      },
-    },
-    {
-      component: 'Switch',
-      fieldName: 'allow_concurrent',
-      label: '允许并发',
-      defaultValue: false,
-      help: '是否允许同一任务的多个实例并发执行',
-      componentProps: {
-        activeText: '是',
-        inactiveText: '否',
-      },
-    },
-    {
-      component: 'Textarea',
-      fieldName: 'remark',
-      label: '备注',
-      componentProps: {
-        placeholder: '请输入备注信息',
-        rows: 3,
-        maxlength: 500,
-        showWordLimit: true,
       },
     },
   ],

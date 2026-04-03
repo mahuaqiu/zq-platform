@@ -15,14 +15,13 @@ export interface SchedulerJob {
   interval_seconds?: number;
   run_date?: string;
   task_func: string;
-  task_args?: string;
   task_kwargs?: string;
   status: number;
   status_display?: string;
   priority: number;
   max_instances: number;
   max_retries: number;
-  timeout?: number;
+  timeout: number;
   coalesce: boolean;
   allow_concurrent: boolean;
   total_run_count: number;
@@ -129,16 +128,8 @@ export interface SchedulerJobCreateParams {
   cron_expression?: string;
   interval_seconds?: number;
   run_date?: string;
-  task_args?: string;
   task_kwargs?: string;
   status?: number;
-  priority?: number;
-  max_instances?: number;
-  max_retries?: number;
-  timeout?: number;
-  coalesce?: boolean;
-  allow_concurrent?: boolean;
-  remark?: string;
   sort?: number;
 }
 
@@ -155,16 +146,8 @@ export interface SchedulerJobUpdateParams {
   interval_seconds?: number;
   run_date?: string;
   task_func?: string;
-  task_args?: string;
   task_kwargs?: string;
   status?: number;
-  priority?: number;
-  max_instances?: number;
-  max_retries?: number;
-  timeout?: number;
-  coalesce?: boolean;
-  allow_concurrent?: boolean;
-  remark?: string;
   sort?: number;
 }
 

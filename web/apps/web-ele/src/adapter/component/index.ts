@@ -203,6 +203,7 @@ export type ComponentType =
   | 'Select'
   | 'Space'
   | 'Switch'
+  | 'Textarea'
   | 'TimePicker'
   | 'TreeSelect'
   | 'Upload'
@@ -306,6 +307,7 @@ async function initComponentAdapter() {
     },
     Space: ElSpace,
     Switch: ElSwitch,
+    Textarea: withDefaultPlaceholder(ElInput, 'input', { type: 'textarea' }),
     TimePicker: (props, { attrs, slots }) => {
       const { name, id, isRange } = props;
       const extraProps: Recordable<any> = {};

@@ -418,7 +418,8 @@ onMounted(() => {
 
 /* 简洁风格背景（非渐变）*/
 .stat-card-gray {
-  background: #f5f5f5;
+  background: #f6f8fa;
+  border: 1px solid #e8e8e8;
 }
 
 .stat-card-gray .stat-value {

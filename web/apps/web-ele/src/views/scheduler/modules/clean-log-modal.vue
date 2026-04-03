@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import type { CleanLogParams } from '#/api/core/scheduler';
-
 import { computed, ref, watch } from 'vue';
 
 import { ZqDialog } from '#/components/zq-dialog';
@@ -23,9 +21,8 @@ const emit = defineEmits<{
 }>();
 
 // 表单数据
-const formData = ref<CleanLogParams>({
+const formData = ref({
   days: 7,
-  status: undefined,
 });
 
 // 提交loading
@@ -39,13 +36,6 @@ const retentionOptions = [
   { label: '180天', value: 180 },
 ];
 
-// 清理状态选项
-const statusOptions = [
-  { label: '全部状态', value: undefined },
-  { label: '仅失败记录', value: 'failed' },
-  { label: '仅成功记录', value: 'success' },
-];
-
 // 计算弹窗标题
 const dialogTitle = computed(() => '清理执行日志');
 
@@ -57,7 +47,6 @@ watch(
       // 打开时重置表单
       formData.value = {
         days: 7,
-        status: undefined,
       };
     }
   },
@@ -72,7 +61,7 @@ function handleUpdateVisible(val: boolean) {
 async function handleSubmit() {
   confirmLoading.value = true;
   try {
-    const result = await cleanSchedulerLogsApi(formData.value);
+    const result = await cleanSchedulerLogsApi({ days: formData.value.days });
     ElMessage.success(`成功清理 ${result.count} 条日志记录`);
 
     // 关闭弹窗
@@ -113,24 +102,6 @@ async function handleSubmit() {
           >
             <ElOption
               v-for="item in retentionOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </ElSelect>
-        </div>
-
-        <!-- 清理状态 -->
-        <div class="form-item">
-          <label class="form-label">清理状态（可选）</label>
-          <ElSelect
-            v-model="formData.status"
-            placeholder="请选择要清理的状态"
-            style="width: 100%"
-            clearable
-          >
-            <ElOption
-              v-for="item in statusOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"

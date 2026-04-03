@@ -29,16 +29,8 @@ class SchedulerJobBase(BaseModel):
     interval_seconds: Optional[int] = Field(None, ge=1, description="间隔时间（秒）")
     run_date: Optional[datetime] = Field(None, description="指定执行时间")
     task_func: str = Field(..., max_length=256, description="任务函数路径")
-    task_args: Optional[str] = Field(None, description="任务位置参数（JSON）")
-    task_kwargs: Optional[str] = Field(None, description="任务关键字参数（JSON）")
+    task_kwargs: Optional[str] = Field(None, description="任务参数（JSON）")
     status: int = Field(default=0, description="任务状态：0-禁用，1-启用，2-暂停")
-    priority: int = Field(default=0, description="任务优先级")
-    max_instances: int = Field(default=1, ge=1, description="最大实例数")
-    max_retries: int = Field(default=0, ge=0, description="错误重试次数")
-    timeout: Optional[int] = Field(None, ge=1, description="超时时间（秒）")
-    coalesce: bool = Field(default=True, description="是否合并执行")
-    allow_concurrent: bool = Field(default=False, description="是否允许并发执行")
-    remark: Optional[str] = Field(None, description="备注信息")
     sort: int = Field(default=0, description="排序")
     
     @field_validator('trigger_type')
@@ -107,16 +99,8 @@ class SchedulerJobUpdate(BaseModel):
     interval_seconds: Optional[int] = Field(None, ge=1, description="间隔时间（秒）")
     run_date: Optional[datetime] = Field(None, description="指定执行时间")
     task_func: Optional[str] = Field(None, max_length=256, description="任务函数路径")
-    task_args: Optional[str] = Field(None, description="任务位置参数（JSON）")
-    task_kwargs: Optional[str] = Field(None, description="任务关键字参数（JSON）")
+    task_kwargs: Optional[str] = Field(None, description="任务参数（JSON）")
     status: Optional[int] = Field(None, description="任务状态")
-    priority: Optional[int] = Field(None, description="任务优先级")
-    max_instances: Optional[int] = Field(None, ge=1, description="最大实例数")
-    max_retries: Optional[int] = Field(None, ge=0, description="错误重试次数")
-    timeout: Optional[int] = Field(None, ge=1, description="超时时间（秒）")
-    coalesce: Optional[bool] = Field(None, description="是否合并执行")
-    allow_concurrent: Optional[bool] = Field(None, description="是否允许并发执行")
-    remark: Optional[str] = Field(None, description="备注信息")
     sort: Optional[int] = Field(None, description="排序")
 
 
@@ -133,14 +117,13 @@ class SchedulerJobResponse(BaseModel):
     interval_seconds: Optional[int] = None
     run_date: Optional[datetime] = None
     task_func: str
-    task_args: Optional[str] = None
     task_kwargs: Optional[str] = None
     status: int
     status_display: Optional[str] = None
     priority: int
     max_instances: int
     max_retries: int
-    timeout: Optional[int] = None
+    timeout: int
     coalesce: bool
     allow_concurrent: bool
     total_run_count: int
@@ -155,7 +138,7 @@ class SchedulerJobResponse(BaseModel):
     sort: int = 0
     sys_create_datetime: Optional[datetime] = None
     sys_update_datetime: Optional[datetime] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
