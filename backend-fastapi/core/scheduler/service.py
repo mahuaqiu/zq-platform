@@ -179,7 +179,33 @@ class SchedulerService:
         except Exception as e:
             logger.error(f"添加任务失败 {job_obj.code}: {str(e)}")
             return False
-    
+
+    def _check_host_ip_match(self, job_execute_host_ip: Optional[str]) -> tuple[bool, str]:
+        """
+        检查任务执行主机IP是否匹配本机
+
+        Args:
+            job_execute_host_ip: 任务配置的执行主机IP
+
+        Returns:
+            (是否可执行, 原因说明)
+        """
+        host_ip = settings.HOST_IP or ""
+
+        # 任务未指定执行IP → 任意机器可执行
+        if not job_execute_host_ip:
+            return True, "任务未指定执行主机"
+
+        # 任务指定了IP，但本机未配置 → 不执行
+        if not host_ip:
+            return False, f"任务指定IP为 {job_execute_host_ip}，本机未配置 HOST_IP"
+
+        # IP匹配检查
+        if host_ip == job_execute_host_ip:
+            return True, f"IP匹配: {host_ip}"
+
+        return False, f"IP不匹配: 任务要求 {job_execute_host_ip}，本机为 {host_ip}"
+
     def _create_job_wrapper(self, task_func, job_code: str, kwargs: dict):
         """创建带日志记录的任务包装函数"""
         async def wrapper():
@@ -195,9 +221,59 @@ class SchedulerService:
         start_time = datetime.now()
         exception_info = None
         result = None
+        skip_reason = None
+        job_obj = None
 
+        # 获取任务配置并进行IP检查
         try:
-            # 执行任务
+            async with AsyncSessionLocal() as db:
+                query_result = await db.execute(
+                    select(SchedulerJob).where(SchedulerJob.code == job_code)
+                )
+                job_obj = query_result.scalar_one_or_none()
+
+                if not job_obj:
+                    logger.error(f"[{job_code}] 未找到任务记录")
+                    return None
+
+                # IP匹配检查
+                can_execute, ip_reason = self._check_host_ip_match(job_obj.execute_host_ip)
+                if not can_execute:
+                    skip_reason = ip_reason
+                    logger.info(f"[{job_code}] 跳过执行: {ip_reason}")
+        except Exception as e:
+            logger.error(f"[{job_code}] 获取任务配置失败: {str(e)}")
+            return None
+
+        # 获取本机IP用于日志记录
+        executor_ip = settings.HOST_IP or socket.gethostname()
+
+        # 如果IP不匹配，记录跳过日志后返回
+        if skip_reason:
+            end_time = datetime.now()
+            try:
+                async with AsyncSessionLocal() as db:
+                    if job_obj:
+                        log = SchedulerLog(
+                            job_id=str(job_obj.id),
+                            job_name=job_obj.name,
+                            job_code=job_obj.code,
+                            start_time=start_time,
+                            end_time=end_time,
+                            duration=(end_time - start_time).total_seconds(),
+                            hostname=executor_ip,
+                            status='skipped',
+                            result=skip_reason,
+                        )
+                        db.add(log)
+                        await db.commit()
+                        logger.info(f"[{job_code}] 已记录跳过日志")
+            except Exception as e:
+                logger.error(f"[{job_code}] 记录跳过日志失败: {str(e)}")
+            return None
+
+        # 正常执行任务
+        try:
             result = await task_func(**kwargs)
         except Exception as e:
             exception_info = e
@@ -226,7 +302,7 @@ class SchedulerService:
                     start_time=start_time,
                     end_time=end_time,
                     duration=(end_time - start_time).total_seconds(),
-                    hostname=socket.gethostname(),
+                    hostname=executor_ip,
                     process_id=os.getpid(),
                 )
 
