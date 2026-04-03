@@ -11,7 +11,7 @@
 Scheduler API - 定时任务管理接口
 提供定时任务的 CRUD 操作和管理功能
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -63,6 +63,7 @@ def _build_job_response(job: SchedulerJob) -> SchedulerJobResponse:
         run_date=job.run_date,
         task_func=job.task_func,
         task_kwargs=job.task_kwargs,
+        execute_host_ip=job.execute_host_ip,
         status=job.status,
         status_display=job.get_status_display(),
         priority=job.priority,
@@ -371,19 +372,29 @@ async def get_scheduler_job_statistics(db: AsyncSession = Depends(get_db)):
     )
     paused_jobs = paused_result.scalar() or 0
 
-    # 执行统计
+    # 执行统计（今日）
+    today_start = datetime.combine(date.today(), datetime.min.time())
+
     total_exec_result = await db.execute(
-        select(func.count(SchedulerLog.id))
+        select(func.count(SchedulerLog.id)).where(
+            SchedulerLog.start_time >= today_start
+        )
     )
     total_executions = total_exec_result.scalar() or 0
 
     success_exec_result = await db.execute(
-        select(func.count(SchedulerLog.id)).where(SchedulerLog.status == 'success')
+        select(func.count(SchedulerLog.id)).where(
+            SchedulerLog.status == 'success',
+            SchedulerLog.start_time >= today_start
+        )
     )
     success_executions = success_exec_result.scalar() or 0
 
     failed_exec_result = await db.execute(
-        select(func.count(SchedulerLog.id)).where(SchedulerLog.status == 'failed')
+        select(func.count(SchedulerLog.id)).where(
+            SchedulerLog.status == 'failed',
+            SchedulerLog.start_time >= today_start
+        )
     )
     failed_executions = failed_exec_result.scalar() or 0
 
