@@ -41,6 +41,13 @@ const maxDuration = computed(() => {
   return Math.max(...stats.value.top20_duration.map((t) => t.duration_minutes), 1);
 });
 
+// 计算其他失败次数（除资源不足外的非成功次数）
+const otherFailedCount = computed(() => {
+  if (!stats.value?.apply_24h) return 0;
+  const { total, success, failed } = stats.value.apply_24h;
+  return total - success - failed;
+});
+
 // 计算柱状图宽度（固定像素值）
 const TOP_TAG_BAR_MAX = 140; // 申请次数TOP10最大宽度
 const TOP_INSUFFICIENT_BAR_MAX = 60; // 资源不足TOP10最大宽度
@@ -197,9 +204,13 @@ onUnmounted(() => {
                   <div class="detail-value">{{ stats?.apply_24h?.success || 0 }}</div>
                   <div class="detail-label">成功</div>
                 </div>
-                <div class="detail-item fail">
+                <div class="detail-item insufficient">
                   <div class="detail-value">{{ stats?.apply_24h?.failed || 0 }}</div>
                   <div class="detail-label">资源不足</div>
+                </div>
+                <div class="detail-item failed">
+                  <div class="detail-value">{{ otherFailedCount }}</div>
+                  <div class="detail-label">失败</div>
                 </div>
               </div>
             </div>
@@ -499,11 +510,11 @@ onUnmounted(() => {
 
 .apply-total {
   text-align: center;
-  flex: 1.5;
+  flex: 1;
 }
 
 .apply-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: bold;
   color: #1890ff;
 }
@@ -514,7 +525,7 @@ onUnmounted(() => {
 }
 
 .apply-detail {
-  flex: 1;
+  flex: 2;
   display: flex;
   gap: 12px;
 }
@@ -530,7 +541,11 @@ onUnmounted(() => {
   background: #f6ffed;
 }
 
-.detail-item.fail {
+.detail-item.insufficient {
+  background: #fff7e6;
+}
+
+.detail-item.failed {
   background: #fff2f0;
 }
 
@@ -543,7 +558,11 @@ onUnmounted(() => {
   color: #52c41a;
 }
 
-.detail-item.fail .detail-value {
+.detail-item.insufficient .detail-value {
+  color: #fa8c16;
+}
+
+.detail-item.failed .detail-value {
   color: #ff4d4f;
 }
 
