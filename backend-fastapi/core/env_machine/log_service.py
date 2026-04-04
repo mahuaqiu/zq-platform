@@ -245,7 +245,7 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> List[TopDurationItem]:
-        """获取24小时内占用时长TOP20机器"""
+        """获取占用时长TOP20机器（仅统计已释放的记录）"""
         cutoff = datetime.now() - timedelta(hours=24)
 
         filters = [
@@ -272,7 +272,7 @@ class EnvMachineLogService:
 
         items = []
         for row in result.all():
-            duration_minutes = row[3]
+            duration_minutes = row[3] or 0
             if duration_minutes >= 60:
                 duration_display = f"{duration_minutes // 60}h"
             else:

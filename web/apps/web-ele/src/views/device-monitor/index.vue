@@ -10,7 +10,7 @@ import { onMounted, onUnmounted, ref, computed } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { ElSelect, ElOption, ElButton, ElScrollbar } from 'element-plus';
+import { ElScrollbar } from 'element-plus';
 
 import { getDashboardStatsApi } from '#/api/core/device-monitor';
 
@@ -19,8 +19,6 @@ defineOptions({ name: 'DeviceMonitorPage' });
 // 数据
 const loading = ref(false);
 const stats = ref<DashboardStatsResponse | null>(null);
-const namespace = ref<string>('');
-const namespaceOptions = ref<string[]>([]);
 
 // 自动刷新定时器
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -43,6 +41,26 @@ const maxDuration = computed(() => {
   return Math.max(...stats.value.top20_duration.map((t) => t.duration_minutes), 1);
 });
 
+// 计算柱状图宽度（固定像素值）
+const TOP_TAG_BAR_MAX = 140; // 申请次数TOP10最大宽度
+const TOP_INSUFFICIENT_BAR_MAX = 60; // 资源不足TOP10最大宽度
+const DURATION_BAR_MAX = 280; // 占用时长TOP20最大宽度
+
+function getTagBarWidth(value: number): string {
+  const percent = Math.min((value / maxTagCount.value) * 100, 100);
+  return `${Math.max(percent * TOP_TAG_BAR_MAX / 100, 10)}px`;
+}
+
+function getInsufficientBarWidth(value: number): string {
+  const percent = Math.min((value / maxInsufficientCount.value) * 100, 100);
+  return `${Math.max(percent * TOP_INSUFFICIENT_BAR_MAX / 100, 10)}px`;
+}
+
+function getDurationBarWidth(value: number): string {
+  const percent = Math.min((value / maxDuration.value) * 100, 100);
+  return `${Math.max(percent * DURATION_BAR_MAX / 100, 10)}px`;
+}
+
 // 设备类型显示名称
 const deviceTypeNames: Record<string, string> = {
   windows: 'Windows',
@@ -63,24 +81,13 @@ const deviceTypeColors: Record<string, string> = {
 async function loadStats() {
   loading.value = true;
   try {
-    const res = await getDashboardStatsApi(namespace.value || undefined);
+    const res = await getDashboardStatsApi();
     stats.value = res;
   } catch (error) {
     console.error('加载统计数据失败:', error);
   } finally {
     loading.value = false;
   }
-}
-
-// 刷新
-function handleRefresh() {
-  loadStats();
-}
-
-// 计算柱状图宽度百分比
-function getBarWidth(value: number, max: number): string {
-  const percent = Math.min((value / max) * 100, 100);
-  return `${Math.max(percent, 2)}%`;
 }
 
 // 初始化
@@ -100,34 +107,15 @@ onUnmounted(() => {
 <template>
   <Page auto-content-height>
     <div class="device-monitor-page">
-      <!-- 顶部筛选栏 -->
-      <div class="filter-bar">
-        <div class="filter-left">
-          <span class="filter-label">机器分类：</span>
-          <ElSelect
-            v-model="namespace"
-            placeholder="全部"
-            clearable
-            style="width: 200px"
-            @change="loadStats"
-          >
-            <ElOption
-              v-for="opt in namespaceOptions"
-              :key="opt"
-              :label="opt"
-              :value="opt"
-            />
-          </ElSelect>
-        </div>
-        <ElButton type="primary" :loading="loading" @click="handleRefresh">
-          刷新数据
-        </ElButton>
-      </div>
-
       <!-- 主内容区域 -->
       <div v-loading="loading" class="main-content">
         <!-- 左侧面板 -->
         <div class="left-panel">
+          <!-- 左侧标题栏 -->
+          <div class="left-panel-header">
+            🔴 实时状态
+          </div>
+
           <!-- 模块1：设备台数统计 -->
           <div class="stats-card device-stats-card">
             <div class="card-title">📊 设备台数统计</div>
@@ -186,10 +174,8 @@ onUnmounted(() => {
                 class="offline-item"
               >
                 <span class="offline-dot">●</span>
-                <span class="offline-info">
-                  {{ item.ip || item.device_sn }}
-                  <span class="offline-type">({{ deviceTypeNames[item.device_type] || item.device_type }})</span>
-                </span>
+                <span class="offline-name">{{ item.name || item.ip || item.device_sn }}</span>
+                <span class="offline-ip">({{ item.ip || item.device_sn }})</span>
                 <span class="offline-duration">离线 {{ item.offline_duration }}</span>
               </div>
             </ElScrollbar>
@@ -233,7 +219,7 @@ onUnmounted(() => {
                   <div class="top-tag">{{ item.tag }}</div>
                   <div
                     class="top-bar"
-                    :style="{ width: getBarWidth(item.count, maxTagCount) }"
+                    :style="{ width: getTagBarWidth(item.count) }"
                   ></div>
                   <span class="top-count">{{ item.count }}</span>
                 </div>
@@ -253,7 +239,7 @@ onUnmounted(() => {
                   <div class="top-tag">{{ item.tag }}</div>
                   <div
                     class="top-bar red"
-                    :style="{ width: getBarWidth(item.count, maxInsufficientCount) }"
+                    :style="{ width: getInsufficientBarWidth(item.count) }"
                   ></div>
                   <span class="top-count">{{ item.count }}</span>
                 </div>
@@ -282,7 +268,7 @@ onUnmounted(() => {
                 </div>
                 <div
                   class="duration-bar"
-                  :style="{ width: getBarWidth(item.duration_minutes, maxDuration) }"
+                  :style="{ width: getDurationBarWidth(item.duration_minutes) }"
                 ></div>
                 <span class="duration-value">{{ item.duration_display }}</span>
               </div>
@@ -304,28 +290,6 @@ onUnmounted(() => {
   background: #f5f7fa;
 }
 
-/* 筛选栏 */
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: #fff;
-  border-radius: 8px;
-}
-
-.filter-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.filter-label {
-  font-size: 14px;
-  color: #666;
-}
-
 /* 主内容区域 */
 .main-content {
   flex: 1;
@@ -339,7 +303,20 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+/* 左侧面板标题 */
+.left-panel-header {
+  font-size: 16px;
+  font-weight: bold;
+  color: #722ed1;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #722ed1;
+  padding-bottom: 8px;
 }
 
 /* 右侧面板 */
@@ -347,14 +324,14 @@ onUnmounted(() => {
   flex: 2;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 /* 卡片基础样式 */
 .stats-card {
   background: #fff;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
 }
 
 .card-title {
@@ -371,6 +348,8 @@ onUnmounted(() => {
 /* 设备统计卡片 */
 .device-stats-card {
   background: #f9f0ff;
+  padding: 12px;
+  border-radius: 6px;
 }
 
 .summary-row {
@@ -460,6 +439,8 @@ onUnmounted(() => {
   flex-direction: column;
   background: #fff7e6;
   border: 1px solid #ffd591;
+  padding: 12px;
+  border-radius: 6px;
   min-height: 0;
 }
 
@@ -475,34 +456,39 @@ onUnmounted(() => {
 .offline-item {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
+  padding: 6px;
   background: #fff;
   border-radius: 4px;
   margin-bottom: 4px;
   font-size: 12px;
+  color: #333;
+  line-height: 1.8;
 }
 
 .offline-dot {
   color: #fa8c16;
-  margin-right: 8px;
+  margin-right: 4px;
 }
 
-.offline-info {
-  flex: 1;
+.offline-name {
+  color: #333;
 }
 
-.offline-type {
-  color: #999;
+.offline-ip {
+  color: #666;
   font-size: 11px;
+  margin-left: 2px;
 }
 
 .offline-duration {
   color: #fa8c16;
+  margin-left: auto;
 }
 
 /* 申请统计卡片 */
 .apply-card {
   border: 2px solid #1890ff;
+  padding: 16px;
 }
 
 .apply-main {
@@ -513,6 +499,7 @@ onUnmounted(() => {
 
 .apply-total {
   text-align: center;
+  flex: 1.5;
 }
 
 .apply-value {
@@ -568,7 +555,7 @@ onUnmounted(() => {
 /* TOP 卡片行 */
 .top-cards-row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
 }
 
 .top-card {
@@ -576,7 +563,7 @@ onUnmounted(() => {
 }
 
 .top-list {
-  height: 200px;
+  padding: 4px 8px;
 }
 
 .top-item {
@@ -586,7 +573,7 @@ onUnmounted(() => {
 }
 
 .top-tag {
-  width: 80px;
+  width: 70px;
   font-size: 11px;
   color: #333;
   overflow: hidden;
@@ -598,8 +585,6 @@ onUnmounted(() => {
   height: 14px;
   background: #1890ff;
   border-radius: 3px;
-  min-width: 4px;
-  max-width: 150px;
 }
 
 .top-bar.red {
@@ -656,8 +641,6 @@ onUnmounted(() => {
   height: 14px;
   background: #52c41a;
   border-radius: 3px;
-  min-width: 4px;
-  max-width: 200px;
 }
 
 .duration-value {

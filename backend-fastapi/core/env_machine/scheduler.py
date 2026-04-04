@@ -190,7 +190,7 @@ class EnvMachineScheduler:
         延迟释放任务执行逻辑
 
         检查机器状态：
-        - 如果状态是 using，更新为 online
+        - 如果状态是 using，调用 pool_manager.release_machine 释放
         - 如果状态是 offline，不变
         - 同步 Redis 缓存状态
 
@@ -213,15 +213,15 @@ class EnvMachineScheduler:
 
             # 检查机器状态
             if machine.status == "using":
-                # 状态是 using，更新为 online
-                machine.status = "online"
-                machine.last_keepusing_time = None
-                await db.commit()
-                logger.info(f"机器 {machine_id} 状态已从 using 更新为 online")
-
-                # 同步 Redis 缓存（延迟导入避免循环依赖）
+                # 调用 pool_manager.release_machine 释放（会更新日志的 duration_minutes）
                 from core.env_machine.pool_manager import EnvPoolManager
-                await EnvPoolManager.sync_machine_to_cache(machine)
+                success, error = await EnvPoolManager.release_machine(
+                    db, machine_id, machine.namespace
+                )
+                if success:
+                    logger.info(f"机器 {machine_id} 已释放，状态更新为 online")
+                else:
+                    logger.error(f"机器 {machine_id} 释放失败: {error}")
 
             elif machine.status == "offline":
                 # 状态是 offline，不变

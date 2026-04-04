@@ -297,7 +297,8 @@ class EnvPoolManager:
             "id": machine_data.get("id"),
             "ip": machine_data.get("ip"),
             "port": machine_data.get("port"),
-            "device_type": device_type,  # 使用标签前缀
+            "device_type": device_type,  # 使用标签前缀（用于响应给调用方）
+            "actual_device_type": machine_data.get("device_type"),  # 机器实际类型（用于日志记录）
             "device_sn": machine_data.get("device_sn"),
         }
 
@@ -418,7 +419,7 @@ class EnvPoolManager:
                         namespace=namespace,
                         machine_id=allocated["id"],
                         ip=allocated.get("ip"),
-                        device_type=allocated.get("device_type"),
+                        device_type=allocated.get("actual_device_type") or allocated.get("device_type"),
                         device_sn=allocated.get("device_sn"),
                         mark=requests.get(user),
                         action="apply",

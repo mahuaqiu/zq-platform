@@ -36,6 +36,7 @@ export interface TopDurationItem {
 
 export interface OfflineMachineItem {
   id: string;
+  name?: string;
   ip?: string;
   device_sn?: string;
   device_type: string;
@@ -53,7 +54,7 @@ export interface DashboardStatsResponse {
 
 // API 接口
 export function getDashboardStatsApi(namespace?: string) {
-  return requestClient.get<DashboardStatsResponse>('/api/core/env-machine/dashboard/stats', {
+  return requestClient.get<DashboardStatsResponse>('/api/core/env/dashboard/stats', {
     params: { namespace },
   });
 }

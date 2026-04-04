@@ -272,9 +272,8 @@ async def release_env_machines(
 
     逻辑：
     1. 遍历请求中的机器 ID
-    2. 对于每台机器：取消延迟释放任务，更新状态为 online
-    3. 同步 Redis 缓存
-    4. 忽略不存在的机器
+    2. 对于每台机器：调用 pool_manager.release_machine 更新状态和日志
+    3. 忽略不存在的机器
     """
     try:
         for item in data:
@@ -284,18 +283,8 @@ async def release_env_machines(
                 logger.debug(f"机器不存在，忽略: {item.id}")
                 continue
 
-            # 取消延迟释放任务
-            await remove_release_job(item.id)
-
-            # 更新状态为 online
-            machine.status = "online"
-            machine.last_keepusing_time = None
-
-            # 同步 Redis 缓存
-            await EnvPoolManager.sync_machine_to_cache(machine)
-
-        # 提交数据库更改
-        await db.commit()
+            # 调用 pool_manager.release_machine 释放机器（会更新日志的 duration_minutes）
+            await EnvPoolManager.release_machine(db, item.id, machine.namespace)
 
         logger.info(f"释放执行机成功: count={len(data)}")
 
