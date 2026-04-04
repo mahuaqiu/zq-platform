@@ -101,11 +101,14 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> DeviceStats:
-        """获取设备统计"""
+        """获取设备统计（排除包含 manual 的 namespace）"""
         # 基础查询条件
         base_filter = [EnvMachine.is_deleted.is_(False)]
         if namespace:
             base_filter.append(EnvMachine.namespace == namespace)
+        else:
+            # 未指定 namespace 时，排除包含 manual 的 namespace
+            base_filter.append(EnvMachine.namespace.notlike('%manual%'))
 
         # 总数统计
         total_result = await db.execute(
@@ -171,7 +174,7 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> Apply24hStats:
-        """获取24小时申请统计"""
+        """获取24小时申请统计（排除包含 manual 的 namespace）"""
         cutoff = datetime.now() - timedelta(hours=24)
 
         filters = [
@@ -180,6 +183,9 @@ class EnvMachineLogService:
         ]
         if namespace:
             filters.append(EnvMachineLog.namespace == namespace)
+        else:
+            # 未指定 namespace 时，排除包含 manual 的 namespace
+            filters.append(EnvMachineLog.namespace.notlike('%manual%'))
 
         # 总数
         total_result = await db.execute(
@@ -214,7 +220,7 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> List[TopTagItem]:
-        """获取24小时内申请次数TOP10标签（仅成功）"""
+        """获取24小时内申请次数TOP10标签（仅成功，排除包含 manual 的 namespace）"""
         cutoff = datetime.now() - timedelta(hours=24)
 
         filters = [
@@ -225,6 +231,9 @@ class EnvMachineLogService:
         ]
         if namespace:
             filters.append(EnvMachineLog.namespace == namespace)
+        else:
+            # 未指定 namespace 时，排除包含 manual 的 namespace
+            filters.append(EnvMachineLog.namespace.notlike('%manual%'))
 
         result = await db.execute(
             select(
@@ -245,7 +254,7 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> List[TopDurationItem]:
-        """获取占用时长TOP20机器（仅统计已释放的记录）"""
+        """获取占用时长TOP20机器（仅统计已释放的记录，排除包含 manual 的 namespace）"""
         cutoff = datetime.now() - timedelta(hours=24)
 
         filters = [
@@ -256,6 +265,9 @@ class EnvMachineLogService:
         ]
         if namespace:
             filters.append(EnvMachineLog.namespace == namespace)
+        else:
+            # 未指定 namespace 时，排除包含 manual 的 namespace
+            filters.append(EnvMachineLog.namespace.notlike('%manual%'))
 
         result = await db.execute(
             select(
@@ -294,7 +306,7 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> List[TopTagItem]:
-        """获取24小时内资源不足TOP10标签"""
+        """获取24小时内资源不足TOP10标签（排除包含 manual 的 namespace）"""
         cutoff = datetime.now() - timedelta(hours=24)
 
         filters = [
@@ -306,6 +318,9 @@ class EnvMachineLogService:
         ]
         if namespace:
             filters.append(EnvMachineLog.namespace == namespace)
+        else:
+            # 未指定 namespace 时，排除包含 manual 的 namespace
+            filters.append(EnvMachineLog.namespace.notlike('%manual%'))
 
         result = await db.execute(
             select(
@@ -326,7 +341,7 @@ class EnvMachineLogService:
         db: AsyncSession,
         namespace: Optional[str] = None
     ) -> List[OfflineMachineItem]:
-        """获取启用但离线的机器列表"""
+        """获取启用但离线的机器列表（排除包含 manual 的 namespace）"""
         filters = [
             EnvMachine.is_deleted.is_(False),
             EnvMachine.available.is_(True),
@@ -334,6 +349,9 @@ class EnvMachineLogService:
         ]
         if namespace:
             filters.append(EnvMachine.namespace == namespace)
+        else:
+            # 未指定 namespace 时，排除包含 manual 的 namespace
+            filters.append(EnvMachine.namespace.notlike('%manual%'))
 
         result = await db.execute(
             select(EnvMachine).where(*filters)

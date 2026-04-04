@@ -563,7 +563,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     @classmethod
     async def get_namespaces(cls, db: AsyncSession) -> List[str]:
         """
-        获取所有机器分类（去重）
+        获取所有机器分类（去重，排除包含 manual 的分类）
 
         :param db: 数据库会话
         :return: 分类列表
@@ -572,7 +572,8 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
 
         result = await db.execute(
             select(distinct(EnvMachine.namespace)).where(
-                EnvMachine.is_deleted == False  # noqa: E712
+                EnvMachine.is_deleted == False,  # noqa: E712
+                EnvMachine.namespace.notlike('%manual%')  # 排除包含 manual 的 namespace
             ).order_by(EnvMachine.namespace)
         )
         return [row[0] for row in result.all()]

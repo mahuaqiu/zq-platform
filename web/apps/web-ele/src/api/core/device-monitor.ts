@@ -58,3 +58,7 @@ export function getDashboardStatsApi(namespace?: string) {
     params: { namespace },
   });
 }
+
+export function getNamespacesApi() {
+  return requestClient.get<string[]>('/api/core/env/namespaces');
+}

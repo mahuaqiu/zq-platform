@@ -36,6 +36,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/env", tags=["执行机管理"])
 
 
+@router.get("/namespaces", summary="获取所有机器分类")
+async def get_namespaces(db: AsyncSession = Depends(get_db)) -> List[str]:
+    """
+    获取所有 namespace 列表（去重、已排序）
+
+    用于前端筛选下拉框的数据源。
+    """
+    return await EnvMachineService.get_namespaces(db)
+
+
 @router.post("/register", response_model=EnvSuccessResponse, summary="执行机注册")
 async def register_env_machine(
     data: EnvRegisterRequest,

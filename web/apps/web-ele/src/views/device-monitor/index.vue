@@ -10,15 +10,20 @@ import { onMounted, onUnmounted, ref, computed } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { ElScrollbar } from 'element-plus';
+import { ElScrollbar, ElSelect, ElOption } from 'element-plus';
 
-import { getDashboardStatsApi } from '#/api/core/device-monitor';
+import {
+  getDashboardStatsApi,
+  getNamespacesApi,
+} from '#/api/core/device-monitor';
 
 defineOptions({ name: 'DeviceMonitorPage' });
 
 // 数据
 const loading = ref(false);
 const stats = ref<DashboardStatsResponse | null>(null);
+const namespaces = ref<string[]>([]);
+const selectedNamespace = ref<string>('');
 
 // 自动刷新定时器
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -88,7 +93,7 @@ const deviceTypeColors: Record<string, string> = {
 async function loadStats() {
   loading.value = true;
   try {
-    const res = await getDashboardStatsApi();
+    const res = await getDashboardStatsApi(selectedNamespace.value || undefined);
     stats.value = res;
   } catch (error) {
     console.error('加载统计数据失败:', error);
@@ -97,8 +102,24 @@ async function loadStats() {
   }
 }
 
+// 加载 namespace 列表
+async function loadNamespaces() {
+  try {
+    const res = await getNamespacesApi();
+    namespaces.value = res;
+  } catch (error) {
+    console.error('加载 namespace 列表失败:', error);
+  }
+}
+
+// namespace 变化时重新加载数据
+function handleNamespaceChange() {
+  loadStats();
+}
+
 // 初始化
 onMounted(() => {
+  loadNamespaces();
   loadStats();
   // 30分钟自动刷新
   refreshTimer = setInterval(loadStats, 30 * 60 * 1000);
@@ -114,6 +135,24 @@ onUnmounted(() => {
 <template>
   <Page auto-content-height>
     <div class="device-monitor-page">
+      <!-- 筛选栏 -->
+      <div class="filter-bar">
+        <ElSelect
+          v-model="selectedNamespace"
+          placeholder="全部 Namespace"
+          clearable
+          style="width: 200px"
+          @change="handleNamespaceChange"
+        >
+          <ElOption
+            v-for="ns in namespaces"
+            :key="ns"
+            :label="ns"
+            :value="ns"
+          />
+        </ElSelect>
+      </div>
+
       <!-- 主内容区域 -->
       <div v-loading="loading" class="main-content">
         <!-- 左侧面板 -->
@@ -299,6 +338,17 @@ onUnmounted(() => {
   height: 100%;
   padding: 16px;
   background: #f5f7fa;
+}
+
+/* 筛选栏 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
 
 /* 主内容区域 */
