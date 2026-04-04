@@ -37,6 +37,9 @@ class EnvMachineLog(BaseModel):
     # 申请的标签
     mark = Column(String(255), nullable=True, comment="申请的标签")
 
+    # 机器来源池（新增）
+    source_pool = Column(String(64), nullable=True, comment="机器来源池")
+
     # 操作类型：apply/release
     action = Column(String(20), nullable=False, comment="操作类型: apply/release")
 
@@ -63,4 +66,5 @@ class EnvMachineLog(BaseModel):
     )
 
     def __str__(self):
-        return f"{self.namespace}/{self.ip or self.device_sn} - {self.action} - {self.result}"
+        source = self.source_pool or "N/A"
+        return f"{self.namespace}/{self.ip or self.device_sn} - {self.action} - {self.result} - from:{source}"
