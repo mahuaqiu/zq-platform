@@ -371,15 +371,19 @@ class EnvPoolManager:
         # 2. 获取分布式锁
         try:
             async with EnvLockManager.env_lock_or_raise(namespace) as holder_id:
-                # 3. 从 Redis 获取候选机器
-                namespace_machines = await cls.get_pool_machines(namespace)
+                # 3. 获取查找顺序
+                pool_hierarchy = cls._get_pool_hierarchy(namespace)
 
-                # 如果不是申请 public，则同时获取 public 池机器
-                public_machines = {}
-                if namespace != cls.PUBLIC_NAMESPACE:
-                    public_machines = await cls.get_pool_machines(cls.PUBLIC_NAMESPACE)
+                if not pool_hierarchy:
+                    return False, "namespace 不支持申请"
 
-                # 4. 筛选可用机器
+                # 4. 按顺序获取所有候选池
+                candidate_pools: list[tuple[str, dict]] = []
+                for pool_ns in pool_hierarchy:
+                    machines = await cls.get_pool_machines(pool_ns)
+                    candidate_pools.append((pool_ns, machines))
+
+                # 5. 筛选可用机器
                 # 记录已占用的 IP/SN，避免重复分配
                 occupied_ips: set[str] = set()
                 occupied_sns: set[str] = set()
@@ -389,24 +393,20 @@ class EnvPoolManager:
                 # 需要更新数据库的机器ID列表
                 allocated_machine_ids: list[str] = []
 
-                # 5. 按用户分配机器
+                # 6. 按用户分配机器
                 for user, request_tag in requests.items():
-                    # 先从 namespace 池中查找
-                    allocated = cls._allocate_single(
-                        namespace_machines,
-                        request_tag,
-                        occupied_ips,
-                        occupied_sns,
-                    )
-
-                    # 如果 namespace 池不够，从 public 池补充
-                    if not allocated and public_machines:
+                    # 按池层级顺序查找
+                    allocated = None
+                    for pool_ns, machines in candidate_pools:
                         allocated = cls._allocate_single(
-                            public_machines,
+                            machines,
                             request_tag,
                             occupied_ips,
                             occupied_sns,
                         )
+                        if allocated:
+                            allocated["source_pool"] = pool_ns  # 记录来源池
+                            break
 
                     if not allocated:
                         # 分配失败，记录失败日志
@@ -456,17 +456,16 @@ class EnvPoolManager:
                         action="apply",
                         result="success",
                         fail_reason=None,
-                        apply_time=now
+                        apply_time=now,
+                        source_pool=allocated.get("source_pool"),  # 新增
                     ))
                 await db.commit()
 
                 # 7. 更新 Redis 缓存（移除已分配的机器）
                 for machine_id in allocated_machine_ids:
-                    # 从 namespace 池移除
-                    await cls.remove_machine_from_cache(machine_id, namespace)
-                    # 如果是从 public 池借用的，也从 public 池移除
-                    if namespace != cls.PUBLIC_NAMESPACE:
-                        await cls.remove_machine_from_cache(machine_id, cls.PUBLIC_NAMESPACE)
+                    # 从所有涉及的池中移除
+                    for pool_ns in pool_hierarchy:
+                        await cls.remove_machine_from_cache(machine_id, pool_ns)
 
                 # 8. 创建延迟释放任务（使用 APScheduler）
                 for machine_id in allocated_machine_ids:
