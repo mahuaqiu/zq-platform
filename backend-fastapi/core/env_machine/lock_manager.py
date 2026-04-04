@@ -105,17 +105,23 @@ class EnvLockManager:
         """
         获取申请指定命名空间机器所需的锁列表
 
+        锁住所有涉及的池，避免并发分配冲突。
+
         Args:
             namespace: 申请的命名空间
 
         Returns:
             list[str]: 需要获取的锁 key 列表（已按字母序排序）
         """
-        locks = [cls.LOCK_PREFIX + namespace]
-        if namespace != "public":
-            locks.append(cls.LOCK_PREFIX + "public")
-        # 按字母序排序，避免死锁
-        locks.sort()
+        # 调用 pool_manager 的 _get_pool_hierarchy 获取池层级
+        from core.env_machine.pool_manager import EnvPoolManager
+        pool_hierarchy = EnvPoolManager._get_pool_hierarchy(namespace)
+
+        if not pool_hierarchy:
+            return []
+
+        locks = [cls.LOCK_PREFIX + ns for ns in pool_hierarchy]
+        locks.sort()  # 字母序排序，避免死锁
         return locks
 
     @classmethod
