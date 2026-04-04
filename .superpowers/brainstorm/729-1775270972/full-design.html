@@ -1,0 +1,222 @@
+<h2>设备监控看板 - 完整设计方案</h2>
+<p class="subtitle">请确认以下各部分设计，如有问题请在终端反馈</p>
+
+<h3 style="margin-top: 20px; color: #1890ff;">一、数据库设计</h3>
+
+<div style="background: #f5f7fa; padding: 16px; border-radius: 8px; margin-top: 12px;">
+<pre style="font-size: 13px; line-height: 1.6; color: #333;">
+CREATE TABLE env_machine_log (
+    id UUID PRIMARY KEY,
+    namespace VARCHAR(64) NOT NULL,       -- 机器分类
+    machine_id UUID NOT NULL,              -- 机器ID
+    ip VARCHAR(45),                        -- 机器IP
+    device_type VARCHAR(20) NOT NULL,      -- 机器类型
+    device_sn VARCHAR(64),                 -- 设备SN
+    mark VARCHAR(255),                     -- 申请的标签（用于TOP10统计）
+    action VARCHAR(20) NOT NULL,           -- apply/release
+    result VARCHAR(20) NOT NULL,           -- success/fail
+    fail_reason VARCHAR(255),              -- 失败原因（env not enough）
+    apply_time TIMESTAMP,                  -- 申请时间
+    release_time TIMESTAMP,                 -- 释放时间
+    duration_minutes INTEGER,              -- 占用时长（分钟）
+    sys_create_datetime TIMESTAMP,
+
+    INDEX (sys_create_datetime),           -- 用于清理和统计
+    INDEX (namespace, sys_create_datetime),
+    INDEX (machine_id)
+);
+</pre>
+</div>
+
+<h3 style="margin-top: 20px; color: #52c41a;">二、数据清理任务</h3>
+
+<div style="background: #f6ffed; padding: 16px; border-radius: 8px; margin-top: 12px;">
+<div style="font-weight: bold; color: #52c41a; margin-bottom: 8px;">任务函数（添加到 tasks.py）</div>
+<pre style="font-size: 13px; line-height: 1.6; color: #333;">
+async def cleanup_env_machine_log_task(job_code: str = None, days: int = 7):
+    """清理执行机申请日志，保留7天"""
+    cutoff = datetime.now() - timedelta(days=days)
+    await db.execute(delete(EnvMachineLog).where(
+        EnvMachineLog.sys_create_datetime < cutoff
+    ))
+</pre>
+
+<div style="font-weight: bold; color: #52c41a; margin-bottom: 8px; margin-top: 16px;">初始化脚本配置（init_scheduler_jobs.py 新增）</div>
+<pre style="font-size: 13px; line-height: 1.6; color: #333;">
+{
+    'name': '执行机申请日志清理',
+    'code': 'env_machine_log_cleanup',
+    'group': 'env_machine',
+    'trigger_type': 'cron',
+    'cron_expression': '0 3 * * *',  # 每天3:00
+    'task_func': 'core.scheduler.tasks.cleanup_env_machine_log_task',
+    'task_kwargs': '{"days": 7}',
+    'status': 1,
+}
+</pre>
+</div>
+
+<h3 style="margin-top: 20px; color: #722ed1;">三、看板布局设计（方案C - 左右分栏）</h3>
+
+<div class="mockup" style="margin-top: 12px;">
+  <div class="mockup-header" style="background: #722ed1; color: white;">设备监控看板 - 最终布局</div>
+  <div class="mockup-body" style="padding: 16px; background: #f5f7fa; display: flex; gap: 16px;">
+    <!-- 左侧实时状态 -->
+    <div style="flex: 1; background: white; border-radius: 8px; padding: 16px;">
+      <div style="font-size: 16px; font-weight: bold; color: #722ed1; margin-bottom: 16px; border-bottom: 2px solid #722ed1; padding-bottom: 8px;">
+        🔴 实时状态
+      </div>
+
+      <!-- 模块1：设备台数统计 -->
+      <div style="background: #f9f0ff; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">📊 设备台数统计</div>
+        <div style="display: flex; gap: 8px;">
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #1890ff;">50</div>
+            <div style="font-size: 11px; color: #666;">Windows</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #52c41a;">30</div>
+            <div style="font-size: 11px; color: #666;">Mac</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #faad14;">20</div>
+            <div style="font-size: 11px; color: #666;">Android</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #eb2f96;">28</div>
+            <div style="font-size: 11px; color: #666;">iOS</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px; font-size: 12px;">
+          <div style="flex: 1; background: #52c41a; color: white; padding: 4px; border-radius: 4px; text-align: center;">
+            启用 96
+          </div>
+          <div style="flex: 1; background: #ff4d4f; color: white; padding: 4px; border-radius: 4px; text-align: center;">
+            未启用 32
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块6：异步机器排查 -->
+      <div style="background: #fff7e6; padding: 12px; border-radius: 6px; border: 1px solid #ffd591;">
+        <div style="font-size: 14px; font-weight: bold; color: #fa8c16; margin-bottom: 8px;">⚠️ 异步机器排查（启用但离线）</div>
+        <div style="font-size: 12px; color: #333; line-height: 1.8;">
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Win-001 (192.168.1.100) 离线 2小时
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Mac-003 (192.168.1.102) 离线 30分钟
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px;">
+            <span style="color: #fa8c16;">●</span> Android-005 (SN:ABC123) 离线 15分钟
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧历史统计 -->
+    <div style="flex: 2; display: flex; flex-direction: column; gap: 12px;">
+      <!-- 模块2：24h申请总次数 -->
+      <div style="background: white; border-radius: 8px; padding: 16px; border: 2px solid #1890ff;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="text-align: center;">
+            <div style="font-size: 32px; font-weight: bold; color: #1890ff;">256</div>
+            <div style="font-size: 13px; color: #666;">24h申请总次数</div>
+          </div>
+          <div style="flex: 1; display: flex; gap: 12px;">
+            <div style="flex: 1; background: #f6ffed; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #52c41a;">250</div>
+              <div style="font-size: 11px; color: #666;">成功</div>
+            </div>
+            <div style="flex: 1; background: #fff2f0; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #ff4d4f;">6</div>
+              <div style="font-size: 11px; color: #666;">资源不足</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块3 & 5：TOP10 横向柱状图 -->
+      <div style="display: flex; gap: 12px;">
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">📈 申请次数 TOP10 标签</div>
+          <div style="background: #f0f5ff; height: 180px; border-radius: 6px; padding: 8px;">
+            <!-- 模拟横向柱状图 -->
+            <div style="margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 80px; float: left;">windows_1</div>
+              <div style="background: #1890ff; height: 14px; width: 90%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+              <div style="font-size: 11px; color: #666; float: right;">45</div>
+            </div>
+            <div style="margin-bottom: 6px; clear: both;">
+              <div style="font-size: 11px; color: #333; width: 80px; float: left;">web_2</div>
+              <div style="background: #1890ff; height: 14px; width: 70%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+              <div style="font-size: 11px; color: #666; float: right;">35</div>
+            </div>
+            <div style="margin-bottom: 6px; clear: both;">
+              <div style="font-size: 11px; color: #333; width: 80px; float: left;">android_1</div>
+              <div style="background: #1890ff; height: 14px; width: 50%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+              <div style="font-size: 11px; color: #666; float: right;">25</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">⚠️ 资源不足 TOP10 标签</div>
+          <div style="background: #fff1f0; height: 180px; border-radius: 6px; padding: 8px;">
+            <div style="margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 80px; float: left;">windows_5</div>
+              <div style="background: #ff4d4f; height: 14px; width: 60%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+              <div style="font-size: 11px; color: #666; float: right;">3</div>
+            </div>
+            <div style="margin-bottom: 6px; clear: both;">
+              <div style="font-size: 11px; color: #333; width: 80px; float: left;">ios_2</div>
+              <div style="background: #ff4d4f; height: 14px; width: 40%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+              <div style="font-size: 11px; color: #666; float: right;">2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块4：占用时长 TOP20 -->
+      <div style="background: white; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">⏱️ 机器占用时长 TOP20（分钟）</div>
+        <div style="background: #f6ffed; height: 150px; border-radius: 6px; padding: 8px;">
+          <div style="margin-bottom: 4px;">
+            <div style="font-size: 11px; color: #333; width: 100px; float: left;">192.168.1.100</div>
+            <div style="background: #52c41a; height: 14px; width: 95%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+            <div style="font-size: 11px; color: #666; float: right;">480min</div>
+          </div>
+          <div style="margin-bottom: 4px; clear: both;">
+            <div style="font-size: 11px; color: #333; width: 100px; float: left;">192.168.1.102</div>
+            <div style="background: #52c41a; height: 14px; width: 80%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+            <div style="font-size: 11px; color: #666; float: right;">360min</div>
+          </div>
+          <div style="margin-bottom: 4px; clear: both;">
+            <div style="font-size: 11px; color: #333; width: 100px; float: left;">SN:ABC123</div>
+            <div style="background: #52c41a; height: 14px; width: 60%; border-radius: 2px; float: left; margin-left: 8px;"></div>
+            <div style="font-size: 11px; color: #666; float: right;">240min</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 20px; color: #faad14;">四、实现步骤</h3>
+
+<div style="background: #fffbe6; padding: 16px; border-radius: 8px; margin-top: 12px; border: 1px solid #ffe58f;">
+<ol style="margin: 0; padding-left: 20px; line-height: 2; color: #333;">
+  <li><strong>后端 - 数据库迁移</strong>：创建 env_machine_log 表</li>
+  <li><strong>后端 - Model/Schema/Service</strong>：申请日志模块代码</li>
+  <li><strong>后端 - 改造申请/释放接口</strong>：写入日志记录</li>
+  <li><strong>后端 - 统计API</strong>：6个模块的数据统计接口</li>
+  <li><strong>后端 - 清理任务函数</strong>：添加到 tasks.py</li>
+  <li><strong>后端 - 初始化脚本</strong>：更新 init_scheduler_jobs.py</li>
+  <li><strong>前端 - 路由/菜单</strong>：新增"概览 > 设备监控"菜单</li>
+  <li><strong>前端 - 看板页面</strong>：Vue组件 + ECharts图表</li>
+</ol>
+</div>
+
+<p style="margin-top: 24px; text-align: center; color: #666;">
+  请在终端确认此设计方案是否可以开始实施。
+</p>

@@ -83,7 +83,9 @@
       "Bash(taskkill /F /PID 6032)",
       "Bash(taskkill /F /PID 14640)",
       "Bash(grep -n \"component.*index\" D:/code/zq-platform/backend-fastapi/scripts/init_*.py)",
-      "Bash(head -20 D:/code/zq-platform/backend-fastapi/scripts/*.py)"
+      "Bash(head -20 D:/code/zq-platform/backend-fastapi/scripts/*.py)",
+      "Bash(cat /d/code/zq-platform/.superpowers/brainstorm/*/\\\\.server-info)",
+      "Bash(cat /d/code/zq-platform/.superpowers/brainstorm/*/\\\\.server-stopped)"
     ]
   }
 }

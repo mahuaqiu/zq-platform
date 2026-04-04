@@ -1,0 +1,192 @@
+<h2>设备监控看板 - 设计调整</h2>
+<p class="subtitle">根据您的反馈更新设计</p>
+
+<div class="mockup" style="margin-top: 12px;">
+  <div class="mockup-header" style="background: #722ed1; color: white;">设备监控看板 - 调整后布局</div>
+  <div class="mockup-body" style="padding: 16px; background: #f5f7fa; display: flex; gap: 16px;">
+    <!-- 左侧实时状态 -->
+    <div style="flex: 1; background: white; border-radius: 8px; padding: 16px;">
+      <div style="font-size: 16px; font-weight: bold; color: #722ed1; margin-bottom: 16px; border-bottom: 2px solid #722ed1; padding-bottom: 8px;">
+        🔴 实时状态
+      </div>
+
+      <!-- 模块1：设备台数统计 -->
+      <div style="background: #f9f0ff; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 12px;">📊 设备台数统计</div>
+
+        <!-- 新增：总数、在线、离线汇总行 -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #d9d9d9;">
+          <div style="flex: 1; text-align: center; background: #722ed1; color: white; padding: 8px; border-radius: 6px;">
+            <div style="font-size: 20px; font-weight: bold;">128</div>
+            <div style="font-size: 11px;">总数</div>
+          </div>
+          <div style="flex: 1; text-align: center; background: #52c41a; color: white; padding: 8px; border-radius: 6px;">
+            <div style="font-size: 20px; font-weight: bold;">100</div>
+            <div style="font-size: 11px;">在线</div>
+          </div>
+          <div style="flex: 1; text-align: center; background: #ff4d4f; color: white; padding: 8px; border-radius: 6px;">
+            <div style="font-size: 20px; font-weight: bold;">28</div>
+            <div style="font-size: 11px;">离线</div>
+          </div>
+        </div>
+
+        <!-- 4个终端类型 -->
+        <div style="display: flex; gap: 8px;">
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #1890ff;">50</div>
+            <div style="font-size: 11px; color: #666;">Windows</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #52c41a;">30</div>
+            <div style="font-size: 11px; color: #666;">Mac</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #faad14;">20</div>
+            <div style="font-size: 11px; color: #666;">Android</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #eb2f96;">28</div>
+            <div style="font-size: 11px; color: #666;">iOS</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px; font-size: 12px;">
+          <div style="flex: 1; background: #52c41a; color: white; padding: 4px; border-radius: 4px; text-align: center;">
+            启用 96
+          </div>
+          <div style="flex: 1; background: #ff4d4f; color: white; padding: 4px; border-radius: 4px; text-align: center;">
+            未启用 32
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块6：异步机器排查 -->
+      <div style="background: #fff7e6; padding: 12px; border-radius: 6px; border: 1px solid #ffd591;">
+        <div style="font-size: 14px; font-weight: bold; color: #fa8c16; margin-bottom: 8px;">⚠️ 异步机器排查（启用但离线）</div>
+        <div style="font-size: 12px; color: #333; line-height: 1.8;">
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Win-001 (192.168.1.100) 离线 2小时
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Mac-003 (192.168.1.102) 离线 30分钟
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px;">
+            <span style="color: #fa8c16;">●</span> Android-005 (SN:ABC123) 离线 15分钟
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧历史统计 -->
+    <div style="flex: 2; display: flex; flex-direction: column; gap: 12px;">
+      <!-- 模块2：24h申请总次数 -->
+      <div style="background: white; border-radius: 8px; padding: 16px; border: 2px solid #1890ff;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="text-align: center;">
+            <div style="font-size: 32px; font-weight: bold; color: #1890ff;">256</div>
+            <div style="font-size: 13px; color: #666;">24h申请总次数</div>
+          </div>
+          <div style="flex: 1; display: flex; gap: 12px;">
+            <div style="flex: 1; background: #f6ffed; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #52c41a;">250</div>
+              <div style="font-size: 11px; color: #666;">成功</div>
+            </div>
+            <div style="flex: 1; background: #fff2f0; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #ff4d4f;">6</div>
+              <div style="font-size: 11px; color: #666;">资源不足</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块3 & 5：TOP10 横向柱状图（调整宽度） -->
+      <div style="display: flex; gap: 12px;">
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">📈 申请次数 TOP10 标签</div>
+          <div style="height: 180px; border-radius: 6px; padding: 8px;">
+            <!-- 模拟横向柱状图（缩短柱子宽度） -->
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">windows_1</div>
+              <div style="flex: 1; background: #1890ff; height: 16px; max-width: 150px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">45</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">web_2</div>
+              <div style="flex: 1; background: #1890ff; height: 16px; max-width: 120px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">35</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">android_1</div>
+              <div style="flex: 1; background: #1890ff; height: 16px; max-width: 90px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">25</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">ios_1</div>
+              <div style="flex: 1; background: #1890ff; height: 16px; max-width: 80px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">20</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">⚠️ 资源不足 TOP10 标签</div>
+          <div style="height: 180px; border-radius: 6px; padding: 8px;">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">windows_5</div>
+              <div style="flex: 1; background: #ff4d4f; height: 16px; max-width: 60px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">3</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">ios_2</div>
+              <div style="flex: 1; background: #ff4d4f; height: 16px; max-width: 40px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">2</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">android_3</div>
+              <div style="flex: 1; background: #ff4d4f; height: 16px; max-width: 40px; border-radius: 4px;"></div>
+              <div style="font-size: 11px; color: #666; width: 30px; text-align: right;">1</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块4：占用时长 TOP20（调整显示格式） -->
+      <div style="background: white; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">⏱️ 机器占用时长 TOP20</div>
+        <div style="height: 150px; border-radius: 6px; padding: 8px;">
+          <!-- 显示设备类型，时长格式：<60分钟，>60小时 -->
+          <div style="display: flex; align-items: center; margin-bottom: 6px;">
+            <div style="font-size: 11px; color: #333; width: 60px;">192.168.1.100</div>
+            <div style="font-size: 11px; color: #1890ff; width: 50px;">[Win]</div>
+            <div style="flex: 1; background: #52c41a; height: 16px; max-width: 150px; border-radius: 4px;"></div>
+            <div style="font-size: 11px; color: #666; width: 40px; text-align: right;">8h</div>
+          </div>
+          <div style="display: flex; align-items: center; margin-bottom: 6px;">
+            <div style="font-size: 11px; color: #333; width: 60px;">192.168.1.102</div>
+            <div style="font-size: 11px; color: #52c41a; width: 50px;">[Mac]</div>
+            <div style="flex: 1; background: #52c41a; height: 16px; max-width: 120px; border-radius: 4px;"></div>
+            <div style="font-size: 11px; color: #666; width: 40px; text-align: right;">6h</div>
+          </div>
+          <div style="display: flex; align-items: center; margin-bottom: 6px;">
+            <div style="font-size: 11px; color: #333; width: 60px;">SN:ABC123</div>
+            <div style="font-size: 11px; color: #faad14; width: 50px;">[And]</div>
+            <div style="flex: 1; background: #52c41a; height: 16px; max-width: 80px; border-radius: 4px;"></div>
+            <div style="font-size: 11px; color: #666; width: 40px; text-align: right;">45m</div>
+          </div>
+          <div style="display: flex; align-items: center; margin-bottom: 6px;">
+            <div style="font-size: 11px; color: #333; width: 60px;">SN:DEF456</div>
+            <div style="font-size: 11px; color: #eb2f96; width: 50px;">[iOS]</div>
+            <div style="flex: 1; background: #52c41a; height: 16px; max-width: 60px; border-radius: 4px;"></div>
+            <div style="font-size: 11px; color: #666; width: 40px; text-align: right;">30m</div>
+          </div>
+        </div>
+        <div style="font-size: 11px; color: #999; margin-top: 8px;">
+          注：时长显示规则 - 小于60分钟显示"xm"，大于60分钟显示"xh"
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 24px; text-align: center; color: #666;">
+  已调整：1.设备统计加汇总行 2.柱状图缩短宽度 3.占用时长显示设备类型 4.时长格式优化<br>
+  请在终端确认此设计是否可以开始实施。
+</p>

@@ -1,0 +1,63 @@
+<h2>设备监控看板 - 布局方案</h2>
+<p class="subtitle">请选择您喜欢的看板整体布局风格</p>
+
+<div class="options">
+  <div class="option" data-choice="classic" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>经典仪表盘布局</h3>
+      <p>顶部统计卡片 + 下方图表网格，数据密集型</p>
+    </div>
+  </div>
+  <div class="option" data-choice="modern" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>现代卡片式布局</h3>
+      <p>大卡片分区，每个模块独立，视觉清爽</p>
+    </div>
+  </div>
+  <div class="option" data-choice="split" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>左右分栏布局</h3>
+      <p>左侧实时状态 + 右侧历史统计</p>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 32px;">看板需要展示的6个模块</h3>
+
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px;">
+  <div style="background: #e6f7ff; border: 1px solid #91d5ff; padding: 16px; border-radius: 8px;">
+    <div style="font-weight: bold; color: #1890ff; margin-bottom: 8px;">模块 1</div>
+    <div style="color: #333;">设备台数统计</div>
+    <div style="color: #666; font-size: 13px; margin-top: 4px;">按机器类型分组，显示启用/未启用数量</div>
+  </div>
+  <div style="background: #f6ffed; border: 1px solid #b7eb8f; padding: 16px; border-radius: 8px;">
+    <div style="font-weight: bold; color: #52c41a; margin-bottom: 8px;">模块 2</div>
+    <div style="color: #333;">24h申请总次数</div>
+    <div style="color: #666; font-size: 13px; margin-top: 4px;">仅统计申请成功次数</div>
+  </div>
+  <div style="background: #fffbe6; border: 1px solid #ffe58f; padding: 16px; border-radius: 8px;">
+    <div style="font-weight: bold; color: #faad14; margin-bottom: 8px;">模块 3</div>
+    <div style="color: #333;">申请次数 TOP10 标签</div>
+    <div style="color: #666; font-size: 13px; margin-top: 4px;">24h内成功申请最多的标签</div>
+  </div>
+  <div style="background: #fff2e8; border: 1px solid #ffbb96; padding: 16px; border-radius: 8px;">
+    <div style="font-weight: bold; color: #fa8c16; margin-bottom: 8px;">模块 4</div>
+    <div style="color: #333;">占用时长 TOP20</div>
+    <div style="color: #666; font-size: 13px; margin-top: 4px;">24h内累计使用时间最长</div>
+  </div>
+  <div style="background: #fff1f0; border: 1px solid #ffa39e; padding: 16px; border-radius: 8px;">
+    <div style="font-weight: bold; color: #f5222d; margin-bottom: 8px;">模块 5</div>
+    <div style="color: #333;">资源不足 TOP10 标签</div>
+    <div style="color: #666; font-size: 13px; margin-top: 4px;">24h内申请失败最多的标签</div>
+  </div>
+  <div style="background: #f9f0ff; border: 1px solid #d3adf7; padding: 16px; border-radius: 8px;">
+    <div style="font-weight: bold; color: #722ed1; margin-bottom: 8px;">模块 6</div>
+    <div style="color: #333;">异步机器排查</div>
+    <div style="color: #666; font-size: 13px; margin-top: 4px;">启用但离线的设备列表</div>
+  </div>
+</div>
+
+<p style="margin-top: 24px; color: #666;">点击上方 A/B/C 选择布局方案，然后在终端告诉我您的选择。</p>

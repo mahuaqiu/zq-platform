@@ -52,3 +52,27 @@ async def cleanup_task(job_code: str = None, days: int = 30, **kwargs):
     except Exception as e:
         logger.error(f"[{job_code}] 清理任务执行失败: {str(e)}")
         raise
+
+
+async def cleanup_env_machine_log_task(job_code: str = None, days: int = 7, **kwargs):
+    """
+    清理执行机申请日志任务
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        days: 保留最近N天的数据，默认7天
+        **kwargs: 其他参数
+    """
+    logger.info(f"[{job_code}] 执行机日志清理任务开始，保留最近 {days} 天数据")
+
+    try:
+        from core.env_machine.log_service import EnvMachineLogService
+
+        async with AsyncSessionLocal() as db:
+            count = await EnvMachineLogService.cleanup_old_logs(db, days)
+
+        logger.info(f"[{job_code}] 执行机日志清理任务完成，删除了 {count} 条日志")
+        return f"清理了 {count} 条执行机申请日志，保留最近 {days} 天"
+    except Exception as e:
+        logger.error(f"[{job_code}] 执行机日志清理任务执行失败: {str(e)}")
+        raise

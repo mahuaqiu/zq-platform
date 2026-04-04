@@ -70,6 +70,19 @@ async def init_scheduler_jobs():
             'priority': 1,
             'remark': '清理7天前的执行日志',
         },
+        {
+            'name': '执行机申请日志清理',
+            'code': 'env_machine_log_cleanup',
+            'description': '清理过期的执行机申请日志',
+            'group': 'env_machine',
+            'trigger_type': 'cron',
+            'cron_expression': '0 3 * * *',  # 每天3:00
+            'task_func': 'core.scheduler.tasks.cleanup_env_machine_log_task',
+            'task_kwargs': '{"days": 7}',
+            'status': 1,  # 启用
+            'priority': 1,
+            'remark': '清理7天前的执行机申请日志',
+        },
     ]
 
     async with AsyncSessionLocal() as db:

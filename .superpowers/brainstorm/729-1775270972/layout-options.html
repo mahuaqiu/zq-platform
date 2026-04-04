@@ -1,0 +1,77 @@
+<h2>设备监控看板 - 布局方案</h2>
+<p class="subtitle">请选择您喜欢的看板整体布局风格</p>
+
+<div class="options">
+  <div class="option" data-choice="classic" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>经典仪表盘布局</h3>
+      <p>顶部统计卡片 + 下方图表网格，数据密集型，适合快速查看关键指标</p>
+    </div>
+  </div>
+  <div class="option" data-choice="modern" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>现代卡片式布局</h3>
+      <p>大卡片分区，每个模块独立展示，视觉更清爽，适合展示型看板</p>
+    </div>
+  </div>
+  <div class="option" data-choice="split" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>左右分栏布局</h3>
+      <p>左侧实时状态 + 右侧历史统计，动静分离，适合运维监控场景</p>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top: 24px;">
+  <div class="mockup-header">Preview: 方案 A - 经典仪表盘</div>
+  <div class="mockup-body" style="padding: 16px; background: #f5f7fa;">
+    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+      <div class="placeholder" style="flex: 1; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px;">
+        <div style="font-size: 24px; font-weight: bold;">128</div>
+        <div style="font-size: 12px;">设备总数</div>
+      </div>
+      <div class="placeholder" style="flex: 1; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 12px;">
+        <div style="font-size: 24px; font-weight: bold;">96</div>
+        <div style="font-size: 12px;">已启用</div>
+      </div>
+      <div class="placeholder" style="flex: 1; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white; padding: 12px;">
+        <div style="font-size: 24px; font-weight: bold;">32</div>
+        <div style="font-size: 12px;">未启用</div>
+      </div>
+      <div class="placeholder" style="flex: 1; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 12px;">
+        <div style="font-size: 24px; font-weight: bold;">256</div>
+        <div style="font-size: 12px;">24h申请次数</div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="placeholder" style="height: 180px; border-radius: 8px; background: white; border: 1px solid #e8e8e8; padding: 12px;">
+        <div style="font-size: 14px; color: #666; margin-bottom: 8px;">申请次数 TOP10 标签</div>
+        <div style="background: #f0f2f5; height: 140px; border-radius: 4px;"></div>
+      </div>
+      <div class="placeholder" style="height: 180px; border-radius: 8px; background: white; border: 1px solid #e8e8e8; padding: 12px;">
+        <div style="font-size: 14px; color: #666; margin-bottom: 8px;">资源不足 TOP10 标签</div>
+        <div style="background: #f0f2f5; height: 140px; border-radius: 4px;"></div>
+      </div>
+      <div class="placeholder" style="height: 180px; border-radius: 8px; background: white; border: 1px solid #e8e8e8; padding: 12px; grid-column: span 2;">
+        <div style="font-size: 14px; color: #666; margin-bottom: 8px;">机器占用时长 TOP20</div>
+        <div style="background: #f0f2f5; height: 140px; border-radius: 4px;"></div>
+      </div>
+    </div>
+    <div class="placeholder" style="height: 120px; border-radius: 8px; background: white; border: 1px solid #e8e8e8; margin-top: 12px; padding: 12px;">
+      <div style="font-size: 14px; color: #666; margin-bottom: 8px;">异步机器排查（启用但离线）</div>
+      <div style="display: flex; gap: 8px;">
+        <div style="flex: 1; background: #fff7e6; border: 1px solid #ffd591; padding: 8px; border-radius: 4px;">
+          <div style="color: #fa8c16; font-weight: bold;">Windows-001</div>
+          <div style="color: #8c8c8c; font-size: 12px;">192.168.1.100 | 离线 2小时</div>
+        </div>
+        <div style="flex: 1; background: #fff7e6; border: 1px solid #ffd591; padding: 8px; border-radius: 4px;">
+          <div style="color: #fa8c16; font-weight: bold;">Android-005</div>
+          <div style="color: #8c8c8c; font-size: 12px;">SN: ABC123 | 离线 30分钟</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

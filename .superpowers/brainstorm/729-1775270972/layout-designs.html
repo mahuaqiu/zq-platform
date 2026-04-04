@@ -1,0 +1,145 @@
+<h2>设备监控看板 - 布局设计图</h2>
+<p class="subtitle">请查看各方案的设计图，点击选择您喜欢的布局</p>
+
+<div class="split" style="margin-top: 16px;">
+  <!-- 方案 A -->
+  <div class="mockup" data-choice="classic" onclick="toggleSelect(this)" style="cursor: pointer;">
+    <div class="mockup-header" style="background: #1890ff; color: white;">方案 A - 经典仪表盘</div>
+    <div class="mockup-body" style="padding: 12px; background: #f5f7fa;">
+      <!-- 顶部统计卡片 -->
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <div style="flex: 1; height: 50px; border-radius: 6px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 8px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold;">128</div>
+          <div style="font-size: 11px;">设备总数</div>
+        </div>
+        <div style="flex: 1; height: 50px; border-radius: 6px; background: linear-gradient(135deg, #11998e, #38ef7d); color: white; padding: 8px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold;">96</div>
+          <div style="font-size: 11px;">已启用</div>
+        </div>
+        <div style="flex: 1; height: 50px; border-radius: 6px; background: linear-gradient(135deg, #eb3349, #f45c43); color: white; padding: 8px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold;">32</div>
+          <div style="font-size: 11px;">未启用</div>
+        </div>
+        <div style="flex: 1; height: 50px; border-radius: 6px; background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; padding: 8px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold;">256</div>
+          <div style="font-size: 11px;">24h申请</div>
+        </div>
+      </div>
+      <!-- 图表区域 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="height: 100px; background: white; border-radius: 6px; border: 1px solid #e8e8e8; padding: 8px;">
+          <div style="font-size: 12px; color: #666;">TOP10 标签申请次数</div>
+          <div style="height: 70px; background: #f0f2f5; border-radius: 4px; margin-top: 4px;"></div>
+        </div>
+        <div style="height: 100px; background: white; border-radius: 6px; border: 1px solid #e8e8e8; padding: 8px;">
+          <div style="font-size: 12px; color: #666;">TOP10 资源不足</div>
+          <div style="height: 70px; background: #f0f2f5; border-radius: 4px; margin-top: 4px;"></div>
+        </div>
+        <div style="grid-column: span 2; height: 100px; background: white; border-radius: 6px; border: 1px solid #e8e8e8; padding: 8px;">
+          <div style="font-size: 12px; color: #666;">TOP20 占用时长</div>
+          <div style="height: 70px; background: #f0f2f5; border-radius: 4px; margin-top: 4px;"></div>
+        </div>
+      </div>
+      <!-- 异步机器 -->
+      <div style="height: 80px; background: white; border-radius: 6px; border: 1px solid #e8e8e8; margin-top: 8px; padding: 8px;">
+        <div style="font-size: 12px; color: #666;">异步机器排查</div>
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <div style="flex: 1; background: #fff7e6; border: 1px solid #ffd591; padding: 6px; border-radius: 4px; font-size: 11px;">Win-001 离线</div>
+          <div style="flex: 1; background: #fff7e6; border: 1px solid #ffd591; padding: 6px; border-radius: 4px; font-size: 11px;">Mac-003 离线</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: center; padding: 8px; background: #e6f7ff; color: #1890ff; font-weight: bold;">点击选择此方案</div>
+  </div>
+
+  <!-- 方案 B -->
+  <div class="mockup" data-choice="modern" onclick="toggleSelect(this)" style="cursor: pointer;">
+    <div class="mockup-header" style="background: #52c41a; color: white;">方案 B - 现代卡片式</div>
+    <div class="mockup-body" style="padding: 12px; background: #f5f7fa;">
+      <!-- 大卡片布局 -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
+        <div style="height: 80px; background: white; border-radius: 8px; border: 2px solid #1890ff; padding: 12px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #1890ff;">128</div>
+          <div style="font-size: 12px; color: #666;">设备总数</div>
+          <div style="font-size: 10px; color: #8c8c8c;">Win:50 Mac:30</div>
+        </div>
+        <div style="height: 80px; background: white; border-radius: 8px; border: 2px solid #52c41a; padding: 12px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #52c41a;">256</div>
+          <div style="font-size: 12px; color: #666;">24h申请</div>
+          <div style="font-size: 10px; color: #8c8c8c;">成功率 98%</div>
+        </div>
+        <div style="height: 80px; background: white; border-radius: 8px; border: 2px solid #faad14; padding: 12px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #faad14;">5</div>
+          <div style="font-size: 12px; color: #666;">离线设备</div>
+          <div style="font-size: 10px; color: #8c8c8c;">需排查</div>
+        </div>
+      </div>
+      <!-- 图表卡片 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="height: 120px; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 8px;">📈 申请次数 TOP10</div>
+          <div style="height: 80px; background: linear-gradient(180deg, #e6f7ff, #f0f5ff); border-radius: 6px;"></div>
+        </div>
+        <div style="height: 120px; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 8px;">⚠️ 资源不足 TOP10</div>
+          <div style="height: 80px; background: linear-gradient(180deg, #fff1f0, #fff2f0); border-radius: 6px;"></div>
+        </div>
+      </div>
+      <!-- 占用时长 -->
+      <div style="height: 90px; background: white; border-radius: 8px; margin-top: 8px; padding: 12px;">
+        <div style="font-size: 13px; font-weight: bold; color: #333;">⏱️ 占用时长 TOP20</div>
+        <div style="height: 50px; background: #f6ffed; border-radius: 6px; margin-top: 6px;"></div>
+      </div>
+    </div>
+    <div style="text-align: center; padding: 8px; background: #f6ffed; color: #52c41a; font-weight: bold;">点击选择此方案</div>
+  </div>
+</div>
+
+<!-- 方案 C -->
+<div class="mockup" data-choice="split" onclick="toggleSelect(this)" style="cursor: pointer; margin-top: 16px;">
+  <div class="mockup-header" style="background: #722ed1; color: white;">方案 C - 左右分栏</div>
+  <div class="mockup-body" style="padding: 12px; background: #f5f7fa; display: flex; gap: 12px;">
+    <!-- 左侧实时状态 -->
+    <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+      <div style="font-size: 14px; font-weight: bold; color: #722ed1; margin-bottom: 12px;">🔴 实时状态</div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <div style="flex: 1; background: #f9f0ff; padding: 8px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 20px; font-weight: bold; color: #722ed1;">128</div>
+          <div style="font-size: 11px;">设备总数</div>
+        </div>
+        <div style="flex: 1; background: #f6ffed; padding: 8px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 20px; font-weight: bold; color: #52c41a;">96</div>
+          <div style="font-size: 11px;">在线</div>
+        </div>
+      </div>
+      <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 8px;">异步机器排查</div>
+      <div style="background: #fff7e6; padding: 8px; border-radius: 6px; font-size: 11px;">
+        <div style="color: #fa8c16; margin-bottom: 4px;">• Win-001 离线 2h</div>
+        <div style="color: #fa8c16;">• Android-005 离线 30m</div>
+      </div>
+    </div>
+    <!-- 右侧历史统计 -->
+    <div style="flex: 2; display: flex; flex-direction: column; gap: 8px;">
+      <div style="background: white; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333;">📊 24h申请总次数: 256</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex: 1;">
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 8px;">
+          <div style="font-size: 12px;">TOP10 标签</div>
+          <div style="height: 80px; background: #f0f2f5; border-radius: 4px; margin-top: 4px;"></div>
+        </div>
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 8px;">
+          <div style="font-size: 12px;">TOP10 资源不足</div>
+          <div style="height: 80px; background: #f0f2f5; border-radius: 4px; margin-top: 4px;"></div>
+        </div>
+      </div>
+      <div style="background: white; border-radius: 8px; padding: 8px;">
+        <div style="font-size: 12px;">TOP20 占用时长</div>
+        <div style="height: 50px; background: #f0f2f5; border-radius: 4px; margin-top: 4px;"></div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align: center; padding: 8px; background: #f9f0ff; color: #722ed1; font-weight: bold;">点击选择此方案</div>
+</div>
+
+<p style="margin-top: 16px; color: #666; text-align: center;">点击任意方案卡片进行选择，然后在终端告诉我您的决定。</p>

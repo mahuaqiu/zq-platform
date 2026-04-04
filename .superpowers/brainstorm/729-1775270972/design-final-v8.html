@@ -1,0 +1,380 @@
+<h2>设备监控看板 - 完整设计 V8</h2>
+<p class="subtitle">调整各图表显示条数</p>
+
+<div class="mockup" style="margin-top: 12px;">
+  <div class="mockup-header" style="background: #722ed1; color: white;">设备监控看板 - 完整布局</div>
+  <div class="mockup-body" style="padding: 16px; background: #f5f7fa; display: flex; gap: 16px;">
+    <!-- 左侧实时状态 -->
+    <div style="flex: 1; background: white; border-radius: 8px; padding: 16px; display: flex; flex-direction: column;">
+      <div style="font-size: 16px; font-weight: bold; color: #722ed1; margin-bottom: 16px; border-bottom: 2px solid #722ed1; padding-bottom: 8px;">
+        🔴 实时状态
+      </div>
+
+      <!-- 模块1：设备台数统计 -->
+      <div style="background: #f9f0ff; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 12px;">📊 设备台数统计</div>
+
+        <!-- 总数、在线、离线汇总行 -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #d9d9d9;">
+          <div style="flex: 1; text-align: center; background: #722ed1; color: white; padding: 8px; border-radius: 6px;">
+            <div style="font-size: 20px; font-weight: bold;">128</div>
+            <div style="font-size: 11px;">总数</div>
+          </div>
+          <div style="flex: 1; text-align: center; background: #52c41a; color: white; padding: 8px; border-radius: 6px;">
+            <div style="font-size: 20px; font-weight: bold;">100</div>
+            <div style="font-size: 11px;">在线</div>
+          </div>
+          <div style="flex: 1; text-align: center; background: #ff4d4f; color: white; padding: 8px; border-radius: 6px;">
+            <div style="font-size: 20px; font-weight: bold;">28</div>
+            <div style="font-size: 11px;">离线</div>
+          </div>
+        </div>
+
+        <!-- 4个终端类型 -->
+        <div style="display: flex; gap: 8px;">
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #1890ff;">50</div>
+            <div style="font-size: 11px; color: #666;">Windows</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #52c41a;">30</div>
+            <div style="font-size: 11px; color: #666;">Mac</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #faad14;">20</div>
+            <div style="font-size: 11px; color: #666;">Android</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #eb2f96;">28</div>
+            <div style="font-size: 11px; color: #666;">iOS</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px; font-size: 12px;">
+          <div style="flex: 1; background: #52c41a; color: white; padding: 4px; border-radius: 4px; text-align: center;">
+            启用 96
+          </div>
+          <div style="flex: 1; background: #ff4d4f; color: white; padding: 4px; border-radius: 4px; text-align: center;">
+            未启用 32
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块6：异步机器排查（支持滚动） -->
+      <div style="background: #fff7e6; padding: 12px; border-radius: 6px; border: 1px solid #ffd591; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+        <div style="font-size: 14px; font-weight: bold; color: #fa8c16; margin-bottom: 8px;">⚠️ 异步机器排查（启用但离线）</div>
+        <div style="flex: 1; overflow-y: auto; font-size: 12px; color: #333; line-height: 1.8;">
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Win-001 (192.168.1.100) 离线 2小时
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Mac-003 (192.168.1.102) 离线 30分钟
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Android-005 (SN:ABC123) 离线 15分钟
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Win-002 (192.168.1.103) 离线 1小时
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> iOS-010 (SN:DEF789) 离线 45分钟
+          </div>
+          <div style="padding: 6px; background: white; border-radius: 4px; margin-bottom: 4px;">
+            <span style="color: #fa8c16;">●</span> Mac-005 (192.168.1.110) 离线 3小时
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧历史统计 -->
+    <div style="flex: 2; display: flex; flex-direction: column; gap: 12px;">
+      <!-- 模块2：24h申请总次数 -->
+      <div style="background: white; border-radius: 8px; padding: 16px; border: 2px solid #1890ff;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="text-align: center;">
+            <div style="font-size: 32px; font-weight: bold; color: #1890ff;">256</div>
+            <div style="font-size: 13px; color: #666;">24h申请总次数</div>
+          </div>
+          <div style="flex: 1; display: flex; gap: 12px;">
+            <div style="flex: 1; background: #f6ffed; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #52c41a;">250</div>
+              <div style="font-size: 11px; color: #666;">成功</div>
+            </div>
+            <div style="flex: 1; background: #fff2f0; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #ff4d4f;">6</div>
+              <div style="font-size: 11px; color: #666;">资源不足</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块3 & 5：TOP10 横向柱状图（完整显示10条，无滚动） -->
+      <div style="display: flex; gap: 12px;">
+        <!-- 申请次数 TOP10 标签 - 完整10条 -->
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">📈 申请次数 TOP10 标签</div>
+          <div style="padding: 4px 8px;">
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">windows_1</div>
+              <div style="background: #1890ff; height: 14px; width: 140px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">45</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">web_2</div>
+              <div style="background: #1890ff; height: 14px; width: 110px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">35</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">android_1</div>
+              <div style="background: #1890ff; height: 14px; width: 80px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">25</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">ios_1</div>
+              <div style="background: #1890ff; height: 14px; width: 65px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">20</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">mac_1</div>
+              <div style="background: #1890ff; height: 14px; width: 55px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">18</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">windows_2</div>
+              <div style="background: #1890ff; height: 14px; width: 50px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">15</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">web_3</div>
+              <div style="background: #1890ff; height: 14px; width: 45px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">12</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">android_2</div>
+              <div style="background: #1890ff; height: 14px; width: 40px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">10</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">ios_2</div>
+              <div style="background: #1890ff; height: 14px; width: 35px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">8</span>
+            </div>
+            <div style="display: flex; align-items: center;">
+              <div style="font-size: 11px; color: #333; width: 70px;">mac_2</div>
+              <div style="background: #1890ff; height: 14px; width: 30px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">5</span>
+            </div>
+          </div>
+        </div>
+        <!-- 资源不足 TOP10 标签 - 完整10条 -->
+        <div style="flex: 1; background: white; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">⚠️ 资源不足 TOP10 标签</div>
+          <div style="padding: 4px 8px;">
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">windows_5</div>
+              <div style="background: #ff4d4f; height: 14px; width: 60px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">3</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">ios_2</div>
+              <div style="background: #ff4d4f; height: 14px; width: 40px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">2</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">android_3</div>
+              <div style="background: #ff4d4f; height: 14px; width: 40px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">2</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">web_5</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">mac_3</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">windows_6</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">ios_4</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">android_5</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 11px; color: #333; width: 70px;">web_6</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+            <div style="display: flex; align-items: center;">
+              <div style="font-size: 11px; color: #333; width: 70px;">mac_5</div>
+              <div style="background: #ff4d4f; height: 14px; width: 20px; border-radius: 3px;"></div>
+              <span style="font-size: 11px; color: #666; margin-left: 6px;">1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块4：占用时长 TOP20（显示15条高度，支持滚动） -->
+      <div style="background: white; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 8px;">⏱️ 机器占用时长 TOP20</div>
+        <div style="height: 270px; padding: 4px 8px; overflow-y: auto;">
+          <!-- 15条数据示例 -->
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.100</div>
+              <div style="font-size: 10px; color: #1890ff;">Windows</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 180px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">8h</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.102</div>
+              <div style="font-size: 10px; color: #52c41a;">Mac</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 135px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">6h</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.105</div>
+              <div style="font-size: 10px; color: #1890ff;">Windows</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 90px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">4h</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.108</div>
+              <div style="font-size: 10px; color: #52c41a;">Mac</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 45px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">2h</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">ABC123</div>
+              <div style="font-size: 10px; color: #faad14;">Android</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 30px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">45m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">DEF456</div>
+              <div style="font-size: 10px; color: #eb2f96;">iOS</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 22px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">30m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">GHI789</div>
+              <div style="font-size: 10px; color: #faad14;">Android</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 15px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">20m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">JKL012</div>
+              <div style="font-size: 10px; color: #eb2f96;">iOS</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 12px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">15m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.110</div>
+              <div style="font-size: 10px; color: #1890ff;">Windows</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 11px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">12m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">MNO345</div>
+              <div style="font-size: 10px; color: #faad14;">Android</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 10px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">10m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">PQR678</div>
+              <div style="font-size: 10px; color: #eb2f96;">iOS</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 9px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">8m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.115</div>
+              <div style="font-size: 10px; color: #52c41a;">Mac</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 7px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">5m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">STU901</div>
+              <div style="font-size: 10px; color: #faad14;">Android</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 6px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">4m</span>
+          </div>
+
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">VWX234</div>
+              <div style="font-size: 10px; color: #eb2f96;">iOS</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 5px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">3m</span>
+          </div>
+
+          <div style="display: flex; align-items: center;">
+            <div style="width: 100px;">
+              <div style="font-size: 12px; color: #333;">192.168.1.120</div>
+              <div style="font-size: 10px; color: #1890ff;">Windows</div>
+            </div>
+            <div style="background: #52c41a; height: 14px; width: 4px; border-radius: 3px;"></div>
+            <span style="font-size: 11px; color: #52c41a; margin-left: 6px; font-weight: 500;">2m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 16px; color: #666; font-size: 13px;">
+  调整说明：<br>
+  1. 申请次数 TOP10 标签：完整显示10条，无滚动<br>
+  2. 资源不足 TOP10 标签：完整显示10条，无滚动<br>
+  3. 机器占用时长 TOP20：显示15条高度（270px），支持滚动查看全部20条
+</p>
+
+<p style="margin-top: 12px; text-align: center; color: #1890ff; font-weight: bold;">
+  请在终端确认此设计是否可以开始实施。
+</p>

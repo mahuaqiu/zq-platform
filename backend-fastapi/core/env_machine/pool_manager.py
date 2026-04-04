@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.env_machine.lock_manager import EnvLockManager, LockAcquireError
 from core.env_machine.model import EnvMachine
 from core.env_machine.schema import EnvMachineAllocation
+from core.env_machine.log_service import EnvMachineLogService
+from core.env_machine.log_schema import EnvMachineLogCreate, EnvMachineLogUpdate
 from utils.logging_config import get_logger
 from utils.redis import RedisClient, cache
 
@@ -375,7 +377,21 @@ class EnvPoolManager:
                         )
 
                     if not allocated:
-                        # 分配失败
+                        # 分配失败，记录失败日志
+                        now = datetime.now()
+                        await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
+                            namespace=namespace,
+                            machine_id="",
+                            ip=None,
+                            device_type=request_tag.split("_")[0],
+                            device_sn=None,
+                            mark=request_tag,
+                            action="apply",
+                            result="fail",
+                            fail_reason="env not enough",
+                            apply_time=now
+                        ))
+                        await db.commit()
                         return False, "env not enough"
 
                     # 记录分配结果
@@ -395,6 +411,21 @@ class EnvPoolManager:
                     )
                 )
                 await db.execute(stmt)
+
+                # 6.1 记录申请成功日志
+                for user, allocated in allocations.items():
+                    await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
+                        namespace=namespace,
+                        machine_id=allocated["id"],
+                        ip=allocated.get("ip"),
+                        device_type=allocated.get("device_type"),
+                        device_sn=allocated.get("device_sn"),
+                        mark=requests.get(user),
+                        action="apply",
+                        result="success",
+                        fail_reason=None,
+                        apply_time=now
+                    ))
                 await db.commit()
 
                 # 7. 更新 Redis 缓存（移除已分配的机器）
@@ -498,6 +529,17 @@ class EnvPoolManager:
 
         if not machine:
             return False, "机器不存在"
+
+        now = datetime.now()
+
+        # 更新申请日志的释放时间和占用时长
+        apply_log = await EnvMachineLogService.get_latest_apply_log(db, machine_id)
+        if apply_log and apply_log.apply_time:
+            duration_minutes = int((now - apply_log.apply_time).total_seconds() / 60)
+            await EnvMachineLogService.update_log(db, apply_log.id, EnvMachineLogUpdate(
+                release_time=now,
+                duration_minutes=duration_minutes
+            ))
 
         # 更新数据库状态为 online
         machine.status = "online"

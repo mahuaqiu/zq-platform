@@ -427,3 +427,38 @@ async def delete_env_machine(
     await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
 
     return {"status": "success", "message": "删除成功"}
+
+
+@router.get("/dashboard/stats", summary="获取设备监控看板统计")
+async def get_dashboard_stats(
+    namespace: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取设备监控看板统计数据
+
+    Args:
+        namespace: 可选，筛选指定 namespace，默认查询全部
+
+    Returns:
+        DashboardStatsResponse: 看板统计数据
+    """
+    from core.env_machine.log_service import EnvMachineLogService
+    from core.env_machine.log_schema import DashboardStatsResponse
+
+    # 获取各项统计数据
+    device_stats = await EnvMachineLogService.get_device_stats(db, namespace)
+    apply_24h = await EnvMachineLogService.get_apply_24h_stats(db, namespace)
+    top10_tags = await EnvMachineLogService.get_top10_tags(db, namespace)
+    top20_duration = await EnvMachineLogService.get_top20_duration(db, namespace)
+    top10_insufficient = await EnvMachineLogService.get_top10_insufficient(db, namespace)
+    offline_machines = await EnvMachineLogService.get_offline_machines(db, namespace)
+
+    return DashboardStatsResponse(
+        device_stats=device_stats,
+        apply_24h=apply_24h,
+        top10_tags=top10_tags,
+        top20_duration=top20_duration,
+        top10_insufficient=top10_insufficient,
+        offline_machines=offline_machines
+    )

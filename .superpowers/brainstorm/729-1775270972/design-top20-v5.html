@@ -1,0 +1,101 @@
+<h2>设备监控看板 - 设计调整 V5</h2>
+<p class="subtitle">调整时长显示位置</p>
+
+<div class="mockup" style="margin-top: 12px;">
+  <div class="mockup-header" style="background: #722ed1; color: white;">模块4：机器占用时长 TOP20 - 时长位置调整</div>
+  <div class="mockup-body" style="padding: 16px; background: white;">
+    <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 12px;">⏱️ 机器占用时长 TOP20</div>
+    <div style="border-radius: 6px; padding: 12px; background: #f9f9f9;">
+      <!-- 时长紧跟在柱状图右侧 -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e8e8e8;">
+        <div style="width: 120px;">
+          <div style="font-size: 13px; color: #333; font-weight: 500;">192.168.1.100</div>
+          <div style="font-size: 11px; color: #1890ff;">Windows</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+          <div style="background: #e8e8e8; height: 20px; border-radius: 4px; overflow: hidden; flex: 1; max-width: 300px;">
+            <div style="background: #52c41a; height: 100%; width: 100%; border-radius: 4px;"></div>
+          </div>
+          <span style="font-size: 13px; color: #52c41a; font-weight: bold; min-width: 30px;">8h</span>
+        </div>
+      </div>
+
+      <!-- 75% -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e8e8e8;">
+        <div style="width: 120px;">
+          <div style="font-size: 13px; color: #333; font-weight: 500;">192.168.1.102</div>
+          <div style="font-size: 11px; color: #52c41a;">Mac</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+          <div style="background: #e8e8e8; height: 20px; border-radius: 4px; overflow: hidden; flex: 1; max-width: 300px;">
+            <div style="background: #52c41a; height: 100%; width: 75%; border-radius: 4px;"></div>
+          </div>
+          <span style="font-size: 13px; color: #52c41a; font-weight: bold; min-width: 30px;">6h</span>
+        </div>
+      </div>
+
+      <!-- 50% -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e8e8e8;">
+        <div style="width: 120px;">
+          <div style="font-size: 13px; color: #333; font-weight: 500;">192.168.1.105</div>
+          <div style="font-size: 11px; color: #1890ff;">Windows</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+          <div style="background: #e8e8e8; height: 20px; border-radius: 4px; overflow: hidden; flex: 1; max-width: 300px;">
+            <div style="background: #52c41a; height: 100%; width: 50%; border-radius: 4px;"></div>
+          </div>
+          <span style="font-size: 13px; color: #52c41a; font-weight: bold; min-width: 30px;">4h</span>
+        </div>
+      </div>
+
+      <!-- 25% -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e8e8e8;">
+        <div style="width: 120px;">
+          <div style="font-size: 13px; color: #333; font-weight: 500;">192.168.1.108</div>
+          <div style="font-size: 11px; color: #52c41a;">Mac</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+          <div style="background: #e8e8e8; height: 20px; border-radius: 4px; overflow: hidden; flex: 1; max-width: 300px;">
+            <div style="background: #52c41a; height: 100%; width: 25%; border-radius: 4px;"></div>
+          </div>
+          <span style="font-size: 13px; color: #52c41a; font-weight: bold; min-width: 30px;">2h</span>
+        </div>
+      </div>
+
+      <!-- 9% -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e8e8e8;">
+        <div style="width: 120px;">
+          <div style="font-size: 13px; color: #333; font-weight: 500;">ABC123</div>
+          <div style="font-size: 11px; color: #faad14;">Android</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+          <div style="background: #e8e8e8; height: 20px; border-radius: 4px; overflow: hidden; flex: 1; max-width: 300px;">
+            <div style="background: #52c41a; height: 100%; width: 9%; border-radius: 4px;"></div>
+          </div>
+          <span style="font-size: 13px; color: #52c41a; font-weight: bold; min-width: 30px;">45m</span>
+        </div>
+      </div>
+
+      <!-- 6% -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e8e8e8;">
+        <div style="width: 120px;">
+          <div style="font-size: 13px; color: #333; font-weight: 500;">DEF456</div>
+          <div style="font-size: 11px; color: #eb2f96;">iOS</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+          <div style="background: #e8e8e8; height: 20px; border-radius: 4px; overflow: hidden; flex: 1; max-width: 300px;">
+            <div style="background: #52c41a; height: 100%; width: 6%; border-radius: 4px;"></div>
+          </div>
+          <span style="font-size: 13px; color: #52c41a; font-weight: bold; min-width: 30px;">30m</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size: 11px; color: #999; margin-top: 8px;">
+      注：柱状图按比例显示，时长 &lt; 60分钟显示"xm"，&gt; 60分钟显示"xh"
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 16px; text-align: center; color: #1890ff; font-weight: bold;">
+  请在终端确认此设计是否可以开始实施。
+</p>
