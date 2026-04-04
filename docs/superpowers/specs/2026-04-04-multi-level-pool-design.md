@@ -83,6 +83,79 @@ def _get_pool_hierarchy(namespace: str) -> list[str]:
 
 申请时只借用机器，不修改机器的 `namespace` 字段，因此释放时 `sync_machine_to_cache` 会自动将机器加入原池。
 
+### 4. 分布式锁设计
+
+#### 问题分析
+
+申请多层级池时，需要锁住所有涉及的池，避免并发分配冲突。
+
+**风险场景**：如果只锁住 `[meeting_gamma, public]`，不锁住 `meeting_public`：
+```
+T1: 用户A 申请 meeting_gamma  → 锁住 [meeting_gamma, public]
+T2: 用户B 申请 meeting_app    → 锁住 [meeting_app, public]
+T3: 用户A 从 meeting_public 分配机器 M1
+T4: 用户B 也从 meeting_public 分配机器 M1（冲突！）
+```
+
+#### 锁策略：锁住所有涉及的池
+
+```python
+# lock_manager.py 修改 _get_required_locks 函数
+
+@classmethod
+def _get_required_locks(cls, namespace: str) -> list[str]:
+    """
+    获取申请指定命名空间机器所需的锁列表
+    
+    Args:
+        namespace: 申请的命名空间
+        
+    Returns:
+        list[str]: 需要获取的锁 key 列表（已按字母序排序）
+    """
+    pool_hierarchy = cls._get_pool_hierarchy(namespace)
+    if not pool_hierarchy:
+        return []
+    locks = [cls.LOCK_PREFIX + ns for ns in pool_hierarchy]
+    locks.sort()  # 字母序排序，避免死锁
+    return locks
+```
+
+#### 锁持有时间估算
+
+几百条机器数据的申请流程：
+
+| 操作 | 预估耗时 |
+|------|---------|
+| 从 Redis 获取候选池数据 | 1-5 ms |
+| 遍历匹配机器 | 1-10 ms |
+| 更新数据库状态 | 5-20 ms |
+| 记录申请日志 | 5-10 ms |
+| 更新 Redis 缓存 | 1-5 ms |
+| **总计** | **10-50 ms** |
+
+锁 TTL 为 10 秒，实际持有时间约 10-50 ms，远小于 TTL。
+
+#### 并发影响分析
+
+假设锁持有时间 50ms：
+
+| 场景 | 等待时间 |
+|------|---------|
+| 同 namespace 申请（meeting_gamma → meeting_gamma） | 0-50ms（串行） |
+| 不同 namespace 同系列（meeting_gamma → meeting_app） | 0-50ms（共用 meeting_public 锁） |
+| 不同系列（meeting_gamma → weli_gamma） | 0ms（锁不冲突） |
+
+#### 锁列表示例
+
+| 申请方 | 锁住的所有池 | 锁列表（字母序） |
+|-------|-------------|----------------|
+| `meeting_gamma` | meeting_gamma, meeting_public, public | `[env_lock:meeting_gamma, env_lock:meeting_public, env_lock:public]` |
+| `meeting_app` | meeting_app, meeting_public, public | `[env_lock:meeting_app, env_lock:meeting_public, env_lock:public]` |
+| `weli_gamma` | weli_gamma, weli_public, public | `[env_lock:public, env_lock:weli_gamma, env_lock:weli_public]` |
+| `meeting_public` | meeting_public | `[env_lock:meeting_public]` |
+| `public` | public | `[env_lock:public]` |
+
 ---
 
 ## 详细设计
@@ -91,6 +164,7 @@ def _get_pool_hierarchy(namespace: str) -> list[str]:
 
 | 文件 | 修改内容 |
 |------|---------|
+| `lock_manager.py` | 修改 `_get_required_locks` 函数，锁住所有涉及的池 |
 | `pool_manager.py` | 新增 `_get_pool_hierarchy` 函数，修改 `allocate_machines` |
 | `log_model.py` | 新增 `source_pool` 字段 |
 | `log_schema.py` | 新增 `source_pool` 字段定义 |
@@ -131,6 +205,36 @@ def _get_pool_hierarchy(cls, namespace: str) -> list[str]:
     pools.append(cls.PUBLIC_NAMESPACE)  # "public"
     
     return pools
+```
+
+### lock_manager.py 修改
+
+#### 修改 _get_required_locks
+
+```python
+@classmethod
+def _get_required_locks(cls, namespace: str) -> list[str]:
+    """
+    获取申请指定命名空间机器所需的锁列表
+    
+    锁住所有涉及的池，避免并发分配冲突。
+    
+    Args:
+        namespace: 申请的命名空间
+        
+    Returns:
+        list[str]: 需要获取的锁 key 列表（已按字母序排序）
+    """
+    # 调用 pool_manager 的 _get_pool_hierarchy 获取池层级
+    from core.env_machine.pool_manager import EnvPoolManager
+    pool_hierarchy = EnvPoolManager._get_pool_hierarchy(namespace)
+    
+    if not pool_hierarchy:
+        return []
+    
+    locks = [cls.LOCK_PREFIX + ns for ns in pool_hierarchy]
+    locks.sort()  # 字母序排序，避免死锁
+    return locks
 ```
 
 #### 修改 allocate_machines
@@ -249,3 +353,8 @@ def downgrade():
 
 4. **日志验证**
    - 申请成功日志记录正确的 `source_pool`
+
+5. **并发锁测试**
+   - 同系列并发申请（meeting_gamma 和 meeting_app 同时申请）验证锁等待
+   - 不同系列并发申请（meeting_gamma 和 weli_gamma 同时申请）验证不阻塞
+   - 锁持有时间监控（确保 < 100ms）
