@@ -121,6 +121,37 @@ class EnvPoolManager:
         return True, ""
 
     @classmethod
+    def _get_pool_hierarchy(cls, namespace: str) -> list[str]:
+        """
+        获取 namespace 的机器池查找顺序
+
+        Args:
+            namespace: 申请的命名空间
+
+        Returns:
+            list: 查找顺序列表 [私有池, 项目公共池(可选), 全局公共池(可选)]
+        """
+        pools = [namespace]  # Level 1: 私有池
+
+        # 特殊 namespace 处理
+        if namespace == cls.MANUAL_NAMESPACE:
+            return []  # manual 不参与申请
+
+        if namespace == cls.PUBLIC_NAMESPACE or namespace.endswith("_public"):
+            return pools  # public 和 xxx_public 只查自己池
+
+        # Level 2: 项目公共池（前缀匹配）
+        prefix = namespace.split("_")[0]
+        project_public = f"{prefix}_public"
+        if project_public != namespace:
+            pools.append(project_public)
+
+        # Level 3: 全局公共池
+        pools.append(cls.PUBLIC_NAMESPACE)  # "public"
+
+        return pools
+
+    @classmethod
     def _get_pool_key(cls, namespace: str) -> str:
         """获取机器池的 Redis key"""
         return cache._make_key(cls.POOL_PREFIX + namespace)
