@@ -18,6 +18,7 @@ class TestReportDetail(BaseModel):
     case_name = Column(String(200), nullable=False, comment="用例标题")
     case_fail_step = Column(String(100), nullable=False, comment="失败步骤名称")
     case_fail_log = Column(Text, nullable=False, comment="失败日志")
+    fail_reason = Column(String(500), nullable=True, comment="失败原因")
     case_round = Column(Integer, nullable=False, comment="失败轮次")
     log_url = Column(String(500), nullable=True, comment="完整日志地址")
     fail_time = Column(DateTime, nullable=True, comment="失败时间")

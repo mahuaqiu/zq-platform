@@ -45,6 +45,7 @@ async def report_fail(
         case_name=data.case_name,
         case_fail_step=data.case_fail_step,
         case_fail_log=data.case_fail_log,
+        fail_reason=data.fail_reason,
         case_round=data.case_round,
         log_url=data.log_url,
         fail_time=data.fail_time,
