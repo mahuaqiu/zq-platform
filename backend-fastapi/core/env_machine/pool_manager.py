@@ -134,8 +134,9 @@ class EnvPoolManager:
         pools = [namespace]  # Level 1: 私有池
 
         # 特殊 namespace 处理
-        if namespace == cls.MANUAL_NAMESPACE:
-            return []  # manual 不参与申请
+        # manual 和 *_manual 都不参与申请（手动分配的机器池）
+        if namespace == cls.MANUAL_NAMESPACE or namespace.endswith("_manual"):
+            return []
 
         if namespace == cls.PUBLIC_NAMESPACE or namespace.endswith("_public"):
             return pools  # public 和 xxx_public 只查自己池
