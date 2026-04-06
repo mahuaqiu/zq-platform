@@ -17,7 +17,7 @@ LOG_FILE = "app.log"
 SCHEDULER_LOG_FILE = "scheduler.log"  # 定时任务专用日志文件
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 RETENTION_COUNT = 5  # 5 个文件，总计 100MB
-LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
+LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
 
 
 def setup_logging():
