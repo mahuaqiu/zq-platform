@@ -49,7 +49,12 @@ zq-platform/
 │   ├── scripts/            # 工具脚本
 │   │   ├── dumpdata.py     # 数据导出
 │   │   ├── loaddata.py     # 数据导入
-│   │   └── init_env_machine_menu.py # 初始化设备菜单
+│   │   ├── init_env_machine_menu.py  # 初始化设备管理菜单
+│   │   ├── init_scheduler_menu.py    # 初始化定时任务菜单
+│   │   ├── init_overview_menu.py     # 初始化概览菜单
+│   │   ├── init_feature_analysis_menu.py  # 初始化特性分析菜单
+│   │   ├── init_test_report_menu.py # 初始化测试报告菜单
+│   │   └── init_scheduler_jobs.py   # 初始化定时任务数据
 │   ├── alembic/            # 数据库迁移
 │   ├── env/                # 环境配置
 │   ├── requirements.txt    # Python 依赖
@@ -111,11 +116,12 @@ python scripts/loaddata.py db_init.json
 
 6. **初始化菜单和定时任务数据（可选）**
 ```bash
-# 初始化执行机管理菜单
-python scripts/init_env_machine_menu.py
-
-# 初始化定时任务菜单
-python scripts/init_scheduler_menu.py
+# 初始化菜单
+python scripts/init_env_machine_menu.py    # 设备管理菜单
+python scripts/init_scheduler_menu.py      # 定时任务菜单
+python scripts/init_overview_menu.py       # 概览菜单
+python scripts/init_feature_analysis_menu.py  # 特性分析菜单
+python scripts/init_test_report_menu.py    # 测试报告菜单
 
 # 初始化定时任务数据（设备离线检测、报告分析清理、日志清理等）
 python scripts/init_scheduler_jobs.py

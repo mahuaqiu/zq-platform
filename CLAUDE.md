@@ -78,8 +78,12 @@ alembic upgrade head
 python scripts/dumpdata.py -o db_init.json -f
 python scripts/loaddata.py db_init.json
 
-# 初始化执行机管理菜单
-python scripts/init_env_machine_menu.py
+# 初始化菜单脚本
+python scripts/init_env_machine_menu.py    # 设备管理菜单
+python scripts/init_scheduler_menu.py      # 定时任务菜单
+python scripts/init_overview_menu.py       # 概览菜单
+python scripts/init_feature_analysis_menu.py  # 特性分析菜单
+python scripts/init_test_report_menu.py    # 测试报告菜单
 ```
 
 ## 架构说明
