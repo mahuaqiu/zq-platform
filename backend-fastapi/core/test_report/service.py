@@ -3,7 +3,7 @@
 """
 测试报告服务 - Test Report Service
 """
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, List as TypingList
 from datetime import datetime, timedelta
 from collections import Counter
 
@@ -15,6 +15,62 @@ from app.config import settings
 from core.test_report.model import TestReportDetail, TestReportSummary, TestReportUploadLog
 from core.test_report.schema import FailReportCreate
 from core.test_report.utils import parse_task_base_name, calculate_pass_rate
+
+
+class AggregatedReportSummary:
+    """聚合后的报告汇总（辅助类）"""
+
+    def __init__(self, aggregated_name: str, summaries: TypingList[TestReportSummary]):
+        self.aggregated_name = aggregated_name
+        self.task_project_ids = [s.task_project_id for s in summaries]
+        self.total_cases = sum(s.total_cases for s in summaries)
+        self.execute_total = sum(s.execute_total for s in summaries)
+        self.fail_total = sum(s.fail_total for s in summaries)
+        self.pass_rate = self._calculate_pass_rate()
+        self.execute_time = max((s.execute_time for s in summaries if s.execute_time), default=None)
+        self.compare_change = sum(s.compare_change or 0 for s in summaries)
+        self.round_stats = self._merge_round_stats(summaries)
+        self.fail_always = sum(s.fail_always or 0 for s in summaries)
+        self.fail_unstable = sum(s.fail_unstable or 0 for s in summaries)
+        self.step_distribution = self._merge_step_distribution(summaries)
+
+    def _calculate_pass_rate(self) -> str:
+        if self.total_cases == 0:
+            return "0%"
+        rate = (self.total_cases - self.fail_total) / self.total_cases * 100
+        return f"{rate:.1f}%"
+
+    def _merge_round_stats(self, summaries: TypingList[TestReportSummary]) -> TypingList[dict]:
+        merged = {}
+        for s in summaries:
+            if s.round_stats:
+                for item in s.round_stats:
+                    r = item['round']
+                    if r not in merged:
+                        merged[r] = 0
+                    merged[r] += item['fail_count']
+        return [{'round': r, 'fail_count': c} for r, c in sorted(merged.items())]
+
+    def _merge_step_distribution(self, summaries: TypingList[TestReportSummary]) -> TypingList[dict]:
+        merged = {}
+        for s in summaries:
+            if s.step_distribution:
+                for item in s.step_distribution:
+                    step = item['step']
+                    if step not in merged:
+                        merged[step] = 0
+                    merged[step] += item['count']
+        return [{'step': step, 'count': count} for step, count in sorted(merged.items(), key=lambda x: -x[1])[:20]]
+
+    @property
+    def id(self) -> str:
+        """返回聚合名作为ID"""
+        return self.aggregated_name
+
+    @property
+    def task_name(self) -> str:
+        """返回聚合名作为任务名"""
+        return self.aggregated_name
 
 
 class TestReportDetailService(BaseService[TestReportDetail, FailReportCreate, FailReportCreate]):
@@ -72,6 +128,56 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
             )
         )
         return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_aggregated_list(
+        cls,
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 20,
+        task_name: Optional[str] = None
+    ) -> Tuple[TypingList, int]:
+        """获取聚合后的报告列表"""
+        aggregation_map = settings.task_aggregation_map
+
+        if not aggregation_map:
+            return await cls.get_list_with_filter(db, page, page_size, task_name)
+
+        aggregated_items = []
+        for aggregated_name, sub_task_ids in aggregation_map.items():
+            if task_name and task_name.lower() not in aggregated_name.lower():
+                continue
+            result = await db.execute(
+                select(TestReportSummary).where(
+                    TestReportSummary.task_project_id.in_(sub_task_ids),
+                    TestReportSummary.is_deleted == False
+                )
+            )
+            summaries = list(result.scalars().all())
+            if summaries:
+                aggregated_items.append(AggregatedReportSummary(aggregated_name, summaries))
+
+        aggregated_items.sort(key=lambda x: x.execute_time or datetime.min, reverse=True)
+        total = len(aggregated_items)
+        start = (page - 1) * page_size
+        return aggregated_items[start:start + page_size], total
+
+    @classmethod
+    async def get_aggregated_summary(cls, db: AsyncSession, name: str):
+        """获取聚合后的报告汇总"""
+        aggregation_map = settings.task_aggregation_map
+        if name in aggregation_map:
+            result = await db.execute(
+                select(TestReportSummary).where(
+                    TestReportSummary.task_project_id.in_(aggregation_map[name]),
+                    TestReportSummary.is_deleted == False
+                )
+            )
+            summaries = list(result.scalars().all())
+            if summaries:
+                return AggregatedReportSummary(name, summaries)
+            return None
+        return await cls.get_by_task_id(db, name)
 
     @classmethod
     async def analyze_summary(cls, db: AsyncSession, task_id: str) -> TestReportSummary:
@@ -229,21 +335,21 @@ class TestReportDetailQueryService:
     @staticmethod
     async def get_details_by_category(
         db: AsyncSession,
-        task_id: str,
+        task_project_ids: TypingList[str],  # 改为列表，支持聚合查询
         category: str = "all"
     ) -> List[TestReportDetail]:
         """
-        按分类获取明细
+        按分类获取明细（支持多 task_project_id）
 
         :param db: 数据库会话
-        :param task_id: 任务执行ID
+        :param task_project_ids: 任务执行ID列表
         :param category: 分类（all/final_fail/always_fail/unstable）
         :return: 明细列表
         """
         # 先获取所有明细
         result = await db.execute(
             select(TestReportDetail).where(
-                TestReportDetail.task_project_id == task_id,
+                TestReportDetail.task_project_id.in_(task_project_ids),
                 TestReportDetail.is_deleted == False
             ).order_by(TestReportDetail.round)
         )

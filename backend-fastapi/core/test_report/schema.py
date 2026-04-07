@@ -102,6 +102,26 @@ class TestReportListItem(BaseModel):
         from_attributes = True
 
 
+class AggregatedReportSummaryResponse(BaseModel):
+    """聚合后的报告汇总响应"""
+    id: str
+    taskProjectID: str
+    taskName: str
+    totalCases: int
+    executeTotal: int
+    failTotal: int
+    passRate: str
+    compareChange: int = 0
+    roundStats: Optional[List[RoundStatItem]] = None
+    failAlways: int = 0
+    failUnstable: int = 0
+    stepDistribution: Optional[List[StepDistributionItem]] = None
+    executeTime: Optional[datetime] = None
+
+    class Config:
+        populate_by_name = True
+
+
 # ==================== 上传相关 ====================
 
 class UploadResponse(BaseModel):

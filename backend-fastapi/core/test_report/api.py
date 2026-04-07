@@ -22,6 +22,7 @@ from core.test_report.schema import (
     TestReportSummaryResponse,
     TestReportListItem,
     UploadResponse,
+    AggregatedReportSummaryResponse,
 )
 from core.test_report.service import (
     TestReportSummaryService,
@@ -155,19 +156,46 @@ async def upload_html(
 
 # ==================== 查询接口 ====================
 
-@router.get("", response_model=PaginatedResponse[TestReportListItem], summary="获取报告列表")
+@router.get("", response_model=PaginatedResponse, summary="获取报告列表")
 async def get_report_list(
     page: int = Query(default=1, ge=1, description="页码"),
     page_size: int = Query(default=20, ge=1, le=100, alias="pageSize", description="每页数量"),
     task_name: Optional[str] = Query(None, alias="taskName", description="任务名称筛选"),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取报告列表（支持任务名称筛选、分页）"""
-    items, total = await TestReportSummaryService.get_list_with_filter(
-        db, page=page, page_size=page_size, task_name=task_name
-    )
+    """获取报告列表（支持任务名称筛选、分页、聚合显示）"""
+    aggregation_map = settings.task_aggregation_map
 
-    response_items = [TestReportListItem.model_validate(item) for item in items]
+    if aggregation_map:
+        # 使用聚合列表
+        items, total = await TestReportSummaryService.get_aggregated_list(
+            db, page=page, page_size=page_size, task_name=task_name
+        )
+        response_items = [
+            AggregatedReportSummaryResponse(
+                id=item.id,
+                taskProjectID=item.aggregated_name,
+                taskName=item.task_name,
+                totalCases=item.total_cases,
+                executeTotal=item.execute_total,
+                failTotal=item.fail_total,
+                passRate=item.pass_rate,
+                compareChange=item.compare_change,
+                roundStats=item.round_stats,
+                failAlways=item.fail_always,
+                failUnstable=item.fail_unstable,
+                stepDistribution=item.step_distribution,
+                executeTime=item.execute_time,
+            )
+            for item in items
+        ]
+    else:
+        # 无聚合配置，使用原始列表
+        items, total = await TestReportSummaryService.get_list_with_filter(
+            db, page=page, page_size=page_size, task_name=task_name
+        )
+        response_items = [TestReportListItem.model_validate(item) for item in items]
+
     return PaginatedResponse(items=response_items, total=total)
 
 
@@ -176,10 +204,33 @@ async def get_report_summary(
     task_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """获取单个报告汇总"""
-    summary = await TestReportSummaryService.get_by_task_id(db, task_id)
+    """获取单个报告汇总（支持聚合名或 task_project_id）"""
+    summary = await TestReportSummaryService.get_aggregated_summary(db, task_id)
     if not summary:
         raise HTTPException(status_code=404, detail="报告不存在")
+
+    # 判断是否为聚合结果
+    aggregation_map = settings.task_aggregation_map
+    if task_id in aggregation_map:
+        # 聚合结果，返回聚合响应
+        return TestReportSummaryResponse(
+            id=summary.aggregated_name,
+            task_project_id=summary.aggregated_name,
+            task_name=summary.task_name,
+            total_cases=summary.total_cases,
+            execute_total=summary.execute_total,
+            fail_total=summary.fail_total,
+            pass_rate=summary.pass_rate,
+            compare_change=summary.compare_change,
+            last_fail_total=None,
+            round_stats=summary.round_stats,
+            fail_always=summary.fail_always,
+            fail_unstable=summary.fail_unstable,
+            step_distribution=summary.step_distribution,
+            ai_analysis=None,
+            analysis_status=None,
+            execute_time=summary.execute_time,
+        )
 
     return TestReportSummaryResponse.model_validate(summary)
 
@@ -190,14 +241,21 @@ async def get_report_detail(
     category: str = Query(default="all", description="分类筛选: all/final_fail/always_fail/unstable"),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取报告明细列表"""
-    # 先检查汇总是否存在
-    summary = await TestReportSummaryService.get_by_task_id(db, task_id)
-    if not summary:
-        raise HTTPException(status_code=404, detail="报告不存在")
+    """获取报告明细列表（支持聚合名或 task_project_id）"""
+    aggregation_map = settings.task_aggregation_map
+
+    # 获取 task_project_ids 列表
+    if task_id in aggregation_map:
+        task_project_ids = aggregation_map[task_id]
+    else:
+        # 非聚合名，检查汇总是否存在
+        summary = await TestReportSummaryService.get_by_task_id(db, task_id)
+        if not summary:
+            raise HTTPException(status_code=404, detail="报告不存在")
+        task_project_ids = [task_id]
 
     details = await TestReportDetailQueryService.get_details_by_category(
-        db, task_id, category
+        db, task_project_ids, category
     )
 
     response_items = [TestReportDetailResponse.model_validate(d) for d in details]
