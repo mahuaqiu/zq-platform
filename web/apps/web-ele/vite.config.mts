@@ -25,6 +25,10 @@ export default defineConfig(async () => {
             target: 'ws://192.168.0.102:8000',
             ws: true,
           },
+          '/test-reports-html': {
+            changeOrigin: true,
+            target: 'http://192.168.0.102:8000',
+          },
         },
       },
     },
