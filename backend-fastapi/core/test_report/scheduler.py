@@ -13,7 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.database import AsyncSessionLocal
 from app.config import settings
-from core.test_report.model import TestReportDetail, TestReportSummary
+from core.test_report.model import TestReportDetail, TestReportSummary, TestReportUploadLog
 from core.test_report.service import TestReportSummaryService
 from core.scheduler.service import scheduler_service
 from utils.logging_config import get_logger
@@ -25,6 +25,8 @@ ANALYZE_JOB_ID = "test_report_analyze"  # 分析任务 ID
 ANALYZE_INTERVAL_MINUTES = 5  # 执行间隔（分钟）
 
 CLEANUP_JOB_ID = "test_report_cleanup"  # 清理任务 ID
+
+STATS_UPDATE_JOB_ID = "test_report_stats_update"  # 统计更新任务 ID
 
 
 async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
@@ -79,6 +81,66 @@ async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
 
         except Exception as e:
             logger.error(f"扫描超时测试报告失败: {e}")
+
+
+async def update_report_statistics(job_code: str = None, **kwargs):
+    """
+    定时更新报告统计数据
+
+    从 UploadLog 重新计算 total_cases 和 execute_total
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        **kwargs: 其他参数
+    """
+    logger.info(f"[{job_code}] 开始更新报告统计数据...")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # 查询所有未删除的 Summary
+            result = await db.execute(
+                select(TestReportSummary).where(
+                    TestReportSummary.is_deleted == False
+                )
+            )
+            summaries = list(result.scalars().all())
+
+            updated_count = 0
+            for summary in summaries:
+                # 统计 total_cases (round=1)
+                total_result = await db.execute(
+                    select(func.count()).select_from(TestReportUploadLog).where(
+                        TestReportUploadLog.task_project_id == summary.task_project_id,
+                        TestReportUploadLog.round == 1,
+                        TestReportUploadLog.is_deleted == False
+                    )
+                )
+                summary.total_cases = total_result.scalar() or 0
+
+                # 统计 execute_total (所有轮次)
+                execute_result = await db.execute(
+                    select(func.count()).select_from(TestReportUploadLog).where(
+                        TestReportUploadLog.task_project_id == summary.task_project_id,
+                        TestReportUploadLog.is_deleted == False
+                    )
+                )
+                summary.execute_total = execute_result.scalar() or 0
+                updated_count += 1
+
+            await db.commit()
+            logger.info(f"统计更新完成，共更新 {updated_count} 条记录")
+
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"更新报告统计数据失败: {e}")
+
+
+async def _stats_update_wrapper():
+    """统计更新任务包装函数"""
+    try:
+        await update_report_statistics()
+    except Exception as e:
+        logger.error(f"统计更新任务执行失败: {str(e)}")
 
 
 async def _analyze_job_wrapper():
@@ -219,6 +281,17 @@ async def setup_test_report_scheduler() -> bool:
             id=cleanup_job_id,
         )
         logger.info(f"测试报告清理任务已启动，执行时间: 每天 23:00")
+
+        # 统计更新任务（每5分钟）
+        stats_job_id = STATS_UPDATE_JOB_ID
+        logger.info(f"正在注册统计更新任务: {stats_job_id}")
+        await scheduler.configure_task(stats_job_id, func=_stats_update_wrapper)
+        await scheduler.add_schedule(
+            func_or_task_id=stats_job_id,
+            trigger=IntervalTrigger(minutes=5),
+            id=stats_job_id,
+        )
+        logger.info(f"测试报告统计更新任务已启动，间隔: 5 分钟")
 
         return True
     except Exception as e:

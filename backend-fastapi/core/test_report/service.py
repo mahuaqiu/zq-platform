@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
 from app.config import settings
-from core.test_report.model import TestReportDetail, TestReportSummary
+from core.test_report.model import TestReportDetail, TestReportSummary, TestReportUploadLog
 from core.test_report.schema import FailReportCreate
 from core.test_report.utils import parse_task_base_name, calculate_pass_rate
 
@@ -96,7 +96,24 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
 
         first_detail = details[0]
         task_name = first_detail.task_name
-        total_cases = first_detail.total_cases
+
+        # 从 UploadLog 统计用例数
+        total_result = await db.execute(
+            select(func.count()).select_from(TestReportUploadLog).where(
+                TestReportUploadLog.task_project_id == task_id,
+                TestReportUploadLog.round == 1,
+                TestReportUploadLog.is_deleted == False
+            )
+        )
+        total_cases = total_result.scalar() or 0
+
+        execute_result = await db.execute(
+            select(func.count()).select_from(TestReportUploadLog).where(
+                TestReportUploadLog.task_project_id == task_id,
+                TestReportUploadLog.is_deleted == False
+            )
+        )
+        execute_total = execute_result.scalar() or 0
 
         # 2. 统计各轮次失败数
         round_fail_counts = Counter(d.round for d in details)
@@ -165,6 +182,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
             # 更新
             existing.task_base_name = task_base_name
             existing.total_cases = total_cases
+            existing.execute_total = execute_total
             existing.fail_total = fail_total
             existing.pass_rate = pass_rate
             existing.compare_change = compare_change
@@ -186,6 +204,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
                 task_name=task_name,
                 task_base_name=task_base_name,
                 total_cases=total_cases,
+                execute_total=execute_total,
                 fail_total=fail_total,
                 pass_rate=pass_rate,
                 compare_change=compare_change,
