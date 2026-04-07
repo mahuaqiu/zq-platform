@@ -12,14 +12,14 @@ from pydantic import BaseModel, Field
 
 class FailReportCreate(BaseModel):
     """失败记录上报请求"""
-    task_id: str = Field(..., alias="taskId", description="任务执行ID")
+    task_project_id: str = Field(..., alias="taskProjectID", description="任务项目ID")
     task_name: str = Field(..., alias="taskName", description="任务名称")
-    total_cases: int = Field(..., alias="totalCases", description="用例总数")
     case_name: str = Field(..., alias="caseName", description="用例标题")
     case_fail_step: str = Field(..., alias="caseFailStep", description="失败步骤")
     case_fail_log: str = Field(..., alias="caseFailLog", description="失败日志")
     fail_reason: Optional[str] = Field(None, alias="failReason", description="失败原因")
-    case_round: int = Field(..., alias="caseRound", description="失败轮次")
+    round: int = Field(..., alias="round", description="执行轮次")
+    testcase_block_id: Optional[str] = Field(None, alias="testcaseBlockID", description="用例块ID")
     log_url: Optional[str] = Field(None, alias="logUrl", description="日志HTML文件路径")
     fail_time: Optional[datetime] = Field(None, alias="failTime", description="失败时间")
 
@@ -30,13 +30,14 @@ class FailReportCreate(BaseModel):
 class TestReportDetailResponse(BaseModel):
     """明细响应"""
     id: str
-    task_id: str = Field(..., alias="taskId")
+    task_project_id: str = Field(..., alias="taskProjectID")
     task_name: str = Field(..., alias="taskName")
     case_name: str = Field(..., alias="caseName")
     case_fail_step: str = Field(..., alias="caseFailStep")
     case_fail_log: str = Field(..., alias="caseFailLog")
     fail_reason: Optional[str] = Field(None, alias="failReason")
-    case_round: int = Field(..., alias="caseRound")
+    round: int = Field(..., alias="round")
+    testcase_block_id: Optional[str] = Field(None, alias="testcaseBlockID")
     log_url: Optional[str] = Field(None, alias="logUrl")
     fail_time: Optional[datetime] = Field(None, alias="failTime")
     sys_create_datetime: datetime = Field(..., alias="createTime")
@@ -63,9 +64,10 @@ class StepDistributionItem(BaseModel):
 class TestReportSummaryResponse(BaseModel):
     """汇总响应"""
     id: str
-    task_id: str = Field(..., alias="taskId")
+    task_project_id: str = Field(..., alias="taskProjectID")
     task_name: str = Field(..., alias="taskName")
     total_cases: int = Field(..., alias="totalCases")
+    execute_total: int = Field(..., alias="executeTotal")
     fail_total: int = Field(..., alias="failTotal")
     pass_rate: str = Field(..., alias="passRate")
     compare_change: Optional[int] = Field(None, alias="compareChange")
@@ -86,10 +88,11 @@ class TestReportSummaryResponse(BaseModel):
 class TestReportListItem(BaseModel):
     """列表项响应"""
     id: str
-    task_id: str = Field(..., alias="taskId")
+    task_project_id: str = Field(..., alias="taskProjectID")
     task_name: str = Field(..., alias="taskName")
     execute_time: Optional[datetime] = Field(None, alias="executeTime")
     total_cases: int = Field(..., alias="totalCases")
+    execute_total: int = Field(..., alias="executeTotal")
     fail_total: int = Field(..., alias="failTotal")
     pass_rate: str = Field(..., alias="passRate")
     compare_change: Optional[int] = Field(None, alias="compareChange")
