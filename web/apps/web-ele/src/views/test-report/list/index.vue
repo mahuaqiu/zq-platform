@@ -10,12 +10,13 @@ import {
   ElButton,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn,
 } from 'element-plus';
 
-import { getReportListApi } from '#/api/core/test-report';
+import { deleteReportApi, getReportListApi } from '#/api/core/test-report';
 
 defineOptions({ name: 'TestReportListPage' });
 
@@ -77,7 +78,31 @@ function handleSizeChange(size: number) {
 
 // 查看详情
 function handleViewDetail(row: TestReportListItem) {
-  router.push(`/test-report/detail/${row.taskId}`);
+  router.push(`/test-report/detail/${row.taskProjectID}`);
+}
+
+// 删除报告
+async function handleDelete(row: TestReportListItem) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除报告「${row.taskName}」吗？删除后将无法恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    await deleteReportApi(row.id);
+    ElMessage.success('删除成功');
+    loadData();
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error);
+      ElMessage.error('删除失败');
+    }
+  }
 }
 
 // 格式化执行时间
@@ -156,9 +181,10 @@ onMounted(() => {
               <span :class="getCompareClass(row.compareChange)">{{ formatCompareChange(row.compareChange) }}</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" min-width="100" align="center">
+          <ElTableColumn label="操作" min-width="140" align="center">
             <template #default="{ row }">
               <a class="tr-link" @click="handleViewDetail(row)">查看详情</a>
+              <a class="tr-link tr-link-danger" @click="handleDelete(row)">删除</a>
             </template>
           </ElTableColumn>
         </ElTable>
@@ -287,6 +313,11 @@ onMounted(() => {
 
 .tr-link:hover {
   text-decoration: underline;
+}
+
+.tr-link-danger {
+  color: #ff4d4f;
+  margin-left: 12px;
 }
 
 /* 分页 */
