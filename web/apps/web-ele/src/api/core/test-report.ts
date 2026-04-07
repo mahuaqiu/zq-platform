@@ -19,10 +19,11 @@ export interface StepDistributionItem {
 // 报告列表项
 export interface TestReportListItem {
   id: string;
-  taskId: string;
+  taskProjectID: string;
   taskName: string;
   executeTime: string | null;
   totalCases: number;
+  executeTotal: number;
   failTotal: number;
   passRate: string;
   compareChange: number | null;
@@ -31,9 +32,10 @@ export interface TestReportListItem {
 // 报告汇总
 export interface TestReportSummary {
   id: string;
-  taskId: string;
+  taskProjectID: string;
   taskName: string;
   totalCases: number;
+  executeTotal: number;
   failTotal: number;
   passRate: string;
   compareChange: number | null;
@@ -50,12 +52,13 @@ export interface TestReportSummary {
 // 报告明细
 export interface TestReportDetail {
   id: string;
-  taskId: string;
+  taskProjectID: string;
   taskName: string;
   caseName: string;
   caseFailStep: string;
   caseFailLog: string;
-  caseRound: number;
+  round: number;
+  testcaseBlockID: string | null;
   logUrl: string | null;
   failTime: string | null;
   createTime: string;
@@ -109,4 +112,11 @@ export async function getCaseLogApi(
   caseName: string,
 ): Promise<{ logUrl: string | null }> {
   return requestClient.get(`${BASE_URL}/log/${taskId}/${encodeURIComponent(caseName)}`);
+}
+
+/**
+ * 删除报告
+ */
+export async function deleteReportApi(summaryId: string): Promise<void> {
+  return requestClient.delete(`${BASE_URL}/${summaryId}`);
 }
