@@ -3,6 +3,7 @@
 """
 测试报告 API - Test Report API
 """
+import logging
 import re
 import shutil
 from datetime import datetime
@@ -17,6 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.base_schema import PaginatedResponse, ResponseModel
+from utils.logging_config import get_logger
+
+logger = get_logger("api.test_report")
 from core.test_report.schema import (
     FailReportCreate,
     TestReportDetailResponse,
@@ -303,27 +307,55 @@ async def delete_report(
     # 获取子任务列表
     task_project_ids = summary.task_project_ids or [summary.task_project_id]
 
-    # 软删除相关记录
-    for task_project_id in task_project_ids:
-        # 删除 Detail
-        await db.execute(
-            update(TestReportDetail)
-            .where(TestReportDetail.task_project_id == task_project_id)
-            .values(is_deleted=True)
-        )
-        # 删除 UploadLog
-        await db.execute(
-            update(TestReportUploadLog)
-            .where(TestReportUploadLog.task_project_id == task_project_id)
-            .values(is_deleted=True)
-        )
-        # 清理HTML文件目录
-        html_path = Path(settings.TEST_REPORT_HTML_PATH) / task_project_id
-        if html_path.exists():
-            shutil.rmtree(html_path)
+    # 验证 task_project_ids 不为空
+    if not task_project_ids:
+        raise HTTPException(status_code=400, detail="任务ID列表为空，无法删除")
 
-    # 删除 Summary
-    summary.is_deleted = True
-    await db.commit()
+    try:
+        # 软删除相关记录
+        for task_project_id in task_project_ids:
+            if not task_project_id:
+                logger.warning(f"跳过空的 task_project_id: summary_id={summary_id}")
+                continue
 
-    return ResponseModel(message="删除成功")
+            # 删除 Detail（仅删除未软删除的记录）
+            await db.execute(
+                update(TestReportDetail)
+                .where(
+                    TestReportDetail.task_project_id == task_project_id,
+                    TestReportDetail.is_deleted == False
+                )
+                .values(is_deleted=True)
+            )
+            # 删除 UploadLog（仅删除未软删除的记录）
+            await db.execute(
+                update(TestReportUploadLog)
+                .where(
+                    TestReportUploadLog.task_project_id == task_project_id,
+                    TestReportUploadLog.is_deleted == False
+                )
+                .values(is_deleted=True)
+            )
+
+            # 清理HTML文件目录
+            html_path = Path(settings.TEST_REPORT_HTML_PATH) / task_project_id
+            if html_path.exists():
+                try:
+                    shutil.rmtree(html_path)
+                    logger.info(f"已清理HTML文件目录: {html_path}")
+                except OSError as e:
+                    logger.error(f"清理HTML文件目录失败 {html_path}: {e}")
+
+        # 删除 Summary
+        summary.is_deleted = True
+        await db.commit()
+        logger.info(f"报告删除成功: summary_id={summary_id}, task_project_ids={task_project_ids}")
+
+        return ResponseModel(message="删除成功")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"删除报告失败: summary_id={summary_id}, error={e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除报告失败: {str(e)}")
