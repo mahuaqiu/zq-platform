@@ -17,11 +17,11 @@ class FailReportCreate(BaseModel):
     case_name: str = Field(..., alias="caseName", description="用例标题")
     case_fail_step: str = Field(..., alias="caseFailStep", description="失败步骤")
     case_fail_log: str = Field(..., alias="caseFailLog", description="失败日志")
-    fail_reason: Optional[str] = Field(None, alias="failReason", description="失败原因")
+    fail_reason: str = Field(..., alias="failReason", description="失败原因")
     round: int = Field(..., alias="round", description="执行轮次")
-    testcase_block_id: Optional[str] = Field(None, alias="testcaseBlockID", description="用例块ID")
-    log_url: Optional[str] = Field(None, alias="logUrl", description="日志HTML文件路径")
-    fail_time: Optional[datetime] = Field(None, alias="failTime", description="失败时间")
+    testcase_block_id: str = Field(..., alias="testcaseBlockID", description="用例块ID")
+    log_url: Optional[str] = Field(None, alias="logUrl", description="完整日志HTML文件URL，用于iframe展示")
+    fail_time: datetime = Field(..., alias="failTime", description="失败时间")
 
     class Config:
         populate_by_name = True

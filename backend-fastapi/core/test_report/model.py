@@ -18,11 +18,11 @@ class TestReportDetail(BaseModel):
     case_name = Column(String(200), nullable=False, comment="用例标题")
     case_fail_step = Column(String(100), nullable=False, comment="失败步骤名称")
     case_fail_log = Column(Text, nullable=False, comment="失败日志")
-    fail_reason = Column(String(500), nullable=True, comment="失败原因")
+    fail_reason = Column(String(500), nullable=False, comment="失败原因")
     round = Column(Integer, nullable=False, comment="执行轮次")  # 原 case_round
-    testcase_block_id = Column(String(50), nullable=True, comment="用例块ID")  # 新增
+    testcase_block_id = Column(String(50), nullable=False, comment="用例块ID")  # 新增
     log_url = Column(String(500), nullable=True, comment="完整日志地址")
-    fail_time = Column(DateTime, nullable=True, comment="失败时间")
+    fail_time = Column(DateTime, nullable=False, comment="失败时间")
 
     __table_args__ = (
         Index('idx_task_case_round', 'task_project_id', 'case_name', 'round'),
