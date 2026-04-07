@@ -7,11 +7,15 @@
 @File: config.py
 @Desc: 应用配置 - # 环境标识
 """
+import json
+import logging
 import os
-from typing import Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -61,6 +65,11 @@ class Settings(BaseSettings):
     AI_ANALYSIS_SERVICE_URL: Optional[str] = None  # 本地AI服务地址（后续规划）
     # 测试报告 API Token
     TEST_REPORT_API_TOKEN: Optional[str] = None  # 上报API专用Token（认证）
+
+    # 测试报告外部访问地址
+    TEST_REPORT_EXTERNAL_BASE_URL: str = "http://192.168.0.102:8000"
+    # 任务聚合配置，JSON格式，如 {"windows_uisdk": ["windows_uisdk1", "windows_uisdk2"]}
+    TASK_AGGREGATION_CONFIG: str = ""
 
     # 执行主机IP（用于定时任务IP匹配）
     HOST_IP: str = ""
@@ -147,6 +156,17 @@ class Settings(BaseSettings):
             else:
                 self.REDIS_URL = f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return self
+
+    @property
+    def task_aggregation_map(self) -> Dict[str, List[str]]:
+        """解析聚合配置"""
+        if not self.TASK_AGGREGATION_CONFIG:
+            return {}
+        try:
+            return json.loads(self.TASK_AGGREGATION_CONFIG)
+        except json.JSONDecodeError as e:
+            logger.warning(f"TASK_AGGREGATION_CONFIG JSON 解析失败: {e}")
+            return {}
 
 
 def get_settings() -> Settings:
