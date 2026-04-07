@@ -6,6 +6,8 @@
 import re
 from typing import Optional, Tuple
 
+from app.config import settings
+
 
 def parse_task_base_name(task_name: str) -> str:
     """
@@ -65,3 +67,30 @@ def format_compare_change(change: Optional[int]) -> Tuple[str, str]:
         return f"↓{abs(change)}", "text-green-500"
     else:
         return "→0", "text-gray-500"
+
+
+def should_store_task(task_project_id: Optional[str]) -> bool:
+    """
+    检查任务是否应该存储
+
+    根据聚合配置判断：
+    - 空配置时存储所有任务
+    - 有配置时只存储配置中的子任务
+    - 无效参数返回 False（不存储）
+
+    :param task_project_id: 任务项目ID
+    :return: 是否应该存储该任务
+    """
+    # 边界情况：无效参数不存储
+    if not task_project_id:
+        return False
+
+    aggregation_map = settings.task_aggregation_map
+    all_sub_tasks = set()
+    for sub_tasks in aggregation_map.values():
+        all_sub_tasks.update(sub_tasks)
+
+    if not all_sub_tasks:
+        return True
+
+    return task_project_id in all_sub_tasks
