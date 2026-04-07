@@ -29,6 +29,10 @@ const compareDisplay = computed(() => {
       <div class="stats-label">用例总数</div>
     </ElCard>
     <ElCard class="stats-card">
+      <div class="stats-value tr-cyan">{{ summary?.executeTotal ?? '--' }}</div>
+      <div class="stats-label">执行总数</div>
+    </ElCard>
+    <ElCard class="stats-card">
       <div class="stats-value tr-green">{{ summary?.passRate ?? '--' }}</div>
       <div class="stats-label">通过率</div>
     </ElCard>
@@ -91,6 +95,10 @@ const compareDisplay = computed(() => {
 
 .tr-blue {
   color: #1890ff;
+}
+
+.tr-cyan {
+  color: #13c2c2;
 }
 
 .tr-green {
