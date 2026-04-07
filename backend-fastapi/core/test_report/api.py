@@ -4,12 +4,13 @@
 测试报告 API - Test Report API
 """
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Form
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +29,7 @@ from core.test_report.service import (
     TestReportSummaryService,
     TestReportDetailQueryService,
 )
-from core.test_report.model import TestReportDetail, TestReportUploadLog
+from core.test_report.model import TestReportDetail, TestReportUploadLog, TestReportSummary
 from core.test_report.utils import should_store_task
 
 router = APIRouter(prefix="/test-report", tags=["测试报告"])
@@ -284,3 +285,45 @@ async def get_case_log(
         raise HTTPException(status_code=404, detail="用例记录不存在")
 
     return ResponseModel(data={"logUrl": detail.log_url})
+
+
+# ==================== 删除接口 ====================
+
+@router.delete("/{summary_id}", response_model=ResponseModel, summary="删除报告")
+async def delete_report(
+    summary_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """删除报告（软删除数据 + 清理HTML文件）"""
+    # 获取 Summary
+    summary = await db.get(TestReportSummary, summary_id)
+    if not summary or summary.is_deleted:
+        raise HTTPException(status_code=404, detail="报告不存在")
+
+    # 获取子任务列表
+    task_project_ids = summary.task_project_ids or [summary.task_project_id]
+
+    # 软删除相关记录
+    for task_project_id in task_project_ids:
+        # 删除 Detail
+        await db.execute(
+            update(TestReportDetail)
+            .where(TestReportDetail.task_project_id == task_project_id)
+            .values(is_deleted=True)
+        )
+        # 删除 UploadLog
+        await db.execute(
+            update(TestReportUploadLog)
+            .where(TestReportUploadLog.task_project_id == task_project_id)
+            .values(is_deleted=True)
+        )
+        # 清理HTML文件目录
+        html_path = Path(settings.TEST_REPORT_HTML_PATH) / task_project_id
+        if html_path.exists():
+            shutil.rmtree(html_path)
+
+    # 删除 Summary
+    summary.is_deleted = True
+    await db.commit()
+
+    return ResponseModel(message="删除成功")
