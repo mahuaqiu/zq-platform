@@ -4,10 +4,13 @@
 测试报告 API - Test Report API
 """
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Form
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -24,7 +27,8 @@ from core.test_report.service import (
     TestReportSummaryService,
     TestReportDetailQueryService,
 )
-from core.test_report.model import TestReportDetail
+from core.test_report.model import TestReportDetail, TestReportUploadLog
+from core.test_report.utils import should_store_task
 
 router = APIRouter(prefix="/test-report", tags=["测试报告"])
 
@@ -37,16 +41,20 @@ async def report_fail(
     db: AsyncSession = Depends(get_db)
 ):
     """推送失败用例记录"""
+    # 检查是否应该存储（聚合配置过滤）
+    if not should_store_task(data.task_project_id):
+        return ResponseModel(message="上报成功")
+
     # 创建明细记录
     detail = TestReportDetail(
-        task_id=data.task_id,
+        task_project_id=data.task_project_id,
         task_name=data.task_name,
-        total_cases=data.total_cases,
         case_name=data.case_name,
         case_fail_step=data.case_fail_step,
         case_fail_log=data.case_fail_log,
         fail_reason=data.fail_reason,
-        case_round=data.case_round,
+        round=data.round,
+        testcase_block_id=data.testcase_block_id,
         log_url=data.log_url,
         fail_time=data.fail_time,
     )
@@ -58,27 +66,35 @@ async def report_fail(
 
 @router.post("/upload", response_model=ResponseModel, summary="上传测试报告 HTML")
 async def upload_html(
-    task_id: str = Form(..., description="任务执行ID"),
-    case_round: int = Form(..., description="执行轮次"),
+    taskProjectID: str = Form(..., description="任务项目ID"),
+    round: int = Form(..., description="执行轮次"),
+    testcaseBlockID: str = Form(..., description="用例块ID"),
     file: UploadFile = File(..., description="HTML 文件"),
+    db: AsyncSession = Depends(get_db)
 ):
     """上传测试报告 HTML 文件"""
-    # 验证 task_id 格式（仅允许安全字符，防止路径遍历）
-    if not re.match(r'^[\w\-]+$', task_id):
-        raise HTTPException(status_code=400, detail="task_id 格式无效")
+    # 检查是否应该存储（聚合配置过滤）
+    if not should_store_task(taskProjectID):
+        return ResponseModel(message="上传成功")
+
+    # 验证 taskProjectID 格式
+    if not re.match(r'^[\w\-]+$', taskProjectID):
+        raise HTTPException(status_code=400, detail="taskProjectID 格式无效")
+
+    # 验证 testcaseBlockID 格式
+    if not re.match(r'^[\w\-]+$', testcaseBlockID):
+        raise HTTPException(status_code=400, detail="testcaseBlockID 格式无效")
 
     # 验证文件扩展名
     if not file.filename or not file.filename.endswith(".html"):
         raise HTTPException(status_code=400, detail="仅支持 .html 文件")
 
-    # 仅提取文件名，防止路径遍历攻击
     safe_filename = Path(file.filename).name
 
     # 构建存储路径
-    storage_path = Path(settings.TEST_REPORT_HTML_PATH) / task_id / str(case_round)
+    storage_path = Path(settings.TEST_REPORT_HTML_PATH) / taskProjectID / str(round) / testcaseBlockID
     storage_path.mkdir(parents=True, exist_ok=True)
 
-    # 保存文件（添加异常处理）
     file_path = storage_path / safe_filename
     content = await file.read()
     try:
@@ -87,8 +103,52 @@ async def upload_html(
     except IOError as e:
         raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
 
-    # 构建访问 URL（使用安全的文件名）
-    url = f"/test-reports-html/{task_id}/{case_round}/{safe_filename}"
+    # 构建完整 URL
+    url = f"{settings.TEST_REPORT_EXTERNAL_BASE_URL}/test-reports-html/{taskProjectID}/{round}/{testcaseBlockID}/{safe_filename}"
+
+    # 记录上传日志（幂等处理）
+    result = await db.execute(
+        select(TestReportUploadLog).where(
+            TestReportUploadLog.task_project_id == taskProjectID,
+            TestReportUploadLog.round == round,
+            TestReportUploadLog.testcase_block_id == testcaseBlockID,
+            TestReportUploadLog.is_deleted == False
+        )
+    )
+    record = result.scalar_one_or_none()
+
+    if record:
+        record.file_url = url
+        record.file_name = safe_filename
+        record.upload_time = datetime.now()
+    else:
+        log = TestReportUploadLog(
+            task_project_id=taskProjectID,
+            round=round,
+            testcase_block_id=testcaseBlockID,
+            file_name=safe_filename,
+            file_url=url,
+        )
+        db.add(log)
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        result = await db.execute(
+            select(TestReportUploadLog).where(
+                TestReportUploadLog.task_project_id == taskProjectID,
+                TestReportUploadLog.round == round,
+                TestReportUploadLog.testcase_block_id == testcaseBlockID,
+                TestReportUploadLog.is_deleted == False
+            )
+        )
+        record = result.scalar_one_or_none()
+        if record:
+            record.file_url = url
+            record.file_name = safe_filename
+            record.upload_time = datetime.now()
+            await db.commit()
 
     return ResponseModel(message="上传成功", data={"url": url})
 
@@ -155,10 +215,10 @@ async def get_case_log(
 
     result = await db.execute(
         select(TestReportDetail).where(
-            TestReportDetail.task_id == task_id,
+            TestReportDetail.task_project_id == task_id,
             TestReportDetail.case_name == case_name,
             TestReportDetail.is_deleted == False
-        ).order_by(TestReportDetail.case_round.desc()).limit(1)
+        ).order_by(TestReportDetail.round.desc()).limit(1)
     )
     detail = result.scalar_one_or_none()
 

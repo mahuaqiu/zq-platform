@@ -46,19 +46,19 @@ async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
     async with AsyncSessionLocal() as db:
         try:
             # 查询有明细但无汇总的 task_id
-            subquery = select(TestReportSummary.task_id).where(
+            subquery = select(TestReportSummary.task_project_id).where(
                 TestReportSummary.is_deleted == False
             )
 
-            # 查询明细中有但汇总中没有的 task_id
+            # 查询明细中有但汇总中没有的 task_project_id
             result = await db.execute(
                 select(
-                    TestReportDetail.task_id,
+                    TestReportDetail.task_project_id,
                     func.max(TestReportDetail.sys_create_datetime).label('last_report_time')
                 ).where(
                     TestReportDetail.is_deleted == False,
-                    not_(TestReportDetail.task_id.in_(subquery))
-                ).group_by(TestReportDetail.task_id)
+                    not_(TestReportDetail.task_project_id.in_(subquery))
+                ).group_by(TestReportDetail.task_project_id)
             )
 
             pending_tasks = result.all()
@@ -68,12 +68,12 @@ async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
                 if last_report_time:
                     time_diff = datetime.now() - last_report_time
                     if time_diff > timedelta(minutes=timeout_minutes):
-                        logger.info(f"task_id={task_id} 超时，触发汇总分析")
+                        logger.info(f"task_project_id={task_id} 超时，触发汇总分析")
                         try:
                             await TestReportSummaryService.analyze_summary(db, task_id)
-                            logger.info(f"task_id={task_id} 汇总分析完成")
+                            logger.info(f"task_project_id={task_id} 汇总分析完成")
                         except Exception as e:
-                            logger.error(f"task_id={task_id} 汇总分析失败: {e}")
+                            logger.error(f"task_project_id={task_id} 汇总分析失败: {e}")
 
             logger.info(f"扫描完成，共检查 {len(pending_tasks)} 个待分析任务")
 

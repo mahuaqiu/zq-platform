@@ -67,7 +67,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         """根据 task_id 获取汇总"""
         result = await db.execute(
             select(TestReportSummary).where(
-                TestReportSummary.task_id == task_id,
+                TestReportSummary.task_project_id == task_id,
                 TestReportSummary.is_deleted == False
             )
         )
@@ -85,9 +85,9 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         # 1. 查询所有明细
         result = await db.execute(
             select(TestReportDetail).where(
-                TestReportDetail.task_id == task_id,
+                TestReportDetail.task_project_id == task_id,
                 TestReportDetail.is_deleted == False
-            ).order_by(TestReportDetail.case_round)
+            ).order_by(TestReportDetail.round)
         )
         details = list(result.scalars().all())
 
@@ -99,7 +99,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         total_cases = first_detail.total_cases
 
         # 2. 统计各轮次失败数
-        round_fail_counts = Counter(d.case_round for d in details)
+        round_fail_counts = Counter(d.round for d in details)
         max_round = max(round_fail_counts.keys())
         round_stats = [
             {"round": r, "fail_count": round_fail_counts.get(r, 0)}
@@ -108,7 +108,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
 
         # 3. 统计最后一轮失败的用例（本轮失败）
         last_round = max_round
-        last_round_cases = {d.case_name for d in details if d.case_round == last_round}
+        last_round_cases = {d.case_name for d in details if d.round == last_round}
         fail_total = len(last_round_cases)
 
         # 4. 统计每轮都失败的用例（全程失败）
@@ -117,7 +117,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         for d in details:
             if d.case_name not in case_rounds:
                 case_rounds[d.case_name] = set()
-            case_rounds[d.case_name].add(d.case_round)
+            case_rounds[d.case_name].add(d.round)
 
         fail_always = sum(
             1 for case_name, rounds in case_rounds.items()
@@ -182,7 +182,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         else:
             # 创建
             summary = TestReportSummary(
-                task_id=task_id,
+                task_project_id=task_id,
                 task_name=task_name,
                 task_base_name=task_base_name,
                 total_cases=total_cases,
@@ -224,9 +224,9 @@ class TestReportDetailQueryService:
         # 先获取所有明细
         result = await db.execute(
             select(TestReportDetail).where(
-                TestReportDetail.task_id == task_id,
+                TestReportDetail.task_project_id == task_id,
                 TestReportDetail.is_deleted == False
-            ).order_by(TestReportDetail.case_round)
+            ).order_by(TestReportDetail.round)
         )
         all_details = list(result.scalars().all())
 
@@ -239,11 +239,11 @@ class TestReportDetailQueryService:
         for d in all_details:
             if d.case_name not in case_rounds:
                 case_rounds[d.case_name] = set()
-            case_rounds[d.case_name].add(d.case_round)
+            case_rounds[d.case_name].add(d.round)
             case_detail_map[d.case_name] = d
 
-        max_round = max((d.case_round for d in all_details), default=1)
-        last_round_cases = {d.case_name for d in all_details if d.case_round == max_round}
+        max_round = max((d.round for d in all_details), default=1)
+        last_round_cases = {d.case_name for d in all_details if d.round == max_round}
 
         filtered_details = []
 
