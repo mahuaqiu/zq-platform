@@ -312,7 +312,7 @@ async def delete_report(
         raise HTTPException(status_code=400, detail="任务ID列表为空，无法删除")
 
     try:
-        # 软删除相关记录
+        # 第一步：软删除所有数据库记录（不进行文件操作）
         for task_project_id in task_project_ids:
             if not task_project_id:
                 logger.warning(f"跳过空的 task_project_id: summary_id={summary_id}")
@@ -337,19 +337,27 @@ async def delete_report(
                 .values(is_deleted=True)
             )
 
-            # 清理HTML文件目录
+        # 删除 Summary
+        summary.is_deleted = True
+
+        # 第二步：提交数据库事务（确保数据一致性）
+        await db.commit()
+        logger.info(f"数据库删除成功: summary_id={summary_id}, task_project_ids={task_project_ids}")
+
+        # 第三步：清理HTML文件目录（在事务提交成功后执行）
+        # 注意：文件删除失败不影响已提交的数据库状态，仅记录日志
+        for task_project_id in task_project_ids:
+            if not task_project_id:
+                continue
+
             html_path = Path(settings.TEST_REPORT_HTML_PATH) / task_project_id
             if html_path.exists():
                 try:
                     shutil.rmtree(html_path)
                     logger.info(f"已清理HTML文件目录: {html_path}")
                 except OSError as e:
-                    logger.error(f"清理HTML文件目录失败 {html_path}: {e}")
-
-        # 删除 Summary
-        summary.is_deleted = True
-        await db.commit()
-        logger.info(f"报告删除成功: summary_id={summary_id}, task_project_ids={task_project_ids}")
+                    # 文件删除失败仅记录警告，不影响响应结果
+                    logger.warning(f"清理HTML文件目录失败（数据库已删除）: {html_path}, error={e}")
 
         return ResponseModel(message="删除成功")
 
