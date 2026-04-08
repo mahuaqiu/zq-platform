@@ -352,7 +352,8 @@ class EnvPoolManager:
         cls,
         db: AsyncSession,
         namespace: str,
-        requests: dict[str, str]
+        requests: dict[str, str],
+        testcase_id: Optional[str] = None  # 新增参数
     ) -> tuple[bool, dict[str, dict] | str]:
         """
         分配机器
@@ -361,6 +362,7 @@ class EnvPoolManager:
             db: 数据库会话
             namespace: 申请的命名空间
             requests: 申请请求 {"userA": "windows", "userB": "web"}
+            testcase_id: 测试用例ID（可选）
 
         Returns:
             tuple: (是否成功, 成功时返回分配结果字典，失败时返回错误信息)
@@ -419,6 +421,7 @@ class EnvPoolManager:
                             device_type=request_tag.split("_")[0],
                             device_sn=None,
                             mark=request_tag,
+                            testcase_id=testcase_id,  # 新增
                             action="apply",
                             result="fail",
                             fail_reason="env not enough",
@@ -435,6 +438,11 @@ class EnvPoolManager:
 
                 # 6. 分配成功，更新数据库
                 now = datetime.now()
+
+                # 6.1 删除同一 testcase_id 的失败记录（如果有）
+                if testcase_id:
+                    await EnvMachineLogService.delete_failed_logs_by_testcase_id(db, testcase_id)
+
                 stmt = (
                     update(EnvMachine)
                     .where(EnvMachine.id.in_(allocated_machine_ids))
@@ -454,11 +462,12 @@ class EnvPoolManager:
                         device_type=allocated.get("actual_device_type") or allocated.get("device_type"),
                         device_sn=allocated.get("device_sn"),
                         mark=requests.get(user),
+                        testcase_id=testcase_id,  # 新增
                         action="apply",
                         result="success",
                         fail_reason=None,
                         apply_time=now,
-                        source_pool=allocated.get("source_pool"),  # 新增
+                        source_pool=allocated.get("source_pool"),
                     ))
                 await db.commit()
 
