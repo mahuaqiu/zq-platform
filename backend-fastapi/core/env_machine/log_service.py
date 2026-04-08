@@ -381,3 +381,27 @@ class EnvMachineLogService:
             ))
 
         return items
+
+    @classmethod
+    async def delete_failed_logs_by_testcase_id(
+        cls,
+        db: AsyncSession,
+        testcase_id: str
+    ) -> int:
+        """
+        删除指定 testcase_id 的失败日志
+
+        Args:
+            db: 数据库会话
+            testcase_id: 用例编号
+
+        Returns:
+            int: 删除的记录数量
+        """
+        stmt = delete(EnvMachineLog).where(
+            EnvMachineLog.testcase_id == testcase_id,
+            EnvMachineLog.result == "fail",
+            EnvMachineLog.fail_reason == "env not enough"
+        )
+        result = await db.execute(stmt)
+        return result.rowcount
