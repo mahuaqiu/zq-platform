@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
@@ -166,10 +166,14 @@ async def register_env_machine(
 async def apply_env_machines(
     namespace: str,
     data: Dict[str, str],
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    x_testcase_id: Optional[str] = Header(None, alias="X-Testcase-Id")
 ) -> Union[EnvSuccessResponse, EnvFailResponse]:
     """
     申请执行机接口
+
+    Header:
+        X-Testcase-Id: 用例编号（可选），用于合并连续失败记录
 
     从指定 namespace 的机器池中申请机器。
 
@@ -208,8 +212,10 @@ async def apply_env_machines(
     ```
     """
     try:
-        # 调用池管理器分配机器
-        success, result = await EnvPoolManager.allocate_machines(db, namespace, data)
+        # 调用池管理器分配机器，传入 testcase_id
+        success, result = await EnvPoolManager.allocate_machines(
+            db, namespace, data, testcase_id=x_testcase_id
+        )
 
         if success:
             logger.info(f"执行机申请成功: namespace={namespace}, allocations={list(result.keys())}")
