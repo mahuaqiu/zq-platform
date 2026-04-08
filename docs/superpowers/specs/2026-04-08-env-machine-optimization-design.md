@@ -63,7 +63,7 @@
 @Desc: 执行机定时任务
 """
 from datetime import datetime, timedelta
-from sqlalchemy import select, delete
+from sqlalchemy import delete
 from app.database import AsyncSessionLocal
 from core.env_machine.model import EnvMachine
 from utils.logging_config import get_logger
@@ -258,8 +258,35 @@ await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
 ```
 
 申请成功时：
-1. 记录成功日志带 `testcase_id`
-2. 删除同一 `testcase_id` 的失败记录
+1. 删除同一 `testcase_id` 的失败记录（如果有 testcase_id）
+2. 记录成功日志带 `testcase_id`
+
+**具体代码位置**：`pool_manager.py` 的 `allocate_machines` 方法，在记录成功日志之前调用：
+
+```python
+# 6.1 申请成功后处理
+# 6.1.1 删除同一 testcase_id 的失败记录（如果有）
+if testcase_id:
+    await EnvMachineLogService.delete_failed_logs_by_testcase_id(db, testcase_id)
+
+# 6.1.2 记录申请成功日志
+for user, allocated in allocations.items():
+    await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
+        namespace=namespace,
+        machine_id=allocated["id"],
+        ip=allocated.get("ip"),
+        device_type=allocated.get("actual_device_type") or allocated.get("device_type"),
+        device_sn=allocated.get("device_sn"),
+        mark=requests.get(user),
+        testcase_id=testcase_id,  # 新增
+        action="apply",
+        result="success",
+        fail_reason=None,
+        apply_time=now,
+        source_pool=allocated.get("source_pool"),
+    ))
+await db.commit()
+```
 
 新增 `EnvMachineLogService` 方法：
 
@@ -457,9 +484,9 @@ alembic upgrade head
 
 ## 附录：现有代码参考
 
-### 申请失败日志记录位置
+### 申请失败日志记录位置（现有代码，需添加 testcase_id）
 
-`pool_manager.py:415-428`：
+`pool_manager.py:415-428`（以下为现有代码，需要在 EnvMachineLogCreate 中添加 testcase_id 字段）：
 ```python
 # 分配失败，记录失败日志
 now = datetime.now()
@@ -470,6 +497,7 @@ await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
     device_type=request_tag.split("_")[0],
     device_sn=None,
     mark=request_tag,
+    # testcase_id=testcase_id,  # 需要添加
     action="apply",
     result="fail",
     fail_reason="env not enough",
