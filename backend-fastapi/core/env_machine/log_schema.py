@@ -21,6 +21,7 @@ class EnvMachineLogCreate(BaseModel):
     device_sn: Optional[str] = Field(None, description="设备SN")
     mark: Optional[str] = Field(None, description="申请的标签")
     source_pool: Optional[str] = Field(None, description="机器来源池")  # 新增
+    testcase_id: Optional[str] = Field(None, description="用例编号")
     action: str = Field(..., description="操作类型: apply/release")
     result: str = Field(..., description="结果: success/fail")
     fail_reason: Optional[str] = Field(None, description="失败原因")
@@ -43,6 +44,7 @@ class EnvMachineLogResponse(BaseModel):
     device_sn: Optional[str] = Field(None, description="设备SN")
     mark: Optional[str] = Field(None, description="申请的标签")
     source_pool: Optional[str] = Field(None, description="机器来源池")  # 新增
+    testcase_id: Optional[str] = Field(None, description="用例编号")
     action: str = Field(..., description="操作类型")
     result: str = Field(..., description="结果")
     fail_reason: Optional[str] = Field(None, description="失败原因")
