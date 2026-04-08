@@ -123,6 +123,8 @@ job_data = {
     "task_func": "core.env_machine.tasks.cleanup_offline_devices_task",
     "task_kwargs": '{"days": 7}',
     "status": 1,  # 启用
+    "priority": 5,
+    "remark": "内部任务，自动管理",
 }
 ```
 
@@ -278,21 +280,104 @@ async def delete_failed_logs_by_testcase_id(
     return result.rowcount
 ```
 
-#### 5. 数据库迁移
+#### 5. "最终失败"场景处理
 
-**文件**: `backend-fastapi/alembic/versions/YYYYMMDD_add_testcase_id_to_env_machine_log.py`
+当申请方重试多次后最终放弃（不再重试），需要标记该用例的申请过程已结束，以便合并失败记录。
+
+**方案：新增 API 接口**
+
+**文件**: `backend-fastapi/core/env_machine/api.py`
 
 ```python
-def upgrade():
-    op.add_column('env_machine_log', 
-        sa.Column('testcase_id', sa.String(128), nullable=True, comment='用例编号')
+@router.post("/{namespace}/application/end", summary="结束申请流程")
+async def end_apply_process(
+    namespace: str,
+    x_testcase_id: str = Header(..., alias="X-Testcase-Id"),
+    db: AsyncSession = Depends(get_db)
+) -> EnvSuccessResponse:
+    """
+    结束申请流程接口
+    
+    当申请方最终放弃申请时调用此接口，合并同一 testcase_id 的失败记录。
+    
+    Header:
+        X-Testcase-Id: 用例编号（必填）
+    """
+    from core.env_machine.log_service import EnvMachineLogService
+    
+    # 删除同一 testcase_id 的所有失败记录，只保留最后一条
+    count = await EnvMachineLogService.merge_failed_logs_by_testcase_id(db, x_testcase_id)
+    await db.commit()
+    
+    return EnvSuccessResponse(
+        status="success",
+        data={"merged_count": count, "message": f"合并了 {count} 条失败记录"}
     )
-    op.create_index('ix_env_machine_log_testcase_id', 'env_machine_log', ['testcase_id'])
-
-def downgrade():
-    op.drop_index('ix_env_machine_log_testcase_id', 'env_machine_log')
-    op.drop_column('env_machine_log', 'testcase_id')
 ```
+
+新增 `EnvMachineLogService` 方法：
+
+```python
+@classmethod
+async def merge_failed_logs_by_testcase_id(
+    cls,
+    db: AsyncSession,
+    testcase_id: str
+) -> int:
+    """
+    合并同一 testcase_id 的失败记录，只保留最后一条
+    
+    Args:
+        db: 数据库会话
+        testcase_id: 用例编号
+        
+    Returns:
+        int: 删除的记录数量
+    """
+    # 查询该 testcase_id 的所有失败记录，按时间排序
+    result = await db.execute(
+        select(EnvMachineLog)
+        .where(
+            EnvMachineLog.testcase_id == testcase_id,
+            EnvMachineLog.result == "fail",
+            EnvMachineLog.fail_reason == "env not enough"
+        )
+        .order_by(EnvMachineLog.sys_create_datetime.asc())
+    )
+    logs = result.scalars().all()
+    
+    if len(logs) <= 1:
+        return 0  # 只有一条或没有记录，无需合并
+    
+    # 保留最后一条，删除其他
+    keep_log = logs[-1]
+    delete_count = 0
+    for log in logs[:-1]:
+        await db.delete(log)
+        delete_count += 1
+    
+    return delete_count
+```
+
+**调用时序**：
+1. 申请方开始申请，传入 `X-Testcase-Id`
+2. 连续申请失败，每次都记录带 testcase_id 的失败日志
+3. 申请方最终放弃申请时，调用 `/env/{namespace}/application/end` 接口
+4. 后端合并失败记录，只保留最后一条
+
+#### 6. 数据库迁移
+
+使用 alembic 自动生成迁移文件：
+
+```bash
+# 修改模型后，执行以下命令
+alembic revision --autogenerate -m "add testcase_id to env_machine_log"
+alembic upgrade head
+```
+
+迁移内容会自动包含：
+- 添加 `testcase_id` 字段（String(128), nullable=True）
+- 创建索引 `ix_env_machine_log_testcase_id`
 
 ---
 
@@ -312,12 +397,12 @@ def downgrade():
 
 ### 任务三（资源不足统计优化）
 
-1. 创建数据库迁移文件
-2. 执行迁移
-3. 修改 `log_model.py` 添加字段和索引
-4. 修改 `log_schema.py` 添加字段
-5. 修改 `log_service.py` 添加删除方法
-6. 修改 `api.py` 从 header 读取 testcase_id
+1. 修改 `log_model.py` 添加字段和索引
+2. 修改 `log_schema.py` 添加字段
+3. 执行 `alembic revision --autogenerate -m "add testcase_id to env_machine_log"`
+4. 执行 `alembic upgrade head`
+5. 修改 `log_service.py` 添加删除方法和合并方法
+6. 修改 `api.py` 从 header 读取 testcase_id，新增结束申请流程接口
 7. 修改 `pool_manager.py` 处理 testcase_id 和合并逻辑
 8. 验证申请流程
 
@@ -343,6 +428,9 @@ def downgrade():
 3. 传 `X-Testcase-Id` 最终申请成功：
    - 验证失败记录被删除
    - 验证只保留成功记录
+4. 传 `X-Testcase-Id` 最终放弃申请（调用结束接口）：
+   - 验证失败记录被合并，只保留最后一条
+   - 验证合并数量正确
 
 ---
 
@@ -393,7 +481,7 @@ return False, "env not enough"
 
 ### 申请成功日志记录位置
 
-`pool_manager.py:449-463`：
+`pool_manager.py:449-463`（现有代码，source_pool 字段已存在）：
 ```python
 # 记录申请成功日志
 for user, allocated in allocations.items():
@@ -408,7 +496,7 @@ for user, allocated in allocations.items():
         result="success",
         fail_reason=None,
         apply_time=now,
-        source_pool=allocated.get("source_pool"),
+        source_pool=allocated.get("source_pool"),  # 来源池字段已存在于现有代码
     ))
 await db.commit()
 ```
