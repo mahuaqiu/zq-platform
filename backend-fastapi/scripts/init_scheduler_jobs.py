@@ -83,6 +83,32 @@ async def init_scheduler_jobs():
             'priority': 1,
             'remark': '清理7天前的执行机申请日志',
         },
+        {
+            'name': '离线设备清理',
+            'code': 'cleanup_offline_devices',
+            'description': '清理7天前非启用且离线的设备（排除手工使用设备）',
+            'group': 'env_machine',
+            'trigger_type': 'cron',
+            'cron_expression': '0 11 * * *',  # 每天11:00执行
+            'task_func': 'core.env_machine.tasks.cleanup_offline_devices_task',
+            'task_kwargs': '{"days": 7}',
+            'status': 1,  # 启用
+            'priority': 5,
+            'remark': '内部任务，自动管理',
+        },
+        {
+            'name': '资源不足日志合并',
+            'code': 'merge_env_not_enough_logs',
+            'description': '合并同一testcase_id连续申请失败的记录',
+            'group': 'env_machine',
+            'trigger_type': 'cron',
+            'cron_expression': '*/5 * * * *',  # 每5分钟执行
+            'task_func': 'core.env_machine.tasks.merge_env_not_enough_logs_task',
+            'task_kwargs': '{}',
+            'status': 1,  # 启用
+            'priority': 5,
+            'remark': '内部任务，自动管理',
+        },
     ]
 
     async with AsyncSessionLocal() as db:
