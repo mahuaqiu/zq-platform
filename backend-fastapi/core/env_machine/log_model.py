@@ -40,6 +40,9 @@ class EnvMachineLog(BaseModel):
     # 机器来源池（新增）
     source_pool = Column(String(64), nullable=True, comment="机器来源池")
 
+    # 用例编号（从header传入，用于合并连续失败记录）
+    testcase_id = Column(String(128), nullable=True, comment="用例编号")
+
     # 操作类型：apply/release
     action = Column(String(20), nullable=False, comment="操作类型: apply/release")
 
@@ -63,6 +66,7 @@ class EnvMachineLog(BaseModel):
         Index('ix_env_machine_log_create_time', 'sys_create_datetime'),
         Index('ix_env_machine_log_namespace_time', 'namespace', 'sys_create_datetime'),
         Index('ix_env_machine_log_machine_id', 'machine_id'),
+        Index('ix_env_machine_log_testcase_id', 'testcase_id'),
     )
 
     def __str__(self):
