@@ -193,10 +193,13 @@ testcase_id: Optional[str] = Field(None, description="用例编号")
 
 **文件**: `backend-fastapi/core/env_machine/api.py`
 
-申请接口从 header 读取用例编号：
+在现有导入行中添加 `Header`（保持代码风格一致）：
 
 ```python
-from fastapi import Header
+from fastapi import APIRouter, Depends, HTTPException, Header
+```
+
+申请接口从 header 读取用例编号：
 
 @router.post(
     "/{namespace}/application",
@@ -436,8 +439,8 @@ alembic upgrade head
 3. 执行 `alembic revision --autogenerate -m "add testcase_id to env_machine_log"`
 4. 执行 `alembic upgrade head`
 5. 修改 `log_service.py` 添加删除方法和合并方法
-6. 修改 `api.py` 从 header 读取 testcase_id，新增结束申请流程接口
-7. 修改 `pool_manager.py` 处理 testcase_id 和合并逻辑
+6. 修改 `pool_manager.py` 处理 testcase_id 和合并逻辑
+7. 修改 `api.py` 从 header 读取 testcase_id，新增结束申请流程接口
 8. 验证申请流程
 
 ---
