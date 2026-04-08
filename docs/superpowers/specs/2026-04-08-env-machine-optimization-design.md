@@ -63,9 +63,10 @@
 @Desc: 执行机定时任务
 """
 from datetime import datetime, timedelta
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from app.database import AsyncSessionLocal
 from core.env_machine.model import EnvMachine
+from core.env_machine.log_model import EnvMachineLog
 from utils.logging_config import get_logger
 
 logger = get_logger("env_machine.tasks")
@@ -103,13 +104,84 @@ async def cleanup_offline_devices_task(job_code: str = None, days: int = 7, **kw
     except Exception as e:
         logger.error(f"[{job_code}] 离线设备清理任务执行失败: {str(e)}")
         raise
+
+
+async def merge_env_not_enough_logs_task(job_code: str = None, **kwargs):
+    """
+    合并资源不足日志任务
+    
+    每5分钟执行一次，合并同一 testcase_id 连续申请失败的记录。
+    连续定义：两条记录的 sys_create_datetime 间隔不超过60秒。
+    
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        **kwargs: 其他参数
+    """
+    logger.info(f"[{job_code}] 资源不足日志合并任务开始")
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            # 查询所有未合并的资源不足失败记录（有 testcase_id）
+            result = await db.execute(
+                select(EnvMachineLog)
+                .where(
+                    EnvMachineLog.testcase_id.isnot(None),
+                    EnvMachineLog.result == "fail",
+                    EnvMachineLog.fail_reason == "env not enough"
+                )
+                .order_by(EnvMachineLog.testcase_id, EnvMachineLog.sys_create_datetime.asc())
+            )
+            logs = result.scalars().all()
+            
+            # 按 testcase_id 分组
+            testcase_logs = {}
+            for log in logs:
+                if log.testcase_id not in testcase_logs:
+                    testcase_logs[log.testcase_id] = []
+                testcase_logs[log.testcase_id].append(log)
+            
+            total_deleted = 0
+            for testcase_id, log_list in testcase_logs.items():
+                # 按连续性分组（间隔超过60秒为不连续）
+                groups = []
+                current_group = [log_list[0]]
+                
+                for i in range(1, len(log_list)):
+                    prev_log = log_list[i - 1]
+                    curr_log = log_list[i]
+                    time_diff = (curr_log.sys_create_datetime - prev_log.sys_create_datetime).total_seconds()
+                    
+                    if time_diff <= 60:
+                        # 连续，加入当前组
+                        current_group.append(curr_log)
+                    else:
+                        # 不连续，开始新组
+                        groups.append(current_group)
+                        current_group = [curr_log]
+                
+                groups.append(current_group)  # 添加最后一组
+                
+                # 每组只保留最后一条，删除其他
+                for group in groups:
+                    if len(group) > 1:
+                        for log in group[:-1]:
+                            await db.delete(log)
+                            total_deleted += 1
+            
+            await db.commit()
+        
+        logger.info(f"[{job_code}] 资源不足日志合并任务完成，删除了 {total_deleted} 条记录")
+        return f"合并了 {total_deleted} 条资源不足日志"
+    except Exception as e:
+        logger.error(f"[{job_code}] 资源不足日志合并任务执行失败: {str(e)}")
+        raise
 ```
 
 #### 2. 注册定时任务
 
 **文件**: `backend-fastapi/scripts/init_scheduler_jobs.py`（修改）
 
-在现有任务列表中添加：
+在现有任务列表中添加两个任务：
 
 ```python
 # 离线设备清理任务
@@ -122,6 +194,21 @@ job_data = {
     "cron_expression": "0 11 * * *",  # 每天11:00执行
     "task_func": "core.env_machine.tasks.cleanup_offline_devices_task",
     "task_kwargs": '{"days": 7}',
+    "status": 1,  # 启用
+    "priority": 5,
+    "remark": "内部任务，自动管理",
+}
+
+# 资源不足日志合并任务
+job_data = {
+    "name": "资源不足日志合并",
+    "code": "merge_env_not_enough_logs",
+    "description": "合并同一testcase_id连续申请失败的记录",
+    "group": "env_machine",
+    "trigger_type": "cron",
+    "cron_expression": "*/5 * * * *",  # 每5分钟执行
+    "task_func": "core.env_machine.tasks.merge_env_not_enough_logs_task",
+    "task_kwargs": '{}',
     "status": 1,  # 启用
     "priority": 5,
     "remark": "内部任务，自动管理",
@@ -310,97 +397,50 @@ async def delete_failed_logs_by_testcase_id(
     return result.rowcount
 ```
 
-#### 5. "最终失败"场景处理
+#### 5. 后台定时合并任务
 
-当申请方重试多次后最终放弃（不再重试），需要标记该用例的申请过程已结束，以便合并失败记录。
+申请方放弃申请时不会主动调用结束接口，因此需要后台定时任务自动合并失败记录。
 
-**方案：新增 API 接口**
+**任务函数**：已在任务二的 `tasks.py` 中定义 `merge_env_not_enough_logs_task`
 
-**文件**: `backend-fastapi/core/env_machine/api.py`
-
-```python
-@router.post("/{namespace}/application/end", summary="结束申请流程")
-async def end_apply_process(
-    namespace: str,
-    x_testcase_id: str = Header(..., alias="X-Testcase-Id"),
-    db: AsyncSession = Depends(get_db)
-) -> EnvSuccessResponse:
-    """
-    结束申请流程接口
-    
-    当申请方最终放弃申请时调用此接口，合并同一 testcase_id 的失败记录。
-    
-    Header:
-        X-Testcase-Id: 用例编号（必填）
-    """
-    from core.env_machine.log_service import EnvMachineLogService
-    
-    try:
-        # 合并同一 testcase_id 的失败记录，只保留最后一条
-        count = await EnvMachineLogService.merge_failed_logs_by_testcase_id(db, x_testcase_id)
-        await db.commit()
-        
-        logger.info(f"申请流程结束: namespace={namespace}, testcase_id={x_testcase_id}, merged_count={count}")
-        
-        return EnvSuccessResponse(
-            status="success",
-            data={"merged_count": count, "message": f"合并了 {count} 条失败记录"}
-        )
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"结束申请流程失败: {e}")
-        raise HTTPException(status_code=500, detail="内部服务器错误")
-```
-
-新增 `EnvMachineLogService` 方法：
+**注册定时任务**（在 `scripts/init_scheduler_jobs.py` 中添加）：
 
 ```python
-@classmethod
-async def merge_failed_logs_by_testcase_id(
-    cls,
-    db: AsyncSession,
-    testcase_id: str
-) -> int:
-    """
-    合并同一 testcase_id 的失败记录，只保留最后一条
-    
-    Args:
-        db: 数据库会话
-        testcase_id: 用例编号
-        
-    Returns:
-        int: 删除的记录数量
-    """
-    # 查询该 testcase_id 的所有失败记录，按时间排序
-    result = await db.execute(
-        select(EnvMachineLog)
-        .where(
-            EnvMachineLog.testcase_id == testcase_id,
-            EnvMachineLog.result == "fail",
-            EnvMachineLog.fail_reason == "env not enough"
-        )
-        .order_by(EnvMachineLog.sys_create_datetime.asc())
-    )
-    logs = result.scalars().all()
-    
-    if len(logs) <= 1:
-        return 0  # 只有一条或没有记录，无需合并
-    
-    # 保留最后一条，删除其他
-    keep_log = logs[-1]
-    delete_count = 0
-    for log in logs[:-1]:
-        await db.delete(log)
-        delete_count += 1
-    
-    return delete_count
+# 资源不足日志合并任务
+job_data = {
+    "name": "资源不足日志合并",
+    "code": "merge_env_not_enough_logs",
+    "description": "合并同一testcase_id连续申请失败的记录",
+    "group": "env_machine",
+    "trigger_type": "cron",
+    "cron_expression": "*/5 * * * *",  # 每5分钟执行
+    "task_func": "core.env_machine.tasks.merge_env_not_enough_logs_task",
+    "task_kwargs": '{}',
+    "status": 1,  # 启用
+    "priority": 5,
+    "remark": "内部任务，自动管理",
+}
 ```
 
-**调用时序**：
-1. 申请方开始申请，传入 `X-Testcase-Id`
-2. 连续申请失败，每次都记录带 testcase_id 的失败日志
-3. 申请方最终放弃申请时，调用 `/env/{namespace}/application/end` 接口
-4. 后端合并失败记录，只保留最后一条
+**合并逻辑**：
+- 同一 `testcase_id` 的多条失败记录
+- 按 `sys_create_datetime` 排序
+- 如果两条记录间隔 ≤ 60秒，视为连续
+- 连续的记录只保留最后一条
+- 不连续的记录各自保留
+
+**示例**：
+```
+testcase_id = "case_001" 的记录：
+- 10:00:00 失败
+- 10:00:15 失败 (间隔15秒，连续)
+- 10:00:30 失败 (间隔15秒，连续)
+- 10:05:00 失败 (间隔4分30秒，不连续，超过60秒)
+
+合并结果：
+- 保留 10:00:30 (第一组最后一条)
+- 保留 10:05:00 (第二组唯一一条)
+```
 
 #### 6. 数据库迁移
 
@@ -427,8 +467,8 @@ alembic upgrade head
 
 ### 任务二（定时任务清理设备）
 
-1. 新建 `backend-fastapi/core/env_machine/tasks.py`
-2. 修改 `scripts/init_scheduler_jobs.py` 注册任务
+1. 新建 `backend-fastapi/core/env_machine/tasks.py`（包含两个任务函数）
+2. 修改 `scripts/init_scheduler_jobs.py` 注册两个定时任务
 3. 执行脚本初始化任务
 4. 手动执行任务验证
 
@@ -438,10 +478,12 @@ alembic upgrade head
 2. 修改 `log_schema.py` 添加字段
 3. 执行 `alembic revision --autogenerate -m "add testcase_id to env_machine_log"`
 4. 执行 `alembic upgrade head`
-5. 修改 `log_service.py` 添加删除方法和合并方法
+5. 修改 `log_service.py` 添加删除方法
 6. 修改 `pool_manager.py` 处理 testcase_id 和合并逻辑
-7. 修改 `api.py` 从 header 读取 testcase_id，新增结束申请流程接口
+7. 修改 `api.py` 从 header 读取 testcase_id
 8. 验证申请流程
+
+> 注：定时合并任务已在任务二中实现
 
 ---
 
@@ -465,9 +507,10 @@ alembic upgrade head
 3. 传 `X-Testcase-Id` 最终申请成功：
    - 验证失败记录被删除
    - 验证只保留成功记录
-4. 传 `X-Testcase-Id` 最终放弃申请（调用结束接口）：
-   - 验证失败记录被合并，只保留最后一条
-   - 验证合并数量正确
+4. 传 `X-Testcase-Id` 连续申请失败后放弃（不调用任何接口）：
+   - 等待5分钟定时任务执行
+   - 验证连续记录（间隔≤60秒）被合并，每组只保留最后一条
+   - 验证不连续记录（间隔>60秒）不会被合并
 
 ---
 
