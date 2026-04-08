@@ -159,7 +159,7 @@ job_data = {
 
 ```python
 # 用例编号（从header传入，用于合并连续失败记录）
-testcase_id = Column(String(128), nullable=True, index=True, comment="用例编号")
+testcase_id = Column(String(128), nullable=True, comment="用例编号")
 ```
 
 新增索引：
@@ -177,13 +177,13 @@ __table_args__ = (
 
 **文件**: `backend-fastapi/core/env_machine/log_schema.py`
 
-`EnvMachineLogCreate` 新增字段：
+`EnvMachineLogCreate` 新增字段（添加在 `source_pool` 字段后面）：
 
 ```python
 testcase_id: Optional[str] = Field(None, description="用例编号")
 ```
 
-`EnvMachineLogResponse` 新增字段：
+`EnvMachineLogResponse` 新增字段（添加在 `source_pool` 字段后面）：
 
 ```python
 testcase_id: Optional[str] = Field(None, description="用例编号")
@@ -332,14 +332,21 @@ async def end_apply_process(
     """
     from core.env_machine.log_service import EnvMachineLogService
     
-    # 删除同一 testcase_id 的所有失败记录，只保留最后一条
-    count = await EnvMachineLogService.merge_failed_logs_by_testcase_id(db, x_testcase_id)
-    await db.commit()
-    
-    return EnvSuccessResponse(
-        status="success",
-        data={"merged_count": count, "message": f"合并了 {count} 条失败记录"}
-    )
+    try:
+        # 合并同一 testcase_id 的失败记录，只保留最后一条
+        count = await EnvMachineLogService.merge_failed_logs_by_testcase_id(db, x_testcase_id)
+        await db.commit()
+        
+        logger.info(f"申请流程结束: namespace={namespace}, testcase_id={x_testcase_id}, merged_count={count}")
+        
+        return EnvSuccessResponse(
+            status="success",
+            data={"merged_count": count, "message": f"合并了 {count} 条失败记录"}
+        )
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"结束申请流程失败: {e}")
+        raise HTTPException(status_code=500, detail="内部服务器错误")
 ```
 
 新增 `EnvMachineLogService` 方法：
