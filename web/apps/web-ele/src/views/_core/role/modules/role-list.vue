@@ -115,7 +115,7 @@ async function onDeleteRole(role: Role, e?: Event) {
  */
 async function onRoleFormSuccess() {
   ElMessage.success(
-    $t('ui.actionMessage.createSuccess', [$t('system.role.name')]),
+    $t('ui.actionMessage.createSuccess', [$t('role.name')]),
   );
   await fetchRoleList();
 }

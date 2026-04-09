@@ -19,8 +19,8 @@ const visible = ref(false);
 const confirmLoading = ref(false);
 const getTitle = computed(() => {
   return formData.value?.id
-    ? $t('ui.actionTitle.edit', [$t('system.role.name')])
-    : $t('ui.actionTitle.create', [$t('system.role.name')]);
+    ? $t('ui.actionTitle.edit', [$t('role.name')])
+    : $t('ui.actionTitle.create', [$t('role.name')]);
 });
 
 const [Form, formApi] = useVbenForm({

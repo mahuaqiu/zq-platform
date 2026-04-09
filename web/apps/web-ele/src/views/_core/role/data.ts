@@ -45,7 +45,7 @@ export function useRoleTreeColumns(
   return [
     {
       field: 'name',
-      title: $t('system.role.roleName'),
+      title: $t('role.roleName'),
       minWidth: 150,
     },
   ];
@@ -56,23 +56,23 @@ export function useFormSchema(): VbenFormSchema[] {
     {
       component: 'Input',
       fieldName: 'name',
-      label: $t('system.role.roleName'),
+      label: $t('role.roleName'),
       rules: z
         .string()
-        .min(2, $t('ui.formRules.minLength', [$t('system.role.roleName'), 2]))
+        .min(2, $t('ui.formRules.minLength', [$t('role.roleName'), 2]))
         .max(
           64,
-          $t('ui.formRules.maxLength', [$t('system.role.roleName'), 64]),
+          $t('ui.formRules.maxLength', [$t('role.roleName'), 64]),
         ),
     },
     {
       component: 'Input',
       fieldName: 'code',
-      label: $t('system.role.roleCode'),
+      label: $t('role.roleCode'),
       rules: z
         .string()
-        .min(2, $t('ui.formRules.minLength', [$t('system.role.roleCode'), 2]))
-        .max(64, $t('ui.formRules.maxLength', [$t('system.role.roleCode'), 64]))
+        .min(2, $t('ui.formRules.minLength', [$t('role.roleCode'), 2]))
+        .max(64, $t('ui.formRules.maxLength', [$t('role.roleCode'), 64]))
         .regex(/^\w+$/, $t('role.codeFormatError')),
     },
     {
@@ -106,7 +106,7 @@ export function useFormSchema(): VbenFormSchema[] {
       },
       defaultValue: true,
       fieldName: 'status',
-      label: $t('system.role.status'),
+      label: $t('role.status'),
     },
   ];
 }
