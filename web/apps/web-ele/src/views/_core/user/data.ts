@@ -202,15 +202,6 @@ export function getFormSchema(): VbenFormSchema[] {
       label: $t('user.manager'),
     },
     {
-      component: 'PostSelector',
-      componentProps: {
-        multiple: true,
-        placeholder: $t('user.selectPost'),
-      },
-      fieldName: 'post',
-      label: $t('user.post'),
-    },
-    {
       component: 'RoleSelector',
       componentProps: {
         multiple: true,

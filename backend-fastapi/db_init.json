@@ -318,47 +318,6 @@
   },
   {
     "model": "core.menu.model.Menu",
-    "pk": "3721fe72-1471-47e5-a5",
-    "fields": {
-      "parent_id": "2c03f7a0-f4b5-43a9-94",
-      "name": "SystemPost",
-      "title": "menu-title.positionManagement",
-      "authCode": null,
-      "path": "/system/post",
-      "type": "menu",
-      "component": "/_core/post/index",
-      "redirect": null,
-      "activePath": null,
-      "query": null,
-      "noBasicLayout": false,
-      "icon": "carbon:align-box-middle-left",
-      "activeIcon": null,
-      "order": 2,
-      "hideInMenu": false,
-      "hideChildrenInMenu": false,
-      "hideInBreadcrumb": false,
-      "hideInTab": false,
-      "affixTab": false,
-      "affixTabOrder": null,
-      "keepAlive": false,
-      "maxNumOfOpenTab": null,
-      "link": null,
-      "iframeSrc": null,
-      "openInNewWindow": false,
-      "badge": null,
-      "badgeType": null,
-      "badgeVariants": null,
-      "id": "3721fe72-1471-47e5-a5",
-      "sort": 0,
-      "is_deleted": false,
-      "sys_create_datetime": "2025-11-08T05:38:26.765851",
-      "sys_update_datetime": "2025-12-28T16:49:08.334283",
-      "sys_creator_id": null,
-      "sys_modifier_id": null
-    }
-  },
-  {
-    "model": "core.menu.model.Menu",
     "pk": "c4b8daa0-7e1c-4039-9a",
     "fields": {
       "parent_id": "2c03f7a0-f4b5-43a9-94",
@@ -932,26 +891,6 @@
     }
   },
   {
-    "model": "core.post.model.Post",
-    "pk": "7qDoiDyppp26XkzvUziOx",
-    "fields": {
-      "name": "初级开发",
-      "code": "junior_developer",
-      "post_type": 4,
-      "post_level": 3,
-      "status": true,
-      "description": null,
-      "dept_id": null,
-      "id": "7qDoiDyppp26XkzvUziOx",
-      "sort": 0,
-      "is_deleted": false,
-      "sys_create_datetime": "2025-12-31T09:42:25.519585",
-      "sys_update_datetime": "2025-12-31T09:42:25.519585",
-      "sys_creator_id": null,
-      "sys_modifier_id": null
-    }
-  },
-  {
     "model": "core.user.model.User",
     "pk": "Rl5LfJAlZZRG1j460QGmD",
     "fields": {
@@ -974,7 +913,6 @@
       "last_login_type": "password",
       "is_active": true,
       "dept_id": "L5gXi5cW-WuTc6mCid1Sz",
-      "post_id": "7qDoiDyppp26XkzvUziOx",
       "role_id": null,
       "manager_id": "string",
       "oauth_provider": null,

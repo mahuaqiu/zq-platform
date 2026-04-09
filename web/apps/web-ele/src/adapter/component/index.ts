@@ -50,11 +50,6 @@ const DeptSelector = defineAsyncComponent(() =>
     (res) => res.default,
   ),
 );
-const PostSelector = defineAsyncComponent(() =>
-  import('#/components/zq-form/post-selector/post-selector.vue').then(
-    (res) => res.default,
-  ),
-);
 const RoleSelector = defineAsyncComponent(() =>
   import('#/components/zq-form/role-selector/role-selector.vue').then(
     (res) => res.default,
@@ -197,7 +192,6 @@ export type ComponentType =
   | 'Input'
   | 'InputNumber'
   | 'JsonEditor'
-  | 'PostSelector'
   | 'RadioGroup'
   | 'RoleSelector'
   | 'Select'
@@ -271,7 +265,6 @@ async function initComponentAdapter() {
       return h(ElButton, { ...props, attrs, type: 'primary' }, slots);
     },
     DeptSelector: withDefaultPlaceholder(DeptSelector, 'select'),
-    PostSelector: withDefaultPlaceholder(PostSelector, 'select'),
     RoleSelector: withDefaultPlaceholder(RoleSelector, 'select'),
     Divider: ElDivider,
     IconPicker: withDefaultPlaceholder(IconPicker, 'select', {

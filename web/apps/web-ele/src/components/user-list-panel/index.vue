@@ -27,7 +27,6 @@ import {
   ElTooltip,
 } from 'element-plus';
 
-import { getPostUsersApi } from '#/api/core/post';
 import { getUserListApi } from '#/api/core/user';
 
 defineOptions({
@@ -55,11 +54,11 @@ const UserCard = defineAsyncComponent(() => import('./user-card.vue'));
 // @ts-ignore
 const UserListItem = defineAsyncComponent(() => import('./user-list-item.vue'));
 
-type DataSource = 'all' | 'dept' | 'post';
+type DataSource = 'all' | 'dept';
 
 interface Props {
-  dataSource?: DataSource; // 数据源类型：all-所有用户, dept-部门用户, post-岗位用户
-  sourceId?: string; // 数据源ID（部门ID或岗位ID）
+  dataSource?: DataSource; // 数据源类型：all-所有用户, dept-部门用户
+  sourceId?: string; // 数据源ID（部门ID）
   tempSelectedUsers?: Set<string>;
   filterable?: boolean;
   multiple?: boolean;
@@ -110,10 +109,6 @@ async function loadUsers(isLoadMore = false) {
       // 使用 getUserListApi 并传入 dept_ids
       params.dept_ids = [props.sourceId];
       result = await getUserListApi(params);
-    } else if (props.dataSource === 'post' && props.sourceId) {
-      params.search = params.name;
-      delete params.name;
-      result = await getPostUsersApi(props.sourceId, params);
     } else {
       // 默认加载所有用户
       result = await getUserListApi(params);

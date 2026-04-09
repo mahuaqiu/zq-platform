@@ -9,7 +9,6 @@ from core.auth.api import router as auth_router
 from core.dept.api import router as dept_router
 from core.menu.api import router as menu_router
 from core.permission.api import router as permission_router
-from core.post.api import router as post_router
 from core.role.api import router as role_router
 from core.user.api import router as user_router
 from core.login_log.api import router as login_log_router
@@ -27,7 +26,6 @@ router.include_router(auth_router)
 router.include_router(dept_router)
 router.include_router(menu_router)
 router.include_router(permission_router)
-router.include_router(post_router)
 router.include_router(role_router)
 router.include_router(user_router)
 router.include_router(login_log_router)

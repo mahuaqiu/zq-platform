@@ -96,10 +96,7 @@ class User(BaseModel):
     
     # 所属部门ID（逻辑外键，不创建数据库约束）
     dept_id = Column(String(21), nullable=True, index=True, comment="所属部门ID")
-    
-    # 所属岗位ID（逻辑外键，不创建数据库约束）
-    post_id = Column(String(21), nullable=True, index=True, comment="所属岗位ID")
-    
+
     # 所属角色ID（逻辑外键，不创建数据库约束）
     role_id = Column(String(21), nullable=True, index=True, comment="所属角色ID")
     
