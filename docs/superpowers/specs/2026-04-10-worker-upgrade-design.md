@@ -143,12 +143,13 @@ POST /api/core/env/batch_upgrade
 **请求参数**:
 ```json
 {
-  "namespace": "meeting_gamma",  // 可选，默认全部
-  "device_type": "windows"       // 可选，默认全部
+  "machine_ids": ["uuid1", "uuid2"],  // 可选，指定机器ID列表
+  "namespace": "meeting_gamma",       // 可选，默认全部（与 machine_ids 互斥）
+  "device_type": "windows"            // 可选，默认全部（与 machine_ids 互斥）
 }
 ```
 
-**响应示例**:
+**响应示例（成功）**:
 ```json
 {
   "status": "success",
@@ -156,6 +157,7 @@ POST /api/core/env/batch_upgrade
     "upgraded_count": 5,
     "waiting_count": 2,
     "skipped_count": 3,
+    "failed_count": 0,
     "details": [
       {
         "machine_id": "xxx",
@@ -168,22 +170,34 @@ POST /api/core/env/batch_upgrade
         "ip": "10.173.94.50",
         "status": "waiting",
         "message": "机器使用中，已加入升级队列"
+      },
+      {
+        "machine_id": "zzz",
+        "ip": "10.173.94.51",
+        "status": "failed",
+        "message": "Worker 响应超时，升级指令下发失败"
       }
     ]
   }
 }
 ```
 
+**错误处理**:
+- HTTP 状态码：200（部分成功也返回 200，通过响应体中的 failed_count 和 details 区分）
+- 调用 Worker 超时（10秒）或响应错误：记录日志，该机器标记为 failed
+- 失败机器保持原有状态（不置为 upgrading），可在 details 中查看具体失败原因
+- 前端根据 failed_count > 0 弹出警告提示
+
 **逻辑**:
 1. 获取对应 device_type 的版本配置
-2. 查询符合条件的机器（namespace + device_type 筛选）
+2. 查询符合条件的机器（machine_ids 或 namespace + device_type 筛选）
 3. 过滤条件：
    - status=online 且 version < target_version → 直接升级
    - status=using 且 version < target_version → 加入队列
    - status=offline/upgrading 或 version >= target_version → 跳过
-4. 对 online 机器：调用 Worker 升级接口 `http://{ip}:{port}/worker/upgrade`
+4. 对 online 机器：调用 Worker 升级接口（详见 5.5 Worker 升级接口契约）
 5. 调用成功后状态置为 upgrading
-6. 调用失败：记录日志，前端弹出错误提示
+6. 调用失败：记录日志，该机器在 details 中标记为 failed
 
 ---
 
@@ -384,7 +398,7 @@ GET /api/core/env/upgrade_preview
 
 **点击逻辑**:
 - 弹出确认弹窗
-- 确认后调用 POST /single_upgrade 或直接调用 batch_upgrade（单台）
+- 确认后调用 POST /batch_upgrade，传入 machine_ids 参数（单台机器）
 
 ---
 
@@ -470,6 +484,62 @@ async def release_machine(db, machine_id, namespace):
 # upgrading 状态超时也置为 offline
 if machine.status == "upgrading" and is_timeout(machine.sync_time):
     machine.status = "offline"
+```
+
+### 5.5 Worker 升级接口契约
+
+平台调用 Worker 的升级接口时，需遵循以下契约：
+
+**接口地址**: `http://{ip}:{port}/worker/upgrade`
+
+**请求方式**: POST
+
+**请求体格式**:
+```json
+{
+  "version": "20260410150000",
+  "download_url": "http://192.168.0.102:8000/downloads/win-worker.exe"
+}
+```
+
+**响应体格式**:
+```json
+{
+  "status": "upgrading",
+  "message": "Worker 正在升级，预计 30 秒后恢复",
+  "current_version": "20260405120000"
+}
+```
+
+**超时设置**: 10秒（平台调用 Worker 的 HTTP 请求超时时间）
+
+**错误处理**:
+- 超时或网络错误：平台记录日志，该机器标记为 failed
+- Worker 返回非 200 状态码：平台记录日志，该机器标记为 failed
+- Worker 返回 status != "upgrading"：视为异常响应，记录日志
+
+**Worker 实现要求**:
+1. 收到请求后立即响应（不等待升级完成）
+2. 异步执行升级流程（下载、安装、重启）
+3. 升级完成后调用平台注册接口恢复状态
+
+### 5.6 升级队列清理策略
+
+**清理规则**:
+- completed 状态的队列项：保留 7 天后自动清理
+- waiting 状态超过 24 小时：标记为 failed 并清理（机器可能已离线）
+
+**实现方式**: 在定时任务中新增队列清理逻辑
+
+```python
+# 清理 7 天前的 completed 记录
+await WorkerUpgradeQueueService.delete_completed_before(db, days=7)
+
+# 清理超时的 waiting 记录
+timeout_items = await WorkerUpgradeQueueService.get_waiting_timeout(db, hours=24)
+for item in timeout_items:
+    item.status = "failed"
+    await db.commit()
 ```
 
 ---
