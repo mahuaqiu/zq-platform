@@ -28,6 +28,8 @@ import {
   updateEnvMachineApi,
 } from '#/api/core/env-machine';
 import type { EnvMachineCreateParams, EnvMachineUpdateParams } from '#/api/core/env-machine';
+import { getUpgradeConfigListApi, batchUpgradeApi } from '#/api/core/env-machine-upgrade';
+import type { UpgradeConfig } from '#/api/core/env-machine-upgrade';
 
 import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice } from './types';
 
@@ -41,6 +43,7 @@ const total = ref(0);
 const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(20);
+const upgradeConfigs = ref<UpgradeConfig[]>([]);
 
 // 筛选条件
 const searchForm = ref({
@@ -132,6 +135,44 @@ async function loadData() {
   }
 }
 
+// 加载升级配置
+async function loadUpgradeConfigs() {
+  try {
+    const configs = await getUpgradeConfigListApi();
+    upgradeConfigs.value = configs || [];
+  } catch (error) {
+    console.error('加载升级配置失败:', error);
+  }
+}
+
+// 判断是否需要升级
+function needUpgrade(row: EnvMachine): boolean {
+  if (!row.version || !row.device_type) {
+    return false;
+  }
+  const config = upgradeConfigs.value.find((c) => c.device_type === row.device_type);
+  if (!config || !config.version) {
+    return false;
+  }
+  // 版本比对：当前版本小于配置版本则需要升级
+  return compareVersions(row.version, config.version) < 0;
+}
+
+// 版本号比对函数，返回 -1 表示 v1 < v2，0 表示相等，1 表示 v1 > v2
+function compareVersions(v1: string, v2: string): number {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  const maxLen = Math.max(parts1.length, parts2.length);
+
+  for (let i = 0; i < maxLen; i++) {
+    const num1 = parts1[i] || 0;
+    const num2 = parts2[i] || 0;
+    if (num1 < num2) return -1;
+    if (num1 > num2) return 1;
+  }
+  return 0;
+}
+
 // 搜索
 function handleSearch() {
   currentPage.value = 1;
@@ -214,6 +255,40 @@ function handleDelete(row: EnvMachine) {
       loadData();
     } catch {
       ElMessage.error('删除失败');
+    }
+  });
+}
+
+// 升级设备
+function handleUpgrade(row: EnvMachine) {
+  const displayName = row.asset_number || row.ip || row.id;
+  const config = upgradeConfigs.value.find((c) => c.device_type === row.device_type);
+  const targetVersion = config?.version || '未知版本';
+
+  ElMessageBox.confirm(
+    `确定要将设备 "${displayName}" 升级到版本 ${targetVersion} 吗？`,
+    '升级确认',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  ).then(async () => {
+    try {
+      const result = await batchUpgradeApi({
+        machine_ids: [row.id],
+        namespace: namespace.value,
+      });
+      if (result.upgraded_count > 0) {
+        ElMessage.success(`已将设备加入升级队列，目标版本: ${targetVersion}`);
+        loadData();
+      } else {
+        const detail = result.details?.[0];
+        ElMessage.warning(detail?.message || '升级请求未成功');
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || '升级请求失败';
+      ElMessage.error(msg);
     }
   });
 }
@@ -357,6 +432,7 @@ function getStatusClass(status: string) {
     online: 'env-status-success',
     using: 'env-status-orange',
     offline: 'env-status-warning',
+    upgrading: 'env-status-upgrading',
   };
   return statusMap[status] || '';
 }
@@ -385,6 +461,7 @@ watch(namespaceKey, () => {
 // 初始加载
 onMounted(() => {
   loadData();
+  loadUpgradeConfigs();
 });
 </script>
 
@@ -571,6 +648,13 @@ onMounted(() => {
             </ElTableColumn>
             <ElTableColumn label="操作" min-width="100">
               <template #default="{ row }">
+                <a
+                  v-if="row.status === 'online' && needUpgrade(row)"
+                  class="env-link env-link-upgrade"
+                  @click="handleUpgrade(row)"
+                >
+                  升级
+                </a>
                 <a class="env-link" @click="handleEdit(row)">编辑</a>
                 <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
               </template>
@@ -836,6 +920,10 @@ onMounted(() => {
   color: #ff4d4f;
 }
 
+.env-status-upgrading {
+  color: #1890ff;
+}
+
 /* 操作链接 */
 .env-link {
   color: #1890ff;
@@ -851,6 +939,11 @@ onMounted(() => {
 .env-link-danger {
   color: #ff4d4f;
   margin-right: 0;
+}
+
+.env-link-upgrade {
+  color: #52c41a;
+  font-weight: 500;
 }
 
 /* 分页 */

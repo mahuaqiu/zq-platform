@@ -6,7 +6,7 @@ export type DeviceType = 'windows' | 'mac' | 'ios' | 'android';
 /**
  * 设备状态
  */
-export type DeviceStatus = 'online' | 'using' | 'offline';
+export type DeviceStatus = 'online' | 'using' | 'offline' | 'upgrading';
 
 /**
  * 标签允许的前缀列表
@@ -41,6 +41,7 @@ export const STATUS_OPTIONS = [
   { label: '在线', value: 'online', type: 'success' },
   { label: '使用中', value: 'using', type: 'warning' },
   { label: '离线', value: 'offline', type: 'info' },
+  { label: '升级中', value: 'upgrading', type: 'info' },
 ];
 
 /**
