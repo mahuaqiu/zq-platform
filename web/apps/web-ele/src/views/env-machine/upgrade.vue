@@ -524,7 +524,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 砠认弹窗 -->
+      <!-- 硠认弹窗 -->
       <ElDialog
         v-model="confirmDialogVisible"
         width="420px"
@@ -532,17 +532,15 @@ onMounted(async () => {
         :show-title="false"
         :close-on-click-modal="false"
       >
-        <!-- 自定义头部 -->
-        <template #header>
-          <div class="dialog-header">
-            <div class="dialog-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24">
-                <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-            </div>
-            <div class="dialog-title">确认批量升级</div>
+        <!-- 头部 -->
+        <div class="dialog-header">
+          <div class="dialog-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
           </div>
-        </template>
+          <div class="dialog-title">确认批量升级</div>
+        </div>
 
         <!-- 内容 -->
         <div class="dialog-body">
@@ -877,45 +875,44 @@ onMounted(async () => {
 .remove-link:hover {
   text-decoration: underline;
 }
-</style>
 
-<style>
-/* 砠认弹窗全局样式 */
+/* 确认弹窗全局样式 */
 .upgrade-confirm-dialog {
   border-radius: 12px !important;
   overflow: hidden !important;
 }
 
-.upgrade-confirm-dialog .el-dialog__header {
+.upgrade-confirm-dialog :deep(.el-dialog__header) {
   padding: 0 !important;
   margin: 0 !important;
+  display: none !important;
 }
 
-.upgrade-confirm-dialog .el-dialog__headerbtn {
+.upgrade-confirm-dialog :deep(.el-dialog__headerbtn) {
   top: 20px !important;
   right: 20px !important;
   width: 24px !important;
   height: 24px !important;
   background: rgba(255, 255, 255, 0.2) !important;
   border-radius: 50% !important;
+  z-index: 10 !important;
 }
 
-.upgrade-confirm-dialog .el-dialog__headerbtn .el-dialog__close {
+.upgrade-confirm-dialog :deep(.el-dialog__headerbtn .el-dialog__close) {
   color: #fff !important;
   font-size: 16px !important;
 }
 
-.upgrade-confirm-dialog .el-dialog__body {
+.upgrade-confirm-dialog :deep(.el-dialog__body) {
   padding: 0 !important;
+  overflow: hidden !important;
 }
 
-.upgrade-confirm-dialog .el-dialog__footer {
+.upgrade-confirm-dialog :deep(.el-dialog__footer) {
   padding: 0 !important;
   background: #fafafa !important;
 }
-</style>
 
-<style scoped>
 /* 弹窗头部 */
 .dialog-header {
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
@@ -1042,3 +1039,4 @@ onMounted(async () => {
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
 }
+</style>
