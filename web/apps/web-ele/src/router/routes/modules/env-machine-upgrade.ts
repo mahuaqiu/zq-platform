@@ -7,7 +7,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/env-machine/upgrade.vue'),
     meta: {
       title: '升级管理',
-      icon: 'ant-design:cloud-upload-outlined',
     },
   },
 ];

@@ -48,7 +48,7 @@ async def init_upgrade_menu():
             path="/env-machine/upgrade",
             type="menu",
             component="/views/env-machine/upgrade",
-            icon="ant-design:cloud-upload-outlined",
+            icon="",
             parent_id=parent.id,
             order=100,
             sort=100,
