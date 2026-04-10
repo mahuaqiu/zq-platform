@@ -37,9 +37,12 @@ class EnvMachineScheduler:
 
     RELEASE_JOB_PREFIX = "release_"  # 延迟释放任务 ID 前缀
     OFFLINE_CHECK_JOB_ID = "env_machine_offline_check"  # 离线检测任务 ID
+    QUEUE_CLEANUP_JOB_ID = "env_machine_queue_cleanup"  # 队列清理任务 ID
     RELEASE_DELAY_MINUTES = 1  # 延迟释放时间（分钟）
     OFFLINE_THRESHOLD_MINUTES = 10  # 离线检测阈值（分钟）
     OFFLINE_CHECK_INTERVAL_MINUTES = 2  # 离线检测间隔（分钟）
+    UPGRADE_TIMEOUT_MINUTES = 30  # 升级超时时间（分钟）
+    QUEUE_CLEANUP_INTERVAL_HOURS = 24  # 队列清理间隔（小时）
 
     @classmethod
     def get_release_job_id(cls, machine_id: str) -> str:
@@ -236,6 +239,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
     离线检测任务
 
     检查 sync_time 超过 10 分钟的机器，标记为 offline
+    同时检查 upgrading 状态超时 30 分钟的机器，标记为 offline
 
     Args:
         job_code: 任务编码（由调度器自动传入）
@@ -246,9 +250,10 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
     """
     logger.info(f"[{job_code}] 执行离线检测任务")
     threshold = datetime.now() - timedelta(minutes=EnvMachineScheduler.OFFLINE_THRESHOLD_MINUTES)
+    upgrade_threshold = datetime.now() - timedelta(minutes=EnvMachineScheduler.UPGRADE_TIMEOUT_MINUTES)
 
     async with AsyncSessionLocal() as db:
-        # 查询 sync_time 超过阈值的机器
+        # 查询 sync_time 超过阈值的 online/using 状态机器
         stmt = select(EnvMachine).where(
             EnvMachine.sync_time < threshold,
             EnvMachine.status.in_(["online", "using"]),
@@ -257,13 +262,23 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
         result = await db.execute(stmt)
         machines = result.scalars().all()
 
-        if not machines:
+        # 查询 upgrading 状态超时的机器
+        upgrade_stmt = select(EnvMachine).where(
+            EnvMachine.sync_time < upgrade_threshold,
+            EnvMachine.status == "upgrading",
+            EnvMachine.is_deleted == False,  # noqa: E712
+        )
+        upgrade_result = await db.execute(upgrade_stmt)
+        upgrading_machines = upgrade_result.scalars().all()
+
+        if not machines and not upgrading_machines:
             logger.debug("未检测到离线机器")
             return 0
 
-        offline_count = len(machines)
+        offline_count = len(machines) + len(upgrading_machines)
         machine_ids = []
 
+        # 处理 online/using 状态超时的机器
         for machine in machines:
             # 取消延迟释放任务（如果有）
             await EnvMachineScheduler.remove_release_job(str(machine.id))
@@ -272,6 +287,13 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             machine.status = "offline"
             machine_ids.append(str(machine.id))
             logger.info(f"机器 {machine.id} 已标记为离线")
+
+        # 处理 upgrading 状态超时的机器
+        for machine in upgrading_machines:
+            # 更新状态为 offline
+            machine.status = "offline"
+            machine_ids.append(str(machine.id))
+            logger.warning(f"升级超时，机器置为离线: machine_id={machine.id}, ip={machine.ip}")
 
         await db.commit()
 
@@ -291,11 +313,58 @@ async def _offline_check_job_wrapper():
         logger.error(f"离线检测任务执行失败: {str(e)}")
 
 
+async def cleanup_upgrade_queue(job_code: str = None, **kwargs) -> dict:
+    """
+    升级队列清理任务
+
+    清理工作：
+    1. 清理 7 天前的 completed 记录
+    2. 标记超时 24 小时的 waiting 为 failed
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        **kwargs: 其他参数
+
+    Returns:
+        dict: 清理结果统计
+    """
+    logger.info(f"[{job_code}] 执行升级队列清理任务")
+
+    async with AsyncSessionLocal() as db:
+        # 延迟导入避免循环依赖
+        from core.env_machine.upgrade_service import WorkerUpgradeQueueService
+
+        # 清理 7 天前的 completed 记录
+        completed_count = await WorkerUpgradeQueueService.cleanup_completed(db, days=7)
+        if completed_count > 0:
+            logger.info(f"已清理 {completed_count} 条已完成的升级记录")
+
+        # 标记超时 24 小时的 waiting 为 failed
+        timeout_count = await WorkerUpgradeQueueService.mark_timeout_waiting(db, hours=24)
+        if timeout_count > 0:
+            logger.warning(f"已标记 {timeout_count} 条超时等待的升级记录为失败")
+
+        logger.info(f"队列清理完成，清理 {completed_count} 条完成记录，标记 {timeout_count} 条超时记录")
+        return {
+            "completed_cleaned": completed_count,
+            "timeout_marked": timeout_count,
+        }
+
+
+async def _queue_cleanup_job_wrapper():
+    """队列清理任务包装函数"""
+    try:
+        await cleanup_upgrade_queue()
+    except Exception as e:
+        logger.error(f"队列清理任务执行失败: {str(e)}")
+
+
 async def setup_env_machine_scheduler() -> bool:
     """
     设置执行机定时任务
 
     - 注册离线检测周期任务
+    - 注册队列清理周期任务
 
     Returns:
         bool: 是否设置成功
@@ -310,22 +379,36 @@ async def setup_env_machine_scheduler() -> bool:
     logger.info(f"调度器获取成功: {scheduler}")
 
     try:
-        job_id = EnvMachineScheduler.OFFLINE_CHECK_JOB_ID
+        # 注册离线检测任务
+        offline_job_id = EnvMachineScheduler.OFFLINE_CHECK_JOB_ID
+        logger.info(f"正在注册离线检测任务函数: {offline_job_id}")
+        await scheduler.configure_task(offline_job_id, func=_offline_check_job_wrapper)
+        logger.info(f"任务函数注册成功: {offline_job_id}")
 
-        # 注册任务函数
-        logger.info(f"正在注册任务函数: {job_id}")
-        await scheduler.configure_task(job_id, func=_offline_check_job_wrapper)
-        logger.info(f"任务函数注册成功: {job_id}")
-
-        # 添加周期调度（每 2 分钟执行一次）
-        logger.info(f"正在添加周期调度，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
+        # 添加离线检测周期调度（每 2 分钟执行一次）
+        logger.info(f"正在添加离线检测周期调度，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
         await scheduler.add_schedule(
-            func_or_task_id=job_id,
+            func_or_task_id=offline_job_id,
             trigger=IntervalTrigger(minutes=EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES),
-            id=job_id,
+            id=offline_job_id,
         )
-
         logger.info(f"离线检测任务已启动，间隔: {EnvMachineScheduler.OFFLINE_CHECK_INTERVAL_MINUTES} 分钟")
+
+        # 注册队列清理任务
+        cleanup_job_id = EnvMachineScheduler.QUEUE_CLEANUP_JOB_ID
+        logger.info(f"正在注册队列清理任务函数: {cleanup_job_id}")
+        await scheduler.configure_task(cleanup_job_id, func=_queue_cleanup_job_wrapper)
+        logger.info(f"任务函数注册成功: {cleanup_job_id}")
+
+        # 添加队列清理周期调度（每 24 小时执行一次）
+        logger.info(f"正在添加队列清理周期调度，间隔: {EnvMachineScheduler.QUEUE_CLEANUP_INTERVAL_HOURS} 小时")
+        await scheduler.add_schedule(
+            func_or_task_id=cleanup_job_id,
+            trigger=IntervalTrigger(hours=EnvMachineScheduler.QUEUE_CLEANUP_INTERVAL_HOURS),
+            id=cleanup_job_id,
+        )
+        logger.info(f"队列清理任务已启动，间隔: {EnvMachineScheduler.QUEUE_CLEANUP_INTERVAL_HOURS} 小时")
+
         return True
     except Exception as e:
         logger.error(f"设置执行机定时任务失败: {str(e)}", exc_info=True)
