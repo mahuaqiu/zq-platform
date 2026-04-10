@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
+@Author: 臧成龙
+@Contact: 939589097@qq.com
 @Time: 2026-04-10
 @File: upgrade_schema.py
 @Desc: Worker 升级管理 Schema
@@ -8,7 +10,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class UpgradeConfigResponse(BaseModel):
@@ -19,7 +21,7 @@ class UpgradeConfigResponse(BaseModel):
     download_url: str = Field(..., description="下载地址")
     note: Optional[str] = Field(None, description="备注")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UpgradeConfigUpdateRequest(BaseModel):
@@ -75,7 +77,7 @@ class UpgradeQueueItem(BaseModel):
     status: str = Field(..., description="状态")
     created_at: Optional[datetime] = Field(None, description="入队时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UpgradePreviewResponse(BaseModel):
