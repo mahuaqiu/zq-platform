@@ -43,13 +43,13 @@ const configLoading = ref(false);
 
 // 批量升级筛选
 const filterForm = ref({
-  namespace: '',
-  device_type: '',
+  namespace: 'all',
+  device_type: 'all',
 });
 
 // Namespace 选项
 const NAMESPACE_OPTIONS = [
-  { label: '全部', value: '' },
+  { label: '全部', value: 'all' },
   { label: '集成验证 (meeting_gamma)', value: 'meeting_gamma' },
   { label: 'APP (meeting_app)', value: 'meeting_app' },
   { label: '音视频 (meeting_av)', value: 'meeting_av' },
@@ -58,7 +58,7 @@ const NAMESPACE_OPTIONS = [
 
 // 设备类型选项（含全部）
 const DEVICE_TYPE_FILTER_OPTIONS = [
-  { label: '全部', value: '' },
+  { label: '全部', value: 'all' },
   { label: 'Windows', value: 'windows' },
   { label: 'Mac', value: 'mac' },
 ];
@@ -130,8 +130,8 @@ async function loadPreview() {
   previewLoading.value = true;
   try {
     const data = await getUpgradePreviewApi(
-      filterForm.value.namespace || undefined,
-      filterForm.value.device_type || undefined
+      filterForm.value.namespace === 'all' ? undefined : filterForm.value.namespace,
+      filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type
     );
     previewData.value = data;
     selectedMachineIds.value = [];
@@ -322,7 +322,7 @@ onMounted(async () => {
             </ElFormItem>
             <ElFormItem>
               <ElButton type="primary" @click="loadPreview">查询预览</ElButton>
-              <ElButton @click="filterForm = { namespace: '', device_type: '' }; loadPreview()">重置</ElButton>
+              <ElButton @click="filterForm = { namespace: 'all', device_type: 'all' }; loadPreview()">重置</ElButton>
             </ElFormItem>
           </ElForm>
         </div>
