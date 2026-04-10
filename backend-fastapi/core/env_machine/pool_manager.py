@@ -513,6 +513,10 @@ class EnvPoolManager:
             if not machine_data.get("available"):
                 continue
 
+            # 排除 upgrading 状态的机器（升级中不可申请）
+            if machine_data.get("status") == "upgrading":
+                continue
+
             # 检查标签匹配
             if not cls._match_tag(machine_data.get("mark"), request_tag):
                 continue
@@ -593,6 +597,33 @@ class EnvPoolManager:
         # 如果 available=true，重新加入缓存
         if machine.available and machine.namespace != cls.MANUAL_NAMESPACE:
             await cls.sync_machine_to_cache(machine)
+
+        # 检查升级队列，触发延迟升级
+        from core.env_machine.upgrade_service import (
+            WorkerUpgradeConfigService,
+            WorkerUpgradeQueueService,
+            send_upgrade_to_worker,
+        )
+
+        queue_item = await WorkerUpgradeQueueService.get_waiting_by_machine_id(db, machine_id)
+        if queue_item:
+            # 获取版本配置
+            config = await WorkerUpgradeConfigService.get_by_device_type(db, queue_item.device_type)
+            if config:
+                # 重新获取机器对象（状态已更新为 online）
+                from core.env_machine.service import EnvMachineService
+                machine = await EnvMachineService.get_by_id(db, machine_id)
+                success, message = await send_upgrade_to_worker(machine, config.version, config.download_url)
+                if success:
+                    # 更新状态为 upgrading
+                    machine.status = "upgrading"
+                    # 从缓存移除（不可申请）
+                    await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
+                    # 更新队列状态
+                    await WorkerUpgradeQueueService.mark_completed(db, queue_item.id)
+                    logger.info(f"释放后触发升级: machine_id={machine_id}")
+                else:
+                    logger.warning(f"释放后升级失败: machine_id={machine_id}, reason={message}")
 
         return True, ""
 
