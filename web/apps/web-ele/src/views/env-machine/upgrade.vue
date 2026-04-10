@@ -410,22 +410,26 @@ onMounted(async () => {
               stripe
               class="preview-table"
             >
-              <ElTableColumn width="80">
+              <ElTableColumn :width="100" label="选择">
                 <template #header>
                   <div class="select-header">
-                    <ElCheckbox
-                      :model-value="isAllSelected"
-                      :indeterminate="isIndeterminate"
-                      @change="handleSelectAllChange"
+                    <input
+                      type="checkbox"
+                      class="native-checkbox"
+                      :checked="isAllSelected"
+                      :indeterminate.prop="isIndeterminate"
+                      @change="handleSelectAllChange($event.target.checked)"
                     />
                     <span class="select-label">全选</span>
                   </div>
                 </template>
                 <template #default="{ row }">
-                  <ElCheckbox
+                  <input
                     v-if="isSelectable(row.upgrade_status)"
-                    :model-value="selectedMachineIds.includes(row.id)"
-                    @change="(val: boolean) => handleCheckboxChange(row.id, val)"
+                    type="checkbox"
+                    class="native-checkbox"
+                    :checked="selectedMachineIds.includes(row.id)"
+                    @change="handleCheckboxChange(row.id, $event.target.checked)"
                   />
                 </template>
               </ElTableColumn>
@@ -742,11 +746,20 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
+}
+
+.native-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #1890ff;
 }
 
 .select-label {
   font-size: 12px;
   color: #1890ff;
+  font-weight: 500;
 }
 
 .ip-code {
