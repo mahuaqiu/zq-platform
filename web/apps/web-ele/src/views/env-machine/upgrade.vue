@@ -323,7 +323,7 @@ onMounted(async () => {
       <!-- 版本配置区 -->
       <div class="config-card">
         <div class="card-header">
-          <span class="card-title">版本配置</span>
+          <span class="card-title">📦 版本配置</span>
         </div>
         <div class="card-body">
           <div class="config-row">
@@ -373,7 +373,7 @@ onMounted(async () => {
       <!-- 批量升级区 -->
       <div class="upgrade-card">
         <div class="card-header">
-          <span class="card-title">批量升级</span>
+          <span class="card-title">🚀 批量升级</span>
         </div>
         <div class="card-body">
           <!-- 筛选条件 -->
@@ -480,7 +480,7 @@ onMounted(async () => {
       <!-- 升级队列区 -->
       <div class="queue-card">
         <div class="card-header card-header-flex">
-          <span class="card-title">升级队列</span>
+          <span class="card-title">📋 升级队列</span>
           <span class="queue-badge">等待: {{ queueData.total }}台</span>
         </div>
         <div class="card-body">
@@ -540,6 +540,8 @@ onMounted(async () => {
   background: #f5f5f5;
   padding: 20px;
   min-height: 100%;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* 卡片通用样式 */
@@ -620,6 +622,11 @@ onMounted(async () => {
   margin-bottom: 4px;
 }
 
+/* Element Plus Input 统一字体 */
+.config-field :deep(.el-input__inner) {
+  font-size: 13px;
+}
+
 .save-btn {
   width: 100%;
   margin-top: 8px;
@@ -645,6 +652,11 @@ onMounted(async () => {
   font-size: 12px;
   color: #666;
   margin-right: 8px;
+}
+
+/* Element Plus Select 统一字体 */
+.filter-item :deep(.el-input__inner) {
+  font-size: 13px;
 }
 
 /* 统计信息 */
