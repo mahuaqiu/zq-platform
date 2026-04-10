@@ -90,6 +90,7 @@ class EnvMachine(BaseModel):
         "online": "在线",
         "using": "使用中",
         "offline": "离线",
+        "upgrading": "升级中",
     }
 
     def get_status_display(self) -> str:
