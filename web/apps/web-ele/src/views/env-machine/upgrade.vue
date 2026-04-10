@@ -880,6 +880,13 @@ onMounted(async () => {
 .upgrade-confirm-dialog {
   border-radius: 12px !important;
   overflow: hidden !important;
+  background: transparent !important;
+}
+
+.upgrade-confirm-dialog :deep(.el-dialog) {
+  background: transparent !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
 }
 
 .upgrade-confirm-dialog :deep(.el-dialog__header) {
@@ -906,11 +913,11 @@ onMounted(async () => {
 .upgrade-confirm-dialog :deep(.el-dialog__body) {
   padding: 0 !important;
   overflow: hidden !important;
+  background: transparent !important;
 }
 
 .upgrade-confirm-dialog :deep(.el-dialog__footer) {
   padding: 0 !important;
-  background: #fafafa !important;
 }
 
 /* 弹窗头部 */
@@ -1004,6 +1011,7 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  background: #fafafa;
 }
 
 .btn-cancel {
