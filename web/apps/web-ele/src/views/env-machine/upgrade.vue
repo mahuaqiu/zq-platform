@@ -702,29 +702,40 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-/* 表头样式 */
+/* 表头样式 - 强制覆盖 */
 .preview-table :deep(th.el-table__cell),
-.queue-table :deep(th.el-table__cell) {
+.queue-table :deep(th.el-table__cell),
+.preview-table :deep(.el-table__header th),
+.queue-table :deep(.el-table__header th) {
   background: #fafafa !important;
   padding: 10px !important;
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #000 !important;
   border-bottom: 1px solid #e8e8e8 !important;
+  border-right: 1px solid #e8e8e8 !important;
 }
 
 /* 表格单元格样式 */
 .preview-table :deep(td.el-table__cell),
 .queue-table :deep(td.el-table__cell) {
   padding: 10px !important;
-  font-size: 13px;
-  color: #333;
+  font-size: 13px !important;
+  color: #333 !important;
+  font-weight: 400 !important;
+  border-right: 1px solid #e8e8e8 !important;
 }
 
 /* 斑马纹交替背景 */
 .preview-table :deep(.el-table__row--striped td.el-table__cell),
 .queue-table :deep(.el-table__row--striped td.el-table__cell) {
   background: #fafafa !important;
+}
+
+/* 鼠标悬停样式 */
+.preview-table :deep(.el-table__row:hover td.el-table__cell),
+.queue-table :deep(.el-table__row:hover td.el-table__cell) {
+  background: #f5f5f5 !important;
 }
 
 .select-header {
