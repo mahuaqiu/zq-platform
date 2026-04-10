@@ -524,7 +524,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 硠认弹窗 -->
+
+      <!-- 确认弹窗 -->
       <ElDialog
         v-model="confirmDialogVisible"
         width="420px"
@@ -532,40 +533,41 @@ onMounted(async () => {
         :show-title="false"
         :close-on-click-modal="false"
       >
-        <!-- 头部 -->
-        <div class="dialog-header">
-          <div class="dialog-icon">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-            </svg>
-          </div>
-          <div class="dialog-title">确认批量升级</div>
-        </div>
-
-        <!-- 内容 -->
-        <div class="dialog-body">
-          <p class="dialog-desc">即将对选中的设备执行升级操作，升级过程中设备将暂时不可用。</p>
-
-          <div class="count-card">
-            <div class="count-number">{{ selectedMachineIds.length }}</div>
-            <div class="count-label">台机器待升级</div>
+        <!-- 弹窗包装容器 -->
+        <div class="dialog-box">
+          <!-- 头部 -->
+          <div class="dialog-header">
+            <div class="dialog-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </div>
+            <div class="dialog-title">确认批量升级</div>
           </div>
 
-          <div class="warning-box">
-            <svg class="warning-icon" viewBox="0 0 24 24" width="20" height="20">
-              <path fill="#fa8c16" d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
-            </svg>
-            <span class="warning-text">升级期间机器将暂停服务，请确保不影响正在进行的任务</span>
-          </div>
-        </div>
+          <!-- 内容 -->
+          <div class="dialog-body">
+            <p class="dialog-desc">即将对选中的设备执行升级操作，升级过程中设备将暂时不可用。</p>
 
-        <!-- 底部 -->
-        <template #footer>
+            <div class="count-card">
+              <div class="count-number">{{ selectedMachineIds.length }}</div>
+              <div class="count-label">台机器待升级</div>
+            </div>
+
+            <div class="warning-box">
+              <svg class="warning-icon" viewBox="0 0 24 24" width="20" height="20">
+                <path fill="#fa8c16" d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+              </svg>
+              <span class="warning-text">升级期间机器将暂停服务，请确保不影响正在进行的任务</span>
+            </div>
+          </div>
+
+          <!-- 底部 -->
           <div class="dialog-footer">
             <ElButton class="btn-cancel" @click="confirmDialogVisible = false">取消</ElButton>
             <ElButton class="btn-confirm" :loading="upgradeLoading" @click="executeBatchUpgrade">确认升级</ElButton>
           </div>
-        </template>
+        </div>
       </ElDialog>
     </div>
   </Page>
@@ -918,6 +920,14 @@ onMounted(async () => {
 
 .upgrade-confirm-dialog :deep(.el-dialog__footer) {
   padding: 0 !important;
+}
+
+/* 弹窗包装容器 - 控制整体样式 */
+.dialog-box {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
 /* 弹窗头部 */
