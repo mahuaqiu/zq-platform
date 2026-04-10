@@ -524,14 +524,24 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 确认弹窗 -->
-      <ElDialog v-model="confirmDialogVisible" title="确认批量升级" width="400px">
-        <p>即将升级选中的机器：</p>
-        <p class="confirm-info">已选中 {{ selectedMachineIds.length }} 台机器</p>
-        <p class="confirm-warning">升级期间机器将不可用，请确认操作。</p>
+      <!-- 认弹窗 -->
+      <ElDialog
+        v-model="confirmDialogVisible"
+        title="确认批量升级"
+        width="400px"
+        class="upgrade-confirm-dialog"
+        :close-on-click-modal="false"
+      >
+        <div class="dialog-content">
+          <p class="dialog-desc">即将升级选中的机器：</p>
+          <p class="dialog-info">已选中 <strong>{{ selectedMachineIds.length }}</strong> 台机器</p>
+          <p class="dialog-warning">升级期间机器将不可用，请确认操作。</p>
+        </div>
         <template #footer>
-          <ElButton @click="confirmDialogVisible = false">取消</ElButton>
-          <ElButton type="primary" :loading="upgradeLoading" @click="executeBatchUpgrade">确认升级</ElButton>
+          <div class="dialog-footer">
+            <ElButton class="dialog-cancel-btn" @click="confirmDialogVisible = false">取消</ElButton>
+            <ElButton type="primary" class="dialog-confirm-btn" :loading="upgradeLoading" @click="executeBatchUpgrade">确认升级</ElButton>
+          </div>
         </template>
       </ElDialog>
     </div>
@@ -843,14 +853,78 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
-/* 确认弹窗 */
-.confirm-info {
-  font-size: 14px;
-  color: #1890ff;
+/* 确认弹窗样式 */
+.dialog-content {
+  padding: 8px 0;
 }
 
-.confirm-warning {
+.dialog-desc {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.dialog-info {
+  font-size: 14px;
+  color: #1890ff;
+  margin-bottom: 12px;
+}
+
+.dialog-info strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dialog-warning {
   font-size: 13px;
   color: #faad14;
+  background: #fffbe6;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ffe58f;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.dialog-cancel-btn {
+  background: #fff;
+  color: #333;
+  border: 1px solid #d9d9d9;
+}
+
+.dialog-confirm-btn {
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+}
+</style>
+
+<style>
+/* 确认弹窗全局样式（覆盖 Element Plus） */
+.upgrade-confirm-dialog {
+  border-radius: 8px !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__header {
+  padding: 16px 20px 10px !important;
+  border-bottom: 1px solid #eee !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__title {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: #333 !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__body {
+  padding: 20px !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__footer {
+  padding: 12px 20px 16px !important;
+  border-top: 1px solid #eee !important;
 }
 </style>
