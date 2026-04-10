@@ -74,8 +74,7 @@ const upgradeLoading = ref(false);
 const selectableMachines = computed(() => {
   if (!previewData.value) return [];
   return previewData.value.machines.filter(m =>
-    m.upgrade_status === '待升级' || m.upgrade_status === '待队列' ||
-    m.upgrade_status === 'upgradable' || m.upgrade_status === 'waiting'
+    m.upgrade_status === '待升级' || m.upgrade_status === '待队列'
   );
 });
 
@@ -193,8 +192,8 @@ function handleCheckboxChange(machineId: string, checked: boolean) {
 
 // 判断是否可选（待升级或待队列）
 function isSelectable(upgradeStatus: string): boolean {
-  return upgradeStatus === '待升级' || upgradeStatus === '待队列' ||
-         upgradeStatus === 'upgradable' || upgradeStatus === 'waiting';
+  // 支持中文状态
+  return upgradeStatus === '待升级' || upgradeStatus === '待队列';
 }
 
 // 打开确认弹窗
@@ -425,10 +424,10 @@ onMounted(async () => {
                 </template>
                 <template #default="{ row }">
                   <input
-                    v-if="isSelectable(row.upgrade_status)"
                     type="checkbox"
                     class="native-checkbox"
                     :checked="selectedMachineIds.includes(row.id)"
+                    :disabled="!isSelectable(row.upgrade_status)"
                     @change="handleCheckboxChange(row.id, $event.target.checked)"
                   />
                 </template>
@@ -445,7 +444,7 @@ onMounted(async () => {
               </ElTableColumn>
               <ElTableColumn prop="version" label="当前版本" min-width="120">
                 <template #default="{ row }">
-                  <span :class="{'version-old': row.upgrade_status === '待升级' || row.upgrade_status === 'upgradable'}">
+                  <span :class="{'version-old': row.upgrade_status === '待升级'}">
                     {{ row.version || '-' }}
                   </span>
                 </template>
@@ -754,6 +753,11 @@ onMounted(async () => {
   height: 14px;
   cursor: pointer;
   accent-color: #1890ff;
+}
+
+.native-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .select-label {
