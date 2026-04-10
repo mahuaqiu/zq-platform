@@ -1,0 +1,197 @@
+<h2>Worker 升级管理页面设计</h2>
+<p class="subtitle">设备管理模块新增升级管理功能</p>
+
+<div class="mockup">
+  <div class="mockup-header">升级管理页面 - 整体布局</div>
+  <div class="mockup-body" style="background: #f5f5f5; padding: 20px;">
+
+    <!-- 版本配置区 -->
+    <div style="background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid #e8e8e8;">
+      <div style="font-size: 14px; color: #333; font-weight: 500; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+        📦 版本配置
+      </div>
+      <div style="display: flex; gap: 24px;">
+        <!-- Windows 配置卡片 -->
+        <div style="flex: 1; background: #fafafa; border-radius: 6px; padding: 12px; border: 1px solid #d9d9d9;">
+          <div style="font-size: 13px; color: #1890ff; font-weight: 500; margin-bottom: 8px;">
+            <span style="background: #1890ff; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Windows</span>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">目标版本</label>
+            <input class="mock-input" value="20260410150000" style="width: 100%;">
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">下载地址</label>
+            <input class="mock-input" value="http://192.168.0.102:8000/downloads/win-worker.exe" style="width: 100%;">
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">备注</label>
+            <input class="mock-input" value="v2.1.0 正式版" style="width: 100%;">
+          </div>
+          <button class="mock-button" style="background: #52c41a; color: #fff; width: 100%;">保存配置</button>
+        </div>
+
+        <!-- Mac 配置卡片 -->
+        <div style="flex: 1; background: #fafafa; border-radius: 6px; padding: 12px; border: 1px solid #d9d9d9;">
+          <div style="font-size: 13px; color: #722ed1; font-weight: 500; margin-bottom: 8px;">
+            <span style="background: #722ed1; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Mac</span>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">目标版本</label>
+            <input class="mock-input" value="20260410150000" style="width: 100%;">
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">下载地址</label>
+            <input class="mock-input" value="http://192.168.0.102:8000/downloads/mac-worker.dmg" style="width: 100%;">
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">备注</label>
+            <input class="mock-input" value="v2.1.0 正式版" style="width: 100%;">
+          </div>
+          <button class="mock-button" style="background: #52c41a; color: #fff; width: 100%;">保存配置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 批量升级区 -->
+    <div style="background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid #e8e8e8;">
+      <div style="font-size: 14px; color: #333; font-weight: 500; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+        🚀 批量升级
+      </div>
+
+      <!-- 筛选条件 -->
+      <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px; padding: 12px; background: #fafafa; border-radius: 4px;">
+        <div>
+          <label style="font-size: 12px; color: #666; margin-right: 8px;">Namespace:</label>
+          <select class="mock-input" style="width: 150px;">
+            <option>meeting_gamma</option>
+            <option>meeting_app</option>
+            <option>meeting_av</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: #666; margin-right: 8px;">设备类型:</label>
+          <select class="mock-input" style="width: 120px;">
+            <option>全部</option>
+            <option>Windows</option>
+            <option>Mac</option>
+          </select>
+        </div>
+        <button class="mock-button" style="background: #1890ff; color: #fff;">查询预览</button>
+      </div>
+
+      <!-- 统计信息 -->
+      <div style="display: flex; gap: 16px; margin-bottom: 12px; padding: 8px 12px; background: #e6f7ff; border-radius: 4px; border: 1px solid #91d5ff;">
+        <span style="font-size: 13px; color: #1890ff;"><strong>可升级:</strong> 5台</span>
+        <span style="font-size: 13px; color: #faad14;"><strong>使用中(待队列):</strong> 2台</span>
+        <span style="font-size: 13px; color: #52c41a;"><strong>已最新:</strong> 3台</span>
+        <span style="font-size: 13px; color: #ff4d4f;"><strong>离线:</strong> 1台</span>
+      </div>
+
+      <!-- 机器列表预览 -->
+      <div style="border: 1px solid #e8e8e8; border-radius: 4px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead style="background: #fafafa;">
+            <tr>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left; width: 40px;">
+                <input type="checkbox" checked>
+              </th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">IP地址</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">设备类型</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">当前版本</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">状态</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">升级状态</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><input type="checkbox" checked></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">10.173.94.49</code></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">Windows</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #ff4d4f;">20260405120000</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #52c41a;">在线</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><span style="background: #fff7e6; color: #faad14; padding: 2px 6px; border-radius: 4px; font-size: 12px;">待升级</span></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><a style="color: #1890ff;">立即升级</a></td>
+            </tr>
+            <tr style="background: #fafafa;">
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><input type="checkbox" checked></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">10.173.94.50</code></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">Windows</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #52c41a;">20260410150000</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #52c41a;">在线</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><span style="background: #f6ffed; color: #52c41a; padding: 2px 6px; border-radius: 4px; font-size: 12px;">已最新</span></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #999;">-</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><input type="checkbox" checked></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">10.173.94.51</code></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">Mac</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #ff4d4f;">20260405120000</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #e6a23c;">使用中</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><span style="background: #f9f0ff; color: #722ed1; padding: 2px 6px; border-radius: 4px; font-size: 12px;">待队列</span></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #999;">释放后升级</td>
+            </tr>
+            <tr style="background: #fafafa;">
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><input type="checkbox"></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">10.173.94.52</code></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">Windows</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">-</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #ff4d4f;">离线</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><span style="background: #fff1f0; color: #ff4d4f; padding: 2px 6px; border-radius: 4px; font-size: 12px;">离线</span></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8; color: #999;">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div style="display: flex; gap: 12px; margin-top: 12px;">
+        <button class="mock-button" style="background: #1890ff; color: #fff; padding: 8px 16px;">
+          批量升级选中的机器 (5台)
+        </button>
+        <button class="mock-button" style="background: #fff; color: #333; border: 1px solid #d9d9d9; padding: 8px 16px;">
+          重置筛选
+        </button>
+      </div>
+    </div>
+
+    <!-- 升级队列区（可折叠） -->
+    <div style="background: #fff; border-radius: 8px; padding: 16px; border: 1px solid #e8e8e8;">
+      <div style="font-size: 14px; color: #333; font-weight: 500; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <span>📋 升级队列</span>
+        <span style="background: #722ed1; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 12px;">等待: 2台</span>
+      </div>
+
+      <div style="border: 1px solid #e8e8e8; border-radius: 4px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead style="background: #fafafa;">
+            <tr>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">IP地址</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">设备类型</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">目标版本</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">入队时间</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">状态</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e8e8e8; text-align: left;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">10.173.94.51</code></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">Mac</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">20260410150000</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;">2026-04-10 14:30</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><span style="background: #f9f0ff; color: #722ed1; padding: 2px 6px; border-radius: 4px; font-size: 12px;">waiting</span></td>
+              <td style="padding: 10px; border-bottom: 1px solid #e8e8e8;"><a style="color: #ff4d4f;">移除队列</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top: 16px;">
+  请查看页面布局设计，确认是否符合预期。如有调整需求请在终端反馈。
+</p>

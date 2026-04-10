@@ -878,10 +878,8 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
-/* 确认弹窗全局样式 */
-.upgrade-confirm-dialog {
-  border-radius: 12px !important;
-  overflow: hidden !important;
+/* 确认弹窗全局样式 - 完全透明化外层 */
+.upgrade-confirm-dialog :deep(.el-overlay-dialog) {
   background: transparent !important;
 }
 
@@ -889,12 +887,19 @@ onMounted(async () => {
   background: transparent !important;
   border-radius: 12px !important;
   overflow: hidden !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
 }
 
 .upgrade-confirm-dialog :deep(.el-dialog__header) {
   padding: 0 !important;
   margin: 0 !important;
-  display: none !important;
+  height: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  border: none !important;
 }
 
 .upgrade-confirm-dialog :deep(.el-dialog__headerbtn) {
@@ -916,10 +921,12 @@ onMounted(async () => {
   padding: 0 !important;
   overflow: hidden !important;
   background: transparent !important;
+  border: none !important;
 }
 
 .upgrade-confirm-dialog :deep(.el-dialog__footer) {
   padding: 0 !important;
+  border: none !important;
 }
 
 /* 弹窗包装容器 - 控制整体样式 */
