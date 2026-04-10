@@ -524,23 +524,48 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 认弹窗 -->
+      <!-- 砠认弹窗 -->
       <ElDialog
         v-model="confirmDialogVisible"
-        title="确认批量升级"
-        width="400px"
+        width="420px"
         class="upgrade-confirm-dialog"
+        :show-title="false"
         :close-on-click-modal="false"
       >
-        <div class="dialog-content">
-          <p class="dialog-desc">即将升级选中的机器：</p>
-          <p class="dialog-info">已选中 <strong>{{ selectedMachineIds.length }}</strong> 台机器</p>
-          <p class="dialog-warning">升级期间机器将不可用，请确认操作。</p>
+        <!-- 自定义头部 -->
+        <template #header>
+          <div class="dialog-header">
+            <div class="dialog-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </div>
+            <div class="dialog-title">确认批量升级</div>
+          </div>
+        </template>
+
+        <!-- 内容 -->
+        <div class="dialog-body">
+          <p class="dialog-desc">即将对选中的设备执行升级操作，升级过程中设备将暂时不可用。</p>
+
+          <div class="count-card">
+            <div class="count-number">{{ selectedMachineIds.length }}</div>
+            <div class="count-label">台机器待升级</div>
+          </div>
+
+          <div class="warning-box">
+            <svg class="warning-icon" viewBox="0 0 24 24" width="20" height="20">
+              <path fill="#fa8c16" d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+            </svg>
+            <span class="warning-text">升级期间机器将暂停服务，请确保不影响正在进行的任务</span>
+          </div>
         </div>
+
+        <!-- 底部 -->
         <template #footer>
           <div class="dialog-footer">
-            <ElButton class="dialog-cancel-btn" @click="confirmDialogVisible = false">取消</ElButton>
-            <ElButton type="primary" class="dialog-confirm-btn" :loading="upgradeLoading" @click="executeBatchUpgrade">确认升级</ElButton>
+            <ElButton class="btn-cancel" @click="confirmDialogVisible = false">取消</ElButton>
+            <ElButton class="btn-confirm" :loading="upgradeLoading" @click="executeBatchUpgrade">确认升级</ElButton>
           </div>
         </template>
       </ElDialog>
@@ -852,79 +877,168 @@ onMounted(async () => {
 .remove-link:hover {
   text-decoration: underline;
 }
+</style>
 
-/* 确认弹窗样式 */
-.dialog-content {
-  padding: 8px 0;
+<style>
+/* 砠认弹窗全局样式 */
+.upgrade-confirm-dialog {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__headerbtn {
+  top: 20px !important;
+  right: 20px !important;
+  width: 24px !important;
+  height: 24px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 50% !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: #fff !important;
+  font-size: 16px !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+
+.upgrade-confirm-dialog .el-dialog__footer {
+  padding: 0 !important;
+  background: #fafafa !important;
+}
+</style>
+
+<style scoped>
+/* 弹窗头部 */
+.dialog-header {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  padding: 24px 24px 20px;
+  position: relative;
+}
+
+.dialog-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.dialog-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* 弹窗内容 */
+.dialog-body {
+  padding: 24px;
 }
 
 .dialog-desc {
   font-size: 14px;
-  color: #333;
-  margin-bottom: 12px;
+  color: #595959;
+  margin-bottom: 16px;
+  line-height: 1.6;
 }
 
-.dialog-info {
+/* 数量卡片 */
+.count-card {
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #91d5ff;
+}
+
+.count-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1890ff;
+  font-family: 'SF Pro Display', 'Segoe UI', sans-serif;
+  letter-spacing: -1px;
+}
+
+.count-label {
   font-size: 14px;
   color: #1890ff;
-  margin-bottom: 12px;
+  font-weight: 500;
 }
 
-.dialog-info strong {
-  font-size: 16px;
-  font-weight: 600;
+/* 警告提示 */
+.warning-box {
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.dialog-warning {
+.warning-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.warning-text {
   font-size: 13px;
-  color: #faad14;
-  background: #fffbe6;
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #ffe58f;
+  color: #d48806;
+  line-height: 1.5;
 }
 
+/* 弹窗底部 */
 .dialog-footer {
+  padding: 16px 24px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 }
 
-.dialog-cancel-btn {
+.btn-cancel {
+  padding: 10px 24px;
+  font-size: 14px;
+  color: #595959;
   background: #fff;
-  color: #333;
   border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
-.dialog-confirm-btn {
-  background: #1890ff !important;
-  border-color: #1890ff !important;
-}
-</style>
-
-<style>
-/* 确认弹窗全局样式（覆盖 Element Plus） */
-.upgrade-confirm-dialog {
-  border-radius: 8px !important;
+.btn-cancel:hover {
+  color: #1890ff;
+  border-color: #1890ff;
+  background: #fff;
 }
 
-.upgrade-confirm-dialog .el-dialog__header {
-  padding: 16px 20px 10px !important;
-  border-bottom: 1px solid #eee !important;
+.btn-confirm {
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff !important;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
+  border: none !important;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+  transition: all 0.2s;
 }
 
-.upgrade-confirm-dialog .el-dialog__title {
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  color: #333 !important;
+.btn-confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
 }
-
-.upgrade-confirm-dialog .el-dialog__body {
-  padding: 20px !important;
-}
-
-.upgrade-confirm-dialog .el-dialog__footer {
-  padding: 12px 20px 16px !important;
-  border-top: 1px solid #eee !important;
-}
-</style>
