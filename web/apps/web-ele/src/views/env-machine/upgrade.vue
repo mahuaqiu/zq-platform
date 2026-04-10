@@ -485,7 +485,7 @@ onMounted(async () => {
         </div>
         <div class="card-body">
           <div class="table-wrapper">
-            <ElTable :data="queueData.items" v-loading="queueLoading" border stripe>
+            <ElTable :data="queueData.items" v-loading="queueLoading" border stripe class="queue-table">
               <ElTableColumn prop="ip" label="IP地址" min-width="140">
                 <template #default="{ row }">
                   <code class="ip-code">{{ row.ip }}</code>
@@ -685,11 +685,34 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-.preview-table {
-  --el-table-border-color: #e8e8e8;
-  --el-table-header-bg-color: #fafafa;
-  --el-table-tr-bg-color: #fff;
-  --el-table-row-hover-bg-color: #fafafa;
+.preview-table,
+.queue-table {
+  font-size: 13px;
+}
+
+/* 表头样式 */
+.preview-table :deep(th.el-table__cell),
+.queue-table :deep(th.el-table__cell) {
+  background: #fafafa !important;
+  padding: 10px !important;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 表格单元格样式 */
+.preview-table :deep(td.el-table__cell),
+.queue-table :deep(td.el-table__cell) {
+  padding: 10px !important;
+  font-size: 13px;
+  color: #333;
+}
+
+/* 斑马纹交替背景 */
+.preview-table :deep(.el-table__row--striped td.el-table__cell),
+.queue-table :deep(.el-table__row--striped td.el-table__cell) {
+  background: #fafafa !important;
 }
 
 .select-header {
@@ -707,7 +730,8 @@ onMounted(async () => {
   background: #f5f5f5;
   padding: 2px 4px;
   border-radius: 2px;
-  font-family: monospace;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
 }
 
 /* 状态颜色 */
