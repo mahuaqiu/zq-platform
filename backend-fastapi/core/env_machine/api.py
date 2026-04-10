@@ -467,3 +467,8 @@ async def get_dashboard_stats(
         top10_insufficient=top10_insufficient,
         offline_machines=offline_machines
     )
+
+
+# 注册升级管理路由
+from core.env_machine.upgrade_api import router as upgrade_router
+router.include_router(upgrade_router)
