@@ -311,12 +311,12 @@ onMounted(async () => {
         <div class="filter-row">
           <ElForm inline>
             <ElFormItem label="设备类别">
-              <ElSelect v-model="filterForm.namespace" placeholder="请选择" style="width: 180px">
+              <ElSelect v-model="filterForm.namespace" style="width: 180px">
                 <ElOption v-for="opt in NAMESPACE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
               </ElSelect>
             </ElFormItem>
             <ElFormItem label="设备类型">
-              <ElSelect v-model="filterForm.device_type" placeholder="请选择" style="width: 120px">
+              <ElSelect v-model="filterForm.device_type" style="width: 120px">
                 <ElOption v-for="opt in DEVICE_TYPE_FILTER_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
               </ElSelect>
             </ElFormItem>
