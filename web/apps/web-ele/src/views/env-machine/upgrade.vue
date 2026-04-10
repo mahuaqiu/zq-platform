@@ -633,6 +633,14 @@ onMounted(async () => {
 .save-btn {
   width: 100%;
   margin-top: 8px;
+  background: #52c41a !important;
+  border-color: #52c41a !important;
+  color: #fff !important;
+}
+
+.save-btn:hover {
+  background: #73d13d !important;
+  border-color: #73d13d !important;
 }
 
 /* 筛选条件 */
