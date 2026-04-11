@@ -39,6 +39,7 @@ const configLoading = ref(false);
 const filterForm = ref({
   namespace: 'all',
   device_type: 'all',
+  ip: '',
 });
 
 // Namespace 选项
@@ -146,7 +147,8 @@ async function loadPreview() {
   try {
     const data = await getUpgradePreviewApi(
       filterForm.value.namespace === 'all' ? undefined : filterForm.value.namespace,
-      filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type
+      filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type,
+      filterForm.value.ip || undefined
     );
     previewData.value = data;
     selectedMachineIds.value = [];
@@ -289,7 +291,7 @@ function getUpgradeStatusText(status: string): string {
 
 // 重置筛选
 function handleReset() {
-  filterForm.value = { namespace: 'all', device_type: 'all' };
+  filterForm.value = { namespace: 'all', device_type: 'all', ip: '' };
   loadPreview();
 }
 
@@ -388,6 +390,10 @@ onMounted(async () => {
               <ElSelect v-model="filterForm.device_type" style="width: 120px">
                 <ElOption v-for="opt in DEVICE_TYPE_FILTER_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
               </ElSelect>
+            </div>
+            <div class="filter-item">
+              <label class="filter-label">IP地址:</label>
+              <ElInput v-model="filterForm.ip" placeholder="输入IP模糊匹配" clearable style="width: 160px" />
             </div>
             <ElButton type="primary" @click="loadPreview">查询预览</ElButton>
           </div>
@@ -575,21 +581,21 @@ onMounted(async () => {
 
 <style scoped>
 .upgrade-page {
-  background: #f5f5f5;
-  padding: 20px;
   min-height: 100%;
-  font-size: 13px;
+  padding: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  background: #f5f5f5;
 }
 
 /* 卡片通用样式 */
 .config-card,
 .upgrade-card,
 .queue-card {
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #e8e8e8;
   margin-bottom: 16px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
 }
 
 .card-header {
@@ -599,15 +605,15 @@ onMounted(async () => {
 
 .card-header-flex {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding-bottom: 12px;
 }
 
 .card-title {
   font-size: 14px;
-  color: #333;
   font-weight: 500;
+  color: #333;
 }
 
 .card-body {
@@ -622,19 +628,19 @@ onMounted(async () => {
 
 .config-item {
   flex: 1;
-  background: #fafafa;
-  border-radius: 6px;
   padding: 12px;
+  background: #fafafa;
   border: 1px solid #d9d9d9;
+  border-radius: 6px;
 }
 
 .config-tag {
   display: inline-block;
   padding: 2px 6px;
-  border-radius: 4px;
+  margin-bottom: 8px;
   font-size: 11px;
   color: #fff;
-  margin-bottom: 8px;
+  border-radius: 4px;
 }
 
 .config-tag-windows {
@@ -654,10 +660,10 @@ onMounted(async () => {
 }
 
 .config-label {
-  font-size: 12px;
-  color: #666;
   display: block;
   margin-bottom: 4px;
+  font-size: 12px;
+  color: #666;
 }
 
 /* Element Plus Input 统一字体 */
@@ -668,9 +674,9 @@ onMounted(async () => {
 .save-btn {
   width: 100%;
   margin-top: 8px;
+  color: #fff !important;
   background: #52c41a !important;
   border-color: #52c41a !important;
-  color: #fff !important;
 }
 
 .save-btn:hover {
@@ -684,9 +690,9 @@ onMounted(async () => {
   gap: 16px;
   align-items: center;
   padding: 12px;
+  margin-bottom: 16px;
   background: #fafafa;
   border-radius: 4px;
-  margin-bottom: 16px;
 }
 
 .filter-item {
@@ -695,9 +701,9 @@ onMounted(async () => {
 }
 
 .filter-label {
+  margin-right: 8px;
   font-size: 12px;
   color: #666;
-  margin-right: 8px;
 }
 
 /* Element Plus Select 统一字体 */
@@ -710,10 +716,10 @@ onMounted(async () => {
   display: flex;
   gap: 16px;
   padding: 8px 12px;
-  background: #e6f7ff;
-  border-radius: 4px;
-  border: 1px solid #91d5ff;
   margin-bottom: 12px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
 }
 
 .stats-item {
@@ -738,9 +744,9 @@ onMounted(async () => {
 
 /* 表格 */
 .table-wrapper {
+  overflow: hidden;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
-  overflow: hidden;
 }
 
 .preview-table,
@@ -753,13 +759,13 @@ onMounted(async () => {
 .queue-table :deep(th.el-table__cell),
 .preview-table :deep(.el-table__header th),
 .queue-table :deep(.el-table__header th) {
-  background: #fafafa !important;
   padding: 10px !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   color: #000 !important;
-  border-bottom: 1px solid #e8e8e8 !important;
+  background: #fafafa !important;
   border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
 }
 
 /* 表格单元格样式 */
@@ -767,8 +773,8 @@ onMounted(async () => {
 .queue-table :deep(td.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
-  color: #333 !important;
   font-weight: 400 !important;
+  color: #333 !important;
   border-right: 1px solid #e8e8e8 !important;
 }
 
@@ -786,16 +792,16 @@ onMounted(async () => {
 
 .select-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   white-space: nowrap;
 }
 
 .native-checkbox {
   width: 14px;
   height: 14px;
-  cursor: pointer;
   accent-color: #1890ff;
+  cursor: pointer;
 }
 
 .native-checkbox:disabled {
@@ -805,16 +811,16 @@ onMounted(async () => {
 
 .select-label {
   font-size: 12px;
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
 }
 
 .ip-code {
-  background: #f5f5f5;
   padding: 2px 4px;
-  border-radius: 2px;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: Consolas, Monaco, monospace;
   font-size: 13px;
+  background: #f5f5f5;
+  border-radius: 2px;
 }
 
 /* 状态颜色 */
@@ -843,8 +849,8 @@ onMounted(async () => {
 .upgrade-status-tag {
   display: inline-block;
   padding: 2px 6px;
-  border-radius: 4px;
   font-size: 12px;
+  border-radius: 4px;
 }
 
 /* 操作按钮 */
@@ -855,18 +861,18 @@ onMounted(async () => {
 }
 
 .reset-btn {
-  background: #fff;
   color: #333;
+  background: #fff;
   border: 1px solid #d9d9d9;
 }
 
 /* 升级队列 */
 .queue-badge {
-  background: #722ed1;
-  color: #fff;
   padding: 2px 8px;
-  border-radius: 10px;
   font-size: 12px;
+  color: #fff;
+  background: #722ed1;
+  border-radius: 10px;
 }
 
 .remove-link {
@@ -885,34 +891,34 @@ onMounted(async () => {
 
 /* 弹窗包装容器 - 控制整体样式 */
 .dialog-box {
+  overflow: hidden;
   background: #fff;
   border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 15%);
 }
 
 /* 弹窗头部 */
 .dialog-header {
-  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
-  padding: 24px 24px 20px;
   position: relative;
+  padding: 24px 24px 20px;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
 }
 
 .dialog-icon {
-  width: 48px;
-  height: 48px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 48px;
+  height: 48px;
   margin-bottom: 12px;
+  background: rgb(255 255 255 / 15%);
+  border-radius: 50%;
 }
 
 .dialog-title {
-  color: #fff;
   font-size: 18px;
   font-weight: 600;
+  color: #fff;
   letter-spacing: 0.5px;
 }
 
@@ -922,47 +928,47 @@ onMounted(async () => {
 }
 
 .dialog-desc {
-  font-size: 14px;
-  color: #595959;
   margin-bottom: 16px;
+  font-size: 14px;
   line-height: 1.6;
+  color: #595959;
 }
 
 /* 数量卡片 */
 .count-card {
-  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
-  border-radius: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
   padding: 16px 20px;
   margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
   border: 1px solid #91d5ff;
+  border-radius: 10px;
 }
 
 .count-number {
+  font-family: 'SF Pro Display', 'Segoe UI', sans-serif;
   font-size: 32px;
   font-weight: 700;
   color: #1890ff;
-  font-family: 'SF Pro Display', 'Segoe UI', sans-serif;
   letter-spacing: -1px;
 }
 
 .count-label {
   font-size: 14px;
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
 }
 
 /* 警告提示 */
 .warning-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
   background: #fff7e6;
   border: 1px solid #ffd591;
   border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .warning-icon {
@@ -972,16 +978,16 @@ onMounted(async () => {
 
 .warning-text {
   font-size: 13px;
-  color: #d48806;
   line-height: 1.5;
+  color: #d48806;
 }
 
 /* 弹窗底部 */
 .dialog-footer {
-  padding: 16px 24px;
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 24px;
   background: #fafafa;
 }
 
@@ -997,8 +1003,8 @@ onMounted(async () => {
 
 .btn-cancel:hover {
   color: #1890ff;
-  border-color: #1890ff;
   background: #fff;
+  border-color: #1890ff;
 }
 
 .btn-confirm {
@@ -1009,14 +1015,14 @@ onMounted(async () => {
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
   border: none !important;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+  box-shadow: 0 2px 8px rgb(24 144 255 / 30%);
   transition: all 0.2s;
 }
 
 .btn-confirm:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
+  box-shadow: 0 4px 12px rgb(24 144 255 / 40%);
+  transform: translateY(-1px);
 }
 </style>
 
@@ -1024,11 +1030,11 @@ onMounted(async () => {
 <style>
 .el-dialog.upgrade-confirm-dialog {
   padding: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
   border: none !important;
   border-radius: 12px !important;
-  overflow: hidden !important;
   box-shadow: none !important;
-  background: transparent !important;
 }
 
 .el-dialog.upgrade-confirm-dialog .el-dialog__header {

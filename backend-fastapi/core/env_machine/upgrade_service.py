@@ -308,7 +308,7 @@ class UpgradeService:
         return response
 
     @staticmethod
-    async def get_preview(db: AsyncSession, namespace: Optional[str] = None, device_type: Optional[str] = None) -> dict:
+    async def get_preview(db: AsyncSession, namespace: Optional[str] = None, device_type: Optional[str] = None, ip: Optional[str] = None) -> dict:
         """获取升级预览"""
         configs = await WorkerUpgradeConfigService.get_all(db)
         config_map = {c.device_type: c for c in configs}
@@ -318,6 +318,8 @@ class UpgradeService:
             conditions.append(EnvMachine.namespace == namespace)
         if device_type:
             conditions.append(EnvMachine.device_type == device_type)
+        if ip:
+            conditions.append(EnvMachine.ip.contains(ip))
 
         result = await db.execute(select(EnvMachine).where(and_(*conditions)))
         machines = result.scalars().all()

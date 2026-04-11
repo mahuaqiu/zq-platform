@@ -345,10 +345,24 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* 搜索区域 */
+
+
+/* 响应式：小屏幕下统计卡片改为2列 */
+@media (max-width: 1200px) {
+  .scheduler-statistics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .scheduler-statistics {
+    grid-template-columns: 1fr;
+  }
+}
+
 .scheduler-search-area {
-  margin-bottom: 16px;
   padding: 16px;
+  margin-bottom: 16px;
   background: #fafafa;
   border-radius: 4px;
 }
@@ -374,8 +388,8 @@ onMounted(() => {
 
 .scheduler-search-buttons {
   display: flex;
-  align-items: flex-end;
   gap: 8px;
+  align-items: flex-end;
 }
 
 .scheduler-clean-btn {
@@ -391,8 +405,8 @@ onMounted(() => {
 }
 
 .stat-card {
-  border-radius: 8px;
   cursor: pointer;
+  border-radius: 8px;
   transition: transform 0.2s ease;
 }
 
@@ -414,12 +428,12 @@ onMounted(() => {
 }
 
 .stat-value {
+  margin-top: 4px;
   font-size: 24px;
   font-weight: 600;
-  margin-top: 4px;
 }
 
-/* 简洁风格背景（非渐变）*/
+/* 简洁风格背景（非渐变） */
 .stat-card-gray {
   background: #f6f8fa;
   border: 1px solid #e8e8e8;
@@ -459,9 +473,9 @@ onMounted(() => {
 /* 表格区域 */
 .scheduler-table-wrapper {
   flex: 1;
+  padding: 16px;
   overflow: auto;
   background: #fff;
-  padding: 16px;
   border-radius: 4px;
 }
 
@@ -491,15 +505,15 @@ onMounted(() => {
 
 /* 表头样式 */
 .scheduler-table :deep(th.el-table__cell) {
-  background: #fafafa !important;
   padding: 12px 10px !important;
   font-size: 13px;
   font-weight: 500;
   color: #333;
+  white-space: nowrap;
+  background: #fafafa !important;
   border-color: #e8e8e8 !important;
   border-right: 1px solid #e8e8e8 !important;
   border-bottom: 1px solid #e8e8e8 !important;
-  white-space: nowrap;
 }
 
 /* 表格单元格样式 */
@@ -514,32 +528,32 @@ onMounted(() => {
 
 /* 状态样式 */
 .scheduler-status-success {
-  color: #52c41a;
   font-weight: 500;
+  color: #52c41a;
 }
 
 .scheduler-status-danger {
-  color: #ff4d4f;
   font-weight: 500;
+  color: #ff4d4f;
 }
 
 .scheduler-status-warning {
-  color: #faad14;
   font-weight: 500;
+  color: #faad14;
 }
 
 .scheduler-status-info {
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
 }
 
-/* 状态标签样式（带背景色）*/
+/* 状态标签样式（带背景色） */
 .log-status-tag {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  border-radius: 4px;
 }
 
 .log-status-success {
@@ -564,20 +578,20 @@ onMounted(() => {
 
 /* 代码样式 */
 .scheduler-code {
-  background: #f5f5f5;
   padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 12px;
   color: #333;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
 /* 操作链接 */
 .scheduler-link {
-  color: #1890ff;
-  cursor: pointer;
   margin-right: 12px;
+  color: #1890ff;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .scheduler-link:hover {
@@ -588,19 +602,8 @@ onMounted(() => {
 .scheduler-pagination {
   display: flex;
   justify-content: flex-end;
-  padding: 16px 0 0 0;
+  padding: 16px 0 0;
 }
 
-/* 响应式：小屏幕下统计卡片改为2列 */
-@media (max-width: 1200px) {
-  .scheduler-statistics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .scheduler-statistics {
-    grid-template-columns: 1fr;
-  }
-}
+/* 搜索区域 */
 </style>

@@ -189,14 +189,29 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
 </template>
 
 <style scoped>
+
+
+/* 响应式：小屏幕下改为2列 */
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .loading-wrapper,
 .empty-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  color: #999;
   font-size: 14px;
+  color: #999;
 }
 
 .log-detail-wrapper {
@@ -213,11 +228,11 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
 }
 
 .section-title {
+  padding-bottom: 8px;
+  margin: 0 0 16px;
   font-size: 16px;
   font-weight: 600;
   color: #333;
-  margin: 0 0 16px 0;
-  padding-bottom: 8px;
   border-bottom: 1px solid #e8e8e8;
 }
 
@@ -235,8 +250,8 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
 
 .info-label {
   font-size: 12px;
-  color: #666;
   font-weight: 500;
+  color: #666;
 }
 
 .info-value {
@@ -258,16 +273,16 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
 }
 
 .result-text {
-  background: #f5f5f5;
   padding: 12px;
-  border-radius: 4px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
   font-size: 13px;
   line-height: 1.6;
-  overflow-x: auto;
-  white-space: pre-wrap;
   word-break: break-all;
-  margin: 0;
-  font-family: 'Courier New', Courier, monospace;
+  white-space: pre-wrap;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
 .error-wrapper {
@@ -281,50 +296,37 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
 }
 
 .error-content {
+  padding: 12px;
   background: #fff2f0;
   border: 1px solid #ffccc7;
   border-radius: 4px;
-  padding: 12px;
 }
 
 .error-message {
-  color: #ff4d4f;
   font-size: 14px;
   font-weight: 500;
+  color: #ff4d4f;
 }
 
 .error-traceback {
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
   padding: 12px;
-  border-radius: 4px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
   font-size: 12px;
   line-height: 1.6;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin: 0;
-  font-family: 'Courier New', Courier, monospace;
   color: #ff4d4f;
+  word-break: break-all;
+  white-space: pre-wrap;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 4px;
 }
 
 .empty-result {
-  color: #999;
-  font-size: 14px;
-  text-align: center;
   padding: 24px;
-}
-
-/* 响应式：小屏幕下改为2列 */
-@media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 576px) {
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
+  font-size: 14px;
+  color: #999;
+  text-align: center;
 }
 </style>

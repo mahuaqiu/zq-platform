@@ -115,8 +115,8 @@ onMounted(() => {
 
 .detail-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
@@ -124,8 +124,8 @@ onMounted(() => {
 
 .header-info {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .header-title {
@@ -151,17 +151,17 @@ onMounted(() => {
 }
 
 .ai-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
   color: #333;
 }
 
 .ai-content {
-  background: #f5f7fa;
-  border-radius: 4px;
   padding: 16px;
   color: #666;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 
 .ai-content p {
@@ -173,8 +173,8 @@ onMounted(() => {
 }
 
 .ai-hint {
+  margin-top: 8px !important;
   font-size: 12px;
   color: #999;
-  margin-top: 8px !important;
 }
 </style>

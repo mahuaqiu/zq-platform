@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日志查看功能 - 界面预览</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+
+  /* 页面整体 */
+  .page { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 40px; }
+  .page-header { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center; }
+  .page-header h2 { font-size: 16px; font-weight: 600; color: #333; }
+
+  /* 搜索栏 */
+  .search-bar { padding: 16px 20px; background: #fafafa; border-bottom: 1px solid #e8e8e8; display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .search-item { display: flex; flex-direction: column; gap: 4px; }
+  .search-item label { font-size: 12px; color: #666; }
+  .search-item input, .search-item select { height: 32px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 12px; font-size: 13px; width: 150px; outline: none; }
+  .search-btns { display: flex; gap: 8px; align-items: flex-end; }
+  .btn { height: 32px; padding: 0 16px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: #1890ff; color: #fff; border-color: #1890ff; }
+  .btn-default { background: #fff; color: #333; }
+  .btn-success { background: #52c41a; color: #fff; border-color: #52c41a; font-weight: 500; }
+  .btn-sm { height: 26px; padding: 0 10px; font-size: 12px; }
+  .btn-text { background: none; border: none; color: #1890ff; cursor: pointer; padding: 0 6px; font-size: 13px; }
+  .btn-text.danger { color: #ff4d4f; }
+
+  /* 表格 */
+  .table-wrap { padding: 0 20px 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #fafafa; padding: 12px 10px; text-align: left; font-weight: 500; color: #333; border-bottom: 1px solid #e8e8e8; white-space: nowrap; }
+  td { padding: 12px 10px; border-bottom: 1px solid #e8e8e8; }
+  tr:hover td { background: #fafafa; }
+  .code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; }
+  .status-online { color: #52c41a; }
+  .status-using { color: #e6a23c; }
+  .status-offline { color: #909399; }
+
+  .highlight-btn { outline: 2px dashed #f5222d !important; border-radius: 4px; position: relative; }
+  .highlight-btn::after { content: '★ 新增'; position: absolute; top: -18px; right: -10px; font-size: 11px; color: #f5222d; background: #fff; border: 1px solid #f5222d; border-radius: 8px; padding: 1px 6px; }
+
+  /* 弹窗遮罩 */
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal { background: #fff; border-radius: 8px; width: 1200px; max-height: 80vh; box-shadow: 0 6px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h3 { font-size: 15px; font-weight: 600; }
+  .modal-header .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+  .modal-header .close-btn:hover { background: #f5f5f5; }
+  .modal-body { flex: 1; overflow: auto; padding: 16px 20px; min-height: 350px; }
+  .modal-footer { padding: 12px 20px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* 日志区域 */
+  .log-toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .log-toolbar .info { font-size: 12px; color: #999; margin-left: auto; }
+  .log-search { display: flex; align-items: center; gap: 6px; }
+  .log-search input { height: 26px; width: 220px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 10px; font-size: 12px; outline: none; }
+  .log-search input:focus { border-color: #1890ff; box-shadow: 0 0 0 2px rgba(24,144,255,0.1); }
+  .log-search .match-count { font-size: 11px; color: #999; white-space: nowrap; }
+  .log-container .highlight-match { background: #faad14; color: #000; font-weight: 700; border-radius: 1px; padding: 0 2px; }
+  .log-container .highlight-current { background: #f5222d !important; color: #fff !important; font-weight: 700 !important; }
+  .log-container .log-line.dimmed { opacity: 0.25; }
+  .log-container { background: #1e1e1e; border-radius: 6px; padding: 12px 16px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.7; overflow-y: auto; max-height: 400px; min-height: 300px; color: #d4d4d4; }
+  .log-container .log-line { display: block; white-space: pre; }
+  .log-container .log-line .timestamp { color: #6a9955; }
+  .log-container .log-line .level-info { color: #4fc3f7; font-weight: 500; }
+  .log-container .log-line .level-warning { color: #ffb74d; font-weight: 600; }
+  .log-container .log-line .level-error { color: #ef5350; font-weight: 700; background: rgba(239,83,80,0.1); padding: 1px 4px; border-radius: 2px; }
+  .log-container .log-line .level-debug { color: #78909c; }
+  .log-container .log-line .message { color: #d4d4d4; }
+  .log-container .scrollbar-hint { color: #555; text-align: center; padding: 4px 0; font-size: 11px; }
+
+  /* 加载状态 */
+  .log-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: #999; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #e8e8e8; border-top: 3px solid #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 标签说明 */
+  .annotation { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px; padding: 12px 16px; margin-top: 12px; font-size: 13px; }
+  .annotation strong { color: #d48806; }
+
+  /* 两个视图切换 */
+  .view-toggle { display: flex; gap: 8px; margin-bottom: 20px; }
+  .view-toggle button { padding: 8px 20px; border: 1px solid #d9d9d9; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
+  .view-toggle button.active { background: #1890ff; color: #fff; border-color: #1890ff; }
+
+  .view-section { display: none; }
+  .view-section.active { display: block; }
+
+  .page-footer { padding: 12px 20px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; align-items: center; font-size: 13px; color: #666; }
+</style>
+</head>
+<body>
+
+<h2 style="margin-bottom: 8px; font-size: 18px;">📋 日志查看功能 - 界面预览</h2>
+<p style="margin-bottom: 20px; color: #666; font-size: 13px;">点击切换两个视图：主页面 → 日志弹窗</p>
+
+<div class="view-toggle">
+  <button class="active" onclick="showView('main')">视图 1：设备管理列表</button>
+  <button onclick="showView('dialog')">视图 2：日志弹窗</button>
+</div>
+
+<!-- ========== 视图1: 主页面 ========== -->
+<div class="view-section active" id="view-main">
+  <div class="page">
+    <div class="page-header">
+      <h2>设备管理 - 标准页面</h2>
+    </div>
+
+    <div class="search-bar">
+      <div class="search-item">
+        <label>机器类型</label>
+        <select><option>全部</option><option>Windows</option><option>Mac</option><option>iOS</option><option>Android</option></select>
+      </div>
+      <div class="search-item">
+        <label>机器信息</label>
+        <input type="text" placeholder="搜索IP地址">
+      </div>
+      <div class="search-item">
+        <label>资产编号</label>
+        <input type="text" placeholder="搜索资产编号">
+      </div>
+      <div class="search-item">
+        <label>备注</label>
+        <input type="text" placeholder="搜索备注">
+      </div>
+      <div class="search-btns">
+        <button class="btn btn-primary">查询</button>
+        <button class="btn btn-default">重置</button>
+      </div>
+      <button class="btn btn-success" style="margin-left: auto;">+ 新增设备</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>机器类型</th>
+            <th>机器信息</th>
+            <th>SN</th>
+            <th>资产编号</th>
+            <th>备注</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Windows</td>
+            <td><span class="code">192.168.0.101</span></td>
+            <td>-</td>
+            <td>A2024582125</td>
+            <td>自动化测试主节点</td>
+            <td>
+              <button class="btn-text highlight-btn">日志</button>
+              <button class="btn-text">编辑</button>
+              <button class="btn-text danger">删除</button>
+            </td>
+          </tr>
+          <tr>
+            <td>Windows</td>
+            <td><span class="code">192.168.0.102</span></td>
+            <td>-</td>
+            <td>A2024582126</td>
+            <td>性能测试专用</td>
+            <td>
+              <button class="btn-text highlight-btn">日志</button>
+              <button class="btn-text">编辑</button>
+              <button class="btn-text danger">删除</button>
+            </td>
+          </tr>
+          <tr>
+            <td>Mac</td>
+            <td><span class="code">192.168.0.201</span></td>
+            <td>C02XK1A2JGH</td>
+            <td>A2024582127</td>
+            <td>构建编译机</td>
+            <td>
+              <button class="btn-text highlight-btn">日志</button>
+              <button class="btn-text">编辑</button>
+              <button class="btn-text danger">删除</button>
+            </td>
+          </tr>
+          <tr>
+            <td>iOS</td>
+            <td><span class="code">192.168.0.150</span></td>
+            <td>00008110-001A0C1E0A0A801E</td>
+            <td>A2024582128</td>
+            <td>iPad Pro 测试</td>
+            <td>
+              <button class="btn-text highlight-btn">日志</button>
+              <button class="btn-text">编辑</button>
+              <button class="btn-text danger">删除</button>
+            </td>
+          </tr>
+          <tr>
+            <td>Android</td>
+            <td><span class="code">192.168.0.160</span></td>
+            <td>RF8T50KXXXX</td>
+            <td>A2024582129</td>
+            <td>Pixel 7 测试</td>
+            <td>
+              <button class="btn-text highlight-btn">日志</button>
+              <button class="btn-text">编辑</button>
+              <button class="btn-text danger">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-footer">
+      共 5 条 &nbsp;&nbsp;
+      <span style="margin: 0 16px; border-left: 1px solid #d9d9d9; height: 16px; display: inline-block; vertical-align: middle;"></span>
+      &lt; 1 &gt; &nbsp; 每页 20 条
+    </div>
+  </div>
+
+  <div class="annotation">
+    <strong>💡 说明：</strong>在每行设备的操作列新增「日志」按钮（红色虚线标注），点击后弹出日志查看窗口。
+  </div>
+</div>
+
+<!-- ========== 视图2: 日志弹窗 ========== -->
+<div class="view-section" id="view-dialog">
+  <div class="modal-overlay" style="position: relative; border-radius: 8px; overflow: hidden; min-height: 600px;">
+    <div class="modal" style="width: 1200px; max-height: none;">
+      <div class="modal-header">
+        <h3>📄 设备日志 - <span class="code" style="font-size: 13px; background: #f5f5f5; padding: 2px 8px; border-radius: 4px;">192.168.0.101</span></h3>
+        <button class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="log-toolbar">
+          <button class="btn btn-sm btn-primary">🔄 刷新</button>
+          <button class="btn btn-sm btn-default">📋 复制日志</button>
+          <div class="log-search">
+            <input type="text" placeholder="🔍 搜索日志..." value="ERROR" id="logSearchInput">
+            <button class="btn btn-sm btn-default" onclick="prevMatch()" title="上一个 (Shift+Enter)">▲</button>
+            <button class="btn btn-sm btn-default" onclick="nextMatch()" title="下一个 (Enter)">▼</button>
+            <span class="match-count" id="matchCount">1/5</span>
+          </div>
+          <span class="info">当前 400/3000 行</span>
+        </div>
+        <div class="log-container">
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:01</span> <span class="level-info">INFO    </span> <span class="message">================================================================</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:01</span> <span class="level-info">INFO    </span> <span class="message">Worker v2.3.1 starting up...</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:01</span> <span class="level-info">INFO    </span> <span class="message">================================================================</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:02</span> <span class="level-info">INFO    </span> <span class="message">Loading configuration from /etc/worker/config.yaml</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:02</span> <span class="level-info">INFO    </span> <span class="message">Platform connection: http://10.0.0.50:8000</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:03</span> <span class="level-debug">DEBUG   </span> <span class="message">Registering device: namespace=meeting_gamma, type=windows</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:03</span> <span class="level-info">INFO    </span> <span class="message">Device registered successfully</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:58:03</span> <span class="level-info">INFO    </span> <span class="message">Waiting for tasks...</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:15</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Received task: meeting_av_auto_test</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:15</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Starting test execution...</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:16</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Launching test suite: test_audio.py</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:30</span> <span class="level-warning">WARNING </span> <span class="message">[task-1024] test_audio_quality: response time 320ms exceeds threshold 300ms</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:31</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] test_audio_quality: PASSED (with warning)</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:32</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Running: test_video_join.py</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:45</span> <span class="level-error">ERROR   </span> <span class="message">[task-1024] test_video_join: <mark class="highlight-match">AssertionFailed</mark> - expected 1080p, got 720p</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:45</span> <span class="level-error">ERROR   </span> <span class="message">[task-1024] Traceback (most recent call last):</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:45</span> <span class="level-error">ERROR   </span> <span class="message">  File "tests/test_video_join.py", line 42, in test_resolution</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:45</span> <span class="level-error">ERROR   </span> <span class="message">    assert resolution == "1080p"</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 09:59:46</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Running: test_screen_share.py</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 10:00:01</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] test_screen_share: PASSED</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 10:00:02</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Task completed. Results: 2 passed, 1 failed, 1 warning</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 10:00:02</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Uploading report to platform...</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 10:00:03</span> <span class="level-warning">WARNING </span> <span class="message">[task-1024] Report upload retry 1/3: timeout</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 10:00:05</span> <span class="level-info">INFO    </span> <span class="message">[task-1024] Report uploaded successfully</span></span>
+          <span class="log-line"><span class="timestamp">2024-03-25 10:00:05</span> <span class="level-info">INFO    </span> <span class="message">Waiting for tasks...</span></span>
+          <span class="log-line" style="color: #555; text-align: center; margin-top: 8px;">▼ 以下是最新 400 行日志，向上滚动可查看更早内容 ▼</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="margin-right: auto; font-size: 12px; color: #999;">💡 追加模式 · 自动去重 · 最多保留 3000 行</span>
+        <button class="btn btn-default">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <strong>💡 说明：</strong>
+    <ul style="margin-top: 8px; padding-left: 20px; line-height: 2;">
+      <li><span style="color: #4fc3f7; font-weight: 500;">INFO</span> — 蓝色，正常信息</li>
+      <li><span style="color: #ffb74d; font-weight: 600;">WARNING</span> — 橙色，警告信息</li>
+      <li><span style="color: #ef5350; font-weight: 700; background: rgba(239,83,80,0.15); padding: 1px 4px; border-radius: 2px;">ERROR</span> — 红色加粗 + 背景高亮，错误信息</li>
+      <li><span style="color: #78909c;">DEBUG</span> — 灰色，调试信息</li>
+      <li>日志区域支持上下滚动，深色终端风格，自动滚动到最新日志底部</li>
+      <li>提供「刷新」和「复制日志」快捷按钮</li>
+      <li><strong>搜索功能</strong>：工具栏输入关键词，按 Enter 或点 ▼ 跳到下一个匹配项，按 Shift+Enter 或点 ▲ 跳到上一个。匹配项黄色高亮，当前定位项红色高亮，自动滚动到可视区域。计数器显示 当前/总数</li>
+      <li><strong>刷新逻辑</strong>：追加模式 — 新日志追加到末尾，通过内容比对自动去重，最多保留 3000 行（超限时自动裁剪最旧内容）</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+function showView(view) {
+  document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.view-toggle button').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  event.target.classList.add('active');
+}
+function doSearch() {
+  // Demo: just updates the match count display
+  document.getElementById('matchCount').textContent = '1/5';
+}
+function prevMatch() {
+  document.getElementById('matchCount').textContent = '5/5';
+}
+function nextMatch() {
+  document.getElementById('matchCount').textContent = '2/5';
+}
+</script>
+
+</body>
+</html>

@@ -128,9 +128,9 @@ export async function batchUpgradeApi(data: BatchUpgradeParams) {
 /**
  * 升级预览
  */
-export async function getUpgradePreviewApi(namespace?: string, deviceType?: string) {
+export async function getUpgradePreviewApi(namespace?: string, deviceType?: string, ip?: string) {
   return requestClient.get<UpgradePreviewResponse>('/api/core/env/upgrade/preview', {
-    params: { namespace, device_type: deviceType },
+    params: { namespace, device_type: deviceType, ip },
   });
 }
 

@@ -343,63 +343,63 @@ onUnmounted(() => {
 /* 筛选栏 */
 .filter-bar {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   padding: 8px 12px;
+  margin-bottom: 12px;
   background: #fff;
   border-radius: 8px;
-  margin-bottom: 12px;
 }
 
 /* 主内容区域 */
 .main-content {
-  flex: 1;
   display: flex;
+  flex: 1;
   gap: 16px;
   min-height: 0;
 }
 
 /* 左侧面板 */
 .left-panel {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 12px;
+  padding: 16px;
   background: white;
   border-radius: 8px;
-  padding: 16px;
 }
 
 /* 左侧面板标题 */
 .left-panel-header {
+  padding-bottom: 8px;
+  margin-bottom: 16px;
   font-size: 16px;
   font-weight: bold;
   color: #722ed1;
-  margin-bottom: 16px;
   border-bottom: 2px solid #722ed1;
-  padding-bottom: 8px;
 }
 
 /* 右侧面板 */
 .right-panel {
-  flex: 2;
   display: flex;
+  flex: 2;
   flex-direction: column;
   gap: 12px;
 }
 
 /* 卡片基础样式 */
 .stats-card {
+  padding: 12px;
   background: #fff;
   border-radius: 8px;
-  padding: 12px;
 }
 
 .card-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: bold;
   color: #333;
-  margin-bottom: 12px;
 }
 
 .card-title.warning {
@@ -408,25 +408,25 @@ onUnmounted(() => {
 
 /* 设备统计卡片 */
 .device-stats-card {
-  background: #f9f0ff;
   padding: 12px;
+  background: #f9f0ff;
   border-radius: 6px;
 }
 
 .summary-row {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
   padding-bottom: 12px;
+  margin-bottom: 12px;
   border-bottom: 1px dashed #d9d9d9;
 }
 
 .summary-item {
   flex: 1;
-  text-align: center;
   padding: 8px;
-  border-radius: 6px;
   color: #fff;
+  text-align: center;
+  border-radius: 6px;
 }
 
 .summary-item.purple {
@@ -478,11 +478,11 @@ onUnmounted(() => {
 
 .enabled-item {
   flex: 1;
-  text-align: center;
   padding: 4px;
-  border-radius: 4px;
   font-size: 12px;
   color: #fff;
+  text-align: center;
+  border-radius: 4px;
 }
 
 .enabled-item.green {
@@ -495,14 +495,14 @@ onUnmounted(() => {
 
 /* 离线机器卡片 */
 .offline-card {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-height: 0;
+  padding: 12px;
   background: #fff7e6;
   border: 1px solid #ffd591;
-  padding: 12px;
   border-radius: 6px;
-  min-height: 0;
 }
 
 .offline-card .card-title {
@@ -518,17 +518,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 6px;
-  background: #fff;
-  border-radius: 4px;
   margin-bottom: 4px;
   font-size: 12px;
-  color: #333;
   line-height: 1.8;
+  color: #333;
+  background: #fff;
+  border-radius: 4px;
 }
 
 .offline-dot {
-  color: #fa8c16;
   margin-right: 4px;
+  color: #fa8c16;
 }
 
 .offline-name {
@@ -536,31 +536,31 @@ onUnmounted(() => {
 }
 
 .offline-ip {
-  color: #666;
-  font-size: 11px;
   margin-left: 2px;
+  font-size: 11px;
+  color: #666;
 }
 
 .offline-duration {
-  color: #fa8c16;
   margin-left: auto;
+  color: #fa8c16;
 }
 
 /* 申请统计卡片 */
 .apply-card {
-  border: 2px solid #1890ff;
   padding: 16px;
+  border: 2px solid #1890ff;
 }
 
 .apply-main {
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
 }
 
 .apply-total {
-  text-align: center;
   flex: 1;
+  text-align: center;
 }
 
 .apply-value {
@@ -575,15 +575,15 @@ onUnmounted(() => {
 }
 
 .apply-detail {
-  flex: 2;
   display: flex;
+  flex: 2;
   gap: 12px;
 }
 
 .detail-item {
   flex: 1;
-  text-align: center;
   padding: 8px;
+  text-align: center;
   border-radius: 6px;
 }
 
@@ -643,10 +643,10 @@ onUnmounted(() => {
 
 .top-tag {
   width: 70px;
-  font-size: 11px;
-  color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 11px;
+  color: #333;
   white-space: nowrap;
 }
 
@@ -661,15 +661,15 @@ onUnmounted(() => {
 }
 
 .top-count {
+  margin-left: 6px;
   font-size: 11px;
   color: #666;
-  margin-left: 6px;
 }
 
 /* 占用时长卡片 */
 .duration-card {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-height: 0;
 }
@@ -695,10 +695,10 @@ onUnmounted(() => {
 }
 
 .duration-ip {
-  font-size: 12px;
-  color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  color: #333;
   white-space: nowrap;
 }
 
@@ -713,17 +713,17 @@ onUnmounted(() => {
 }
 
 .duration-value {
-  font-size: 11px;
-  color: #52c41a;
   margin-left: 6px;
+  font-size: 11px;
   font-weight: 500;
+  color: #52c41a;
 }
 
 /* 无数据 */
 .no-data {
-  color: #999;
-  font-size: 12px;
-  text-align: center;
   padding: 20px;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
 }
 </style>

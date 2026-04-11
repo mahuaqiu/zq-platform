@@ -169,12 +169,12 @@ onMounted(() => {
 <style scoped>
 .filter-area {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
+  align-items: flex-end;
   padding: 16px;
   background: #fafafa;
   border-radius: 4px;
-  flex-wrap: wrap;
-  align-items: flex-end;
 }
 
 .filter-item {
@@ -190,7 +190,7 @@ onMounted(() => {
 
 .filter-buttons {
   display: flex;
-  align-items: flex-end;
   gap: 8px;
+  align-items: flex-end;
 }
 </style>

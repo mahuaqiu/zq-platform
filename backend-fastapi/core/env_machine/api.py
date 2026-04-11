@@ -11,7 +11,8 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
@@ -472,3 +473,44 @@ async def get_dashboard_stats(
 # 注册升级管理路由
 from core.env_machine.upgrade_api import router as upgrade_router
 router.include_router(upgrade_router)
+
+
+@router.get("/machine/{machine_id}/logs", summary="获取设备日志")
+async def get_machine_logs(
+    machine_id: str,
+    lines: int = Query(default=400, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    从指定 Worker 设备拉取最新 N 行日志
+
+    流程：
+    1. 根据 machine_id 查询数据库获取 IP 和端口
+    2. HTTP GET http://{ip}:{port}/logs?lines=N
+    3. 返回 Worker 的日志文本
+    """
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    if not machine.ip or not machine.port:
+        raise HTTPException(status_code=400, detail="设备未配置 IP 或端口")
+
+    url = f"http://{machine.ip}:{machine.port}/worker/logs"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, params={"lines": lines})
+            if resp.status_code == 200:
+                return {
+                    "content": resp.text,
+                    "lines": lines,
+                    "truncated": False,
+                }
+            elif resp.status_code == 502:
+                raise HTTPException(status_code=502, detail="无法连接到设备")
+            else:
+                raise HTTPException(status_code=502, detail=f"设备返回异常: {resp.status_code}")
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="获取日志超时")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=502, detail="无法连接到设备")

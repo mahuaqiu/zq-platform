@@ -111,7 +111,7 @@ async function handleSubmit() {
 
         <!-- 警告提示 -->
         <div class="warning-box">
-          <span style="color: #d48806; font-size: 13px;">⚠️ 清理后无法恢复，请谨慎操作</span>
+          <span style=" font-size: 13px;color: #d48806;">⚠️ 清理后无法恢复，请谨慎操作</span>
         </div>
       </div>
     </div>
@@ -125,13 +125,13 @@ async function handleSubmit() {
 
 .warning-box {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 12px 16px;
+  margin-bottom: 24px;
   background-color: #fffbe6;
   border: 1px solid #ffe58f;
   border-radius: 4px;
-  margin-bottom: 24px;
 }
 
 .warning-icon {
@@ -141,8 +141,8 @@ async function handleSubmit() {
 
 .warning-text {
   font-size: 14px;
-  color: #d48806;
   font-weight: 500;
+  color: #d48806;
 }
 
 .form-content {
@@ -164,14 +164,14 @@ async function handleSubmit() {
 }
 
 .form-label.required::before {
-  content: '*';
-  color: #ff4d4f;
   margin-right: 4px;
+  color: #ff4d4f;
+  content: '*';
 }
 
 .form-help {
+  margin-top: 4px;
   font-size: 12px;
   color: #999;
-  margin-top: 4px;
 }
 </style>

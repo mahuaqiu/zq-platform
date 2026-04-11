@@ -32,8 +32,8 @@ const filterParams = ref<ProgressFilterParams>({});
 <style scoped>
 .feature-page {
   height: 100%;
-  overflow-y: auto;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .table-wrapper {

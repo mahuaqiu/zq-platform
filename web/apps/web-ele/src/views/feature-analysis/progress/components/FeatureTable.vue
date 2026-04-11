@@ -217,11 +217,11 @@ onMounted(() => {
 
 /* 表头样式 */
 .data-table :deep(th.el-table__cell) {
-  background: #fafafa !important;
   padding: 12px 10px !important;
   font-size: 13px;
   font-weight: 500;
   color: #333;
+  background: #fafafa !important;
   border-color: #e8e8e8 !important;
   border-right: 1px solid #e8e8e8 !important;
   border-bottom: 1px solid #e8e8e8 !important;
@@ -239,11 +239,11 @@ onMounted(() => {
 
 /* 编号样式 */
 .code-text {
-  background: #f5f5f5;
   padding: 2px 6px;
-  border-radius: 4px;
   font-family: Consolas, Monaco, monospace;
   font-size: 13px;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
 .empty-text {
@@ -271,6 +271,6 @@ onMounted(() => {
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
-  padding: 16px 0 0 0;
+  padding: 16px 0 0;
 }
 </style>

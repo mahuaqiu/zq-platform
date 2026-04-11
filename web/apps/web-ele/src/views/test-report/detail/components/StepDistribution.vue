@@ -45,16 +45,16 @@ const COLORS = ['#ff4d4f', '#faad14', '#1890ff', '#52c41a', '#722ed1', '#eb2f96'
 }
 
 .step-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
   color: #333;
 }
 
 .step-content {
+  padding: 16px;
   background: #f5f7fa;
   border-radius: 4px;
-  padding: 16px;
 }
 
 .step-item {
@@ -68,10 +68,10 @@ const COLORS = ['#ff4d4f', '#faad14', '#1890ff', '#52c41a', '#722ed1', '#eb2f96'
 }
 
 .step-name {
+  flex-shrink: 0;
   width: 140px;
   font-size: 13px;
   color: #333;
-  flex-shrink: 0;
 }
 
 .step-bar-wrapper {
@@ -81,16 +81,16 @@ const COLORS = ['#ff4d4f', '#faad14', '#1890ff', '#52c41a', '#722ed1', '#eb2f96'
 }
 
 .step-bar {
+  min-width: 4px;
   height: 20px;
   border-radius: 2px;
-  min-width: 4px;
 }
 
 .step-count {
+  flex-shrink: 0;
+  width: 30px;
   font-size: 13px;
   color: #666;
-  width: 30px;
   text-align: right;
-  flex-shrink: 0;
 }
 </style>

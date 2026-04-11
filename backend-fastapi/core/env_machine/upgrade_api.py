@@ -127,10 +127,11 @@ async def batch_upgrade(
 async def get_upgrade_preview(
     namespace: Optional[str] = None,
     device_type: Optional[str] = None,
+    ip: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ) -> UpgradePreviewResponse:
     """获取升级预览信息"""
-    preview = await UpgradeService.get_preview(db, namespace, device_type)
+    preview = await UpgradeService.get_preview(db, namespace, device_type, ip)
     return UpgradePreviewResponse(**preview)
 
 

@@ -209,8 +209,8 @@ onMounted(() => {
 <style scoped>
 /* 搜索区域 */
 .tr-search-area {
-  margin-bottom: 16px;
   padding: 16px;
+  margin-bottom: 16px;
   background: #fafafa;
   border-radius: 4px;
 }
@@ -236,16 +236,16 @@ onMounted(() => {
 
 .tr-search-buttons {
   display: flex;
-  align-items: flex-end;
   gap: 8px;
+  align-items: flex-end;
 }
 
 /* 表格区域 */
 .tr-table-wrapper {
   flex: 1;
+  padding: 16px;
   overflow: auto;
   background: #fff;
-  padding: 16px;
   border-radius: 4px;
 }
 
@@ -259,11 +259,11 @@ onMounted(() => {
 }
 
 .tr-table :deep(th.el-table__cell) {
-  background: #fafafa !important;
   padding: 12px 10px !important;
   font-size: 13px;
   font-weight: 500;
   color: #333;
+  background: #fafafa !important;
   border-color: #e8e8e8 !important;
 }
 
@@ -276,28 +276,28 @@ onMounted(() => {
 
 /* 状态样式 */
 .tr-pass {
-  color: #52c41a;
   font-weight: 500;
+  color: #52c41a;
 }
 
 .tr-fail {
-  color: #ff4d4f;
   font-weight: 500;
+  color: #ff4d4f;
 }
 
 .tr-warning {
-  color: #faad14;
   font-weight: 500;
+  color: #faad14;
 }
 
 .tr-compare-green {
-  color: #52c41a;
   font-weight: 500;
+  color: #52c41a;
 }
 
 .tr-compare-red {
-  color: #ff4d4f;
   font-weight: 500;
+  color: #ff4d4f;
 }
 
 .tr-compare-gray {
@@ -307,8 +307,8 @@ onMounted(() => {
 /* 操作链接 */
 .tr-link {
   color: #1890ff;
-  cursor: pointer;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .tr-link:hover {
@@ -316,14 +316,14 @@ onMounted(() => {
 }
 
 .tr-link-danger {
-  color: #ff4d4f;
   margin-left: 12px;
+  color: #ff4d4f;
 }
 
 /* 分页 */
 .tr-pagination {
   display: flex;
   justify-content: flex-end;
-  padding: 16px 0 0 0;
+  padding: 16px 0 0;
 }
 </style>

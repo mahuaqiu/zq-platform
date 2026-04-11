@@ -176,15 +176,16 @@ onMounted(() => {
   --el-table-row-hover-bg-color: #fafafa;
   --el-table-text-color: #333;
   --el-table-header-text-color: #333;
+
   background: #fff;
 }
 
 .fail-table-inner :deep(th.el-table__cell) {
-  background: #fafafa !important;
   padding: 12px 10px !important;
   font-size: 13px;
   font-weight: 500;
   color: #333;
+  background: #fafafa !important;
   border-color: #e8e8e8 !important;
 }
 
@@ -205,22 +206,22 @@ onMounted(() => {
 }
 
 .fail-log-preview {
-  background: #fafafa;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #666;
-  white-space: pre-wrap;
-  word-break: break-all;
   max-height: 60px;
+  padding: 6px 10px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  color: #666;
+  word-break: break-all;
+  white-space: pre-wrap;
+  background: #fafafa;
+  border-radius: 4px;
 }
 
 .fail-link {
   color: #1890ff;
-  cursor: pointer;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .fail-link:hover {

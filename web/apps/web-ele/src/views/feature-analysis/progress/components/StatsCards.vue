@@ -89,11 +89,11 @@ onMounted(() => {
 
 .stat-card {
   flex: 1;
+  padding: 16px;
+  text-align: center;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
-  padding: 16px;
-  text-align: center;
 }
 
 .stat-value {
@@ -103,9 +103,9 @@ onMounted(() => {
 }
 
 .stat-label {
+  margin-top: 4px;
   font-size: 13px;
   color: #666;
-  margin-top: 4px;
 }
 
 .stat-card.success .stat-value {

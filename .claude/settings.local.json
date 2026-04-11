@@ -92,7 +92,10 @@
       "Bash(start:*)",
       "Bash(head -526 \"D:/code/zq-platform/web/apps/web-ele/src/views/env-machine/upgrade.vue\")",
       "Bash(tail -n +570 \"D:/code/zq-platform/web/apps/web-ele/src/views/env-machine/upgrade.vue\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm format:*)",
+      "Bash(npx prettier:*)"
     ]
   }
 }

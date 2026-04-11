@@ -107,3 +107,21 @@ export async function updateEnvMachineApi(
 export async function deleteEnvMachineApi(id: string) {
   return requestClient.delete(`/api/core/env/${id}`);
 }
+
+/**
+ * 日志响应
+ */
+export interface MachineLogResponse {
+  content: string;
+  lines: number;
+  truncated: boolean;
+}
+
+/**
+ * 获取设备日志
+ */
+export async function getMachineLogsApi(machineId: string, lines: number = 400) {
+  return requestClient.get<MachineLogResponse>(`/api/core/env/machine/${machineId}/logs`, {
+    params: { lines },
+  });
+}

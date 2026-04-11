@@ -39,26 +39,26 @@ function getRoundClass(index: number, total: number) {
 }
 
 .round-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
   color: #333;
 }
 
 .round-cards {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
 }
 
 .round-card {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 20px;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
-  padding: 12px 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .round-value {

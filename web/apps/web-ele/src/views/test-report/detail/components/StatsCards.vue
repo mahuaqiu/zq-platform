@@ -82,15 +82,15 @@ const compareDisplay = computed(() => {
 }
 
 .stats-label {
+  margin-top: 4px;
   font-size: 13px;
   color: #666;
-  margin-top: 4px;
 }
 
 .stats-sub {
+  margin-top: 2px;
   font-size: 11px;
   color: #999;
-  margin-top: 2px;
 }
 
 .tr-blue {
