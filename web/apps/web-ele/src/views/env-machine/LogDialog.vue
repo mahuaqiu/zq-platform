@@ -378,6 +378,7 @@ function handleDialogClose() {
             :class="[
               getLogLevelClass(line),
               { 'current-match': isCurrentMatch(index) },
+              { 'long-line': line.length > 300 },
             ]"
             v-html="highlightSearch(line)"
           />
@@ -526,9 +527,14 @@ function handleDialogClose() {
 .log-line {
   display: block;
   padding: 1px 4px;
-  word-break: break-all;
   white-space: pre;
   border-radius: 2px;
+}
+
+/* 长日志行自动换行 */
+.log-line.long-line {
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .log-line:hover {
