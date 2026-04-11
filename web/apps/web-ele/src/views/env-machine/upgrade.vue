@@ -878,55 +878,9 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
-/* 确认弹窗全局样式 - 完全透明化外层 */
+/* 确认弹窗 - overlay 透明 */
 .upgrade-confirm-dialog :deep(.el-overlay-dialog) {
   background: transparent !important;
-}
-
-.upgrade-confirm-dialog :deep(.el-dialog) {
-  background: transparent !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  box-shadow: none !important;
-}
-
-.upgrade-confirm-dialog :deep(.el-dialog__header) {
-  padding: 0 !important;
-  margin: 0 !important;
-  height: 0 !important;
-  display: block !important;
-  overflow: hidden !important;
-  border: none !important;
-}
-
-.upgrade-confirm-dialog :deep(.el-dialog__headerbtn) {
-  top: 20px !important;
-  right: 20px !important;
-  width: 24px !important;
-  height: 24px !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-radius: 50% !important;
-  z-index: 10 !important;
-}
-
-.upgrade-confirm-dialog :deep(.el-dialog__headerbtn .el-dialog__close) {
-  color: #fff !important;
-  font-size: 16px !important;
-}
-
-.upgrade-confirm-dialog :deep(.el-dialog__body) {
-  padding: 0 !important;
-  overflow: hidden !important;
-  background: transparent !important;
-  border: none !important;
-}
-
-.upgrade-confirm-dialog :deep(.el-dialog__footer) {
-  padding: 0 !important;
-  border: none !important;
 }
 
 /* 弹窗包装容器 - 控制整体样式 */
@@ -1063,5 +1017,36 @@ onMounted(async () => {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
+}
+</style>
+
+<!-- 全局样式：Dialog 通过 teleport 渲染到 body 下，scoped 样式无法穿透 -->
+<style>
+.el-dialog.upgrade-confirm-dialog {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.el-dialog.upgrade-confirm-dialog .el-dialog__header {
+  display: none !important;
+}
+
+.el-dialog.upgrade-confirm-dialog .el-dialog__headerbtn {
+  display: none !important;
+}
+
+.el-dialog.upgrade-confirm-dialog .el-dialog__body {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.el-dialog.upgrade-confirm-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border: none !important;
 }
 </style>
