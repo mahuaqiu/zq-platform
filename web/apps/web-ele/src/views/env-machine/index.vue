@@ -599,7 +599,7 @@ onMounted(() => {
                 {{ getDeviceTypeText(row.device_type) }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="ip" label="机器信息" min-width="150">
+            <ElTableColumn prop="ip" label="机器信息" min-width="120">
               <template #default="{ row }">
                 <code v-if="row.ip" class="env-code">{{ row.ip }}</code>
                 <span v-else class="env-dash">-</span>
@@ -616,12 +616,12 @@ onMounted(() => {
                 {{ row.mark || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="status" label="状态" min-width="70" align="center">
+            <ElTableColumn prop="status" label="状态" min-width="60" align="center">
               <template #default="{ row }">
                 <span :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="available" label="是否启用" min-width="90" align="center">
+            <ElTableColumn prop="available" label="是否启用" min-width="70" align="center">
               <template #default="{ row }">
                 <span :class="row.available ? 'env-status-success' : 'env-status-danger'">
                   {{ row.available ? '是' : '否' }}
@@ -641,22 +641,24 @@ onMounted(() => {
                 <span v-else class="env-dash">-</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="version" label="版本" min-width="90">
+            <ElTableColumn prop="version" label="版本" min-width="100">
               <template #default="{ row }">
-                {{ row.version || '-' }}
+                <span class="nowrap">{{ row.version || '-' }}</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="操作" min-width="100">
+            <ElTableColumn label="操作" min-width="150">
               <template #default="{ row }">
-                <a
-                  v-if="row.status === 'online' && needUpgrade(row)"
-                  class="env-link env-link-upgrade"
-                  @click="handleUpgrade(row)"
-                >
-                  升级
-                </a>
-                <a class="env-link" @click="handleEdit(row)">编辑</a>
-                <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
+                <span class="nowrap">
+                  <a
+                    v-if="row.status === 'online' && needUpgrade(row)"
+                    class="env-link env-link-upgrade"
+                    @click="handleUpgrade(row)"
+                  >
+                    升级
+                  </a>
+                  <a class="env-link" @click="handleEdit(row)">编辑</a>
+                  <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
+                </span>
               </template>
             </ElTableColumn>
           </template>
@@ -951,5 +953,10 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   padding: 16px 0 0 0;
+}
+
+/* 不换行 - 用于版本和操作列 */
+.nowrap {
+  white-space: nowrap;
 }
 </style>
