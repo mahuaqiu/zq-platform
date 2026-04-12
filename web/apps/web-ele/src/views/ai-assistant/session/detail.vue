@@ -95,7 +95,9 @@ function getCreateTime(chatId: string): string {
 // 获取发送者显示名称
 function getSenderName(message: AIMessage): string {
   if (message.message_type === 1) {
-    return 'AI 助手';
+    // AI 助手：使用 trigger_word（去掉 @ 符号）
+    const triggerWord = sessionDetail.value?.trigger_word || '@Andy';
+    return triggerWord.replace('@', '');
   }
   return message.sender_name || message.sender_id || '用户';
 }
@@ -375,7 +377,7 @@ onUnmounted(() => {
           >
             <!-- AI消息 - 左侧 -->
             <template v-if="message.message_type === 1">
-              <div class="avatar ai-avatar">AI</div>
+              <div class="avatar ai-avatar">{{ getSenderName(message).charAt(0).toUpperCase() }}</div>
               <div class="message-content">
                 <div class="sender-name">{{ getSenderName(message) }}</div>
                 <div class="bubble ai-bubble">

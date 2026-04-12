@@ -58,6 +58,7 @@ export interface AISessionDetail {
   session: AISession;
   messages: AIMessage[];
   group_name?: string;
+  trigger_word?: string; // 触发词（AI助手名称）
 }
 
 /**
