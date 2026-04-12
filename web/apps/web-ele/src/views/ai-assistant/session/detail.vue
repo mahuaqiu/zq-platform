@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { AISessionDetail, AIMessage } from '#/api/core/ai-assistant';
 
-import { onMounted, ref, nextTick, computed } from 'vue';
+import { onMounted, onUnmounted, ref, nextTick, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -34,6 +34,13 @@ const loading = ref(false);
 const sending = ref(false);
 const inputMessage = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
+
+// 轮询相关
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTimeout: ReturnType<typeof setTimeout> | null = null;
+const POLL_INTERVAL = 3000; // 轮询间隔 3秒
+const POLL_TIMEOUT = 180000; // 轮询超时 3分钟
+let lastMessageCount = 0; // 上次消息数量
 
 // 从路由获取会话ID
 const sessionId = computed(() => route.params.id as string);
@@ -119,6 +126,55 @@ function scrollToBottom() {
   }
 }
 
+// 开始轮询检查 AI 回复
+function startPolling() {
+  if (pollTimer) return; // 已在轮询中
+
+  lastMessageCount = sessionDetail.value?.messages?.length || 0;
+
+  // 设置超时，3分钟后停止轮询
+  pollTimeout = setTimeout(() => {
+    stopPolling();
+    ElMessage.info('等待 AI 回复超时，请稍后刷新查看');
+  }, POLL_TIMEOUT);
+
+  // 开始轮询
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await getAISessionDetailApi(sessionId.value);
+      const newCount = res?.messages?.length || 0;
+
+      // 检查是否有新消息
+      if (newCount > lastMessageCount) {
+        sessionDetail.value = res;
+        lastMessageCount = newCount;
+        await nextTick();
+        scrollToBottom();
+
+        // 检查是否有 AI 回复（最后一条消息是 AI）
+        const lastMsg = res?.messages?.[newCount - 1];
+        if (lastMsg && lastMsg.message_type === 1) {
+          stopPolling();
+        }
+      }
+    } catch (error) {
+      console.error('轮询失败:', error);
+    }
+  }, POLL_INTERVAL);
+}
+
+// 停止轮询
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  if (pollTimeout) {
+    clearTimeout(pollTimeout);
+    pollTimeout = null;
+  }
+}
+
 // 发送消息
 async function handleSend() {
   if (!inputMessage.value.trim()) {
@@ -134,6 +190,8 @@ async function handleSend() {
     inputMessage.value = '';
     // 刷新会话详情
     await loadSessionDetail();
+    // 开始轮询等待 AI 回复
+    startPolling();
   } catch (error) {
     console.error('发送消息失败:', error);
     ElMessage.error('发送消息失败');
@@ -249,6 +307,11 @@ function handleCommand(command: string) {
 // 初始加载
 onMounted(() => {
   loadSessionDetail();
+});
+
+// 离开页面时停止轮询
+onUnmounted(() => {
+  stopPolling();
 });
 </script>
 
