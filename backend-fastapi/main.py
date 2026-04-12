@@ -19,6 +19,7 @@ from utils.redis import RedisClient
 from core.router import router as core_router
 from core.websocket.router import router as websocket_router
 from core.env_machine.api import router as env_machine_router
+from core.ai_assistant.public_api import router as ai_public_router
 from utils.auth_middleware import AuthMiddleware
 from utils.logging_config import setup_logging
 from utils.request_log_middleware import RequestLogMiddleware
@@ -88,6 +89,8 @@ app.include_router(core_router, prefix="/api/core", dependencies=[Depends(oauth2
 app.include_router(websocket_router)
 # 执行机管理路由（公开接口，供外部 worker 调用，无需认证）
 app.include_router(env_machine_router)
+# AI助手公开接口（供外部系统发送消息和接收回调，无需认证）
+app.include_router(ai_public_router, prefix="/api")
 
 # 测试报告 HTML 静态文件（公开访问，无需认证）
 html_path = Path(settings.TEST_REPORT_HTML_PATH)

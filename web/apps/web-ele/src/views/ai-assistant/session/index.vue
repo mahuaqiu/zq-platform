@@ -1,21 +1,30 @@
 <script lang="ts" setup>
 import type { AISession } from '#/api/core/ai-assistant';
 
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
 import {
+  ElButton,
+  ElDialog,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElSelect,
   ElOption,
   ElEmpty,
   ElTag,
 } from 'element-plus';
 
-import { getAISessionListApi } from '#/api/core/ai-assistant';
+import {
+  getAISessionListApi,
+  deleteSessionApi,
+  createSessionApi,
+} from '#/api/core/ai-assistant';
 
 defineOptions({ name: 'AISessionPage' });
 
@@ -32,6 +41,15 @@ const pageSize = ref(20);
 const searchForm = ref({
   group_id: '',
   status: undefined as number | undefined,
+});
+
+// 新建会话弹窗
+const dialogVisible = ref(false);
+const dialogLoading = ref(false);
+const newSessionForm = ref({
+  group_id: '',
+  group_name: '',
+  is_group: true,
 });
 
 // 状态映射
@@ -128,6 +146,61 @@ function goToDetail(session: AISession) {
   router.push(`/ai-assistant/session/${session.id}`);
 }
 
+// 打开新建会话弹窗
+function handleCreateSession() {
+  newSessionForm.value = {
+    group_id: '',
+    group_name: '',
+    is_group: true,
+  };
+  dialogVisible.value = true;
+}
+
+// 提交新建会话
+async function handleCreateSubmit() {
+  if (!newSessionForm.value.group_id) {
+    ElMessage.warning('请输入群组ID');
+    return;
+  }
+
+  dialogLoading.value = true;
+  try {
+    await createSessionApi(newSessionForm.value);
+    ElMessage.success('会话创建成功');
+    dialogVisible.value = false;
+    loadData();
+  } catch (error: any) {
+    const msg = error?.response?.data?.detail || '创建失败';
+    ElMessage.error(msg);
+  } finally {
+    dialogLoading.value = false;
+  }
+}
+
+// 删除会话
+function handleDelete(session: AISession, event: MouseEvent) {
+  event.stopPropagation(); // 阻止触发点击进入详情
+
+  ElMessageBox.confirm(
+    `确定要删除会话 "${session.chat_id}" 吗？删除后该会话的所有消息记录将一并删除。`,
+    '删除确认',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  ).then(async () => {
+    try {
+      await deleteSessionApi(session.id);
+      ElMessage.success('删除成功');
+      loadData();
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || '删除失败';
+      ElMessage.error(msg);
+    }
+  });
+}
+
 // 初始加载
 onMounted(() => {
   loadData();
@@ -139,7 +212,12 @@ onMounted(() => {
     <div class="session-container">
       <!-- 头部区域 -->
       <div class="session-header">
-        <h2 class="session-title">会话管理</h2>
+        <div class="header-row">
+          <h2 class="session-title">会话管理</h2>
+          <ElButton type="primary" @click="handleCreateSession">
+            + 新建会话
+          </ElButton>
+        </div>
 
         <!-- 搜索框 -->
         <div class="session-search">
@@ -165,6 +243,7 @@ onMounted(() => {
             <ElOption label="已关闭" :value="1" />
             <ElOption label="已清除" :value="2" />
           </ElSelect>
+          <ElButton @click="handleReset">重置</ElButton>
         </div>
       </div>
 
@@ -175,15 +254,14 @@ onMounted(() => {
             v-for="session in sessionList"
             :key="session.id"
             class="session-card"
-            @click="goToDetail(session)"
           >
             <!-- 左侧头像 -->
-            <div class="session-avatar">
+            <div class="session-avatar" @click="goToDetail(session)">
               {{ getGroupInitial(session.group_id) }}
             </div>
 
             <!-- 右侧内容 -->
-            <div class="session-content">
+            <div class="session-content" @click="goToDetail(session)">
               <!-- 上：群组ID + 时间 -->
               <div class="session-top">
                 <span class="session-name">{{ session.group_id }}</span>
@@ -202,6 +280,18 @@ onMounted(() => {
                 </ElTag>
               </div>
             </div>
+
+            <!-- 删除按钮 -->
+            <div class="session-actions">
+              <ElButton
+                type="danger"
+                size="small"
+                text
+                @click="(e: MouseEvent) => handleDelete(session, e)"
+              >
+                删除
+              </ElButton>
+            </div>
           </div>
         </template>
 
@@ -215,6 +305,37 @@ onMounted(() => {
         <span @click="() => { currentPage++; loadData(); }">加载更多</span>
       </div>
     </div>
+
+    <!-- 新建会话弹窗 -->
+    <ElDialog v-model="dialogVisible" title="新建会话" width="400px">
+      <ElForm label-width="80px">
+        <ElFormItem label="群组ID" required>
+          <ElInput
+            v-model="newSessionForm.group_id"
+            placeholder="输入群组ID，如：demo-group-001"
+          />
+        </ElFormItem>
+        <ElFormItem label="群组名称">
+          <ElInput
+            v-model="newSessionForm.group_name"
+            placeholder="可选，用于显示名称"
+          />
+        </ElFormItem>
+        <ElFormItem label="是否群聊">
+          <ElSelect v-model="newSessionForm.is_group" style="width: 100%">
+            <ElOption label="是" :value="true" />
+            <ElOption label="否" :value="false" />
+          </ElSelect>
+        </ElFormItem>
+      </ElForm>
+
+      <template #footer>
+        <ElButton @click="dialogVisible = false">取消</ElButton>
+        <ElButton type="primary" :loading="dialogLoading" @click="handleCreateSubmit">
+          确定
+        </ElButton>
+      </template>
+    </ElDialog>
   </Page>
 </template>
 
@@ -234,6 +355,12 @@ onMounted(() => {
   padding: 16px 20px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .session-title {
@@ -277,16 +404,11 @@ onMounted(() => {
   padding: 14px 20px;
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .session-card:hover {
   background: #f5f5f5;
-}
-
-.session-card:active {
-  background: #e8e8e8;
 }
 
 /* 头像 - 微信绿色渐变 */
@@ -302,6 +424,7 @@ onMounted(() => {
   color: #fff;
   background: linear-gradient(135deg, #07c160 0%, #06ae56 100%);
   border-radius: 8px;
+  cursor: pointer;
 }
 
 /* 右侧内容 */
@@ -311,6 +434,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  cursor: pointer;
 }
 
 /* 上：群组名称 + 时间 */
@@ -349,6 +473,11 @@ onMounted(() => {
   color: #999;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 操作按钮 */
+.session-actions {
+  flex-shrink: 0;
 }
 
 /* 加载更多 */

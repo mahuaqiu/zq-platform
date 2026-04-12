@@ -166,8 +166,28 @@ export async function closeSessionApi(sessionId: string) {
 }
 
 /**
- * 创建新会话
+ * 创建新会话（基于现有会话的群组）
  */
 export async function createNewSessionApi(sessionId: string) {
-  return requestClient.post(`/api/core/ai/session/${sessionId}/new-session`);
+  return requestClient.post<AISession>(
+    `/api/core/ai/session/${sessionId}/new-session`,
+  );
+}
+
+/**
+ * 手动创建会话（为指定群组）
+ */
+export async function createSessionApi(data: {
+  group_id: string;
+  group_name?: string;
+  is_group?: boolean;
+}) {
+  return requestClient.post<AISession>('/api/core/ai/session', data);
+}
+
+/**
+ * 删除会话
+ */
+export async function deleteSessionApi(id: string) {
+  return requestClient.delete(`/api/core/ai/session/${id}`);
 }

@@ -65,6 +65,8 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     r"^/api/core/env/.*",
     # 公开接口（无需认证）
     r"^/env/.*",
+    # AI助手公开接口（供外部系统发送消息和接收回调，无需认证）
+    r"^/api/public/.*",
     # 测试报告 HTML 静态文件（公开访问）
     r"^/test-reports-html/.*",
     # 测试日志上报接口（供外部 worker 调用，无需认证）

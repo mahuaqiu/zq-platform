@@ -95,7 +95,8 @@
       "Read(//tmp/**)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm format:*)",
-      "Bash(npx prettier:*)"
+      "Bash(npx prettier:*)",
+      "Bash(powershell:*)"
     ]
   }
 }
