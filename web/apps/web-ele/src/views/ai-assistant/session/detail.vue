@@ -74,6 +74,17 @@ function formatDateTime(dateStr: string): string {
   });
 }
 
+// 从 chat_id 提取创建时间（格式: group_id_YYYYMMDD_HHMMSS）
+function getCreateTime(chatId: string): string {
+  if (!chatId) return '';
+  const parts = chatId.split('_');
+  if (parts.length >= 3) {
+    // 返回 YYYYMMDD_HHMMSS
+    return parts.slice(-2).join('_');
+  }
+  return chatId;
+}
+
 // 获取发送者显示名称
 function getSenderName(message: AIMessage): string {
   if (message.message_type === 1) {
@@ -252,7 +263,7 @@ onMounted(() => {
         </div>
         <div class="header-center">
           <div class="group-name">{{ sessionDetail?.group_name || sessionDetail?.session?.group_id || '会话' }}</div>
-          <div class="chat-id">{{ sessionDetail?.session?.chat_id }}</div>
+          <div class="chat-id">{{ getCreateTime(sessionDetail?.session?.chat_id || '') }}</div>
         </div>
         <div class="header-right">
           <ElDropdown trigger="click" @command="handleCommand">
