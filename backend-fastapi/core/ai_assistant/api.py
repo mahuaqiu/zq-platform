@@ -326,11 +326,13 @@ async def get_session_detail(
     session = session_data["session"]
     messages = session_data["messages"]
     group_name = session_data["group_name"]
+    trigger_word = session_data["trigger_word"]
 
     return AISessionDetail(
         session=AISessionResponse.model_validate(session),
         messages=[AIMessageResponse.model_validate(m) for m in messages],
         group_name=group_name,
+        trigger_word=trigger_word,
     )
 
 

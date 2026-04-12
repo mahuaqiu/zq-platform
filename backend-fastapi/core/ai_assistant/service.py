@@ -277,6 +277,7 @@ class AISessionService(BaseService[AISession, None, None]):
             "session": session,
             "messages": messages,
             "group_name": group.group_name if group else None,
+            "trigger_word": group.trigger_word if group else None,
         }
 
     @classmethod
