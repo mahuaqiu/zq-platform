@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { AISessionDetail, AIMessage } from '#/api/core/ai-assistant';
 
-import { onMounted, onUnmounted, ref, nextTick, computed } from 'vue';
+import { onMounted, onUnmounted, ref, nextTick, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -19,6 +19,7 @@ import { marked } from 'marked';
 
 import {
   getAISessionDetailApi,
+  getAIGroupListApi,
   sendMessageInSessionApi,
   clearSessionContextApi,
   closeSessionApi,
@@ -42,6 +43,13 @@ const loading = ref(false);
 const sending = ref(false);
 const inputMessage = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
+
+// 触发词提示相关
+const showTriggerSuggestion = ref(false);
+const triggerSuggestionList = ref<string[]>([]);
+const triggerSuggestionPosition = ref({ top: 0, left: 0 });
+const inputRef = ref<HTMLInputElement | null>(null);
+let groupTriggerWords: string[] = []; // 所有群组的触发词
 
 // 轮询相关
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -141,6 +149,113 @@ async function loadSessionDetail() {
   } finally {
     loading.value = false;
   }
+}
+
+// 加载所有群组的触发词（用于自动补全）
+async function loadTriggerWords() {
+  try {
+    const res = await getAIGroupListApi({
+      is_active: true,
+      page: 1,
+      page_size: 100,
+    });
+    // 提取所有触发词（去重）
+    const words = new Set<string>();
+    res.items?.forEach((group) => {
+      if (group.trigger_word) {
+        words.add(group.trigger_word);
+      }
+    });
+    groupTriggerWords = Array.from(words);
+  } catch (error) {
+    console.error('加载触发词失败:', error);
+  }
+}
+
+// 处理输入变化（检测 @ 符号）
+function handleInputChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const value = input.value;
+  const cursorPos = input.selectionStart || 0;
+
+  // 检查光标前是否有 @ 符号
+  const textBeforeCursor = value.substring(0, cursorPos);
+  const atIndex = textBeforeCursor.lastIndexOf('@');
+
+  if (atIndex !== -1) {
+    // 检查 @ 后面的文本（是否是触发词的一部分）
+    const textAfterAt = textBeforeCursor.substring(atIndex + 1);
+
+    // 如果 @ 后面没有空格且光标就在 @ 后面或紧接着
+    if (!textAfterAt.includes(' ') && cursorPos >= atIndex) {
+      // 过滤匹配的触发词
+      const matched = groupTriggerWords.filter((word) =>
+        word.toLowerCase().startsWith(textAfterAt.toLowerCase()),
+      );
+
+      if (matched.length > 0) {
+        triggerSuggestionList.value = matched;
+        showTriggerSuggestion.value = true;
+
+        // 计算下拉框位置
+        updateSuggestionPosition(atIndex);
+      } else if (textAfterAt === '') {
+        // 刚输入 @，显示所有触发词
+        triggerSuggestionList.value = groupTriggerWords;
+        showTriggerSuggestion.value = true;
+        updateSuggestionPosition(atIndex);
+      } else {
+        showTriggerSuggestion.value = false;
+      }
+    } else {
+      showTriggerSuggestion.value = false;
+    }
+  } else {
+    showTriggerSuggestion.value = false;
+  }
+}
+
+// 更新提示框位置
+function updateSuggestionPosition(atIndex: number) {
+  if (!inputRef.value) return;
+
+  // 简化处理：固定在输入框上方
+  const inputRect = inputRef.value.getBoundingClientRect();
+  triggerSuggestionPosition.value = {
+    top: inputRect.top - 40,
+    left: inputRect.left + atIndex * 8, // 大约每个字符 8px
+  };
+}
+
+// 选择触发词
+function selectTriggerWord(word: string) {
+  if (!inputRef.value) return;
+
+  const value = inputMessage.value;
+  const cursorPos = inputRef.value.selectionStart || 0;
+  const textBeforeCursor = value.substring(0, cursorPos);
+  const atIndex = textBeforeCursor.lastIndexOf('@');
+
+  if (atIndex !== -1) {
+    // 替换 @ 及后面的部分为完整触发词
+    const before = value.substring(0, atIndex);
+    const after = value.substring(cursorPos);
+    inputMessage.value = before + word + ' ' + after;
+
+    // 移动光标到触发词后面
+    nextTick(() => {
+      const newPos = atIndex + word.length + 1;
+      inputRef.value?.setSelectionRange(newPos, newPos);
+      inputRef.value?.focus();
+    });
+  }
+
+  showTriggerSuggestion.value = false;
+}
+
+// 关闭提示框
+function closeSuggestion() {
+  showTriggerSuggestion.value = false;
 }
 
 // 滚动到底部
@@ -331,6 +446,7 @@ function handleCommand(command: string) {
 // 初始加载
 onMounted(() => {
   loadSessionDetail();
+  loadTriggerWords(); // 加载触发词列表
 });
 
 // 离开页面时停止轮询
@@ -430,13 +546,32 @@ onUnmounted(() => {
 
       <!-- 输入区域 -->
       <div class="input-area">
+        <!-- 触发词提示下拉框 -->
+        <div
+          v-if="showTriggerSuggestion && triggerSuggestionList.length > 0"
+          class="trigger-suggestion"
+          :style="{ top: triggerSuggestionPosition.top + 'px', left: triggerSuggestionPosition.left + 'px' }"
+        >
+          <div
+            v-for="word in triggerSuggestionList"
+            :key="word"
+            class="suggestion-item"
+            @click="selectTriggerWord(word)"
+          >
+            {{ word }}
+          </div>
+        </div>
+
         <input
+          ref="inputRef"
           v-model="inputMessage"
           type="text"
           class="message-input"
-          placeholder="输入消息（可含触发词）"
+          placeholder="输入 @ 可选择触发词"
           :disabled="sessionDetail?.session?.status !== 0 || sending"
+          @input="handleInputChange"
           @keyup.enter="handleSend"
+          @blur="closeSuggestion"
         />
         <button
           class="send-button"
@@ -813,6 +948,39 @@ onUnmounted(() => {
 /* 空状态 */
 :deep(.el-empty) {
   padding: 100px 0;
+}
+
+/* 触发词提示框 */
+.trigger-suggestion {
+  position: fixed;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+  background: #f5f5f5;
+  color: #07c160;
+}
+
+.suggestion-item:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.suggestion-item:last-child {
+  border-radius: 0 0 6px 6px;
 }
 
 /* 下拉菜单样式 */
