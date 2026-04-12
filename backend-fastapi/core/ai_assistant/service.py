@@ -4,7 +4,7 @@
 @Author: 臧成龙
 @Time: 2026-04-12
 @File: service.py
-@Desc: AI助手服务层 - 群组、会话、消息
+@Desc: AI助手服务层 - 角色、群组、会话、消息
 """
 from datetime import datetime
 from typing import List, Optional, Tuple
@@ -17,6 +17,7 @@ from core.ai_assistant.model import (
     AIGroup,
     AISession,
     AIMessage,
+    AIRole,
     SessionStatus,
     MessageType,
     DEFAULT_TRIGGER_WORD,
@@ -24,10 +25,137 @@ from core.ai_assistant.model import (
 from core.ai_assistant.schema import (
     AIGroupCreate,
     AIGroupUpdate,
+    AIRoleCreate,
+    AIRoleUpdate,
     AISessionResponse,
     AIMessageResponse,
 )
 
+
+# ==================== 角色服务 ====================
+
+class AIRoleService(BaseService[AIRole, AIRoleCreate, AIRoleUpdate]):
+    """
+    角色服务
+
+    继承 BaseService，自动获得以下基础功能：
+    - create(): 创建记录
+    - get_by_id(): 根据 ID 获取单条记录
+    - get_list(): 获取分页列表
+    - update(): 更新记录
+    - delete(): 删除记录（支持软删除）
+    - check_unique(): 检查字段唯一性
+    """
+
+    model = AIRole
+
+    @classmethod
+    async def get_by_role_id(cls, db: AsyncSession, role_id: str) -> Optional[AIRole]:
+        """
+        根据角色ID获取角色
+
+        :param db: 数据库会话
+        :param role_id: 角色ID
+        :return: 角色记录或 None
+        """
+        result = await db.execute(
+            select(AIRole).where(
+                AIRole.role_id == role_id,
+                AIRole.is_deleted == False  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by_name(cls, db: AsyncSession, name: str) -> Optional[AIRole]:
+        """
+        根据角色名称获取角色
+
+        :param db: 数据库会话
+        :param name: 角色名称
+        :return: 角色记录或 None
+        """
+        result = await db.execute(
+            select(AIRole).where(
+                AIRole.name == name,
+                AIRole.is_deleted == False  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_list_with_filters(
+        cls,
+        db: AsyncSession,
+        name: Optional[str] = None,
+        role_id: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> Tuple[List[AIRole], int]:
+        """
+        带筛选条件的角色列表查询
+
+        :param db: 数据库会话
+        :param name: 角色名称（模糊查询）
+        :param code: 角色编码（模糊查询）
+        :param is_active: 是否启用
+        :param page: 页码
+        :param page_size: 每页数量
+        :return: (角色列表, 总数)
+        """
+        filters = [AIRole.is_deleted == False]  # noqa: E712
+
+        if name:
+            escaped_name = name.replace("%", r"\%").replace("_", r"\_")
+            filters.append(AIRole.name.ilike(f"%{escaped_name}%"))
+
+        if role_id:
+            escaped_role_id = role_id.replace("%", r"\%").replace("_", r"\_")
+            filters.append(AIRole.role_id.ilike(f"%{escaped_role_id}%"))
+
+        if is_active is not None:
+            filters.append(AIRole.is_active == is_active)
+
+        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+
+    @classmethod
+    async def get_active_roles(cls, db: AsyncSession) -> List[AIRole]:
+        """
+        获取所有启用的角色
+
+        :param db: 数据库会话
+        :return: 启用的角色列表
+        """
+        result = await db.execute(
+            select(AIRole).where(
+                AIRole.is_deleted == False,  # noqa: E712
+                AIRole.is_active == True  # noqa: E712
+            ).order_by(AIRole.sort, AIRole.name)
+        )
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_roles_by_ids(cls, db: AsyncSession, ids: List[str]) -> List[AIRole]:
+        """
+        根据ID列表获取角色
+
+        :param db: 数据库会话
+        :param ids: 角色ID列表
+        :return: 角色列表
+        """
+        if not ids:
+            return []
+        result = await db.execute(
+            select(AIRole).where(
+                AIRole.id.in_(ids),
+                AIRole.is_deleted == False  # noqa: E712
+            )
+        )
+        return list(result.scalars().all())
+
+
+# ==================== 群组服务 ====================
 
 class AIGroupService(BaseService[AIGroup, AIGroupCreate, AIGroupUpdate]):
     """
@@ -129,7 +257,7 @@ class AIGroupService(BaseService[AIGroup, AIGroupCreate, AIGroupUpdate]):
             group_id=group_id,
             group_name=group_name,
             is_group=is_group,
-            trigger_word=DEFAULT_TRIGGER_WORD,
+            trigger_word=None,  # 使用角色触发词，默认触发词为空
             requires_trigger=True,
             is_active=True,
         )
@@ -181,6 +309,73 @@ class AIGroupService(BaseService[AIGroup, AIGroupCreate, AIGroupUpdate]):
         )
         return list(result.scalars().all())
 
+    @classmethod
+    async def update_group_roles(
+        cls,
+        db: AsyncSession,
+        group_id: str,
+        role_ids: List[str],
+        auto_commit: bool = True
+    ) -> Optional[AIGroup]:
+        """
+        更新群组关联的角色
+
+        :param db: 数据库会话
+        :param group_id: 群组ID（数据库主键 UUID）
+        :param role_ids: 角色ID列表
+        :param auto_commit: 是否自动提交
+        :return: 更新后的群组或 None
+        """
+        group = await cls.get_by_id(db, group_id)
+        if not group:
+            return None
+
+        # 获取角色列表
+        roles = await AIRoleService.get_roles_by_ids(db, role_ids)
+
+        # 更新关联关系
+        group.roles = roles
+
+        if auto_commit:
+            await db.commit()
+            await db.refresh(group)
+        else:
+            await db.flush()
+            await db.refresh(group)
+
+        return group
+
+    @classmethod
+    def get_trigger_words(cls, group: AIGroup) -> List[str]:
+        """
+        获取群组的触发词列表
+
+        :param group: 群组记录
+        :return: 触发词列表（@角色名称），去重
+        """
+        trigger_words = []
+
+        # 如果群组有关联角色，使用 @角色名称 作为触发词
+        if group.roles:
+            for role in group.roles:
+                if role.is_active:
+                    trigger_words.append(f"@{role.name}")
+
+        # 如果有手动设置的触发词，也加入列表（去重）
+        if group.trigger_word:
+            # 确保触发词格式统一（带 @ 前缀）
+            tw = group.trigger_word if group.trigger_word.startswith('@') else f"@{group.trigger_word}"
+            if tw not in trigger_words:
+                trigger_words.append(tw)
+
+        # 如果没有任何触发词，使用默认触发词
+        if not trigger_words:
+            trigger_words.append(DEFAULT_TRIGGER_WORD)
+
+        return trigger_words
+
+
+# ==================== 会话服务 ====================
 
 class AISessionService(BaseService[AISession, None, None]):
     """

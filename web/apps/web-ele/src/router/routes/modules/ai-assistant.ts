@@ -2,6 +2,14 @@ import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/ai-assistant/role',
+    name: 'AIAssistantRole',
+    component: () => import('#/views/ai-assistant/role/index.vue'),
+    meta: {
+      title: '角色管理',
+    },
+  },
+  {
     path: '/ai-assistant/session',
     name: 'AIAssistantSession',
     component: () => import('#/views/ai-assistant/session/index.vue'),

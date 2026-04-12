@@ -27,6 +27,16 @@ MENUS = [
         "parent_id": None,
     },
     {
+        "id": "ai-assistant-role",
+        "name": "AIAssistantRole",
+        "title": "角色管理",
+        "path": "/ai-assistant/role",
+        "type": "menu",
+        "component": "/views/ai-assistant/role/index",
+        "parent_id": "ai-assistant-root",
+        "order": 0,
+    },
+    {
         "id": "ai-assistant-session",
         "name": "AIAssistantSession",
         "title": "会话管理",

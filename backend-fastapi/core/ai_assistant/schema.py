@@ -4,12 +4,48 @@
 @Author: 臧成龙
 @Time: 2026-04-12
 @File: schema.py
-@Desc: AI助手 Schema 定义
+@Desc: AI助手 Schema 定义 - 角色、群组、会话、消息
 """
 from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+# ============ 角色 Schema ============
+
+class AIRoleCreate(BaseModel):
+    """创建角色"""
+    name: str = Field(..., max_length=50, description="角色名称")
+    role_id: Optional[str] = Field(None, max_length=50, description="角色ID（可选，不填则自动生成）")
+    description: Optional[str] = Field(None, description="角色描述")
+    system_prompt: Optional[str] = Field(None, description="系统提示词")
+    avatar: Optional[str] = Field(None, description="角色头像URL")
+    is_active: bool = Field(default=True, description="是否启用")
+
+
+class AIRoleUpdate(BaseModel):
+    """更新角色"""
+    name: Optional[str] = Field(None, max_length=50, description="角色名称")
+    description: Optional[str] = Field(None, description="角色描述")
+    system_prompt: Optional[str] = Field(None, description="系统提示词")
+    avatar: Optional[str] = Field(None, description="角色头像URL")
+    is_active: Optional[bool] = Field(None, description="是否启用")
+
+
+class AIRoleResponse(BaseModel):
+    """角色响应"""
+    id: str = Field(..., description="角色ID")
+    name: str = Field(..., description="角色名称")
+    role_id: Optional[str] = Field(None, description="角色ID")
+    description: Optional[str] = Field(None, description="角色描述")
+    system_prompt: Optional[str] = Field(None, description="系统提示词")
+    avatar: Optional[str] = Field(None, description="角色头像URL")
+    is_active: bool = Field(..., description="是否启用")
+    sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
+    sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ 群组 Schema ============
@@ -19,9 +55,9 @@ class AIGroupCreate(BaseModel):
     group_id: str = Field(..., description="外部系统群组ID")
     group_name: str = Field(..., description="群组名称")
     is_group: bool = Field(default=True, description="是否群聊")
-    trigger_word: str = Field(default="@Andy", description="触发词")
     requires_trigger: bool = Field(default=True, description="是否需要触发词")
     is_active: bool = Field(default=True, description="是否启用")
+    role_ids: Optional[List[str]] = Field(None, description="关联角色ID列表")
 
 
 class AISessionCreate(BaseModel):
@@ -36,6 +72,7 @@ class AIGroupUpdate(BaseModel):
     trigger_word: Optional[str] = Field(None, description="触发词")
     requires_trigger: Optional[bool] = Field(None, description="是否需要触发词")
     is_active: Optional[bool] = Field(None, description="是否启用")
+    role_ids: Optional[List[str]] = Field(None, description="关联角色ID列表")
 
 
 class AIGroupResponse(BaseModel):
@@ -44,9 +81,10 @@ class AIGroupResponse(BaseModel):
     group_id: str = Field(..., description="外部系统群组ID")
     group_name: str = Field(..., description="群组名称")
     is_group: bool = Field(..., description="是否群聊")
-    trigger_word: str = Field(..., description="触发词")
     requires_trigger: bool = Field(..., description="是否需要触发词")
     is_active: bool = Field(..., description="是否启用")
+    roles: List[AIRoleResponse] = Field(default_factory=list, description="关联角色列表")
+    trigger_words: List[str] = Field(default_factory=list, description="触发词列表（@角色名称）")
     last_message_time: Optional[datetime] = Field(None, description="最后消息时间")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
@@ -142,4 +180,10 @@ class AIGroupListResponse(BaseModel):
 class AISessionListResponse(BaseModel):
     """会话列表响应"""
     items: List[AISessionResponse] = Field(default_factory=list, description="会话列表")
+    total: int = Field(..., description="总数")
+
+
+class AIRoleListResponse(BaseModel):
+    """角色列表响应"""
+    items: List[AIRoleResponse] = Field(default_factory=list, description="角色列表")
     total: int = Field(..., description="总数")

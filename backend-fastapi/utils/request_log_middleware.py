@@ -91,8 +91,8 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
                 parsed = json.loads(body_str)
                 # 如果内容太长，截断显示
                 result = json.dumps(parsed, ensure_ascii=False)
-                if len(result) > 500:
-                    return f"{result[:500]}..."
+                if len(result) > 3000:
+                    return f"{result[:3000]}..."
                 return result
             except (json.JSONDecodeError, UnicodeDecodeError):
                 return f"<binary:{len(body)}B>"
@@ -117,15 +117,15 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
                 return None
 
             # 如果响应体太大，截断
-            if len(body) > 1000:
+            if len(body) > 6000:
                 return f"<{len(body)}B>"
 
             try:
                 body_str = body.decode("utf-8")
                 parsed = json.loads(body_str)
                 result = json.dumps(parsed, ensure_ascii=False)
-                if len(result) > 500:
-                    return f"{result[:500]}..."
+                if len(result) > 3000:
+                    return f"{result[:3000]}..."
                 return result
             except (json.JSONDecodeError, UnicodeDecodeError):
                 return f"<binary:{len(body)}B>"

@@ -4,14 +4,16 @@
 @Author: 臧成龙
 @Time: 2026-04-12
 @File: model.py
-@Desc: AI助手数据模型 - 群组、会话、消息
+@Desc: AI助手数据模型 - 角色、群组、会话、消息
 """
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Column, String, Boolean, Text, DateTime, Integer, Index
+from sqlalchemy import Column, String, Boolean, Text, DateTime, Integer, Index, Table, ForeignKey
+from sqlalchemy.orm import relationship
 
 from app.base_model import BaseModel
+from app.database import Base
 
 
 # ==================== 常量定义 ====================
@@ -33,6 +35,55 @@ class MessageType:
 DEFAULT_TRIGGER_WORD = "@Andy"
 
 
+# ==================== 关联表定义 ====================
+
+# 群组-角色关联表（多对多）
+ai_group_role = Table(
+    'ai_group_role',
+    Base.metadata,
+    Column('group_id', String(21), ForeignKey('ai_assistant_group.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', String(21), ForeignKey('ai_assistant_role.id', ondelete='CASCADE'), primary_key=True),
+    Column('sort', Integer, default=0, comment="排序"),
+)
+
+
+# ==================== 角色模型 ====================
+
+class AIRole(BaseModel):
+    """
+    AI角色表
+
+    字段说明：
+    - name: 角色名称（用于触发词：@角色名称）
+    - role_id: 角色ID（外部系统标识，可选）
+    - description: 角色描述
+    - system_prompt: 系统提示词
+    - avatar: 角色头像URL
+    - is_active: 是否启用
+    """
+    __tablename__ = "ai_assistant_role"
+
+    # 角色名称（用于触发词：@角色名称）
+    name = Column(String(50), unique=True, nullable=False, index=True, comment="角色名称")
+
+    # 角色ID（外部系统标识，可选，不填则自动生成）
+    role_id = Column(String(50), unique=True, nullable=True, index=True, comment="角色ID")
+
+    # 角色描述
+    description = Column(Text, nullable=True, comment="角色描述")
+
+    # 系统提示词（核心配置）
+    system_prompt = Column(Text, nullable=True, comment="系统提示词")
+
+    # 角色头像URL
+    avatar = Column(String(512), nullable=True, comment="角色头像URL")
+
+    # 是否启用
+    is_active = Column(Boolean, default=True, nullable=False, index=True, comment="是否启用")
+
+
+# ==================== 群组模型 ====================
+
 class AIGroup(BaseModel):
     """
     AI助手群组表
@@ -41,10 +92,11 @@ class AIGroup(BaseModel):
     - group_id: 外部系统群组ID（唯一标识）
     - group_name: 群组名称
     - is_group: 是否群聊
-    - trigger_word: 触发词
+    - trigger_word: 触发词（可空，如果有关联角色则使用角色的触发词）
     - requires_trigger: 是否需要触发词
     - is_active: 是否启用
     - last_message_time: 最后消息时间
+    - roles: 关联角色（多对多）
     """
     __tablename__ = "ai_assistant_group"
 
@@ -57,8 +109,8 @@ class AIGroup(BaseModel):
     # 是否群聊
     is_group = Column(Boolean, default=True, nullable=False, comment="是否群聊")
 
-    # 触发词
-    trigger_word = Column(String(50), nullable=False, default=DEFAULT_TRIGGER_WORD, comment="触发词")
+    # 触发词（可空，如果有关联角色则使用角色的触发词）
+    trigger_word = Column(String(50), nullable=True, default=None, comment="触发词")
 
     # 是否需要触发词
     requires_trigger = Column(Boolean, default=True, nullable=False, comment="是否需要触发词")
@@ -68,6 +120,9 @@ class AIGroup(BaseModel):
 
     # 最后消息时间
     last_message_time = Column(DateTime, nullable=True, comment="最后消息时间")
+
+    # 多对多关系：关联的角色
+    roles = relationship("AIRole", secondary=ai_group_role, backref="groups", lazy="selectin")
 
 
 class AISession(BaseModel):

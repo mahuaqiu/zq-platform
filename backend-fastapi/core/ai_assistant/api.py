@@ -8,15 +8,15 @@
 """
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
 from app.config import settings
 from app.database import get_db
-from core.ai_assistant.model import SessionStatus
+from core.ai_assistant.model import SessionStatus, AIGroup, AIRole
 from core.ai_assistant.schema import (
     AIGroupCreate,
     AIGroupUpdate,
@@ -28,11 +28,15 @@ from core.ai_assistant.schema import (
     AIMessageSend,
     AIGroupListResponse,
     AISessionListResponse,
+    AIRoleCreate,
+    AIRoleUpdate,
+    AIRoleResponse,
 )
 from core.ai_assistant.service import (
     AIGroupService,
     AISessionService,
     AIMessageService,
+    AIRoleService,
 )
 from core.ai_assistant.context_manager import ContextManager
 from core.ai_assistant.nanoclaw_client import nanoclaw_client
@@ -75,7 +79,185 @@ async def _poll_fallback_task(chat_id: str, session_id: str):
         logger.warning(f"保底轮询未获取到回复: chat_id={chat_id}")
 
 
+# ==================== 角色管理接口 ====================
+
+@router.get("/role", response_model=PaginatedResponse[AIRoleResponse], summary="角色列表")
+async def list_roles(
+    name: Optional[str] = None,
+    role_id: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    db: AsyncSession = Depends(get_db)
+) -> PaginatedResponse[AIRoleResponse]:
+    """
+    角色列表（分页）
+
+    支持按 name、role_id、is_active 筛选。
+
+    Args:
+        name: 角色名称（模糊查询）
+        role_id: 角色ID（模糊查询）
+        is_active: 是否启用
+        page: 页码
+        page_size: 每页数量
+    """
+    roles, total = await AIRoleService.get_list_with_filters(
+        db,
+        name=name,
+        role_id=role_id,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
+
+    return PaginatedResponse(
+        items=[AIRoleResponse.model_validate(r) for r in roles],
+        total=total,
+    )
+
+
+@router.get("/role/all", response_model=List[AIRoleResponse], summary="所有启用角色")
+async def get_all_active_roles(db: AsyncSession = Depends(get_db)):
+    """
+    获取所有启用的角色（用于角色选择器）
+    """
+    roles = await AIRoleService.get_active_roles(db)
+    return [AIRoleResponse.model_validate(r) for r in roles]
+
+
+@router.get("/role/{role_id}", response_model=AIRoleResponse, summary="角色详情")
+async def get_role_detail(
+    role_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> AIRoleResponse:
+    """
+    角色详情
+
+    Args:
+        role_id: 角色ID（UUID）
+    """
+    role = await AIRoleService.get_by_id(db, role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="角色不存在")
+
+    return AIRoleResponse.model_validate(role)
+
+
+@router.post("/role", response_model=AIRoleResponse, summary="创建角色")
+async def create_role(
+    data: AIRoleCreate,
+    db: AsyncSession = Depends(get_db)
+) -> AIRoleResponse:
+    """
+    创建角色
+
+    Args:
+        data: 角色创建数据
+    """
+    # 检查 name 是否已存在
+    existing_name = await AIRoleService.get_by_name(db, data.name)
+    if existing_name:
+        raise HTTPException(status_code=400, detail=f"角色名称已存在: {data.name}")
+
+    # 如果指定了 role_id，检查是否已存在
+    if data.role_id:
+        existing_role_id = await AIRoleService.get_by_role_id(db, data.role_id)
+        if existing_role_id:
+            raise HTTPException(status_code=400, detail=f"角色ID已存在: {data.role_id}")
+
+    role = await AIRoleService.create(db, data)
+    logger.info(f"创建角色成功: name={data.name}, role_id={data.role_id}")
+
+    return AIRoleResponse.model_validate(role)
+
+
+@router.put("/role/{role_id}", response_model=AIRoleResponse, summary="更新角色")
+async def update_role(
+    role_id: str,
+    data: AIRoleUpdate,
+    db: AsyncSession = Depends(get_db)
+) -> AIRoleResponse:
+    """
+    更新角色
+
+    Args:
+        role_id: 角色ID（UUID）
+        data: 角色更新数据
+    """
+    role = await AIRoleService.get_by_id(db, role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="角色不存在")
+
+    # 如果更新名称，检查是否重复
+    if data.name and data.name != role.name:
+        existing = await AIRoleService.get_by_name(db, data.name)
+        if existing:
+            raise HTTPException(status_code=400, detail=f"角色名称已存在: {data.name}")
+
+    role = await AIRoleService.update(db, role_id, data)
+    logger.info(f"更新角色成功: role_id={role_id}")
+
+    return AIRoleResponse.model_validate(role)
+
+
+@router.delete("/role/{role_id}", summary="删除角色")
+async def delete_role(
+    role_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    删除角色（软删除）
+
+    Args:
+        role_id: 角色ID（UUID）
+    """
+    role = await AIRoleService.get_by_id(db, role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="角色不存在")
+
+    await AIRoleService.delete(db, role_id)
+    logger.info(f"删除角色成功: role_id={role_id}")
+
+    return {"status": "success", "message": "删除成功"}
+
+
+@router.post("/role/by-ids", response_model=List[AIRoleResponse], summary="按ID批量获取角色")
+async def get_roles_by_ids(
+    ids: List[str] = Body(..., description="角色ID列表"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    根据ID列表批量获取角色信息
+    """
+    roles = await AIRoleService.get_roles_by_ids(db, ids)
+    return [AIRoleResponse.model_validate(r) for r in roles]
+
+
 # ==================== 群组管理接口 ====================
+
+def _build_group_response(group: AIGroup) -> AIGroupResponse:
+    """
+    构建群组响应，包含 roles 和 trigger_words
+    """
+    roles = [AIRoleResponse.model_validate(r) for r in group.roles if r.is_active]
+    trigger_words = AIGroupService.get_trigger_words(group)
+
+    return AIGroupResponse(
+        id=str(group.id),
+        group_id=group.group_id,
+        group_name=group.group_name,
+        is_group=group.is_group,
+        trigger_word=group.trigger_word,
+        requires_trigger=group.requires_trigger,
+        is_active=group.is_active,
+        roles=roles,
+        trigger_words=trigger_words,
+        last_message_time=group.last_message_time,
+        sys_create_datetime=group.sys_create_datetime,
+        sys_update_datetime=group.sys_update_datetime,
+    )
+
 
 @router.get("/group", response_model=PaginatedResponse[AIGroupResponse], summary="群组列表")
 async def list_groups(
@@ -108,7 +290,7 @@ async def list_groups(
     )
 
     return PaginatedResponse(
-        items=[AIGroupResponse.model_validate(g) for g in groups],
+        items=[_build_group_response(g) for g in groups],
         total=total,
     )
 
@@ -130,7 +312,7 @@ async def get_group_detail(
     if not group:
         raise HTTPException(status_code=404, detail="群组不存在")
 
-    return AIGroupResponse.model_validate(group)
+    return _build_group_response(group)
 
 
 @router.post("/group", response_model=AIGroupResponse, summary="创建群组")
@@ -144,17 +326,33 @@ async def create_group(
     创建新的 AI 助手群组配置。
 
     Args:
-        data: 群组创建数据
+        data: 群组创建数据（包含 role_ids）
     """
     # 检查 group_id 是否已存在
     existing = await AIGroupService.get_by_group_id(db, data.group_id)
     if existing:
         raise HTTPException(status_code=400, detail=f"群组ID已存在: {data.group_id}")
 
-    group = await AIGroupService.create(db, data)
-    logger.info(f"创建群组成功: group_id={data.group_id}, group_name={data.group_name}")
+    # 创建群组（不包含 role_ids）
+    group_data = data.model_dump(exclude={'role_ids'})
+    group = AIGroup(**group_data)
+    db.add(group)
+    await db.flush()
+    await db.refresh(group)
 
-    return AIGroupResponse.model_validate(group)
+    # 如果有 role_ids，设置角色关联
+    if data.role_ids:
+        roles = await AIRoleService.get_roles_by_ids(db, data.role_ids)
+        group.roles = roles
+        await db.flush()
+        await db.refresh(group)
+
+    await db.commit()
+    await db.refresh(group)
+
+    logger.info(f"创建群组成功: group_id={data.group_id}, group_name={data.group_name}, role_ids={data.role_ids}")
+
+    return _build_group_response(group)
 
 
 @router.put("/group/{group_id}", response_model=AIGroupResponse, summary="更新群组")
@@ -170,16 +368,28 @@ async def update_group(
 
     Args:
         group_id: 群组ID（UUID）
-        data: 群组更新数据
+        data: 群组更新数据（包含 role_ids）
     """
     group = await AIGroupService.get_by_id(db, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="群组不存在")
 
-    group = await AIGroupService.update(db, group_id, data)
-    logger.info(f"更新群组成功: group_id={group_id}")
+    # 更新群组基础信息（不包含 role_ids）
+    update_data = data.model_dump(exclude={'role_ids'}, exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(group, field, value)
 
-    return AIGroupResponse.model_validate(group)
+    # 如果有 role_ids，更新角色关联
+    if data.role_ids is not None:
+        roles = await AIRoleService.get_roles_by_ids(db, data.role_ids)
+        group.roles = roles
+
+    await db.commit()
+    await db.refresh(group)
+
+    logger.info(f"更新群组成功: group_id={group_id}, role_ids={data.role_ids}")
+
+    return _build_group_response(group)
 
 
 @router.delete("/group/{group_id}", summary="删除群组")
@@ -201,6 +411,48 @@ async def delete_group(
     logger.info(f"删除群组成功: group_id={group_id}")
 
     return {"status": "success", "message": "删除成功"}
+
+
+@router.put("/group/{group_id}/roles", response_model=AIGroupResponse, summary="更新群组角色关联")
+async def update_group_roles(
+    group_id: str,
+    role_ids: List[str] = Body(..., description="角色ID列表"),
+    db: AsyncSession = Depends(get_db)
+) -> AIGroupResponse:
+    """
+    更新群组关联的角色
+
+    Args:
+        group_id: 群组ID（UUID）
+        role_ids: 角色ID列表
+    """
+    group = await AIGroupService.get_by_id(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="群组不存在")
+
+    group = await AIGroupService.update_group_roles(db, group_id, role_ids)
+    logger.info(f"更新群组角色关联成功: group_id={group_id}, role_ids={role_ids}")
+
+    return AIGroupResponse.model_validate(group)
+
+
+@router.get("/group/{group_id}/trigger-words", summary="获取群组触发词列表")
+async def get_group_trigger_words(
+    group_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取群组的触发词列表（@角色名称）
+
+    Args:
+        group_id: 群组ID（UUID）
+    """
+    group = await AIGroupService.get_by_id(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="群组不存在")
+
+    trigger_words = AIGroupService.get_trigger_words(group)
+    return {"trigger_words": trigger_words}
 
 
 @router.get("/group/{group_id}/sessions", response_model=PaginatedResponse[AISessionResponse], summary="群组的会话列表")

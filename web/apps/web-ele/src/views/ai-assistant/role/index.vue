@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { AIGroup, AIRole } from '#/api/core/ai-assistant';
+import type { AIRole } from '#/api/core/ai-assistant';
 
 import { onMounted, ref } from 'vue';
 
@@ -19,33 +19,27 @@ import {
   ElSwitch,
   ElTable,
   ElTableColumn,
-  ElTag,
 } from 'element-plus';
 
 import {
-  deleteAIGroupApi,
-  getAIGroupListApi,
-  createAIGroupApi,
-  updateAIGroupApi,
-  getAllActiveRolesApi,
+  deleteAIRoleApi,
+  getAIRoleListApi,
+  createAIRoleApi,
+  updateAIRoleApi,
 } from '#/api/core/ai-assistant';
 
-defineOptions({ name: 'AIGroupPage' });
+defineOptions({ name: 'AIRolePage' });
 
 // 数据
-const tableData = ref<AIGroup[]>([]);
+const tableData = ref<AIRole[]>([]);
 const total = ref(0);
 const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(20);
 
-// 角色列表（用于选择器）
-const roleList = ref<AIRole[]>([]);
-
 // 筛选条件
 const searchForm = ref({
-  group_id: '',
-  group_name: '',
+  name: '',
   is_active: undefined as boolean | undefined,
 });
 
@@ -57,31 +51,19 @@ const editId = ref('');
 
 // 表单数据
 const formData = ref({
-  group_id: '',
-  group_name: '',
-  is_group: true,
-  requires_trigger: true,
+  name: '',
+  description: '',
+  system_prompt: '',
+  avatar: '',
   is_active: true,
-  role_ids: [] as string[],
 });
-
-// 加载角色列表
-async function loadRoleList() {
-  try {
-    const res = await getAllActiveRolesApi();
-    roleList.value = res || [];
-  } catch (error) {
-    console.error('加载角色列表失败:', error);
-  }
-}
 
 // 加载数据
 async function loadData() {
   loading.value = true;
   try {
-    const res = await getAIGroupListApi({
-      group_id: searchForm.value.group_id || undefined,
-      group_name: searchForm.value.group_name || undefined,
+    const res = await getAIRoleListApi({
+      name: searchForm.value.name || undefined,
       is_active: searchForm.value.is_active,
       page: currentPage.value,
       page_size: pageSize.value,
@@ -105,8 +87,7 @@ function handleSearch() {
 // 重置
 function handleReset() {
   searchForm.value = {
-    group_id: '',
-    group_name: '',
+    name: '',
     is_active: undefined,
   };
   currentPage.value = 1;
@@ -130,41 +111,38 @@ function handleCreate() {
   isEdit.value = false;
   editId.value = '';
   formData.value = {
-    group_id: '',
-    group_name: '',
-    is_group: true,
-    requires_trigger: true,
+    name: '',
+    description: '',
+    system_prompt: '',
+    avatar: '',
     is_active: true,
-    role_ids: [],
   };
   dialogVisible.value = true;
 }
 
 // 编辑
-function handleEdit(row: AIGroup) {
+function handleEdit(row: AIRole) {
   isEdit.value = true;
   editId.value = row.id;
   formData.value = {
-    group_id: row.group_id,
-    group_name: row.group_name,
-    is_group: row.is_group,
-    requires_trigger: row.requires_trigger,
+    name: row.name,
+    description: row.description || '',
+    system_prompt: row.system_prompt || '',
+    avatar: row.avatar || '',
     is_active: row.is_active,
-    role_ids: row.roles?.map((r) => r.id) || [],
   };
   dialogVisible.value = true;
 }
 
 // 删除
-function handleDelete(row: AIGroup) {
-  const displayName = row.group_name || row.group_id;
-  ElMessageBox.confirm(`确定要删除群组 "${displayName}" 吗？`, '删除确认', {
+function handleDelete(row: AIRole) {
+  ElMessageBox.confirm(`确定要删除角色 "${row.name}" 吗？`, '删除确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
   }).then(async () => {
     try {
-      await deleteAIGroupApi(row.id);
+      await deleteAIRoleApi(row.id);
       ElMessage.success('删除成功');
       loadData();
     } catch {
@@ -175,37 +153,29 @@ function handleDelete(row: AIGroup) {
 
 // 提交表单
 async function handleSubmit() {
-  // 校验必填字段
-  if (!formData.value.group_id) {
-    ElMessage.warning('请输入群组ID');
-    return;
-  }
-  if (!formData.value.group_name) {
-    ElMessage.warning('请输入群组名称');
+  if (!formData.value.name) {
+    ElMessage.warning('请输入角色名称');
     return;
   }
 
   dialogLoading.value = true;
   try {
     if (isEdit.value) {
-      // 编辑模式：只更新可修改字段
-      await updateAIGroupApi(editId.value, {
-        group_name: formData.value.group_name,
-        is_group: formData.value.is_group,
-        requires_trigger: formData.value.requires_trigger,
+      await updateAIRoleApi(editId.value, {
+        name: formData.value.name,
+        description: formData.value.description,
+        system_prompt: formData.value.system_prompt,
+        avatar: formData.value.avatar,
         is_active: formData.value.is_active,
-        role_ids: formData.value.role_ids,
       });
       ElMessage.success('更新成功');
     } else {
-      // 新增模式
-      await createAIGroupApi({
-        group_id: formData.value.group_id,
-        group_name: formData.value.group_name,
-        is_group: formData.value.is_group,
-        requires_trigger: formData.value.requires_trigger,
+      await createAIRoleApi({
+        name: formData.value.name,
+        description: formData.value.description,
+        system_prompt: formData.value.system_prompt,
+        avatar: formData.value.avatar,
         is_active: formData.value.is_active,
-        role_ids: formData.value.role_ids,
       });
       ElMessage.success('创建成功');
     }
@@ -222,7 +192,6 @@ async function handleSubmit() {
 // 初始加载
 onMounted(() => {
   loadData();
-  loadRoleList();
 });
 </script>
 
@@ -233,19 +202,10 @@ onMounted(() => {
       <div class="env-search-area">
         <div class="env-search-form">
           <div class="env-search-item">
-            <label class="env-search-label">群组ID</label>
+            <label class="env-search-label">角色名称</label>
             <ElInput
-              v-model="searchForm.group_id"
-              placeholder="搜索群组ID"
-              clearable
-              style="width: 180px"
-            />
-          </div>
-          <div class="env-search-item">
-            <label class="env-search-label">群组名称</label>
-            <ElInput
-              v-model="searchForm.group_name"
-              placeholder="搜索群组名称"
+              v-model="searchForm.name"
+              placeholder="搜索角色名称"
               clearable
               style="width: 180px"
             />
@@ -270,7 +230,7 @@ onMounted(() => {
 
           <!-- 新增按钮 -->
           <ElButton type="success" class="env-create-btn" @click="handleCreate">
-            + 新增群组
+            + 新增角色
           </ElButton>
         </div>
       </div>
@@ -278,40 +238,14 @@ onMounted(() => {
       <!-- 表格区域 -->
       <div class="env-table-wrapper">
         <ElTable :data="tableData" v-loading="loading" class="env-table" border>
-          <ElTableColumn prop="group_id" label="群组ID" min-width="150">
+          <ElTableColumn prop="name" label="角色名称" min-width="120">
             <template #default="{ row }">
-              <code class="env-code">{{ row.group_id }}</code>
+              {{ row.name }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="group_name" label="群组名称" min-width="150" />
-          <ElTableColumn prop="roles" label="关联角色" min-width="150">
+          <ElTableColumn prop="description" label="描述" min-width="200">
             <template #default="{ row }">
-              <div v-if="row.roles && row.roles.length > 0">
-                <ElTag
-                  v-for="role in row.roles"
-                  :key="role.id"
-                  type="primary"
-                  size="small"
-                  class="mr-1"
-                >
-                  {{ role.name }}
-                </ElTag>
-              </div>
-              <span v-else class="env-dash">-</span>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="is_group" label="是否群聊" min-width="80" align="center">
-            <template #default="{ row }">
-              <span :class="row.is_group ? 'env-status-success' : 'env-status-warning'">
-                {{ row.is_group ? '是' : '否' }}
-              </span>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="requires_trigger" label="需触发词" min-width="80" align="center">
-            <template #default="{ row }">
-              <span :class="row.requires_trigger ? 'env-status-success' : 'env-status-warning'">
-                {{ row.requires_trigger ? '是' : '否' }}
-              </span>
+              {{ row.description || '-' }}
             </template>
           </ElTableColumn>
           <ElTableColumn prop="is_active" label="状态" min-width="80" align="center">
@@ -321,9 +255,9 @@ onMounted(() => {
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="last_message_time" label="最后消息时间" min-width="160">
+          <ElTableColumn prop="sys_create_datetime" label="创建时间" min-width="160">
             <template #default="{ row }">
-              {{ row.last_message_time || '-' }}
+              {{ row.sys_create_datetime || '-' }}
             </template>
           </ElTableColumn>
           <ElTableColumn label="操作" min-width="120">
@@ -354,50 +288,42 @@ onMounted(() => {
     <!-- 新增/编辑弹窗 -->
     <ElDialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑群组' : '新增群组'"
-      width="500px"
+      :title="isEdit ? '编辑角色' : '新增角色'"
+      width="600px"
       :close-on-click-modal="false"
     >
       <ElForm label-width="100px">
-        <!-- 群组ID（新增时必填，编辑时不可修改） -->
-        <ElFormItem label="群组ID" :required="!isEdit">
+        <!-- 角色名称 -->
+        <ElFormItem label="角色名称" :required="!isEdit">
           <ElInput
-            v-model="formData.group_id"
-            :disabled="isEdit"
-            placeholder="请输入群组ID，如 tech-group-001"
+            v-model="formData.name"
+            placeholder="请输入角色名称，触发词格式 @角色名称"
           />
         </ElFormItem>
 
-        <!-- 群组名称 -->
-        <ElFormItem label="群组名称" required>
-          <ElInput v-model="formData.group_name" placeholder="请输入群组名称" />
+        <!-- 角色描述 -->
+        <ElFormItem label="角色描述">
+          <ElInput
+            v-model="formData.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入角色描述"
+          />
         </ElFormItem>
 
-        <!-- 关联角色 -->
-        <ElFormItem label="关联角色">
-          <ElSelect
-            v-model="formData.role_ids"
-            multiple
-            placeholder="选择角色"
-            style="width: 100%"
-          >
-            <ElOption
-              v-for="role in roleList"
-              :key="role.id"
-              :label="role.name"
-              :value="role.id"
-            />
-          </ElSelect>
+        <!-- 系统提示词 -->
+        <ElFormItem label="系统提示词">
+          <ElInput
+            v-model="formData.system_prompt"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入系统提示词（AI角色的核心配置）"
+          />
         </ElFormItem>
 
-        <!-- 是否群聊 -->
-        <ElFormItem label="是否群聊">
-          <ElSwitch v-model="formData.is_group" />
-        </ElFormItem>
-
-        <!-- 是否需要触发词 -->
-        <ElFormItem label="需触发词">
-          <ElSwitch v-model="formData.requires_trigger" />
+        <!-- 角色头像 -->
+        <ElFormItem label="角色头像">
+          <ElInput v-model="formData.avatar" placeholder="请输入头像URL" />
         </ElFormItem>
 
         <!-- 启用状态 -->
@@ -513,31 +439,13 @@ onMounted(() => {
   border-bottom: 1px solid #e8e8e8 !important;
 }
 
-/* 机器信息 code 样式 */
-.env-code {
-  padding: 2px 6px;
-  font-family: Consolas, Monaco, 'Courier New', monospace;
-  font-size: 13px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
 .env-dash {
   color: #999;
-}
-
-/* 标签间距 */
-.mr-1 {
-  margin-right: 4px;
 }
 
 /* 状态样式 */
 .env-status-success {
   color: #52c41a;
-}
-
-.env-status-orange {
-  color: #e6a23c;
 }
 
 .env-status-warning {
@@ -546,10 +454,6 @@ onMounted(() => {
 
 .env-status-danger {
   color: #ff4d4f;
-}
-
-.env-status-upgrading {
-  color: #1890ff;
 }
 
 /* 操作链接 */
@@ -576,7 +480,7 @@ onMounted(() => {
   padding: 16px 0 0;
 }
 
-/* 不换行 - 用于版本和操作列 */
+/* 不换行 - 用于操作列 */
 .nowrap {
   white-space: nowrap;
 }
