@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     # NanoClaw 配置
     NANOCLAW_API_URL: str = "http://localhost:8080"
     NANOCLAW_API_TOKEN: str = ""
+    NANOCLAW_CALLBACK_URL: Optional[str] = None  # 回调接收地址
 
     # 上下文管理配置
     CONTEXT_TIME_WINDOW: int = 120  # 分钟

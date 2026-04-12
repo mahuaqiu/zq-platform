@@ -6,12 +6,14 @@
 @File: public_api.py
 @Desc: AI助手公开接口 - 无需鉴权的外部接口
 """
+import asyncio
 import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from core.ai_assistant.model import AIGroup, AISession, AIMessage, MessageType
 from core.ai_assistant.schema import (
@@ -26,6 +28,37 @@ from core.ai_assistant.nanoclaw_client import nanoclaw_client
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public", tags=["公开接口"])
+
+
+# ==================== 保底轮询任务 ====================
+
+async def _poll_fallback_task(chat_id: str, session_id: str):
+    """
+    保底轮询任务：等待2分钟后开始轮询
+
+    如果回调未收到响应，启动轮询机制获取 AI 回复。
+
+    Args:
+        chat_id: NanoClaw chat_id
+        session_id: 本系统会话 ID
+    """
+    # 等待 2 分钟（等待回调响应）
+    await asyncio.sleep(120)
+
+    logger.info(f"保底轮询开始: chat_id={chat_id}, session_id={session_id}")
+
+    # 开始轮询（5次，间隔60秒）
+    reply = await nanoclaw_client.poll_for_reply(
+        chat_id=chat_id,
+        session_id=session_id,
+        max_attempts=5,
+        interval_seconds=60,
+    )
+
+    if reply:
+        logger.info(f"保底轮询成功获取回复: chat_id={chat_id}")
+    else:
+        logger.warning(f"保底轮询未获取到回复: chat_id={chat_id}")
 
 
 @router.post("/sendmsg", response_model=ExternalSendMessageResponse, summary="外部发送消息")
@@ -73,14 +106,16 @@ async def external_send_message(
             session, recovery_messages = await ContextManager.handle_message_limit(db, session)
             logger.info(f"达到消息上限，创建新会话: chat_id={session.chat_id}")
 
-        # 4. 发送消息到 NanoClaw
+        # 4. 发送消息到 NanoClaw（支持回调模式）
+        callback_url = settings.NANOCLAW_CALLBACK_URL
         send_result = await nanoclaw_client.send_message(
             chat_id=session.chat_id,
             sender=data.sender_id,
             content=data.content,
             sender_name=data.sender_name,
             chat_name=group.group_name,
-            is_group=group.is_group
+            is_group=group.is_group,
+            callback_url=callback_url,  # 传递回调 URL
         )
 
         if "error" in send_result:
@@ -89,7 +124,17 @@ async def external_send_message(
             nanoclaw_message_id = None
         else:
             nanoclaw_message_id = send_result.get("message_id")
-            logger.info(f"NanoClaw 发送消息成功: chat_id={session.chat_id}")
+            logger.info(f"NanoClaw 发送消息成功: chat_id={session.chat_id}, callback_mode={bool(callback_url)}")
+
+            # 如果使用回调模式，启动保底轮询任务
+            if callback_url:
+                asyncio.create_task(
+                    _poll_fallback_task(
+                        chat_id=session.chat_id,
+                        session_id=str(session.id),
+                    )
+                )
+                logger.info(f"已启动保底轮询任务: chat_id={session.chat_id}")
 
         # 5. 存储消息记录
         message = await AIMessageService.create_user_message(
