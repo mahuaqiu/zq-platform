@@ -55,6 +55,7 @@ class AISessionResponse(BaseModel):
     """会话响应"""
     id: str = Field(..., description="会话ID")
     group_id: str = Field(..., description="群组ID")
+    group_name: Optional[str] = Field(None, description="群组名称")
     chat_id: str = Field(..., description="外部会话ID")
     session_name: Optional[str] = Field(None, description="会话名称")
     message_count: int = Field(..., description="消息数量")

@@ -24,6 +24,7 @@ export interface AIGroup {
 export interface AISession {
   id: string;
   group_id: string;
+  group_name?: string;
   chat_id: string;
   session_name?: string;
   message_count: number;

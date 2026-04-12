@@ -263,7 +263,6 @@ onMounted(() => {
         </div>
         <div class="header-center">
           <div class="group-name">{{ sessionDetail?.group_name || sessionDetail?.session?.group_id || '会话' }}</div>
-          <div class="chat-id">{{ getCreateTime(sessionDetail?.session?.chat_id || '') }}</div>
         </div>
         <div class="header-right">
           <ElDropdown trigger="click" @command="handleCommand">

@@ -264,7 +264,7 @@ onMounted(() => {
             <div class="session-content" @click="goToDetail(session)">
               <!-- 上：群组ID + 时间 -->
               <div class="session-top">
-                <span class="session-name">{{ session.group_id }}</span>
+                <span class="session-name">{{ session.group_name || session.group_id }}</span>
                 <span class="session-time">{{ formatTimeAgo(session.last_message_time) }}</span>
               </div>
 

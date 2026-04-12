@@ -238,8 +238,34 @@ async def list_sessions(
         page_size=page_size,
     )
 
+    # 关联查询群组名称
+    from sqlalchemy import select
+    from core.ai_assistant.model import AIGroup
+
+    items = []
+    for s in sessions:
+        # 查询群组名称
+        group_result = await db.execute(
+            select(AIGroup.group_name).where(AIGroup.group_id == s.group_id)
+        )
+        group_name = group_result.scalar_one_or_none()
+
+        items.append(AISessionResponse(
+            id=str(s.id),
+            group_id=s.group_id,
+            group_name=group_name,
+            chat_id=s.chat_id,
+            session_name=s.session_name,
+            message_count=s.message_count,
+            status=s.status,
+            start_time=s.start_time,
+            last_message_time=s.last_message_time,
+            is_active=s.is_active,
+            sys_create_datetime=s.sys_create_datetime,
+        ))
+
     return PaginatedResponse(
-        items=[AISessionResponse.model_validate(s) for s in sessions],
+        items=items,
         total=total,
     )
 
