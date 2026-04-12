@@ -96,7 +96,8 @@
       "Bash(pnpm lint:*)",
       "Bash(pnpm format:*)",
       "Bash(npx prettier:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }
