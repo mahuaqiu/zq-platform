@@ -14,6 +14,25 @@ from sqlalchemy import Column, String, Boolean, Text, DateTime, Integer, Index
 from app.base_model import BaseModel
 
 
+# ==================== 常量定义 ====================
+
+class SessionStatus:
+    """会话状态常量"""
+    ACTIVE = 0      # 活跃
+    CLOSED = 1      # 已关闭
+    CLEARED = 2     # 已清除
+
+
+class MessageType:
+    """消息类型常量"""
+    USER = 0        # 用户消息
+    AI = 1          # AI回复
+
+
+# 默认触发词
+DEFAULT_TRIGGER_WORD = "@Andy"
+
+
 class AIGroup(BaseModel):
     """
     AI助手群组表
@@ -39,7 +58,7 @@ class AIGroup(BaseModel):
     is_group = Column(Boolean, default=True, nullable=False, comment="是否群聊")
 
     # 触发词
-    trigger_word = Column(String(50), nullable=False, default="@Andy", comment="触发词")
+    trigger_word = Column(String(50), nullable=False, default=DEFAULT_TRIGGER_WORD, comment="触发词")
 
     # 是否需要触发词
     requires_trigger = Column(Boolean, default=True, nullable=False, comment="是否需要触发词")
@@ -80,7 +99,7 @@ class AISession(BaseModel):
     message_count = Column(Integer, default=0, nullable=False, comment="消息计数")
 
     # 状态：0-活跃, 1-已关闭, 2-已清除
-    status = Column(Integer, default=0, nullable=False, index=True, comment="状态: 0-活跃, 1-已关闭, 2-已清除")
+    status = Column(Integer, default=SessionStatus.ACTIVE, nullable=False, index=True, comment="状态: 0-活跃, 1-已关闭, 2-已清除")
 
     # 开始时间
     start_time = Column(DateTime, nullable=False, default=datetime.now, comment="开始时间")
@@ -93,9 +112,9 @@ class AISession(BaseModel):
 
     # 状态显示名称映射
     STATUS_DISPLAY = {
-        0: "活跃",
-        1: "已关闭",
-        2: "已清除",
+        SessionStatus.ACTIVE: "活跃",
+        SessionStatus.CLOSED: "已关闭",
+        SessionStatus.CLEARED: "已清除",
     }
 
     def get_status_display(self) -> str:
@@ -153,8 +172,8 @@ class AIMessage(BaseModel):
 
     # 消息类型显示名称映射
     MESSAGE_TYPE_DISPLAY = {
-        0: "用户",
-        1: "AI",
+        MessageType.USER: "用户",
+        MessageType.AI: "AI",
     }
 
     def get_message_type_display(self) -> str:
