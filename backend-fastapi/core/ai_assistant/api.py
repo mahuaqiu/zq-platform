@@ -323,7 +323,7 @@ async def create_group(
     """
     创建群组
 
-    创建新的 AI 助手群组配置。
+    创建新的 AI 助手群组配置，并注册到 NanoClaw。
 
     Args:
         data: 群组创建数据（包含 role_ids）
@@ -350,6 +350,29 @@ async def create_group(
     await db.commit()
     await db.refresh(group)
 
+    # 注册到 NanoClaw（使用多角色格式）
+    profiles = []
+    for role in group.roles:
+        profiles.append({
+            "id": role.role_id or str(role.id),
+            "name": role.name,
+            "trigger": f"@{role.name}",
+            "description": role.description
+        })
+
+    if profiles:
+        register_result = await nanoclaw_client.register_group(
+            chat_id=group.group_id,
+            folder=f"group_{group.group_id}",
+            profiles=profiles,
+            is_group=group.is_group,
+            requires_trigger=group.requires_trigger
+        )
+        if "error" in register_result:
+            logger.warning(f"NanoClaw 注册群组失败: {register_result}")
+        else:
+            logger.info(f"NanoClaw 注册群组成功: group_id={group.group_id}, profiles={len(profiles)}")
+
     logger.info(f"创建群组成功: group_id={data.group_id}, group_name={data.group_name}, role_ids={data.role_ids}")
 
     return _build_group_response(group)
@@ -364,7 +387,7 @@ async def update_group(
     """
     更新群组
 
-    更新群组配置信息。
+    更新群组配置信息，并同步到 NanoClaw。
 
     Args:
         group_id: 群组ID（UUID）
@@ -387,6 +410,27 @@ async def update_group(
     await db.commit()
     await db.refresh(group)
 
+    # 同步到 NanoClaw（更新群组配置）
+    profiles = []
+    for role in group.roles:
+        profiles.append({
+            "id": role.role_id or str(role.id),
+            "name": role.name,
+            "trigger": f"@{role.name}",
+            "description": role.description
+        })
+
+    if profiles:
+        update_result = await nanoclaw_client.update_group(
+            chat_id=group.group_id,
+            profiles=profiles,
+            requires_trigger=group.requires_trigger
+        )
+        if "error" in update_result:
+            logger.warning(f"NanoClaw 更新群组失败: {update_result}")
+        else:
+            logger.info(f"NanoClaw 更新群组成功: group_id={group.group_id}, profiles={len(profiles)}")
+
     logger.info(f"更新群组成功: group_id={group_id}, role_ids={data.role_ids}")
 
     return _build_group_response(group)
@@ -406,6 +450,13 @@ async def delete_group(
     group = await AIGroupService.get_by_id(db, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="群组不存在")
+
+    # 先从 NanoClaw 删除
+    delete_result = await nanoclaw_client.delete_group(group.group_id)
+    if "error" in delete_result:
+        logger.warning(f"NanoClaw 删除群组失败: {delete_result}")
+    else:
+        logger.info(f"NanoClaw 删除群组成功: group_id={group.group_id}")
 
     await AIGroupService.delete(db, group_id)
     logger.info(f"删除群组成功: group_id={group_id}")
@@ -578,13 +629,13 @@ async def get_session_detail(
     session = session_data["session"]
     messages = session_data["messages"]
     group_name = session_data["group_name"]
-    trigger_word = session_data["trigger_word"]
+    trigger_words = session_data["trigger_words"]
 
     return AISessionDetail(
         session=AISessionResponse.model_validate(session),
         messages=[AIMessageResponse.model_validate(m) for m in messages],
         group_name=group_name,
-        trigger_word=trigger_word,
+        trigger_words=trigger_words,
     )
 
 
@@ -625,10 +676,12 @@ async def send_message(
         logger.info(f"达到消息上限，已创建新会话: new_chat_id={session.chat_id}")
 
     # 发送消息到 NanoClaw（支持回调模式）
+    # 使用 group.group_id 作为 chat_id，而不是 session.chat_id
+    # 这样同一群组的所有会话共享 NanoClaw 的上下文
     callback_url = settings.NANOCLAW_CALLBACK_URL
     try:
         result = await nanoclaw_client.send_message(
-            chat_id=session.chat_id,
+            chat_id=group.group_id,  # 使用群组 ID，保持上下文共享
             sender="admin",  # 管理端发送，使用 admin 作为 sender
             content=data.content,
             sender_name="管理员",
@@ -641,17 +694,17 @@ async def send_message(
             raise HTTPException(status_code=500, detail="NanoClaw 发送消息失败")
 
         nanoclaw_message_id = result.get("message_id")
-        logger.info(f"NanoClaw 发送消息成功: chat_id={session.chat_id}, callback_mode={bool(callback_url)}")
+        logger.info(f"NanoClaw 发送消息成功: chat_id={group.group_id}, session_id={session.id}, callback_mode={bool(callback_url)}")
 
         # 如果使用回调模式，启动保底轮询任务
         if callback_url:
             asyncio.create_task(
                 _poll_fallback_task(
-                    chat_id=session.chat_id,
+                    chat_id=group.group_id,  # 使用群组 ID
                     session_id=str(session.id),
                 )
             )
-            logger.info(f"已启动保底轮询任务: chat_id={session.chat_id}")
+            logger.info(f"已启动保底轮询任务: chat_id={group.group_id}, session_id={session.id}")
     except HTTPException:
         raise
     except Exception as e:

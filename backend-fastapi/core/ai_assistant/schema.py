@@ -132,7 +132,7 @@ class AISessionDetail(BaseModel):
     session: AISessionResponse = Field(..., description="会话信息")
     messages: List[AIMessageResponse] = Field(default_factory=list, description="消息列表")
     group_name: Optional[str] = Field(None, description="群组名称")
-    trigger_word: Optional[str] = Field(None, description="触发词（AI助手名称）")
+    trigger_words: List[str] = Field(default_factory=list, description="触发词列表（@角色名称）")
 
 
 # ============ 消息 Schema ============

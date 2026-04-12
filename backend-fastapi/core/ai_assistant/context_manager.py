@@ -283,15 +283,15 @@ class ContextManager:
         Returns:
             Tuple[新会话, 继承的消息列表]
         """
-        logger.info(f"处理会话消息上限: session_id={session.id}, chat_id={session.chat_id}")
+        logger.info(f"处理会话消息上限: session_id={session.id}, group_id={session.group_id}")
 
-        # 1. 调用 NanoClaw 清除上下文
+        # 1. 调用 NanoClaw 清除上下文（使用 group_id 作为 chat_id）
         try:
-            clear_result = await nanoclaw_client.clear_session(session.chat_id)
+            clear_result = await nanoclaw_client.clear_session(session.group_id)
             if "error" in clear_result:
                 logger.error(f"NanoClaw 清除会话失败: {clear_result}")
             else:
-                logger.info(f"NanoClaw 清除会话成功: chat_id={session.chat_id}")
+                logger.info(f"NanoClaw 清除会话成功: group_id={session.group_id}")
         except Exception as e:
             logger.error(f"NanoClaw 清除会话异常: {str(e)}")
 

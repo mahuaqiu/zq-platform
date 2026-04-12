@@ -7,12 +7,13 @@
 @Desc: NanoClaw API 客户端封装（支持回调模式和轮询保底）
 """
 import asyncio
-import logging
+import json
 from typing import Optional, Dict, Any
 import httpx
 from app.config import settings
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("nanoclaw")
 
 
 class NanoClawClient:
@@ -32,19 +33,22 @@ class NanoClawClient:
     async def health_check(self) -> Dict[str, Any]:
         """健康检查"""
         url = f"{self.api_url}/api/health"
+        logger.info(f"[NanoClaw] 健康检查请求: GET {url}")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=self.headers)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 健康检查响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 健康检查超时: {str(e)}")
+            logger.error(f"[NanoClaw] 健康检查超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 健康检查请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 健康检查请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 健康检查异常: {str(e)}")
+            logger.error(f"[NanoClaw] 健康检查异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def register_group(
@@ -95,21 +99,27 @@ class NanoClawClient:
             data["name"] = name
             data["trigger"] = trigger
         else:
+            logger.error(f"[NanoClaw] 注册群组参数无效: 必须提供 profiles 或 name+trigger")
             return {"error": "invalid_params", "message": "Must provide either profiles or name+trigger"}
+
+        logger.info(f"[NanoClaw] 注册群组请求: POST {url}")
+        logger.info(f"[NanoClaw] 注册群组请求体: {json.dumps(data, ensure_ascii=False)}")
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, headers=self.headers, json=data)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 注册群组响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 注册群组超时: {str(e)}")
+            logger.error(f"[NanoClaw] 注册群组超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 注册群组请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 注册群组请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 注册群组异常: {str(e)}")
+            logger.error(f"[NanoClaw] 注册群组异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def update_group(
@@ -148,19 +158,24 @@ class NanoClawClient:
         if trigger:
             data["trigger"] = trigger
 
+        logger.info(f"[NanoClaw] 更新群组请求: PUT {url}")
+        logger.info(f"[NanoClaw] 更新群组请求体: {json.dumps(data, ensure_ascii=False)}")
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.put(url, headers=self.headers, json=data)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 更新群组响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 更新群组超时: {str(e)}")
+            logger.error(f"[NanoClaw] 更新群组超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 更新群组请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 更新群组请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 更新群组异常: {str(e)}")
+            logger.error(f"[NanoClaw] 更新群组异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def get_group_detail(self, chat_id: str) -> Dict[str, Any]:
@@ -173,19 +188,22 @@ class NanoClawClient:
         # jid 格式为 http:{chat_id}
         jid = f"http:{chat_id}"
         url = f"{self.api_url}/api/groups/{jid}"
+        logger.info(f"[NanoClaw] 查询群组详情请求: GET {url}")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=self.headers)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 查询群组详情响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 查询群组详情超时: {str(e)}")
+            logger.error(f"[NanoClaw] 查询群组详情超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 查询群组详情请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 查询群组详情请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 查询群组详情异常: {str(e)}")
+            logger.error(f"[NanoClaw] 查询群组详情异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def get_groups(self) -> Dict[str, Any]:
@@ -193,19 +211,55 @@ class NanoClawClient:
         查询 NanoClaw 已注册群组列表
         """
         url = f"{self.api_url}/api/groups"
+        logger.info(f"[NanoClaw] 查询群组列表请求: GET {url}")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=self.headers)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 查询群组列表响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 查询群组列表超时: {str(e)}")
+            logger.error(f"[NanoClaw] 查询群组列表超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 查询群组列表请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 查询群组列表请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 查询群组列表异常: {str(e)}")
+            logger.error(f"[NanoClaw] 查询群组列表异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def delete_group(self, chat_id: str) -> Dict[str, Any]:
+        """
+        删除 NanoClaw 群组（同时删除所有角色配置）
+
+        Args:
+            chat_id: 聊天 ID
+
+        注意：
+            - 删除群组时会同时删除所有角色配置
+            - 删除群组时会清除该群组的会话记录
+            - 主群组（is_main=true）不能删除，需要先取消主群组状态
+        """
+        # jid 格式为 http:{chat_id}
+        jid = f"http:{chat_id}"
+        url = f"{self.api_url}/api/groups/{jid}"
+        logger.info(f"[NanoClaw] 删除群组请求: DELETE {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.delete(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 删除群组响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 删除群组超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 删除群组请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 删除群组异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def send_message(
@@ -234,19 +288,24 @@ class NanoClawClient:
         if callback_url:
             data["callback_url"] = callback_url
 
+        logger.info(f"[NanoClaw] 发送消息请求: POST {url}")
+        logger.info(f"[NanoClaw] 发送消息请求体: {json.dumps(data, ensure_ascii=False)}")
+
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(url, headers=self.headers, json=data)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 发送消息响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 发送消息超时: {str(e)}")
+            logger.error(f"[NanoClaw] 发送消息超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 发送消息请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 发送消息请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 发送消息异常: {str(e)}")
+            logger.error(f"[NanoClaw] 发送消息异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def get_outbox(self, chat_id: str) -> Dict[str, Any]:
@@ -254,19 +313,22 @@ class NanoClawClient:
         # jid 格式为 http:{chat_id}
         jid = f"http:{chat_id}"
         url = f"{self.api_url}/api/outbox/{jid}"
+        logger.info(f"[NanoClaw] 获取回复请求: GET {url}")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=self.headers)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 获取回复响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 获取回复超时: {str(e)}")
+            logger.error(f"[NanoClaw] 获取回复超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 获取回复请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 获取回复请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 获取回复异常: {str(e)}")
+            logger.error(f"[NanoClaw] 获取回复异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def poll_for_reply(
@@ -288,7 +350,7 @@ class NanoClawClient:
         Returns:
             AI 回复内容（如果有）
         """
-        logger.info(f"开始保底轮询: chat_id={chat_id}, attempts={max_attempts}")
+        logger.info(f"[NanoClaw] 开始保底轮询: chat_id={chat_id}, session_id={session_id}, attempts={max_attempts}")
 
         for attempt in range(1, max_attempts + 1):
             await asyncio.sleep(interval_seconds)
@@ -297,7 +359,7 @@ class NanoClawClient:
                 result = await self.get_outbox(chat_id)
 
                 if "error" in result:
-                    logger.warning(f"轮询第 {attempt} 次失败: {result.get('error')}")
+                    logger.warning(f"[NanoClaw] 轮询第 {attempt} 次失败: {result.get('error')}")
                     continue
 
                 # 检查是否有消息
@@ -306,50 +368,57 @@ class NanoClawClient:
 
                 if count > 0 and messages:
                     reply_content = messages[0]
-                    logger.info(f"轮询第 {attempt} 次成功获取回复: chat_id={chat_id}")
+                    logger.info(f"[NanoClaw] 轮询第 {attempt} 次成功获取回复: chat_id={chat_id}, content={reply_content[:200]}...")
                     return reply_content
 
             except Exception as e:
-                logger.error(f"轮询第 {attempt} 次异常: {str(e)}")
+                logger.error(f"[NanoClaw] 轮询第 {attempt} 次异常: {str(e)}")
 
-        logger.warning(f"保底轮询结束，未获取到回复: chat_id={chat_id}")
+        logger.warning(f"[NanoClaw] 保底轮询结束，未获取到回复: chat_id={chat_id}")
         return None
 
     async def clear_session(self, chat_id: str) -> Dict[str, Any]:
         """清除 NanoClaw 会话"""
         url = f"{self.api_url}/api/clear"
         data = {"chat_id": chat_id}
+        logger.info(f"[NanoClaw] 清除会话请求: POST {url}")
+        logger.info(f"[NanoClaw] 清除会话请求体: {json.dumps(data, ensure_ascii=False)}")
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, headers=self.headers, json=data)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 清除会话响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 清除会话超时: {str(e)}")
+            logger.error(f"[NanoClaw] 清除会话超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 清除会话请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 清除会话请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 清除会话异常: {str(e)}")
+            logger.error(f"[NanoClaw] 清除会话异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
     async def get_session_info(self, chat_id: str) -> Dict[str, Any]:
         """查询 NanoClaw 会话状态"""
         url = f"{self.api_url}/api/session/{chat_id}"
+        logger.info(f"[NanoClaw] 查询会话状态请求: GET {url}")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=self.headers)
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 查询会话状态响应: {json.dumps(result, ensure_ascii=False)}")
+                return result
         except httpx.TimeoutException as e:
-            logger.error(f"NanoClaw 查询会话超时: {str(e)}")
+            logger.error(f"[NanoClaw] 查询会话超时: {str(e)}")
             return {"error": "timeout", "message": str(e)}
         except httpx.RequestError as e:
-            logger.error(f"NanoClaw 查询会话请求失败: {str(e)}")
+            logger.error(f"[NanoClaw] 查询会话请求失败: {str(e)}")
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
-            logger.error(f"NanoClaw 查询会话异常: {str(e)}")
+            logger.error(f"[NanoClaw] 查询会话异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
 

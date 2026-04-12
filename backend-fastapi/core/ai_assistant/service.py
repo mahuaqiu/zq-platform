@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple
 
 from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.base_service import BaseService
 from core.ai_assistant.model import (
@@ -226,7 +227,30 @@ class AIGroupService(BaseService[AIGroup, AIGroupCreate, AIGroupUpdate]):
         if is_active is not None:
             filters.append(AIGroup.is_active == is_active)
 
-        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+        # 构建基础查询，显式加载 roles 关系
+        base_query = select(AIGroup).options(selectinload(AIGroup.roles)).where(*filters)
+
+        # 获取总数
+        count_result = await db.execute(
+            select(func.count()).select_from(base_query.subquery())
+        )
+        total = count_result.scalar() or 0
+
+        # 计算offset
+        offset = (page - 1) * page_size
+
+        # 获取分页数据
+        result = await db.execute(
+            base_query.order_by(
+                desc(AIGroup.sort),
+                desc(AIGroup.sys_create_datetime)
+            )
+            .offset(offset)
+            .limit(page_size)
+        )
+        items = list(result.scalars().all())
+
+        return items, total
 
     @classmethod
     async def auto_create_group(
@@ -465,14 +489,15 @@ class AISessionService(BaseService[AISession, None, None]):
         )
         messages = list(messages_result.scalars().all())
 
-        # 获取群组名称
+        # 获取群组名称和触发词列表
         group = await AIGroupService.get_by_group_id(db, session.group_id)
+        trigger_words = AIGroupService.get_trigger_words(group) if group else [DEFAULT_TRIGGER_WORD]
 
         return {
             "session": session,
             "messages": messages,
             "group_name": group.group_name if group else None,
-            "trigger_word": group.trigger_word if group else None,
+            "trigger_words": trigger_words,
         }
 
     @classmethod

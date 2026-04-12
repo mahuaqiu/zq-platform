@@ -86,6 +86,7 @@ async def external_send_message(
     try:
         # 1. 查找或创建群组
         group = await AIGroupService.get_by_group_id(db, data.group_id)
+        is_new_group = False
         if not group:
             # 自动创建群组
             group = await AIGroupService.auto_create_group(
@@ -95,7 +96,24 @@ async def external_send_message(
                 is_group=data.is_group or True,
                 auto_commit=False
             )
+            is_new_group = True
             logger.info(f"自动创建群组: group_id={data.group_id}")
+
+        # 如果是新创建的群组，需要注册到 NanoClaw
+        if is_new_group:
+            # 使用默认配置注册（无角色时使用默认触发词 @Andy）
+            register_result = await nanoclaw_client.register_group(
+                chat_id=group.group_id,
+                folder=f"group_{group.group_id}",
+                name=group.group_name,
+                trigger="@Andy",  # 默认触发词
+                is_group=group.is_group,
+                requires_trigger=group.requires_trigger
+            )
+            if "error" in register_result:
+                logger.warning(f"NanoClaw 自动注册群组失败: {register_result}")
+            else:
+                logger.info(f"NanoClaw 自动注册群组成功: group_id={group.group_id}")
 
         # 2. 获取或创建活跃会话（检查时间窗口）
         session, is_new = await ContextManager.get_or_create_session(db, group)
@@ -107,9 +125,10 @@ async def external_send_message(
             logger.info(f"达到消息上限，创建新会话: chat_id={session.chat_id}")
 
         # 4. 发送消息到 NanoClaw（支持回调模式）
+        # 使用 group.group_id 作为 chat_id，保持上下文共享
         callback_url = settings.NANOCLAW_CALLBACK_URL
         send_result = await nanoclaw_client.send_message(
-            chat_id=session.chat_id,
+            chat_id=group.group_id,  # 使用群组 ID，而不是 session.chat_id
             sender=data.sender_id,
             content=data.content,
             sender_name=data.sender_name,
@@ -124,17 +143,17 @@ async def external_send_message(
             nanoclaw_message_id = None
         else:
             nanoclaw_message_id = send_result.get("message_id")
-            logger.info(f"NanoClaw 发送消息成功: chat_id={session.chat_id}, callback_mode={bool(callback_url)}")
+            logger.info(f"NanoClaw 发送消息成功: chat_id={group.group_id}, session_id={session.id}, callback_mode={bool(callback_url)}")
 
             # 如果使用回调模式，启动保底轮询任务
             if callback_url:
                 asyncio.create_task(
                     _poll_fallback_task(
-                        chat_id=session.chat_id,
+                        chat_id=group.group_id,  # 使用群组 ID
                         session_id=str(session.id),
                     )
                 )
-                logger.info(f"已启动保底轮询任务: chat_id={session.chat_id}")
+                logger.info(f"已启动保底轮询任务: chat_id={group.group_id}, session_id={session.id}")
 
         # 5. 存储消息记录
         message = await AIMessageService.create_user_message(
@@ -185,7 +204,7 @@ async def nanoclaw_callback(
     NanoClaw 回调接口（接收 AI 回复）
 
     处理流程：
-    1. 根据 chat_id 找到会话
+    1. 根据 chat_id（group_id）找到活跃会话
     2. 存储 AI 回复消息
     3. 更新会话状态
 
@@ -197,11 +216,16 @@ async def nanoclaw_callback(
         dict: {"status": "ok"}
     """
     try:
-        # 1. 根据 chat_id 找到会话
-        session = await AISessionService.get_by_chat_id(db, data.chat_id)
-        if not session:
-            logger.warning(f"回调消息找不到会话: chat_id={data.chat_id}")
+        # 1. 根据 chat_id（group_id）找到活跃会话
+        # 注意：chat_id 在发送消息时是 group.group_id，所以回调时也是 group_id
+        sessions = await AISessionService.get_active_sessions_by_group(db, data.chat_id)
+        if not sessions:
+            logger.warning(f"回调消息找不到活跃会话: chat_id={data.chat_id} (group_id)")
             raise HTTPException(status_code=404, detail="会话不存在")
+
+        # 取最新的活跃会话
+        session = sessions[0]
+        logger.info(f"找到活跃会话: session_id={session.id}, group_id={data.chat_id}")
 
         # 2. 存储 AI 回复消息
         receive_time = datetime.now()

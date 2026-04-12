@@ -111,9 +111,13 @@ function getCreateTime(chatId: string): string {
 // 获取发送者显示名称
 function getSenderName(message: AIMessage): string {
   if (message.message_type === 1) {
-    // AI 助手：使用 trigger_word（去掉 @ 符号）
-    const triggerWord = sessionDetail.value?.trigger_word || '@Andy';
-    return triggerWord.replace('@', '');
+    // AI 助手：使用 trigger_words 的第一个值（去掉 @ 符号）
+    const triggerWords = sessionDetail.value?.trigger_words || [];
+    if (triggerWords.length > 0) {
+      return triggerWords[0].replace('@', '');
+    }
+    // 如果没有触发词，尝试从消息内容推断
+    return 'AI助手';
   }
   return message.sender_name || message.sender_id || '用户';
 }
@@ -159,14 +163,17 @@ async function loadTriggerWords() {
       page: 1,
       page_size: 100,
     });
-    // 提取所有触发词（去重）
+    // 提取所有触发词（去重）- 使用 trigger_words 数组
     const words = new Set<string>();
     res.items?.forEach((group) => {
-      if (group.trigger_word) {
-        words.add(group.trigger_word);
+      if (group.trigger_words && group.trigger_words.length > 0) {
+        group.trigger_words.forEach((word) => {
+          words.add(word);
+        });
       }
     });
     groupTriggerWords = Array.from(words);
+    console.log('加载触发词列表:', groupTriggerWords);
   } catch (error) {
     console.error('加载触发词失败:', error);
   }
