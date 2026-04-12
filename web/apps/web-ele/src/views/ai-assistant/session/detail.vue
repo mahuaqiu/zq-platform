@@ -15,6 +15,8 @@ import {
   ElEmpty,
 } from 'element-plus';
 
+import { marked } from 'marked';
+
 import {
   getAISessionDetailApi,
   sendMessageInSessionApi,
@@ -24,6 +26,12 @@ import {
 } from '#/api/core/ai-assistant';
 
 defineOptions({ name: 'AISessionDetailPage' });
+
+// 配置 marked 选项
+marked.setOptions({
+  breaks: true, // 支持 GitHub 风格的换行
+  gfm: true, // 支持 GitHub Flavored Markdown
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -100,6 +108,20 @@ function getSenderName(message: AIMessage): string {
     return triggerWord.replace('@', '');
   }
   return message.sender_name || message.sender_id || '用户';
+}
+
+// 渲染 Markdown 内容（仅对 AI 消息）
+function renderContent(message: AIMessage): string {
+  if (message.message_type === 1) {
+    // AI 消息：渲染 Markdown
+    try {
+      return marked.parse(message.content) as string;
+    } catch {
+      return message.content;
+    }
+  }
+  // 用户消息：普通文本，转义 HTML
+  return message.content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // 加载会话详情
@@ -381,7 +403,7 @@ onUnmounted(() => {
               <div class="message-content">
                 <div class="sender-name">{{ getSenderName(message) }}</div>
                 <div class="bubble ai-bubble">
-                  <div class="bubble-content">{{ message.content }}</div>
+                  <div class="bubble-content markdown-body" v-html="renderContent(message)"></div>
                   <div class="bubble-time">{{ formatTime(message.send_time) }}</div>
                 </div>
               </div>
@@ -392,7 +414,7 @@ onUnmounted(() => {
               <div class="message-content">
                 <div class="sender-name">{{ getSenderName(message) }}</div>
                 <div class="bubble user-bubble">
-                  <div class="bubble-content">{{ message.content }}</div>
+                  <div class="bubble-content" v-html="renderContent(message)"></div>
                   <div class="bubble-time">{{ formatTime(message.send_time) }}</div>
                 </div>
               </div>
@@ -634,6 +656,99 @@ onUnmounted(() => {
   line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
+}
+
+/* Markdown 样式 */
+.markdown-body {
+  white-space: normal;
+}
+
+.markdown-body p {
+  margin: 0 0 8px 0;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body code {
+  padding: 2px 6px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+}
+
+.markdown-body pre {
+  margin: 8px 0;
+  padding: 12px;
+  background: #282c34;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+  color: #abb2bf;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-body li {
+  margin: 4px 0;
+}
+
+.markdown-body blockquote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: #f9f9f9;
+  border-left: 4px solid #ddd;
+  color: #666;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 12px 0 8px 0;
+  font-weight: 600;
+}
+
+.markdown-body h1 { font-size: 18px; }
+.markdown-body h2 { font-size: 16px; }
+.markdown-body h3 { font-size: 15px; }
+.markdown-body h4 { font-size: 14px; }
+
+.markdown-body a {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body table {
+  margin: 8px 0;
+  border-collapse: collapse;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 6px 12px;
+  border: 1px solid #e8e8e8;
+}
+
+.markdown-body th {
+  background: #f5f5f5;
+  font-weight: 600;
 }
 
 .bubble-time {
