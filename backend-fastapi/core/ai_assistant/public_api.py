@@ -24,41 +24,12 @@ from core.ai_assistant.schema import (
 from core.ai_assistant.service import AIGroupService, AISessionService, AIMessageService
 from core.ai_assistant.context_manager import ContextManager
 from core.ai_assistant.nanoclaw_client import nanoclaw_client
+# 导入保底轮询任务管理函数
+from core.ai_assistant.api import _start_poll_fallback_task, _cancel_poll_fallback_task
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public", tags=["公开接口"])
-
-
-# ==================== 保底轮询任务 ====================
-
-async def _poll_fallback_task(chat_id: str, session_id: str):
-    """
-    保底轮询任务：等待2分钟后开始轮询
-
-    如果回调未收到响应，启动轮询机制获取 AI 回复。
-
-    Args:
-        chat_id: NanoClaw chat_id
-        session_id: 本系统会话 ID
-    """
-    # 等待 2 分钟（等待回调响应）
-    await asyncio.sleep(120)
-
-    logger.info(f"保底轮询开始: chat_id={chat_id}, session_id={session_id}")
-
-    # 开始轮询（5次，间隔60秒）
-    reply = await nanoclaw_client.poll_for_reply(
-        chat_id=chat_id,
-        session_id=session_id,
-        max_attempts=5,
-        interval_seconds=60,
-    )
-
-    if reply:
-        logger.info(f"保底轮询成功获取回复: chat_id={chat_id}")
-    else:
-        logger.warning(f"保底轮询未获取到回复: chat_id={chat_id}")
 
 
 @router.post("/sendmsg", response_model=ExternalSendMessageResponse, summary="外部发送消息")
@@ -147,13 +118,10 @@ async def external_send_message(
 
             # 如果使用回调模式，启动保底轮询任务
             if callback_url:
-                asyncio.create_task(
-                    _poll_fallback_task(
-                        chat_id=group.group_id,  # 使用群组 ID
-                        session_id=str(session.id),
-                    )
+                _start_poll_fallback_task(
+                    chat_id=group.group_id,  # 使用群组 ID
+                    session_id=str(session.id),
                 )
-                logger.info(f"已启动保底轮询任务: chat_id={group.group_id}, session_id={session.id}")
 
         # 5. 存储消息记录
         message = await AIMessageService.create_user_message(
@@ -205,8 +173,9 @@ async def nanoclaw_callback(
 
     处理流程：
     1. 根据 chat_id（group_id）找到活跃会话
-    2. 存储 AI 回复消息
-    3. 更新会话状态
+    2. 取消该群组的保底轮询任务（回调已收到，无需轮询）
+    3. 存储 AI 回复消息
+    4. 更新会话状态
 
     Args:
         data: NanoClawCallback 回调数据
@@ -216,7 +185,10 @@ async def nanoclaw_callback(
         dict: {"status": "ok"}
     """
     try:
-        # 1. 根据 chat_id（group_id）找到活跃会话
+        # 1. 取消保底轮询任务（回调已收到）
+        _cancel_poll_fallback_task(data.chat_id)
+
+        # 2. 根据 chat_id（group_id）找到活跃会话
         # 注意：chat_id 在发送消息时是 group.group_id，所以回调时也是 group_id
         sessions = await AISessionService.get_active_sessions_by_group(db, data.chat_id)
         if not sessions:
@@ -227,7 +199,7 @@ async def nanoclaw_callback(
         session = sessions[0]
         logger.info(f"找到活跃会话: session_id={session.id}, group_id={data.chat_id}")
 
-        # 2. 存储 AI 回复消息
+        # 3. 存储 AI 回复消息
         receive_time = datetime.now()
         if data.timestamp:
             try:
@@ -250,7 +222,7 @@ async def nanoclaw_callback(
             auto_commit=False
         )
 
-        # 3. 更新会话状态
+        # 4. 更新会话状态
         await AISessionService.update_session_activity(db, str(session.id), auto_commit=False)
 
         # 更新群组最后消息时间

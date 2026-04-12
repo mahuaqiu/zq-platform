@@ -46,7 +46,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["AI助手管理"])
 
 
-# ==================== 保底轮询任务 ====================
+# ==================== 保底轮询任务管理 ====================
+
+# 存储正在等待的保底轮询任务，用于在回调收到时取消
+_pending_poll_tasks: dict[str, asyncio.Task] = {}
+
 
 async def _poll_fallback_task(chat_id: str, session_id: str):
     """
@@ -58,10 +62,18 @@ async def _poll_fallback_task(chat_id: str, session_id: str):
         chat_id: NanoClaw chat_id
         session_id: 本系统会话 ID
     """
+    # 使用 chat_id 作为任务标识（一个群组只需要一个轮询任务）
+    task_key = chat_id
+
     # 等待 2 分钟（等待回调响应）
     await asyncio.sleep(120)
 
-    logger.info(f"保底轮询开始: chat_id={chat_id}, session_id={session_id}")
+    # 检查任务是否已被取消（回调已收到）
+    if task_key not in _pending_poll_tasks:
+        logger.info(f"保底轮询任务已取消: chat_id={chat_id}，回调已收到")
+        return
+
+    logger.info(f"[NanoClaw] 开始保底轮询: chat_id={chat_id}, session_id={session_id}, attempts=5")
 
     # 开始轮询（5次，间隔60秒）
     reply = await nanoclaw_client.poll_for_reply(
@@ -77,6 +89,47 @@ async def _poll_fallback_task(chat_id: str, session_id: str):
         # 回复会通过 /api/public/callback/message 正常处理
     else:
         logger.warning(f"保底轮询未获取到回复: chat_id={chat_id}")
+
+    # 清理任务记录
+    if task_key in _pending_poll_tasks:
+        del _pending_poll_tasks[task_key]
+
+
+def _start_poll_fallback_task(chat_id: str, session_id: str):
+    """
+    启动保底轮询任务（如果不存在）
+
+    Args:
+        chat_id: NanoClaw chat_id
+        session_id: 本系统会话 ID
+    """
+    task_key = chat_id
+
+    # 如果该群组已有等待的轮询任务，不再创建新的
+    if task_key in _pending_poll_tasks:
+        logger.info(f"群组已有保底轮询任务等待中: chat_id={chat_id}")
+        return
+
+    # 创建新任务
+    task = asyncio.create_task(_poll_fallback_task(chat_id, session_id))
+    _pending_poll_tasks[task_key] = task
+    logger.info(f"已启动保底轮询任务: chat_id={chat_id}, session_id={session_id}")
+
+
+def _cancel_poll_fallback_task(chat_id: str):
+    """
+    取消保底轮询任务（回调收到时调用）
+
+    Args:
+        chat_id: NanoClaw chat_id
+    """
+    task_key = chat_id
+
+    if task_key in _pending_poll_tasks:
+        task = _pending_poll_tasks[task_key]
+        task.cancel()
+        del _pending_poll_tasks[task_key]
+        logger.info(f"已取消保底轮询任务: chat_id={chat_id}，回调已收到")
 
 
 # ==================== 角色管理接口 ====================
@@ -698,13 +751,10 @@ async def send_message(
 
         # 如果使用回调模式，启动保底轮询任务
         if callback_url:
-            asyncio.create_task(
-                _poll_fallback_task(
-                    chat_id=group.group_id,  # 使用群组 ID
-                    session_id=str(session.id),
-                )
+            _start_poll_fallback_task(
+                chat_id=group.group_id,  # 使用群组 ID
+                session_id=str(session.id),
             )
-            logger.info(f"已启动保底轮询任务: chat_id={group.group_id}, session_id={session.id}")
     except HTTPException:
         raise
     except Exception as e:
