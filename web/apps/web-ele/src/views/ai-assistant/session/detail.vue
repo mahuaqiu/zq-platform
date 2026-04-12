@@ -111,12 +111,25 @@ function getCreateTime(chatId: string): string {
 // 获取发送者显示名称
 function getSenderName(message: AIMessage): string {
   if (message.message_type === 1) {
-    // AI 助手：使用 trigger_words 的第一个值（去掉 @ 符号）
+    // AI 助手：优先使用消息中的角色信息
+    // 1. 优先使用 profile_name（多角色群组时有效）
+    if (message.profile_name) {
+      return message.profile_name;
+    }
+    // 2. 使用 sender_name（后端已根据 profile_name 设置）
+    if (message.sender_name && message.sender_name !== 'AI助手') {
+      return message.sender_name;
+    }
+    // 3. 尝试从 trigger_word 推断（去掉 @ 符号）
+    if (message.trigger_word) {
+      return message.trigger_word.replace('@', '');
+    }
+    // 4. 回退：使用群组的第一个触发词
     const triggerWords = sessionDetail.value?.trigger_words || [];
     if (triggerWords.length > 0) {
       return triggerWords[0].replace('@', '');
     }
-    // 如果没有触发词，尝试从消息内容推断
+    // 5. 默认值
     return 'AI助手';
   }
   return message.sender_name || message.sender_id || '用户';

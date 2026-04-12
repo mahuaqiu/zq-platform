@@ -123,6 +123,10 @@ class AIMessageResponse(BaseModel):
     send_time: datetime = Field(..., description="发送时间")
     receive_time: Optional[datetime] = Field(None, description="接收时间")
     is_context_recovery: bool = Field(..., description="是否上下文恢复")
+    # 多角色群组时的角色信息
+    profile_id: Optional[str] = Field(None, description="角色ID（多角色群组时有效）")
+    profile_name: Optional[str] = Field(None, description="角色显示名称（多角色群组时有效）")
+    trigger_word: Optional[str] = Field(None, description="触发词（多角色群组时有效）")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -163,10 +167,14 @@ class ExternalSendMessageResponse(BaseModel):
 
 
 class NanoClawCallback(BaseModel):
-    """NanoClaw回调消息"""
+    """NanoClaw回调消息（支持多角色）"""
     chat_id: str = Field(..., description="chat_id")
     message: str = Field(..., description="AI回复内容")
     timestamp: str = Field(..., description="时间戳")
+    # 多角色群组时的角色信息（单角色群组时为 null）
+    profile_id: Optional[str] = Field(None, description="角色ID（如 xiaoma、小威）")
+    profile_name: Optional[str] = Field(None, description="角色显示名称（如 小马助手）")
+    trigger_word: Optional[str] = Field(None, description="触发词（如 @xiaoma、@小威）")
 
 
 # ============ 分页响应 Schema ============

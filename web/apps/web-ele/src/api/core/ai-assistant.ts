@@ -66,6 +66,10 @@ export interface AIMessage {
   send_time: string;
   receive_time?: string;
   is_context_recovery: boolean;
+  // 多角色群组时的角色信息
+  profile_id?: string;
+  profile_name?: string;
+  trigger_word?: string;
 }
 
 /**

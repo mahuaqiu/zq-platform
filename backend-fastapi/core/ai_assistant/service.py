@@ -728,6 +728,9 @@ class AIMessageService(BaseService[AIMessage, None, None]):
         nanoclaw_message_id: Optional[str] = None,
         reply_to_message_id: Optional[str] = None,
         receive_time: Optional[datetime] = None,
+        profile_id: Optional[str] = None,
+        profile_name: Optional[str] = None,
+        trigger_word: Optional[str] = None,
         auto_commit: bool = True
     ) -> AIMessage:
         """
@@ -739,20 +742,29 @@ class AIMessageService(BaseService[AIMessage, None, None]):
         :param nanoclaw_message_id: NanoClaw消息ID
         :param reply_to_message_id: 回复消息ID
         :param receive_time: 接收时间
+        :param profile_id: 角色ID（多角色群组时有效）
+        :param profile_name: 角色显示名称（多角色群组时有效）
+        :param trigger_word: 触发词（多角色群组时有效）
         :param auto_commit: 是否自动提交
         :return: 消息记录
         """
+        # 根据是否有角色信息设置 sender_name
+        sender_name = profile_name if profile_name else "AI助手"
+
         message = AIMessage(
             session_id=session_id,
             message_type=MessageType.AI,
-            sender_id="ai",
-            sender_name="AI助手",
+            sender_id=profile_id if profile_id else "ai",
+            sender_name=sender_name,
             content=content,
             nanoclaw_message_id=nanoclaw_message_id,
             reply_to_message_id=reply_to_message_id,
             send_time=datetime.now(),
             receive_time=receive_time or datetime.now(),
             is_context_recovery=False,
+            profile_id=profile_id,
+            profile_name=profile_name,
+            trigger_word=trigger_word,
         )
         db.add(message)
 

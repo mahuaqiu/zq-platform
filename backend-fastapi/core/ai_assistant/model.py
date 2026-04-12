@@ -192,6 +192,9 @@ class AIMessage(BaseModel):
     - send_time: 发送时间
     - receive_time: 接收时间
     - is_context_recovery: 是否上下文恢复消息
+    - profile_id: 角色ID（多角色群组时有效）
+    - profile_name: 角色显示名称（多角色群组时有效）
+    - trigger_word: 触发词（多角色群组时有效）
     """
     __tablename__ = "ai_assistant_message"
 
@@ -224,6 +227,15 @@ class AIMessage(BaseModel):
 
     # 是否上下文恢复消息
     is_context_recovery = Column(Boolean, default=False, nullable=False, comment="是否上下文恢复消息")
+
+    # 角色ID（多角色群组时有效，如 xiaoma、小威）
+    profile_id = Column(String(100), nullable=True, comment="角色ID（多角色群组时有效）")
+
+    # 角色显示名称（多角色群组时有效，如 小马助手）
+    profile_name = Column(String(100), nullable=True, comment="角色显示名称（多角色群组时有效）")
+
+    # 触发词（多角色群组时有效，如 @xiaoma、@小威）
+    trigger_word = Column(String(50), nullable=True, comment="触发词（多角色群组时有效）")
 
     # 消息类型显示名称映射
     MESSAGE_TYPE_DISPLAY = {

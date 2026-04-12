@@ -244,6 +244,9 @@ async def nanoclaw_callback(
             nanoclaw_message_id=None,  # 回调消息没有 NanoClaw 消息 ID
             reply_to_message_id=None,
             receive_time=receive_time,
+            profile_id=data.profile_id,  # 多角色群组时的角色信息
+            profile_name=data.profile_name,
+            trigger_word=data.trigger_word,
             auto_commit=False
         )
 
@@ -260,7 +263,9 @@ async def nanoclaw_callback(
             f"NanoClaw 回调处理完成: "
             f"chat_id={data.chat_id}, "
             f"session_id={session.id}, "
-            f"message_id={message.id}"
+            f"message_id={message.id}, "
+            f"profile_id={data.profile_id}, "
+            f"profile_name={data.profile_name}"
         )
 
         return {"status": "ok"}
