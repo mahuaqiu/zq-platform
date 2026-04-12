@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { AISession } from '#/api/core/ai-assistant';
+import type { AISession, AIGroup } from '#/api/core/ai-assistant';
 
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -22,6 +22,7 @@ import {
 
 import {
   getAISessionListApi,
+  getAIGroupListApi,
   deleteSessionApi,
   createSessionApi,
 } from '#/api/core/ai-assistant';
@@ -46,10 +47,10 @@ const searchForm = ref({
 // 新建会话弹窗
 const dialogVisible = ref(false);
 const dialogLoading = ref(false);
+const groupList = ref<AIGroup[]>([]);
+const groupLoading = ref(false);
 const newSessionForm = ref({
   group_id: '',
-  group_name: '',
-  is_group: true,
 });
 
 // 状态映射
@@ -146,26 +147,49 @@ function goToDetail(session: AISession) {
   router.push(`/ai-assistant/session/${session.id}`);
 }
 
+// 加载群组列表
+async function loadGroupList() {
+  groupLoading.value = true;
+  try {
+    const res = await getAIGroupListApi({
+      is_active: true,
+      page: 1,
+      page_size: 100,
+    });
+    groupList.value = res.items || [];
+  } catch (error) {
+    console.error('加载群组列表失败:', error);
+  } finally {
+    groupLoading.value = false;
+  }
+}
+
 // 打开新建会话弹窗
 function handleCreateSession() {
   newSessionForm.value = {
     group_id: '',
-    group_name: '',
-    is_group: true,
   };
   dialogVisible.value = true;
+  loadGroupList();
+}
+
+// 获取群组显示名称
+function getGroupDisplayName(group: AIGroup): string {
+  return group.group_name || group.group_id;
 }
 
 // 提交新建会话
 async function handleCreateSubmit() {
   if (!newSessionForm.value.group_id) {
-    ElMessage.warning('请输入群组ID');
+    ElMessage.warning('请选择群组');
     return;
   }
 
   dialogLoading.value = true;
   try {
-    await createSessionApi(newSessionForm.value);
+    await createSessionApi({
+      group_id: newSessionForm.value.group_id,
+    });
     ElMessage.success('会话创建成功');
     dialogVisible.value = false;
     loadData();
@@ -309,22 +333,20 @@ onMounted(() => {
     <!-- 新建会话弹窗 -->
     <ElDialog v-model="dialogVisible" title="新建会话" width="400px">
       <ElForm label-width="80px">
-        <ElFormItem label="群组ID" required>
-          <ElInput
+        <ElFormItem label="选择群组" required>
+          <ElSelect
             v-model="newSessionForm.group_id"
-            placeholder="输入群组ID，如：demo-group-001"
-          />
-        </ElFormItem>
-        <ElFormItem label="群组名称">
-          <ElInput
-            v-model="newSessionForm.group_name"
-            placeholder="可选，用于显示名称"
-          />
-        </ElFormItem>
-        <ElFormItem label="是否群聊">
-          <ElSelect v-model="newSessionForm.is_group" style="width: 100%">
-            <ElOption label="是" :value="true" />
-            <ElOption label="否" :value="false" />
+            placeholder="请选择群组"
+            filterable
+            :loading="groupLoading"
+            style="width: 100%"
+          >
+            <ElOption
+              v-for="group in groupList"
+              :key="group.id"
+              :label="getGroupDisplayName(group)"
+              :value="group.group_id"
+            />
           </ElSelect>
         </ElFormItem>
       </ElForm>
