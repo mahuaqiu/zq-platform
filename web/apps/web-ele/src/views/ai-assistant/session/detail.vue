@@ -176,7 +176,7 @@ async function loadTriggerWords() {
 function handleInputChange(event: Event) {
   const input = event.target as HTMLInputElement;
   const value = input.value;
-  const cursorPos = input.selectionStart || 0;
+  const cursorPos = input.selectionStart || value.length;
 
   // 检查光标前是否有 @ 符号
   const textBeforeCursor = value.substring(0, cursorPos);
@@ -227,30 +227,47 @@ function updateSuggestionPosition(atIndex: number) {
   };
 }
 
+// 记录当前光标位置（用于失去焦点后仍能正确替换）
+let lastCursorPosition = 0;
+
 // 选择触发词
 function selectTriggerWord(word: string) {
-  if (!inputRef.value) return;
+  // 阻止关闭提示框
+  event?.preventDefault();
 
   const value = inputMessage.value;
-  const cursorPos = inputRef.value.selectionStart || 0;
-  const textBeforeCursor = value.substring(0, cursorPos);
-  const atIndex = textBeforeCursor.lastIndexOf('@');
+
+  // 找到最后一个 @ 的位置
+  const atIndex = value.lastIndexOf('@');
 
   if (atIndex !== -1) {
+    // 找到 @ 后面触发词部分的结束位置（到空格或结尾）
+    let endIndex = atIndex + 1;
+    while (endIndex < value.length && value[endIndex] !== ' ' && value[endIndex] !== '@') {
+      endIndex++;
+    }
+
     // 替换 @ 及后面的部分为完整触发词
     const before = value.substring(0, atIndex);
-    const after = value.substring(cursorPos);
+    const after = value.substring(endIndex);
     inputMessage.value = before + word + ' ' + after;
 
-    // 移动光标到触发词后面
+    // 恢复焦点并移动光标
     nextTick(() => {
       const newPos = atIndex + word.length + 1;
-      inputRef.value?.setSelectionRange(newPos, newPos);
       inputRef.value?.focus();
+      inputRef.value?.setSelectionRange(newPos, newPos);
     });
   }
 
   showTriggerSuggestion.value = false;
+}
+
+// 记录光标位置
+function saveCursorPosition() {
+  if (inputRef.value) {
+    lastCursorPosition = inputRef.value.selectionStart || inputMessage.value.length;
+  }
 }
 
 // 关闭提示框
@@ -551,12 +568,13 @@ onUnmounted(() => {
           v-if="showTriggerSuggestion && triggerSuggestionList.length > 0"
           class="trigger-suggestion"
           :style="{ top: triggerSuggestionPosition.top + 'px', left: triggerSuggestionPosition.left + 'px' }"
+          @mousedown.prevent
         >
           <div
             v-for="word in triggerSuggestionList"
             :key="word"
             class="suggestion-item"
-            @click="selectTriggerWord(word)"
+            @mousedown.prevent="selectTriggerWord(word)"
           >
             {{ word }}
           </div>
