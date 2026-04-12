@@ -24,6 +24,11 @@ class AIGroupCreate(BaseModel):
     is_active: bool = Field(default=True, description="是否启用")
 
 
+class AISessionCreate(BaseModel):
+    """手动创建会话"""
+    group_id: str = Field(..., description="外部系统群组ID")
+
+
 class AIGroupUpdate(BaseModel):
     """更新群组"""
     group_name: Optional[str] = Field(None, description="群组名称")

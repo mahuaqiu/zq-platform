@@ -19,6 +19,7 @@ from core.ai_assistant.schema import (
     AIGroupCreate,
     AIGroupUpdate,
     AIGroupResponse,
+    AISessionCreate,
     AISessionResponse,
     AIMessageResponse,
     AISessionDetail,
@@ -458,27 +459,21 @@ async def close_session(
 
 @router.post("/session", response_model=AISessionResponse, summary="手动创建会话")
 async def create_session(
-    data: AIGroupCreate,
+    data: AISessionCreate,
     db: AsyncSession = Depends(get_db)
 ) -> AISessionResponse:
     """
     为指定群组手动创建新会话
 
-    如果群组不存在会自动创建。
+    群组必须已存在。
 
     Args:
         data: 包含 group_id 的创建参数
     """
-    # 获取或创建群组
+    # 获取群组（群组必须已存在）
     group = await AIGroupService.get_by_group_id(db, data.group_id)
     if not group:
-        # 自动创建群组
-        group = await AIGroupService.auto_create_group(
-            db,
-            group_id=data.group_id,
-            group_name=data.group_name or data.group_id,
-            is_group=data.is_group if data.is_group is not None else True
-        )
+        raise HTTPException(status_code=404, detail="群组不存在，请先在群组管理中创建")
 
     # 创建新会话
     new_session = await ContextManager.create_new_session(db, group)
