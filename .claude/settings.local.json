@@ -97,7 +97,8 @@
       "Bash(pnpm format:*)",
       "Bash(npx prettier:*)",
       "Bash(powershell:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(ls -la backend-fastapi/*.json)"
     ]
   }
 }
