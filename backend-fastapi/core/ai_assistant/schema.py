@@ -195,3 +195,55 @@ class AIRoleListResponse(BaseModel):
     """角色列表响应"""
     items: List[AIRoleResponse] = Field(default_factory=list, description="角色列表")
     total: int = Field(..., description="总数")
+
+
+# ============ Skill Schema ============
+
+class AISkillCreate(BaseModel):
+    """创建 Skill"""
+    id: str = Field(..., description="Skill ID（字母、数字、短横线）")
+    content: str = Field(..., description="SKILL.md 完整内容（含 YAML frontmatter）")
+
+
+class AISkillUpdate(BaseModel):
+    """更新 Skill"""
+    content: str = Field(..., description="SKILL.md 完整内容（含 YAML frontmatter）")
+
+
+class SkillAssignment(BaseModel):
+    """Skill 分配请求"""
+    jid: str = Field(..., description="群组标识，格式 http:{chat_id}")
+    profile_id: str = Field(..., description="角色 ID")
+
+
+class SkillAssignmentRemove(BaseModel):
+    """移除 Skill 分配请求"""
+    jid: str = Field(..., description="群组标识，格式 http:{chat_id}")
+    profile_id: str = Field(..., description="角色 ID")
+
+
+class SkillAssignmentInfo(BaseModel):
+    """Skill 分配位置信息"""
+    group_id: str = Field(..., description="外部群组 ID")
+    group_name: str = Field(..., description="群组名称")
+    jid: str = Field(..., description="NanoClaw 群组标识")
+    profile_id: str = Field(..., description="角色 ID")
+    profile_name: str = Field(..., description="角色名称")
+
+
+class AISkillResponse(BaseModel):
+    """Skill 响应"""
+    id: str = Field(..., description="Skill ID")
+    name: Optional[str] = Field(None, description="Skill 名称（从 frontmatter 解析）")
+    description: Optional[str] = Field(None, description="Skill 描述（从 frontmatter 解析）")
+    content: str = Field(..., description="SKILL.md 完整内容")
+    assigned_locations: List[SkillAssignmentInfo] = Field(
+        default_factory=list,
+        description="已分配位置列表（群组 + 角色）"
+    )
+
+
+class AISkillListResponse(BaseModel):
+    """Skill 列表响应"""
+    items: List[AISkillResponse] = Field(default_factory=list, description="Skill 列表")
+    total: int = Field(..., description="总数")
