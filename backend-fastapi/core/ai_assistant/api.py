@@ -31,12 +31,19 @@ from core.ai_assistant.schema import (
     AIRoleCreate,
     AIRoleUpdate,
     AIRoleResponse,
+    AISkillCreate,
+    AISkillUpdate,
+    AISkillResponse,
+    AISkillListResponse,
+    SkillAssignment,
+    SkillAssignmentRemove,
 )
 from core.ai_assistant.service import (
     AIGroupService,
     AISessionService,
     AIMessageService,
     AIRoleService,
+    AISkillService,
 )
 from core.ai_assistant.context_manager import ContextManager
 from core.ai_assistant.nanoclaw_client import nanoclaw_client
@@ -953,3 +960,177 @@ async def create_new_session(
     )
 
     return AISessionResponse.model_validate(new_session)
+
+
+# ==================== Skill 管理接口 ====================
+
+@router.get("/skill", response_model=AISkillListResponse, summary="Skill 列表")
+async def list_skills(db: AsyncSession = Depends(get_db)):
+    """
+    Skill 列表
+
+    从 NanoClaw 获取所有 Skill，并查询分配位置。
+    """
+    skills = await AISkillService.get_skill_list()
+
+    # 为每个 Skill 查询分配位置
+    skills_with_assignments = []
+    for skill in skills:
+        skill_id = skill.get("id")
+        assignments = await AISkillService.get_skill_assignments(skill_id, db)
+        skill["assigned_locations"] = assignments
+        skills_with_assignments.append(AISkillResponse(**skill))
+
+    return AISkillListResponse(
+        items=skills_with_assignments,
+        total=len(skills_with_assignments),
+    )
+
+
+@router.get("/skill/{skill_id}", response_model=AISkillResponse, summary="Skill 详情")
+async def get_skill_detail(skill_id: str, db: AsyncSession = Depends(get_db)) -> AISkillResponse:
+    """
+    Skill 详情
+
+    Args:
+        skill_id: Skill ID
+    """
+    skill = await AISkillService.get_skill_detail(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill 不存在")
+
+    # 查询分配位置
+    assignments = await AISkillService.get_skill_assignments(skill_id, db)
+    skill["assigned_locations"] = assignments
+
+    return AISkillResponse(**skill)
+
+
+@router.post("/skill", response_model=AISkillResponse, summary="创建 Skill")
+async def create_skill(data: AISkillCreate, db: AsyncSession = Depends(get_db)) -> AISkillResponse:
+    """
+    创建 Skill
+
+    Args:
+        data: Skill 创建数据（含 id 和 content）
+    """
+    # 验证 Skill ID 格式
+    import re
+    if not re.match(r'^[a-zA-Z0-9\-]+$', data.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Skill ID 格式错误：只允许字母、数字、短横线"
+        )
+
+    # 验证 frontmatter 格式
+    parsed = AISkillService.parse_frontmatter(data.content)
+    if not parsed:
+        raise HTTPException(
+            status_code=400,
+            detail="SKILL.md 格式错误：缺少有效的 YAML frontmatter"
+        )
+
+    skill = await AISkillService.create_skill(data.id, data.content)
+    if not skill:
+        raise HTTPException(status_code=500, detail="NanoClaw 创建 Skill 失败")
+
+    logger.info(f"创建 Skill 成功: id={data.id}")
+    return AISkillResponse(**skill)
+
+
+@router.put("/skill/{skill_id}", response_model=AISkillResponse, summary="更新 Skill")
+async def update_skill(
+    skill_id: str,
+    data: AISkillUpdate,
+    db: AsyncSession = Depends(get_db)
+) -> AISkillResponse:
+    """
+    更新 Skill
+
+    Args:
+        skill_id: Skill ID
+        data: Skill 更新数据（含 content）
+    """
+    skill = await AISkillService.update_skill(skill_id, data.content)
+    if not skill:
+        raise HTTPException(status_code=500, detail="NanoClaw 更新 Skill 失败")
+
+    # 查询分配位置
+    assignments = await AISkillService.get_skill_assignments(skill_id, db)
+    skill["assigned_locations"] = assignments
+
+    logger.info(f"更新 Skill 成功: id={skill_id}")
+    return AISkillResponse(**skill)
+
+
+@router.delete("/skill/{skill_id}", summary="删除 Skill")
+async def delete_skill(skill_id: str):
+    """
+    删除 Skill
+
+    Args:
+        skill_id: Skill ID
+    """
+    success = await AISkillService.delete_skill(skill_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="NanoClaw 删除 Skill 失败")
+
+    logger.info(f"删除 Skill 成功: id={skill_id}")
+    return {"status": "success", "message": "删除成功"}
+
+
+@router.get("/skill/{skill_id}/assignments", summary="查询 Skill 分配位置")
+async def get_skill_assignments(skill_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    查询 Skill 已分配的群组角色列表
+
+    Args:
+        skill_id: Skill ID
+    """
+    skill = await AISkillService.get_skill_detail(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill 不存在")
+
+    assignments = await AISkillService.get_skill_assignments(skill_id, db)
+
+    return {
+        "skill_id": skill_id,
+        "assignments": assignments,
+        "count": len(assignments),
+    }
+
+
+@router.post("/skill/{skill_id}/assign", summary="分配 Skill 到群组角色")
+async def assign_skill(skill_id: str, data: SkillAssignment):
+    """
+    分配 Skill 到指定群组的指定角色
+
+    Args:
+        skill_id: Skill ID
+        data: 分配请求（含 jid 和 profile_id）
+    """
+    success = await AISkillService.assign_skill(skill_id, data.jid, data.profile_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="NanoClaw 分配 Skill 失败")
+
+    logger.info(f"分配 Skill 成功: skill={skill_id} -> jid={data.jid}, profile={data.profile_id}")
+    return {"status": "success", "message": "分配成功"}
+
+
+@router.delete("/skill/{skill_id}/assign", summary="移除 Skill 分配")
+async def remove_skill_assignment(skill_id: str, data: SkillAssignmentRemove):
+    """
+    移除指定群组角色的 Skill
+
+    Args:
+        skill_id: Skill ID
+        data: 移除请求（含 jid 和 profile_id）
+    """
+    success = await AISkillService.remove_skill_assignment(
+        skill_id, data.jid, data.profile_id
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="NanoClaw 移除 Skill 分配失败")
+
+    logger.info(f"移除 Skill 分配成功: skill={skill_id} from jid={data.jid}, profile={data.profile_id}")
+    return {"status": "success", "message": "移除成功"}
