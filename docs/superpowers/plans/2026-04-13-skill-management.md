@@ -683,7 +683,7 @@ from core.ai_assistant.schema import (
     SkillAssignmentInfo,
 )
 from core.ai_assistant.service import (
-    # ... 环有导入 ...
+    # ... 现有导入 ...
     AISkillService,
 )
 ```
@@ -735,7 +735,7 @@ async def create_skill(data: AISkillCreate) -> AISkillResponse:
     """
     # 验证 Skill ID 格式
     import re
-    if not re.match(r^[a-zA-Z0-9\-]+$, data.id):
+    if not re.match(r'^[a-zA-Z0-9\-]+$', data.id):
         raise HTTPException(
             status_code=400, 
             detail="Skill ID 格式错误：只允许字母、数字、短横线"
@@ -1007,7 +1007,7 @@ git commit -m "feat(web): 添加 Skill API 接口定义"
 <script lang="ts" setup>
 import type { AISkill, SkillAssignmentInfo } from '#/api/core/ai-assistant';
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -1015,8 +1015,11 @@ import {
   ElButton,
   ElDialog,
   ElEmpty,
+  ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
+  ElSelect,
   ElTag,
 } from 'element-plus';
 
@@ -1034,6 +1037,10 @@ defineOptions({ name: 'AISkillPage' });
 const skillList = ref<AISkill[]>([]);
 const loading = ref(false);
 
+// 搜索筛选
+const searchKeyword = ref('');
+const filterType = ref<'all' | 'assigned' | 'unassigned'>('all');
+
 // 弹窗控制
 const editDialogVisible = ref(false);
 const editDialogSkillId = ref('');
@@ -1042,6 +1049,29 @@ const editDialogIsNew = ref(false);
 
 const assignDialogVisible = ref(false);
 const assignDialogSkillId = ref('');
+
+// 筛选后的 Skill 列表
+const filteredSkillList = computed(() => {
+  let list = skillList.value;
+  
+  // 关键词搜索
+  if (searchKeyword.value) {
+    const keyword = searchKeyword.value.toLowerCase();
+    list = list.filter(skill => 
+      skill.id.toLowerCase().includes(keyword) ||
+      (skill.name && skill.name.toLowerCase().includes(keyword))
+    );
+  }
+  
+  // 分配状态筛选
+  if (filterType.value === 'assigned') {
+    list = list.filter(skill => skill.assigned_locations.length > 0);
+  } else if (filterType.value === 'unassigned') {
+    list = list.filter(skill => skill.assigned_locations.length === 0);
+  }
+  
+  return list;
+});
 
 // 加载数据
 async function loadData() {
@@ -1133,14 +1163,34 @@ onMounted(() => {
             + 新增 Skill
           </ElButton>
         </div>
+        
+        <!-- 搜索筛选区域 -->
+        <div class="header-search">
+          <ElInput
+            v-model="searchKeyword"
+            placeholder="搜索 Skill ID 或名称..."
+            clearable
+            style="width: 200px;"
+          />
+          <ElSelect
+            v-model="filterType"
+            placeholder="筛选"
+            clearable
+            style="width: 120px;"
+          >
+            <ElOption label="全部" value="all" />
+            <ElOption label="已分配" value="assigned" />
+            <ElOption label="未分配" value="unassigned" />
+          </ElSelect>
+        </div>
       </div>
 
       <!-- Skill 卡片列表 -->
       <div class="skill-list" v-loading="loading">
-        <template v-if="skillList.length > 0">
+        <template v-if="filteredSkillList.length > 0">
           <div class="skill-grid">
             <div
-              v-for="skill in skillList"
+              v-for="skill in filteredSkillList"
               :key="skill.id"
               class="skill-card"
             >
@@ -1228,6 +1278,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-search {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .skill-title {
@@ -1329,11 +1385,9 @@ onMounted(() => {
 </style>
 ```
 
-- [ ] **Step 2: 创建 components 目录和 SkillEditDialog.vue**
+- [ ] **Step 2: 创建 components 目录**
 
 创建目录：`web/apps/web-ele/src/views/ai-assistant/skill/components/`
-
-先创建目录：
 
 ```bash
 mkdir -p web/apps/web-ele/src/views/ai-assistant/skill/components
@@ -1659,7 +1713,7 @@ async function loadData() {
     buildTreeData();
     
     // 设置选中节点
-   setCheckedNodes();
+    setCheckedNodes();
   } catch (error) {
     console.error('加载数据失败:', error);
     ElMessage.error('加载数据失败');
