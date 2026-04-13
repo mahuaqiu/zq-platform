@@ -11,9 +11,10 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from sqlalchemy import select
+from sqlalchemy import select, insert
 from app.database import AsyncSessionLocal
 from core.menu.model import Menu
+from core.role.model import Role, role_menu
 
 MENUS = [
     {
@@ -70,8 +71,22 @@ MENUS = [
 
 
 async def init_menus():
-    """初始化菜单"""
+    """初始化菜单并分配给管理员角色"""
     async with AsyncSessionLocal() as session:
+        # 查询管理员角色
+        result = await session.execute(
+            select(Role).where(Role.code == "admin")
+        )
+        admin_role = result.scalar_one_or_none()
+
+        if not admin_role:
+            print("警告：未找到管理员角色（code=admin），无法分配菜单权限")
+            admin_role_id = None
+        else:
+            admin_role_id = admin_role.id
+            print(f"找到管理员角色: {admin_role.name} (id={admin_role_id})")
+
+        # 创建菜单
         for menu_data in MENUS:
             result = await session.execute(
                 select(Menu).where(Menu.id == menu_data["id"])
@@ -80,6 +95,10 @@ async def init_menus():
 
             if existing:
                 print(f"菜单已存在，跳过: {menu_data['title']}")
+
+                # 检查并分配权限（如果管理员角色存在且未分配）
+                if admin_role_id:
+                    await assign_menu_to_role(session, admin_role_id, menu_data["id"])
                 continue
 
             menu = Menu(
@@ -97,8 +116,35 @@ async def init_menus():
             session.add(menu)
             print(f"创建菜单: {menu_data['title']}")
 
+            # 给管理员角色分配菜单权限
+            if admin_role_id:
+                await assign_menu_to_role(session, admin_role_id, menu_data["id"], is_new=True)
+
         await session.commit()
-        print("\n菜单初始化完成！")
+        print("\n菜单初始化完成！请刷新前端页面查看。")
+
+
+async def assign_menu_to_role(session, role_id: str, menu_id: str, is_new: bool = False):
+    """给角色分配菜单权限"""
+    from sqlalchemy import text
+
+    # 检查是否已分配
+    result = await session.execute(
+        text("SELECT role_id FROM core_role_menu WHERE role_id = :role_id AND menu_id = :menu_id"),
+        {"role_id": role_id, "menu_id": menu_id}
+    )
+    existing = result.fetchone()
+
+    if existing:
+        if not is_new:
+            print(f"  - 菜单权限已分配: {menu_id}")
+        return
+
+    # 分配权限
+    await session.execute(
+        insert(role_menu).values(role_id=role_id, menu_id=menu_id)
+    )
+    print(f"  - 已分配菜单权限给管理员: {menu_id}")
 
 
 if __name__ == "__main__":
