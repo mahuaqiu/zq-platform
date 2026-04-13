@@ -98,7 +98,9 @@
       "Bash(npx prettier:*)",
       "Bash(powershell:*)",
       "Bash(pnpm add:*)",
-      "Bash(ls -la backend-fastapi/*.json)"
+      "Bash(ls -la backend-fastapi/*.json)",
+      "Bash(cat web/apps/web-ele/.env.development)",
+      "Bash(cat web/apps/web-ele/.env)"
     ]
   }
 }

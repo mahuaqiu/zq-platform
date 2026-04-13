@@ -7,6 +7,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/env-machine/upgrade.vue'),
     meta: {
       title: '升级管理',
+      hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },
 ];

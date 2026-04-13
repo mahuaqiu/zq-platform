@@ -1165,5 +1165,166 @@
       "keepAlive": false,
       "affixTab": false
     }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "overview-root",
+    "fields": {
+      "id": "overview-root",
+      "name": "Overview",
+      "title": "概览",
+      "path": "/overview",
+      "type": "catalog",
+      "icon": "mdi:view-dashboard-outline",
+      "component": null,
+      "parent_id": null,
+      "order": 100,
+      "sort": 100,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "device-monitor",
+    "fields": {
+      "id": "device-monitor",
+      "name": "DeviceMonitor",
+      "title": "设备监控",
+      "path": "/overview/device-monitor",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/device-monitor/index",
+      "parent_id": "overview-root",
+      "order": 1,
+      "sort": 1,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "env-machine-upgrade",
+    "fields": {
+      "id": "env-machine-upgrade",
+      "name": "EnvMachineUpgrade",
+      "title": "升级管理",
+      "path": "/env-machine/upgrade",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/env-machine/upgrade",
+      "parent_id": "env-machine-root",
+      "order": 100,
+      "sort": 100,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "ai-assistant-root",
+    "fields": {
+      "id": "ai-assistant-root",
+      "name": "AIAssistant",
+      "title": "AI助手",
+      "path": "/ai-assistant",
+      "type": "catalog",
+      "icon": "ep:chat-dot-round",
+      "component": null,
+      "parent_id": null,
+      "order": 50,
+      "sort": 50,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "ai-assistant-role",
+    "fields": {
+      "id": "ai-assistant-role",
+      "name": "AIAssistantRole",
+      "title": "角色管理",
+      "path": "/ai-assistant/role",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/ai-assistant/role/index",
+      "parent_id": "ai-assistant-root",
+      "order": 0,
+      "sort": 0,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "ai-assistant-session",
+    "fields": {
+      "id": "ai-assistant-session",
+      "name": "AIAssistantSession",
+      "title": "会话管理",
+      "path": "/ai-assistant/session",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/ai-assistant/session/index",
+      "parent_id": "ai-assistant-root",
+      "order": 1,
+      "sort": 1,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
+    "pk": "ai-assistant-group",
+    "fields": {
+      "id": "ai-assistant-group",
+      "name": "AIAssistantGroup",
+      "title": "群组管理",
+      "path": "/ai-assistant/group",
+      "type": "menu",
+      "icon": null,
+      "component": "/views/ai-assistant/group/index",
+      "parent_id": "ai-assistant-root",
+      "order": 2,
+      "sort": 2,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
   }
 ]

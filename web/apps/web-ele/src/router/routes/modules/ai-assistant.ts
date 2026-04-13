@@ -7,6 +7,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/ai-assistant/role/index.vue'),
     meta: {
       title: '角色管理',
+      hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },
   {
@@ -15,6 +16,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/ai-assistant/session/index.vue'),
     meta: {
       title: '会话管理',
+      hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },
   {
@@ -32,6 +34,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('#/views/ai-assistant/group/index.vue'),
     meta: {
       title: '群组管理',
+      hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },
 ];
