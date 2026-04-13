@@ -56,6 +56,16 @@ MENUS = [
         "parent_id": "ai-assistant-root",
         "order": 2,
     },
+    {
+        "id": "ai-assistant-skill",
+        "name": "AIAssistantSkill",
+        "title": "Skill管理",
+        "path": "/ai-assistant/skill",
+        "type": "menu",
+        "component": "/views/ai-assistant/skill/index",
+        "parent_id": "ai-assistant-root",
+        "order": 3,
+    },
 ]
 
 
