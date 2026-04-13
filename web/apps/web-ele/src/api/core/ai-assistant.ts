@@ -302,3 +302,134 @@ export async function getGroupTriggerWordsApi(groupId: string) {
     `/api/core/ai/group/${groupId}/trigger-words`,
   );
 }
+
+// ========== Skill API ==========
+
+/**
+ * Skill 分配信息（显示 Skill 被分配到了哪些群组+角色）
+ */
+export interface SkillAssignmentInfo {
+  jid: string;
+  group_name?: string;
+  profile_id: string;
+  profile_name?: string;
+}
+
+/**
+ * AI Skill
+ */
+export interface AISkill {
+  id: string;
+  name: string;
+  description?: string;
+  content: string;
+  assigned_locations: SkillAssignmentInfo[];
+  sys_create_datetime?: string;
+  sys_update_datetime?: string;
+}
+
+/**
+ * AI Skill 创建请求
+ */
+export interface AISkillCreate {
+  id: string;
+  content: string;
+}
+
+/**
+ * AI Skill 更新请求
+ */
+export interface AISkillUpdate {
+  content: string;
+}
+
+/**
+ * Skill 分配请求
+ */
+export interface SkillAssignment {
+  jid: string;
+  profile_id: string;
+}
+
+/**
+ * AI Skill 列表响应
+ */
+export interface AISkillListResponse {
+  items: AISkill[];
+  total: number;
+}
+
+/**
+ * 获取 AI Skill 列表
+ */
+export async function getAISkillListApi(params?: {
+  search_keyword?: string;
+  filter_type?: 'all' | 'assigned' | 'unassigned';
+}) {
+  return requestClient.get<AISkillListResponse>('/api/core/ai/skill', {
+    params,
+  });
+}
+
+/**
+ * 获取 AI Skill 详情
+ */
+export async function getAISkillDetailApi(id: string) {
+  return requestClient.get<AISkill>(`/api/core/ai/skill/${id}`);
+}
+
+/**
+ * 创建 AI Skill
+ */
+export async function createAISkillApi(data: AISkillCreate) {
+  return requestClient.post<AISkill>('/api/core/ai/skill', data);
+}
+
+/**
+ * 更新 AI Skill
+ */
+export async function updateAISkillApi(id: string, data: AISkillUpdate) {
+  return requestClient.put<AISkill>(`/api/core/ai/skill/${id}`, data);
+}
+
+/**
+ * 删除 AI Skill
+ */
+export async function deleteAISkillApi(id: string) {
+  return requestClient.delete(`/api/core/ai/skill/${id}`);
+}
+
+/**
+ * 获取 Skill 的分配信息
+ */
+export async function getAISkillAssignmentsApi(id: string) {
+  return requestClient.get<SkillAssignmentInfo[]>(
+    `/api/core/ai/skill/${id}/assignments`,
+  );
+}
+
+/**
+ * 将 Skill 分配给群组+角色
+ */
+export async function assignSkillToProfileApi(
+  skillId: string,
+  data: SkillAssignment,
+) {
+  return requestClient.post(
+    `/api/core/ai/skill/${skillId}/assign`,
+    data,
+  );
+}
+
+/**
+ * 从群组+角色移除 Skill 分配
+ */
+export async function removeSkillFromProfileApi(
+  skillId: string,
+  data: SkillAssignment,
+) {
+  return requestClient.post(
+    `/api/core/ai/skill/${skillId}/unassign`,
+    data,
+  );
+}

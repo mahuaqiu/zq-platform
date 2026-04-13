@@ -37,6 +37,15 @@ const routes: RouteRecordRaw[] = [
       hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },
+  {
+    path: '/ai-assistant/skill',
+    name: 'AIAssistantSkill',
+    component: () => import('#/views/ai-assistant/skill/index.vue'),
+    meta: {
+      title: 'Skill 管理',
+      hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
+    },
+  },
 ];
 
 export default routes;
