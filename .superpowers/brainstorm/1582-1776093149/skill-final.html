@@ -1,0 +1,106 @@
+<h2>Skill 弹窗编辑 - 最终设计</h2>
+<p class="subtitle">简洁弹窗 + Monaco Editor（带行号）</p>
+
+<div class="mockup" style="max-width: 700px; margin: 0 auto;">
+  <div class="mockup-header">编辑 Skill 弹窗</div>
+  <div class="mockup-body" style="background: rgba(0,0,0,0.5); padding: 30px;">
+    <div style="background: #fff; border-radius: 8px; overflow: hidden;">
+      <!-- 弹窗头部 -->
+      <div style="padding: 12px 16px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 600;">编辑 Skill: agent-browser</span>
+        <span style="color: #999; cursor: pointer; font-size: 20px;">✕</span>
+      </div>
+
+      <!-- Monaco Editor 带行号 -->
+      <div style="border: 1px solid #e8e8e8; margin: 12px; border-radius: 4px; overflow: hidden;">
+        <!-- 编辑器头部工具栏 -->
+        <div style="background: #f5f5f5; padding: 6px 12px; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center;">
+          <span style="font-size: 12px; color: #666;">📝 Markdown</span>
+          <span style="margin-left: auto; font-size: 12px; color: #1890ff; cursor: pointer;">预览</span>
+        </div>
+
+        <!-- 编辑器内容区（带行号） -->
+        <div style="background: #1e1e1e; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6;">
+          <!-- 行号列 + 内容列 -->
+          <div style="display: flex;">
+            <!-- 行号列 -->
+            <div style="background: #252526; color: #858585; text-align: right; padding: 12px 8px 12px 12px; min-width: 40px; user-select: none;">
+              <div>1</div>
+              <div>2</div>
+              <div>3</div>
+              <div>4</div>
+              <div>5</div>
+              <div>6</div>
+              <div>7</div>
+              <div>8</div>
+              <div>9</div>
+              <div>10</div>
+              <div>11</div>
+              <div>12</div>
+              <div>13</div>
+              <div>14</div>
+              <div>15</div>
+              <div>16</div>
+              <div>17</div>
+              <div style="color: #5a5a5a;">18</div>
+              <div style="color: #5a5a5a;">19</div>
+              <div style="color: #5a5a5a;">20</div>
+            </div>
+
+            <!-- 内容列 -->
+            <div style="color: #d4d4d4; padding: 12px 12px 12px 8px; flex: 1;">
+              <div><span style="color: #569cd6;">---</span></div>
+              <div><span style="color: #9cdcfe;">name</span><span style="color: #d4d4d4;">:</span> <span style="color: #ce9178;">"agent-browser"</span></div>
+              <div><span style="color: #9cdcfe;">description</span><span style="color: #d4d4d4;">:</span> <span style="color: #ce9178;">"Browse the web for any task"</span></div>
+              <div><span style="color: #569cd6;">---</span></div>
+              <div></div>
+              <div><span style="color: #569cd6;">#</span> <span style="color: #d4d4d4;">Browser Automation</span></div>
+              <div></div>
+              <div><span style="color: #d4d4d4;">Browse the web for any task:</span></div>
+              <div></div>
+              <div><span style="color: #d4d4d4;">- Research topics and read articles</span></div>
+              <div><span style="color: #d4d4d4;">- Interact with web apps</span></div>
+              <div><span style="color: #d4d4d4;">- Fill forms and take screenshots</span></div>
+              <div><span style="color: #d4d4d4;">- Extract data from pages</span></div>
+              <div></div>
+              <div><span style="color: #569cd6;">##</span> <span style="color: #d4d4d4;">Quick Start</span></div>
+              <div></div>
+              <div><span style="color: #d4d4d4;">Simply ask to browse a website:</span></div>
+              <div style="color: #6a9955;">// 更多 Markdown 内容...</div>
+              <div style="color: #5a5a5a;">...</div>
+              <div style="color: #5a5a5a;">...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 弹窗底部 -->
+      <div style="padding: 12px 16px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="mock-button" style="padding: 8px 20px; background: #fff; border: 1px solid #d9d9d9; color: #666;">取消</button>
+        <button class="mock-button" style="padding: 8px 20px; background: #1890ff; color: #fff; border: none;">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 20px; padding: 16px; background: #f6f8fa; border-radius: 4px;">
+  <h3 style="margin: 0 0 12px 0;">设计要点</h3>
+  <ul style="color: #666; line-height: 1.8; margin: 0; padding-left: 20px;">
+    <li><strong>弹窗宽度</strong>：约 650px，高度自适应（最大 80vh）</li>
+    <li><strong>Monaco Editor</strong>：VS Code 风格，深色主题，带行号列</li>
+    <li><strong>行号列</strong>：灰色背景区分，右侧对齐，不可选中</li>
+    <li><strong>语法高亮</strong>：YAML frontmatter + Markdown 内容自动识别</li>
+    <li><strong>预览按钮</strong>：可选功能，点击切换 Markdown 渲染预览</li>
+    <li><strong>保存逻辑</strong>：解析 frontmatter 提取 name/description，正文作为 content</li>
+  </ul>
+</div>
+
+<div class="options" style="margin-top: 16px;">
+  <div class="option selected" data-choice="confirm" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>确认此设计</h3>
+      <p>开始编写实现计划</p>
+    </div>
+  </div>
+</div>

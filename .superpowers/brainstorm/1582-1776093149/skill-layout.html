@@ -1,0 +1,208 @@
+<h2>Skill 管理页面设计方案</h2>
+<p class="subtitle">请选择你偏好的页面布局风格</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">方案 A：卡片列表 + 弹窗编辑</div>
+    <div class="mockup-body">
+      <div class="mock-nav" style="margin-bottom: 12px;">
+        <span style="font-weight: 600;">🔍 搜索 Skill...</span>
+        <span style="margin-left: auto;">+ 新增 Skill</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="card" style="border: 1px solid #e8e8e8; padding: 12px; background: #fff;">
+          <div style="font-weight: 600; margin-bottom: 4px;">agent-browser</div>
+          <div style="color: #666; font-size: 12px; margin-bottom: 8px;">Browse the web for any task...</div>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <span class="mock-button" style="background: #e6f7ff; color: #1890ff; font-size: 11px; padding: 2px 6px;">角色: 小马助手</span>
+            <span class="mock-button" style="background: #e6f7ff; color: #1890ff; font-size: 11px; padding: 2px 6px;">角色: 小威</span>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; font-size: 12px;">
+            <a style="color: #1890ff;">编辑</a>
+            <a style="color: #1890ff;">分配角色</a>
+            <a style="color: #ff4d4f;">删除</a>
+          </div>
+        </div>
+
+        <div class="card" style="border: 1px solid #e8e8e8; padding: 12px; background: #fff;">
+          <div style="font-weight: 600; margin-bottom: 4px;">capabilities</div>
+          <div style="color: #666; font-size: 12px; margin-bottom: 8px;">Show what this instance can do...</div>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <span class="mock-button" style="background: #e6f7ff; color: #1890ff; font-size: 11px; padding: 2px 6px;">角色: 小马助手</span>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; font-size: 12px;">
+            <a style="color: #1890ff;">编辑</a>
+            <a style="color: #1890ff;">分配角色</a>
+            <a style="color: #ff4d4f;">删除</a>
+          </div>
+        </div>
+
+        <div class="card" style="border: 1px solid #e8e8e8; padding: 12px; background: #fff;">
+          <div style="font-weight: 600; margin-bottom: 4px;">my-custom-skill</div>
+          <div style="color: #666; font-size: 12px; margin-bottom: 8px;">A custom skill description...</div>
+          <div style="color: #999; font-size: 11px;">未分配给任何角色</div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; font-size: 12px;">
+            <a style="color: #1890ff;">编辑</a>
+            <a style="color: #1890ff;">分配角色</a>
+            <a style="color: #ff4d4f;">删除</a>
+          </div>
+        </div>
+
+        <div class="placeholder" style="height: 100px; display: flex; align-items: center; justify-content: center;">
+          更多 Skill 卡片...
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; text-align: center; color: #666; font-size: 12px;">
+        分页: 1/5 共 15 条
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">方案 B：表格列表 + 独立详情页</div>
+    <div class="mockup-body">
+      <div class="mock-nav" style="margin-bottom: 12px;">
+        <span style="font-weight: 600;">🔍 搜索 Skill...</span>
+        <span style="margin-left: auto;">+ 新增 Skill</span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 8px; border: 1px solid #e8e8e8; text-align: left;">Skill ID</th>
+            <th style="padding: 8px; border: 1px solid #e8e8e8; text-align: left;">名称</th>
+            <th style="padding: 8px; border: 1px solid #e8e8e8; text-align: left;">描述</th>
+            <th style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">已分配角色</th>
+            <th style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #e8e8e8;">agent-browser</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8;">agent-browser</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; color: #666;">Browse the web...</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">
+              <span style="background: #52c41a; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 12px;">2</span>
+            </td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff;">查看</a>
+              <a style="color: #1890ff; margin-left: 8px;">编辑</a>
+              <a style="color: #ff4d4f; margin-left: 8px;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #e8e8e8;">capabilities</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8;">capabilities</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; color: #666;">Show what instance...</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">
+              <span style="background: #52c41a; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 12px;">1</span>
+            </td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff;">查看</a>
+              <a style="color: #1890ff; margin-left: 8px;">编辑</a>
+              <a style="color: #ff4d4f; margin-left: 8px;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #e8e8e8;">my-custom-skill</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8;">my-custom-skill</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; color: #666;">A custom skill...</td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">
+              <span style="background: #d9d9d9; color: #666; padding: 2px 8px; border-radius: 10px; font-size: 12px;">0</span>
+            </td>
+            <td style="padding: 8px; border: 1px solid #e8e8e8; text-align: center;">
+              <a style="color: #1890ff;">查看</a>
+              <a style="color: #1890ff; margin-left: 8px;">编辑</a>
+              <a style="color: #ff4d4f; margin-left: 8px;">删除</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top: 12px; text-align: center; color: #666; font-size: 12px;">
+        分页: 1/5 共 15 条
+      </div>
+
+      <div style="margin-top: 16px; padding: 12px; border: 1px solid #e8e8e8; background: #fafafa;">
+        <div style="font-weight: 600; margin-bottom: 8px;">详情页预览（点击"查看"进入）</div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; margin-bottom: 4px;">基本信息</div>
+            <div style="font-size: 12px; color: #666;">Skill ID: agent-browser</div>
+            <div style="font-size: 12px; color: #666;">描述: Browse the web...</div>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 500; margin-bottom: 4px;">已分配角色</div>
+            <div style="font-size: 12px;">
+              <span style="background: #e6f7ff; color: #1890ff; padding: 2px 6px; margin-right: 4px;">小马助手 (@xiaoma)</span>
+              <span style="background: #e6f7ff; color: #1890ff; padding: 2px 6px;">小威 (@小威)</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 12px;">
+          <div style="font-weight: 500; margin-bottom: 4px;">SKILL.md 内容</div>
+          <div class="placeholder" style="height: 60px; background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 11px; padding: 8px;">
+            ---<br>name: agent-browser<br>description: Browse...<br>---<br># Browser Automation...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 16px;">
+  <div class="pros">
+    <h4>方案 A 优点</h4>
+    <ul>
+      <li>卡片展示更直观，信息丰富</li>
+      <li>直接显示已分配角色标签</li>
+      <li>弹窗编辑快速，无需跳转</li>
+      <li>适合少量 Skill 管理</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>方案 A 缺点</h4>
+    <ul>
+      <li>大量 Skill 时卡片列表较长</li>
+      <li>弹窗空间有限，编辑长内容不便</li>
+    </ul>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 16px;">
+  <div class="pros">
+    <h4>方案 B 优点</h4>
+    <ul>
+      <li>表格紧凑，适合大量数据</li>
+      <li>独立详情页编辑空间大</li>
+      <li>Monaco Editor 全屏体验好</li>
+      <li>与现有角色管理页面风格一致</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>方案 B 缺点</h4>
+    <ul>
+      <li>需要跳转才能看到详情</li>
+      <li>操作步骤稍多</li>
+    </ul>
+  </div>
+</div>
+
+<div class="options" style="margin-top: 16px;">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>卡片列表 + 弹窗编辑</h3>
+      <p>直观展示，快速操作</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>表格列表 + 独立详情页</h3>
+      <p>紧凑高效，适合大量数据</p>
+    </div>
+  </div>
+</div>

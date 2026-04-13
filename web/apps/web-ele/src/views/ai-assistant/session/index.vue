@@ -265,7 +265,6 @@ onMounted(() => {
           >
             <ElOption label="活跃" :value="0" />
             <ElOption label="已关闭" :value="1" />
-            <ElOption label="已清除" :value="2" />
           </ElSelect>
           <ElButton @click="handleReset">重置</ElButton>
         </div>

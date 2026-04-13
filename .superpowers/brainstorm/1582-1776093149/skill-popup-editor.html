@@ -1,0 +1,183 @@
+<h2>方案 A：弹窗编辑详细设计</h2>
+<p class="subtitle">Skill 编辑弹窗的交互和布局</p>
+
+<div class="mockup" style="max-width: 800px; margin: 0 auto;">
+  <div class="mockup-header">Skill 编辑弹窗（点击"编辑"按钮打开）</div>
+  <div class="mockup-body" style="background: rgba(0,0,0,0.5); padding: 40px;">
+    <!-- 弹窗容器 -->
+    <div style="background: #fff; border-radius: 8px; max-width: 700px; margin: 0 auto; overflow: hidden;">
+      <!-- 弹窗头部 -->
+      <div style="padding: 16px 20px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 600; font-size: 16px;">编辑 Skill: agent-browser</span>
+        <span style="color: #999; cursor: pointer;">✕ 关闭</span>
+      </div>
+
+      <!-- 弹窗内容 -->
+      <div style="padding: 20px;">
+        <!-- 基本信息 -->
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; gap: 16px;">
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 13px; color: #666; margin-bottom: 4px;">Skill ID</label>
+              <input class="mock-input" style="width: 100%;" value="agent-browser" placeholder="唯一标识，创建后不可修改">
+            </div>
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 13px; color: #666; margin-bottom: 4px;">显示名称</label>
+              <input class="mock-input" style="width: 100%;" value="agent-browser" placeholder="可选，默认使用 ID">
+            </div>
+          </div>
+        </div>
+
+        <!-- 描述 -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; color: #666; margin-bottom: 4px;">描述（简短说明）</label>
+          <input class="mock-input" style="width: 100%;" value="Browse the web for any task — research, read articles, interact with web apps..." placeholder="一句话描述 Skill 功能">
+        </div>
+
+        <!-- 分配角色 -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; color: #666; margin-bottom: 4px;">分配给角色（勾选）</label>
+          <div style="border: 1px solid #e8e8e8; border-radius: 4px; padding: 12px; background: #fafafa;">
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" checked style="width: 16px; height: 16px;">
+                <span style="background: #e6f7ff; color: #1890ff; padding: 4px 12px; border-radius: 4px; font-size: 13px;">小马助手 (@xiaoma)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" checked style="width: 16px; height: 16px;">
+                <span style="background: #e6f7ff; color: #1890ff; padding: 4px 12px; border-radius: 4px; font-size: 13px;">小威 (@小威)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" style="width: 16px; height: 16px;">
+                <span style="background: #f5f5f5; color: #666; padding: 4px 12px; border-radius: 4px; font-size: 13px;">技术专家 (@Tech)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" style="width: 16px; height: 16px;">
+                <span style="background: #f5f5f5; color: #666; padding: 4px 12px; border-radius: 4px; font-size: 13px;">日报助手 (@Daily)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Markdown 编辑器 -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; color: #666; margin-bottom: 4px;">
+            SKILL.md 内容（Markdown 格式）
+            <span style="float: right; color: #1890ff; cursor: pointer;">📝 预览</span>
+          </label>
+          <!-- Monaco Editor 模拟 -->
+          <div style="border: 1px solid #e8e8e8; border-radius: 4px; overflow: hidden;">
+            <!-- 编辑器头部 -->
+            <div style="background: #f5f5f5; padding: 8px 12px; border-bottom: 1px solid #e8e8e8; display: flex; gap: 8px; align-items: center;">
+              <span style="font-size: 12px; color: #666;">Markdown</span>
+              <span style="margin-left: auto; font-size: 12px; color: #999;">行 1-15, 列 1</span>
+            </div>
+            <!-- 编辑器内容区 -->
+            <div style="background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; line-height: 1.6; padding: 12px 16px; height: 280px; overflow: auto;">
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">1</div>
+                <div><span style="color: #569cd6;">---</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">2</div>
+                <div><span style="color: #9cdcfe;">name</span><span style="color: #d4d4d4;">: </span><span style="color: #ce9178;">agent-browser</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">3</div>
+                <div><span style="color: #9cdcfe;">description</span><span style="color: #d4d4d4;">: </span><span style="color: #ce9178;">Browse the web for any task</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">4</div>
+                <div><span style="color: #569cd6;">---</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">5</div>
+                <div></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">6</div>
+                <div><span style="color: #569cd6;">#</span><span style="color: #d4d4d4;"> Browser Automation</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">7</div>
+                <div></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">8</div>
+                <div><span style="color: #d4d4d4;">Browse the web for any task:</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">9</div>
+                <div><span style="color: #d4d4d4;">- Research topics</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">10</div>
+                <div><span style="color: #d4d4d4;">- Read articles</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">11</div>
+                <div><span style="color: #d4d4d4;">- Interact with web apps</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">12</div>
+                <div><span style="color: #d4d4d4;">- Fill forms</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">13</div>
+                <div><span style="color: #d4d4d4;">- Take screenshots</span></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">14</div>
+                <div></div>
+              </div>
+              <div style="display: flex;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">15</div>
+                <div><span style="color: #569cd6;">##</span><span style="color: #d4d4d4;"> Quick Start</span></div>
+              </div>
+              <div style="display: flex; opacity: 0.5;">
+                <div style="color: #858585; text-align: right; padding-right: 16px; user-select: none; min-width: 30px;">16</div>
+                <div style="color: #6a9955;">// 更多内容...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 弹窗底部 -->
+      <div style="padding: 16px 20px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="mock-button" style="padding: 8px 24px; background: #fff; border: 1px solid #d9d9d9; color: #666;">取消</button>
+        <button class="mock-button" style="padding: 8px 24px; background: #1890ff; color: #fff; border: none;">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>弹窗编辑功能说明</h3>
+  <ul style="color: #666; line-height: 1.8;">
+    <li><strong>Skill ID</strong>：创建时必填，编辑时不可修改（灰色显示）</li>
+    <li><strong>显示名称</strong>：可选，用于友好展示</li>
+    <li><strong>描述</strong>：简短说明，显示在列表卡片中</li>
+    <li><strong>分配角色</strong>：勾选列表，已选角色高亮显示</li>
+    <li><strong>Markdown 编辑器</strong>：Monaco Editor，支持语法高亮、行号、自动补全</li>
+    <li><strong>预览按钮</strong>：可切换查看 Markdown 渲染效果</li>
+    <li><strong>弹窗尺寸</strong>：宽度约 700px，高度自适应或最大 80vh</li>
+  </ul>
+</div>
+
+<div class="options" style="margin-top: 16px;">
+  <div class="option" data-choice="popup-ok" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>这个弹窗设计可以</h3>
+      <p>信息完整，编辑器体验好</p>
+    </div>
+  </div>
+  <div class="option" data-choice="popup-adjust" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>需要调整</h3>
+      <p>请在终端告诉我具体需要修改的地方</p>
+    </div>
+  </div>
+</div>

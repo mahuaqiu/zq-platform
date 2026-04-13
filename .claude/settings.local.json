@@ -100,7 +100,9 @@
       "Bash(pnpm add:*)",
       "Bash(ls -la backend-fastapi/*.json)",
       "Bash(cat web/apps/web-ele/.env.development)",
-      "Bash(cat web/apps/web-ele/.env)"
+      "Bash(cat web/apps/web-ele/.env)",
+      "Bash(scripts/start-server.sh --project-dir \"D:/code/zq-platform\")",
+      "Bash(npx vue-tsc:*)"
     ]
   }
 }
