@@ -6,6 +6,7 @@
 @File: service.py
 @Desc: AI助手服务层 - 角色、群组、会话、消息
 """
+import yaml
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -981,3 +982,261 @@ class AIMessageService(BaseService[AIMessage, None, None]):
             await db.flush()
 
         return count
+
+
+# ==================== Skill 服务 ====================
+
+class AISkillService:
+    """
+    Skill 服务
+
+    不使用数据库持久化，直接调用 NanoClaw API。
+    """
+
+    @staticmethod
+    def parse_frontmatter(content: str) -> dict:
+        """
+        解析 SKILL.md 的 YAML frontmatter
+
+        Args:
+            content: SKILL.md 完整内容
+
+        Returns:
+            {"name": "...", "description": "..."} 或空字典
+        """
+        if not content.startswith("---"):
+            return {}
+
+        try:
+            # 找到第二个 --- 的位置
+            parts = content.split("---", 2)
+            if len(parts) < 3:
+                return {}
+
+            frontmatter_str = parts[1].strip()
+            if not frontmatter_str:
+                return {}
+
+            frontmatter = yaml.safe_load(frontmatter_str)
+            return {
+                "name": frontmatter.get("name", ""),
+                "description": frontmatter.get("description", ""),
+            }
+        except yaml.YAMLError:
+            return {}
+        except Exception:
+            return {}
+
+    @classmethod
+    async def get_skill_list(cls) -> List[dict]:
+        """
+        获取 Skill 列表
+
+        Returns:
+            Skill 列表（不含 content）
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+        from core.ai_assistant.schema import AISkillResponse, SkillAssignmentInfo
+
+        result = await nanoclaw_client.get_skills()
+
+        if "error" in result:
+            return []
+
+        skills_data = result.get("skills", [])
+
+        # 为每个 Skill 构建基本信息（不含分配位置）
+        skills = []
+        for skill in skills_data:
+            skill_id = skill.get("id", "")
+            skills.append({
+                "id": skill_id,
+                "name": skill.get("name", skill_id),
+                "description": skill.get("description", ""),
+                "content": "",  # 列表不返回完整内容
+                "assigned_locations": [],  # 需要单独查询
+            })
+
+        return skills
+
+    @classmethod
+    async def get_skill_detail(cls, skill_id: str) -> Optional[dict]:
+        """
+        获取 Skill 详情
+
+        Args:
+            skill_id: Skill ID
+
+        Returns:
+            Skill 详情或 None
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        result = await nanoclaw_client.get_skill_detail(skill_id)
+
+        if "error" in result:
+            return None
+
+        content = result.get("content", "")
+        parsed = cls.parse_frontmatter(content)
+
+        return {
+            "id": skill_id,
+            "name": parsed.get("name", skill_id),
+            "description": parsed.get("description", ""),
+            "content": content,
+            "assigned_locations": [],  # 需要单独查询
+        }
+
+    @classmethod
+    async def create_skill(cls, skill_id: str, content: str) -> Optional[dict]:
+        """
+        创建 Skill
+
+        Args:
+            skill_id: Skill ID
+            content: SKILL.md 内容
+
+        Returns:
+            创建的 Skill 或 None
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        # 验证 frontmatter 格式
+        parsed = cls.parse_frontmatter(content)
+        if not parsed:
+            return None  # frontmatter 格式错误
+
+        result = await nanoclaw_client.create_skill(skill_id, content)
+
+        if "error" in result:
+            return None
+
+        return {
+            "id": skill_id,
+            "name": parsed.get("name", skill_id),
+            "description": parsed.get("description", ""),
+            "content": content,
+            "assigned_locations": [],
+        }
+
+    @classmethod
+    async def update_skill(cls, skill_id: str, content: str) -> Optional[dict]:
+        """
+        更新 Skill
+
+        Args:
+            skill_id: Skill ID
+            content: SKILL.md 内容
+
+        Returns:
+            更新后的 Skill 或 None
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        result = await nanoclaw_client.update_skill(skill_id, content)
+
+        if "error" in result:
+            return None
+
+        # 重新获取详情
+        return await cls.get_skill_detail(skill_id)
+
+    @classmethod
+    async def delete_skill(cls, skill_id: str) -> bool:
+        """
+        删除 Skill
+
+        Args:
+            skill_id: Skill ID
+
+        Returns:
+            是否成功
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        result = await nanoclaw_client.delete_skill(skill_id)
+
+        return "error" not in result
+
+    @classmethod
+    async def assign_skill(cls, skill_id: str, jid: str, profile_id: str) -> bool:
+        """
+        分配 Skill 到群组角色
+
+        Args:
+            skill_id: Skill ID
+            jid: 群组标识
+            profile_id: 角色 ID
+
+        Returns:
+            是否成功
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        result = await nanoclaw_client.assign_skill_to_profile(jid, profile_id, skill_id)
+
+        return "error" not in result
+
+    @classmethod
+    async def remove_skill_assignment(cls, skill_id: str, jid: str, profile_id: str) -> bool:
+        """
+        移除 Skill 分配
+
+        Args:
+            skill_id: Skill ID
+            jid: 群组标识
+            profile_id: 角色 ID
+
+        Returns:
+            是否成功
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        result = await nanoclaw_client.remove_skill_from_profile(jid, profile_id, skill_id)
+
+        return "error" not in result
+
+    @classmethod
+    async def get_skill_assignments(cls, skill_id: str, db: AsyncSession) -> List[dict]:
+        """
+        获取 Skill 分配位置列表
+
+        Args:
+            skill_id: Skill ID
+            db: 数据库会话
+
+        Returns:
+            分配位置列表
+        """
+        from core.ai_assistant.nanoclaw_client import nanoclaw_client
+
+        # 获取所有群组
+        groups = await AIGroupService.get_active_groups(db)
+
+        # 构建 group_id -> group 的映射
+        group_map = {}
+        for g in groups:
+            group_map[g.group_id] = g
+
+        # 为每个群组角色查询 Skill 分配
+        assigned_locations = []
+        for group in groups:
+            jid = f"http:{group.group_id}"
+            for role in group.roles:
+                if role.is_active:
+                    profile_skills = await nanoclaw_client.get_profile_skills(
+                        jid, role.role_id or str(role.id)
+                    )
+                    if "error" not in profile_skills:
+                        for ps in profile_skills.get("skills", []):
+                            if ps.get("id") == skill_id:
+                                assigned_locations.append({
+                                    "group_id": group.group_id,
+                                    "group_name": group.group_name,
+                                    "jid": jid,
+                                    "profile_id": role.role_id or str(role.id),
+                                    "profile_name": role.name,
+                                })
+
+        return assigned_locations
