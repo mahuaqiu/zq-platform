@@ -421,6 +421,248 @@ class NanoClawClient:
             logger.error(f"[NanoClaw] 查询会话异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
+    async def get_skills(self) -> Dict[str, Any]:
+        """
+        查询 NanoClaw 所有全局 Skill
+
+        Returns:
+            {"skills": [...], "count": N}
+        """
+        url = f"{self.api_url}/api/skills"
+        logger.info(f"[NanoClaw] 查询 Skill 列表请求: GET {url}")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 查询 Skill 列表响应: count={result.get('count', 0)}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 查询 Skill 列表超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 查询 Skill 列表请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 查询 Skill 列表异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def get_skill_detail(self, skill_id: str) -> Dict[str, Any]:
+        """
+        查询 NanoClaw Skill 详情
+
+        Args:
+            skill_id: Skill ID
+
+        Returns:
+            {"id": "...", "name": "...", "description": "...", "content": "..."}
+        """
+        url = f"{self.api_url}/api/skills/{skill_id}"
+        logger.info(f"[NanoClaw] 查询 Skill 详情请求: GET {url}")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 查询 Skill 详情响应: id={skill_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 查询 Skill 详情超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 查询 Skill 详情请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 查询 Skill 详情异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def create_skill(self, skill_id: str, content: str) -> Dict[str, Any]:
+        """
+        创建 NanoClaw Skill
+
+        Args:
+            skill_id: Skill ID
+            content: SKILL.md 完整内容（含 frontmatter）
+
+        Returns:
+            {"status": "ok", "id": "..."} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/skills/{skill_id}"
+        data = {"content": content}
+        logger.info(f"[NanoClaw] 创建 Skill 请求: POST {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=self.headers, json=data)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 创建 Skill 响应: id={skill_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 创建 Skill 超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 创建 Skill 请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 创建 Skill 异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def update_skill(self, skill_id: str, content: str) -> Dict[str, Any]:
+        """
+        更新 NanoClaw Skill
+
+        Args:
+            skill_id: Skill ID
+            content: SKILL.md 完整内容（含 frontmatter）
+
+        Returns:
+            {"status": "ok", "id": "..."} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/skills/{skill_id}"
+        data = {"content": content}
+        logger.info(f"[NanoClaw] 更新 Skill 请求: PUT {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.put(url, headers=self.headers, json=data)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 更新 Skill 响应: id={skill_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 更新 Skill 超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 更新 Skill 请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 更新 Skill 异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def delete_skill(self, skill_id: str) -> Dict[str, Any]:
+        """
+        删除 NanoClaw Skill
+
+        Args:
+            skill_id: Skill ID
+
+        Returns:
+            {"status": "ok", "id": "..."} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/skills/{skill_id}"
+        logger.info(f"[NanoClaw] 删除 Skill 请求: DELETE {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.delete(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 删除 Skill 响应: id={skill_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 删除 Skill 超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 删除 Skill 请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 删除 Skill 异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def assign_skill_to_profile(
+        self, jid: str, profile_id: str, skill_id: str
+    ) -> Dict[str, Any]:
+        """
+        分配 Skill 到群组角色
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            profile_id: 角色 ID
+            skill_id: Skill ID
+
+        Returns:
+            {"status": "ok", ...} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/profiles/{jid}/{profile_id}/skills/{skill_id}"
+        logger.info(f"[NanoClaw] 分配 Skill 请求: POST {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 分配 Skill 响应: skill={skill_id} -> profile={profile_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 分配 Skill 超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 分配 Skill 请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 分配 Skill 异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def remove_skill_from_profile(
+        self, jid: str, profile_id: str, skill_id: str
+    ) -> Dict[str, Any]:
+        """
+        移除群组角色的 Skill
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            profile_id: 角色 ID
+            skill_id: Skill ID
+
+        Returns:
+            {"status": "ok", ...} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/profiles/{jid}/{profile_id}/skills/{skill_id}"
+        logger.info(f"[NanoClaw] 移除 Skill 请求: DELETE {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.delete(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 移除 Skill 响应: skill={skill_id} from profile={profile_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 移除 Skill 超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 移除 Skill 请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 移除 Skill 异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def get_profile_skills(self, jid: str, profile_id: str) -> Dict[str, Any]:
+        """
+        查询群组角色的 Skill 列表
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            profile_id: 角色 ID
+
+        Returns:
+            {"skills": [...], "count": N} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/profiles/{jid}/{profile_id}/skills"
+        logger.info(f"[NanoClaw] 查询角色 Skill 列表请求: GET {url}")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 查询角色 Skill 列表响应: count={result.get('count', 0)}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 查询角色 Skill 列表超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 查询角色 Skill 列表请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 查询角色 Skill 列表异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
 
 # 全局客户端实例
 nanoclaw_client = NanoClawClient()
