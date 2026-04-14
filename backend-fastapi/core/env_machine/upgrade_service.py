@@ -190,7 +190,7 @@ async def send_upgrade_to_worker(machine: EnvMachine, version: str, download_url
     }
 
     try:
-        async with httpx.AsyncClient(timeout=WORKER_UPGRADE_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=WORKER_UPGRADE_TIMEOUT, trust_env=True, verify=False) as client:
             response = await client.post(url, json=payload)
             if response.status_code == 200:
                 data = response.json()

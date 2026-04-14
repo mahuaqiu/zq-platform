@@ -588,7 +588,7 @@ onMounted(() => {
             <ElTableColumn label="操作" min-width="160">
               <template #default="{ row }">
                 <span class="nowrap">
-                  <a class="env-link" @click="handleViewLogs(row)">日志</a>
+                  <a v-if="!isMobileDevice(row.device_type) && row.status !== 'offline'" class="env-link" @click="handleViewLogs(row)">日志</a>
                   <a class="env-link" @click="handleEdit(row)">编辑</a>
                   <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
                 </span>

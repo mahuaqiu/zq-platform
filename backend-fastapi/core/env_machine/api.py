@@ -498,7 +498,7 @@ async def get_machine_logs(
 
     url = f"http://{machine.ip}:{machine.port}/worker/logs"
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=True, verify=False) as client:
             resp = await client.get(url, params={"lines": lines})
             if resp.status_code == 200:
                 return {
