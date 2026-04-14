@@ -5,9 +5,6 @@ import * as monaco from 'monaco-editor';
 import {
   ElButton,
   ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
   ElMessage,
 } from 'element-plus';
 
@@ -46,9 +43,6 @@ const editorContainer = ref<HTMLElement | null>(null);
 // 是否为编辑模式
 const isEdit = ref(false);
 
-// Skill ID 校验正则
-const skillIdRegex = /^[a-zA-Z0-9\-]+$/;
-
 // 监听 visible 变化
 watch(
   () => props.visible,
@@ -59,9 +53,9 @@ watch(
         // 编辑模式：加载 Skill 详情
         await loadSkillDetail();
       } else {
-        // 新增模式：清空表单
+        // 新增模式：生成随机 ID，清空内容
         formData.value = {
-          id: '',
+          id: generateUUID(),
           content: '',
         };
       }
@@ -74,6 +68,15 @@ watch(
     }
   },
 );
+
+// 生成 UUID
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 // 加载 Skill 详情
 async function loadSkillDetail() {
@@ -130,19 +133,7 @@ function destroyEditor() {
 
 // 提交表单
 async function handleSubmit() {
-  // 校验
-  if (!isEdit.value) {
-    // 新增模式：校验 Skill ID
-    if (!formData.value.id) {
-      ElMessage.warning('请输入 Skill ID');
-      return;
-    }
-    if (!skillIdRegex.test(formData.value.id)) {
-      ElMessage.warning('Skill ID 只能包含字母、数字和短横线');
-      return;
-    }
-  }
-
+  // 校验内容
   if (!formData.value.content) {
     ElMessage.warning('请输入 Skill 内容');
     return;
@@ -157,7 +148,7 @@ async function handleSubmit() {
       });
       ElMessage.success('更新成功');
     } else {
-      // 新增模式
+      // 新增模式：使用自动生成的 UUID 作为 Skill ID
       await createAISkillApi({
         id: formData.value.id,
         content: formData.value.content,
@@ -187,57 +178,45 @@ onMounted(() => {
 <template>
   <ElDialog
     :model-value="props.visible"
-    :title="isEdit ? '编辑 Skill' : '新增 Skill'"
-    width="800px"
+    width="650px"
     :close-on-click-modal="false"
     @update:model-value="emit('update:visible', $event)"
     @close="handleClose"
   >
-    <ElForm label-width="100px" v-loading="loading">
-      <!-- Skill ID（新增时必填，编辑时只显示） -->
-      <ElFormItem label="Skill ID" :required="!isEdit">
-        <ElInput
-          v-if="!isEdit"
-          v-model="formData.id"
-          placeholder="请输入 Skill ID（只能包含字母、数字和短横线）"
-        />
-        <div v-else class="skill-id-display">
-          <code>{{ formData.id }}</code>
-        </div>
-      </ElFormItem>
+    <!-- 自定义标题栏 -->
+    <template #header>
+      <div class="dialog-header">
+        <span class="dialog-title">
+          {{ isEdit ? `编辑 Skill: ${formData.id}` : '新增 Skill' }}
+        </span>
+      </div>
+    </template>
 
-      <!-- Skill 内容 -->
-      <ElFormItem label="Skill 内容" required>
-        <div class="editor-wrapper">
-          <div ref="editorContainer" class="monaco-editor-container"></div>
-        </div>
-        <div class="editor-tip">
-          提示：在内容开头使用 YAML frontmatter 定义 name 和 description，例如：<br />
-          <code>---<br />name: 技能名称<br />description: 技能描述<br />---</code>
-        </div>
-      </ElFormItem>
-    </ElForm>
+    <div v-loading="loading" class="editor-wrapper">
+      <div ref="editorContainer" class="monaco-editor-container"></div>
+    </div>
 
     <template #footer>
       <ElButton @click="handleClose">取消</ElButton>
       <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
-        确定
+        保存
       </ElButton>
     </template>
   </ElDialog>
 </template>
 
 <style scoped>
-.skill-id-display {
-  padding: 6px 12px;
-  background: #f5f5f5;
-  border-radius: 4px;
+.dialog-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.skill-id-display code {
-  font-family: Consolas, Monaco, 'Courier New', monospace;
+.dialog-title {
+  font-weight: 600;
   font-size: 14px;
-  color: #1890ff;
 }
 
 .editor-wrapper {
@@ -245,30 +224,11 @@ onMounted(() => {
   overflow: hidden;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
+  margin: 12px 0;
 }
 
 .monaco-editor-container {
   width: 100%;
-  height: 400px;
-}
-
-.editor-tip {
-  margin-top: 8px;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #666;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.editor-tip code {
-  display: block;
-  padding: 4px 8px;
-  margin-top: 4px;
-  font-family: Consolas, Monaco, 'Courier New', monospace;
-  white-space: pre;
-  background: #e8e8e8;
-  border-radius: 4px;
+  height: 350px;
 }
 </style>

@@ -216,8 +216,16 @@ async function executeBatchUpgrade() {
     };
     const result = await batchUpgradeApi(params);
 
+    // 查找失败详情
+    const failedDetails = result.details.filter(d => d.status === 'failed');
+
     if (result.failed_count > 0) {
-      ElMessage.warning(`升级完成，但有 ${result.failed_count} 台失败`);
+      // 显示详细失败信息
+      const failedMessages = failedDetails.map(d => `${d.ip}: ${d.message}`).join('\n');
+      ElMessage.warning({
+        message: `升级完成，但有 ${result.failed_count} 台失败:\n${failedMessages}`,
+        duration: 5000,
+      });
     } else {
       ElMessage.success(`升级成功：${result.upgraded_count} 台已升级，${result.waiting_count} 台待队列`);
     }
