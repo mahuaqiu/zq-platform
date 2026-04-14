@@ -5,6 +5,7 @@
 @File: upgrade_service.py
 @Desc: Worker 升级管理服务层
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
@@ -181,8 +182,11 @@ class WorkerUpgradeQueueService:
         return count
 
 
-async def send_upgrade_to_worker(machine: EnvMachine, version: str, download_url: str) -> Tuple[bool, str]:
-    """调用 Worker 升级接口"""
+async def send_upgrade_to_worker(machine: EnvMachine, version: str, download_url: str) -> Tuple[bool, str, str]:
+    """调用 Worker 升级接口
+
+    返回: (是否成功, 消息, machine_id)
+    """
     url = f"http://{machine.ip}:{machine.port}/worker/upgrade"
     payload = {
         "version": version,
@@ -195,16 +199,16 @@ async def send_upgrade_to_worker(machine: EnvMachine, version: str, download_url
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "upgrading":
-                    return True, "升级指令已下发"
+                    return True, "升级指令已下发", machine.id
                 else:
-                    return False, f"Worker 返回异常状态: {data.get('status')}"
+                    return False, f"Worker 返回异常状态: {data.get('status')}", machine.id
             else:
-                return False, f"Worker 返回错误状态码: {response.status_code}"
+                return False, f"Worker 返回错误状态码: {response.status_code}", machine.id
     except httpx.TimeoutException:
-        return False, "Worker 响应超时"
+        return False, "Worker 响应超时", machine.id
     except Exception as e:
         logger.error(f"调用 Worker 升级接口失败: {e}")
-        return False, f"网络错误: {str(e)}"
+        return False, f"网络错误: {str(e)}", machine.id
 
 
 class UpgradeService:
@@ -217,7 +221,7 @@ class UpgradeService:
         namespace: Optional[str] = None,
         device_type: Optional[str] = None,
     ) -> BatchUpgradeResponse:
-        """批量升级"""
+        """批量升级（并发调用）"""
         # 获取版本配置
         configs = await WorkerUpgradeConfigService.get_all(db)
         config_map = {c.device_type: c for c in configs}
@@ -235,6 +239,10 @@ class UpgradeService:
         machines = result.scalars().all()
 
         response = BatchUpgradeResponse()
+
+        # 收集需要并发升级的机器信息
+        upgrade_tasks = []  # 存储并发任务
+        upgrade_machine_map = {}  # machine_id -> (machine, config)
 
         for machine in machines:
             config = config_map.get(machine.device_type)
@@ -261,25 +269,9 @@ class UpgradeService:
 
             # 状态判断
             if machine.status == "online":
-                # 直接升级
-                success, message = await send_upgrade_to_worker(machine, config.version, config.download_url)
-                if success:
-                    machine.status = "upgrading"
-                    response.upgraded_count += 1
-                    response.details.append(UpgradeDetail(
-                        machine_id=machine.id,
-                        ip=machine.ip,
-                        status="upgraded",
-                        message=message
-                    ))
-                else:
-                    response.failed_count += 1
-                    response.details.append(UpgradeDetail(
-                        machine_id=machine.id,
-                        ip=machine.ip,
-                        status="failed",
-                        message=message
-                    ))
+                # 收集并发任务
+                upgrade_tasks.append(send_upgrade_to_worker(machine, config.version, config.download_url))
+                upgrade_machine_map[machine.id] = (machine, config)
 
             elif machine.status == "using":
                 # 加入队列
@@ -303,6 +295,40 @@ class UpgradeService:
                     status="skipped",
                     message=f"机器状态为 {machine.status}，无法升级"
                 ))
+
+        # 并发调用所有 Worker 升级接口
+        if upgrade_tasks:
+            logger.info(f"并发升级 {len(upgrade_tasks)} 台机器")
+            results = await asyncio.gather(*upgrade_tasks, return_exceptions=True)
+
+            # 处理并发结果
+            for task_result in results:
+                if isinstance(task_result, Exception):
+                    # 异常情况（理论上不应该发生，因为 send_upgrade_to_worker 捕获了所有异常）
+                    logger.error(f"并发任务异常: {task_result}")
+                    response.failed_count += 1
+                    continue
+
+                success, message, machine_id = task_result
+                machine, config = upgrade_machine_map[machine_id]
+
+                if success:
+                    machine.status = "upgrading"
+                    response.upgraded_count += 1
+                    response.details.append(UpgradeDetail(
+                        machine_id=machine.id,
+                        ip=machine.ip,
+                        status="upgraded",
+                        message=message
+                    ))
+                else:
+                    response.failed_count += 1
+                    response.details.append(UpgradeDetail(
+                        machine_id=machine.id,
+                        ip=machine.ip,
+                        status="failed",
+                        message=message
+                    ))
 
         await db.commit()
         return response
