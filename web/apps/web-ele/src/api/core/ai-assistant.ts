@@ -316,6 +316,15 @@ export interface SkillAssignmentInfo {
 }
 
 /**
+ * Skill 分配信息响应
+ */
+export interface SkillAssignmentsResponse {
+  skill_id: string;
+  assignments: SkillAssignmentInfo[];
+  count: number;
+}
+
+/**
  * AI Skill
  */
 export interface AISkill {
@@ -357,6 +366,8 @@ export interface SkillAssignment {
 export interface AISkillListResponse {
   items: AISkill[];
   total: number;
+  page: number;
+  page_size: number;
 }
 
 /**
@@ -365,6 +376,8 @@ export interface AISkillListResponse {
 export async function getAISkillListApi(params?: {
   search_keyword?: string;
   filter_type?: 'all' | 'assigned' | 'unassigned';
+  page?: number;
+  page_size?: number;
 }) {
   return requestClient.get<AISkillListResponse>('/api/core/ai/skill', {
     params,
@@ -403,7 +416,7 @@ export async function deleteAISkillApi(id: string) {
  * 获取 Skill 的分配信息
  */
 export async function getAISkillAssignmentsApi(id: string) {
-  return requestClient.get<SkillAssignmentInfo[]>(
+  return requestClient.get<SkillAssignmentsResponse>(
     `/api/core/ai/skill/${id}/assignments`,
   );
 }

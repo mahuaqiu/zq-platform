@@ -247,3 +247,5 @@ class AISkillListResponse(BaseModel):
     """Skill 列表响应"""
     items: List[AISkillResponse] = Field(default_factory=list, description="Skill 列表")
     total: int = Field(..., description="总数")
+    page: int = Field(default=1, description="当前页码")
+    page_size: int = Field(default=10, description="每页数量")

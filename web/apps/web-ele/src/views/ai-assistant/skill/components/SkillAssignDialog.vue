@@ -95,10 +95,12 @@ async function loadCurrentAssignments() {
   if (!props.skillId) return;
   try {
     const res = await getAISkillAssignmentsApi(props.skillId);
-    currentAssignments.value = res || [];
+    // 后端返回 { skill_id, assignments, count }
+    const assignments = res.assignments || res || [];
+    currentAssignments.value = assignments;
 
     // 设置已选中的节点
-    const checkedKeys = res.map(
+    const checkedKeys = assignments.map(
       (item) => `${item.jid}_${item.profile_id}`,
     );
     checkedNodes.value = checkedKeys;

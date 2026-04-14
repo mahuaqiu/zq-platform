@@ -13,6 +13,7 @@ import {
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElPagination,
   ElSelect,
   ElTag,
 } from 'element-plus';
@@ -29,8 +30,11 @@ defineOptions({ name: 'AISkillPage' });
 // 数据
 const skillList = ref<AISkill[]>([]);
 const loading = ref(false);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(10);
 
-// 筛选条件
+// 篮选条件
 const searchKeyword = ref('');
 const filterType = ref<'all' | 'assigned' | 'unassigned'>('all');
 
@@ -48,8 +52,11 @@ async function loadData() {
     const res = await getAISkillListApi({
       search_keyword: searchKeyword.value || undefined,
       filter_type: filterType.value === 'all' ? undefined : filterType.value,
+      page: page.value,
+      page_size: pageSize.value,
     });
     skillList.value = res.items || [];
+    total.value = res.total;
   } catch (error) {
     console.error('加载数据失败:', error);
     ElMessage.error('加载数据失败');
@@ -60,6 +67,7 @@ async function loadData() {
 
 // 搜索
 function handleSearch() {
+  page.value = 1;
   loadData();
 }
 
@@ -67,6 +75,19 @@ function handleSearch() {
 function handleReset() {
   searchKeyword.value = '';
   filterType.value = 'all';
+  page.value = 1;
+  loadData();
+}
+
+// 分页变化
+function handlePageChange(newPage: number) {
+  page.value = newPage;
+  loadData();
+}
+
+function handleSizeChange(newSize: number) {
+  pageSize.value = newSize;
+  page.value = 1;
   loadData();
 }
 
@@ -85,7 +106,7 @@ function handleEdit(skill: AISkill) {
 // 分配
 function handleAssign(skill: AISkill) {
   assignSkillId.value = skill.id;
-  assignSkillName.value = skill.name;
+  assignSkillName.value = skill.name || skill.id;
   assignDialogVisible.value = true;
 }
 
@@ -164,8 +185,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 卡片区域 -->
-      <div v-loading="loading" class="skill-card-container">
+      <!-- 卡片网格区域 -->
+      <div v-loading="loading" class="skill-card-grid">
         <template v-if="skillList.length > 0">
           <ElCard
             v-for="skill in skillList"
@@ -173,64 +194,60 @@ onMounted(() => {
             class="skill-card"
             shadow="hover"
           >
-            <template #header>
-              <div class="skill-card-header">
-                <div class="skill-card-title">
-                  <span class="skill-id">{{ skill.id }}</span>
-                  <span v-if="skill.name" class="skill-name">{{ skill.name }}</span>
-                </div>
-                <div class="skill-card-actions">
-                  <ElButton link type="primary" @click="handleEdit(skill)">
-                    编辑
-                  </ElButton>
-                  <ElButton link type="primary" @click="handleAssign(skill)">
-                    分配
-                  </ElButton>
-                  <ElButton link type="danger" @click="handleDelete(skill)">
-                    删除
-                  </ElButton>
-                </div>
-              </div>
-            </template>
+            <div class="skill-card-title">
+              <span class="skill-id">{{ skill.id }}</span>
+              <span v-if="skill.name && skill.name !== skill.id" class="skill-name">{{ skill.name }}</span>
+            </div>
 
-            <div class="skill-card-body">
-              <!-- 描述 -->
-              <div v-if="skill.description" class="skill-description">
-                {{ skill.description }}
-              </div>
+            <div v-if="skill.description" class="skill-description">
+              {{ skill.description }}
+            </div>
 
-              <!-- 分配位置 -->
-              <div class="skill-locations">
-                <div class="skill-locations-label">分配位置：</div>
-                <div v-if="skill.assigned_locations?.length > 0" class="skill-locations-tags">
-                  <ElTag
-                    v-for="loc in skill.assigned_locations"
-                    :key="`${loc.jid}-${loc.profile_id}`"
-                    type="primary"
-                    size="small"
-                    class="location-tag"
-                  >
-                    {{ loc.group_name || loc.jid }} / {{ loc.profile_name || loc.profile_id }}
-                  </ElTag>
-                </div>
-                <div v-else class="skill-locations-empty">
-                  未分配
-                </div>
-              </div>
+            <!-- 分配角色标签 -->
+            <div class="skill-roles">
+              <template v-if="skill.assigned_locations?.length > 0">
+                <ElTag
+                  v-for="loc in skill.assigned_locations.slice(0, 3)"
+                  :key="`${loc.jid}-${loc.profile_id}`"
+                  type="primary"
+                  size="small"
+                  class="role-tag"
+                >
+                  角色: {{ loc.profile_name || loc.profile_id }}
+                </ElTag>
+                <ElTag
+                  v-if="skill.assigned_locations.length > 3"
+                  type="info"
+                  size="small"
+                >
+                  +{{ skill.assigned_locations.length - 3 }}
+                </ElTag>
+              </template>
+              <span v-else class="skill-roles-empty">未分配给任何角色</span>
+            </div>
 
-              <!-- 更新时间 -->
-              <div class="skill-meta">
-                <span v-if="skill.sys_update_datetime">
-                  更新：{{ skill.sys_update_datetime }}
-                </span>
-                <span v-else-if="skill.sys_create_datetime">
-                  创建：{{ skill.sys_create_datetime }}
-                </span>
-              </div>
+            <!-- 操作按钮 -->
+            <div class="skill-card-actions">
+              <ElButton link type="primary" @click="handleEdit(skill)">编辑</ElButton>
+              <ElButton link type="primary" @click="handleAssign(skill)">分配角色</ElButton>
+              <ElButton link type="danger" @click="handleDelete(skill)">删除</ElButton>
             </div>
           </ElCard>
         </template>
         <ElEmpty v-else description="暂无 Skill 数据" />
+      </div>
+
+      <!-- 分页 -->
+      <div class="skill-pagination">
+        <ElPagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
+        />
       </div>
     </div>
 
@@ -298,90 +315,82 @@ onMounted(() => {
   border-color: #52c41a !important;
 }
 
-/* 卡片区域 */
-.skill-card-container {
+/* 2列网格布局 */
+.skill-card-grid {
   flex: 1;
-  padding: 0 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 0 16px;
   overflow-y: auto;
+  align-content: start;
 }
 
 .skill-card {
-  margin-bottom: 16px;
+  border: 1px solid #e8e8e8;
 }
 
-.skill-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.skill-card :deep(.el-card__body) {
+  padding: 12px;
 }
 
 .skill-card-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .skill-id {
-  padding: 2px 8px;
   font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 14px;
   font-weight: 600;
-  color: #1890ff;
-  background: #e6f7ff;
-  border-radius: 4px;
-}
-
-.skill-name {
-  font-size: 16px;
-  font-weight: 500;
   color: #333;
 }
 
-.skill-card-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.skill-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.skill-name {
+  font-size: 14px;
+  color: #666;
 }
 
 .skill-description {
   color: #666;
-  line-height: 1.6;
-}
-
-.skill-locations {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.skill-locations-label {
-  flex-shrink: 0;
-  font-size: 13px;
-  color: #666;
-}
-
-.skill-locations-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.location-tag {
-  margin: 0;
-}
-
-.skill-locations-empty {
-  color: #999;
-}
-
-.skill-meta {
   font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+/* 角色标签 */
+.skill-roles {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.role-tag {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.skill-roles-empty {
   color: #999;
+  font-size: 11px;
+}
+
+/* 操作按钮 */
+.skill-card-actions {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+/* 分页 */
+.skill-pagination {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  background: #fafafa;
+  border-top: 1px solid #e8e8e8;
 }
 </style>

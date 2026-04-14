@@ -325,7 +325,7 @@ async def list_groups(
     group_name: Optional[str] = None,
     is_active: Optional[bool] = None,
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(20, ge=1, le=1000, description="每页数量"),
     db: AsyncSession = Depends(get_db)
 ) -> PaginatedResponse[AIGroupResponse]:
     """
@@ -965,11 +965,17 @@ async def create_new_session(
 # ==================== Skill 管理接口 ====================
 
 @router.get("/skill", response_model=AISkillListResponse, summary="Skill 列表")
-async def list_skills(db: AsyncSession = Depends(get_db)):
+async def list_skills(
+    db: AsyncSession = Depends(get_db),
+    search_keyword: Optional[str] = Query(None, description="搜索关键词"),
+    filter_type: Optional[str] = Query(None, description="筛选类型: assigned/unassigned"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+):
     """
     Skill 列表
 
-    从 NanoClaw 获取所有 Skill，并查询分配位置。
+    从 NanoClaw 获取所有 Skill，并查询分配位置。支持搜索和分页。
     """
     skills = await AISkillService.get_skill_list()
 
@@ -981,9 +987,35 @@ async def list_skills(db: AsyncSession = Depends(get_db)):
         skill["assigned_locations"] = assignments
         skills_with_assignments.append(AISkillResponse(**skill))
 
+    # 搜索过滤
+    if search_keyword:
+        keywords = search_keyword.lower()
+        skills_with_assignments = [
+            s for s in skills_with_assignments
+            if keywords in s.id.lower() or (s.name and keywords in s.name.lower())
+        ]
+
+    # 状态过滤
+    if filter_type == "assigned":
+        skills_with_assignments = [
+            s for s in skills_with_assignments if s.assigned_locations
+        ]
+    elif filter_type == "unassigned":
+        skills_with_assignments = [
+            s for s in skills_with_assignments if not s.assigned_locations
+        ]
+
+    # 分页
+    total = len(skills_with_assignments)
+    start = (page - 1) * page_size
+    end = start + page_size
+    paged_items = skills_with_assignments[start:end]
+
     return AISkillListResponse(
-        items=skills_with_assignments,
-        total=len(skills_with_assignments),
+        items=paged_items,
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 
