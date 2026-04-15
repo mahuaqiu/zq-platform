@@ -167,7 +167,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     async def get_list_with_filters(
         cls,
         db: AsyncSession,
-        namespace: str,
+        namespace: Optional[str] = None,  # 改为 Optional
         device_type: Optional[str] = None,
         ip: Optional[str] = None,
         asset_number: Optional[str] = None,
@@ -181,7 +181,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         多条件查询执行机列表
 
         :param db: 数据库会话
-        :param namespace: 机器分类（必填）
+        :param namespace: 机器分类（可选，None表示查询全部）
         :param device_type: 机器类型
         :param ip: IP地址（模糊查询）
         :param asset_number: 资产编号（模糊查询）
@@ -192,7 +192,16 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         :param page_size: 每页数量
         :return: (机器列表, 总数)
         """
-        filters = [EnvMachine.namespace == namespace, EnvMachine.is_deleted == False]
+        # 定义有效的命名空间列表（排除手工使用）
+        VALID_NAMESPACES = ['meeting_gamma', 'meeting_app', 'meeting_av', 'meeting_public']
+
+        filters = [EnvMachine.is_deleted == False]
+
+        if namespace:
+            filters.append(EnvMachine.namespace == namespace)
+        else:
+            # namespace 为 None 时，查询所有4个命名空间
+            filters.append(EnvMachine.namespace.in_(VALID_NAMESPACES))
 
         if device_type:
             filters.append(EnvMachine.device_type == device_type)
