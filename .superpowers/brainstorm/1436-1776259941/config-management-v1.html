@@ -1,0 +1,214 @@
+<h2>配置管理界面设计</h2>
+<p class="subtitle">设计稿 v1 - 请评审整体布局和功能分区</p>
+
+<div class="mockup">
+  <div class="mockup-header">配置管理页面预览</div>
+  <div class="mockup-body">
+    <!-- 页面布局 -->
+    <div style="display: flex; gap: 16px; min-height: 500px;">
+      <!-- 左侧：模板管理区 -->
+      <div style="flex: 0 0 320px; background: #fff; border: 1px solid #e8e8e8; border-radius: 8px;">
+        <div style="padding: 12px 16px; background: #fafafa; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 500; font-size: 14px;">📝 配置模板</span>
+          <button class="mock-button" style="padding: 4px 12px; font-size: 12px;">新建模板</button>
+        </div>
+        <div style="padding: 12px;">
+          <!-- 模板列表 -->
+          <div style="border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px; margin-bottom: 8px; background: #e6f7ff; cursor: pointer;">
+            <div style="font-weight: 500; font-size: 13px; color: #1890ff;">默认配置模板</div>
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">适用：全部命名空间</div>
+            <div style="font-size: 11px; color: #999; margin-top: 4px;">参数：namespace, port, platform_api...</div>
+          </div>
+          <div style="border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px; margin-bottom: 8px; cursor: pointer;">
+            <div style="font-weight: 500; font-size: 13px;">APP专用模板</div>
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">适用：meeting_app</div>
+            <div style="font-size: 11px; color: #999; margin-top: 4px;">参数：namespace, device_check_interval</div>
+          </div>
+          <div style="border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px; cursor: pointer;">
+            <div style="font-weight: 500; font-size: 13px;">音视频测试模板</div>
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">适用：meeting_av</div>
+            <div style="font-size: 11px; color: #999; margin-top: 4px;">参数：ocr_service, logging_level</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：下发配置区 -->
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        <!-- 下发控制区 -->
+        <div style="background: #fff; border: 1px solid #e8e8e8; border-radius: 8px;">
+          <div style="padding: 12px 16px; background: #fafafa; border-bottom: 1px solid #e8e8e8;">
+            <span style="font-weight: 500; font-size: 14px;">🚀 下发配置</span>
+          </div>
+          <div style="padding: 16px;">
+            <!-- 目标选择 -->
+            <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px; background: #f5f5f5; padding: 12px; border-radius: 4px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; color: #666;">目标范围:</span>
+                <select class="mock-input" style="width: 140px;">
+                  <option>全部命名空间</option>
+                  <option>集成验证</option>
+                  <option>APP</option>
+                  <option>音视频</option>
+                  <option>公共设备</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; color: #666;">设备类型:</span>
+                <select class="mock-input" style="width: 100px;">
+                  <option>全部</option>
+                  <option>Windows</option>
+                  <option>Mac</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; color: #666;">IP搜索:</span>
+                <input class="mock-input" style="width: 120px;" placeholder="输入IP筛选">
+              </div>
+              <button class="mock-button" style="background: #1890ff; color: #fff;">查询预览</button>
+            </div>
+
+            <!-- 模板选择 -->
+            <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px;">
+              <span style="font-size: 12px; color: #666;">选择模板:</span>
+              <select class="mock-input" style="width: 200px;">
+                <option>默认配置模板</option>
+                <option>APP专用模板</option>
+                <option>音视频测试模板</option>
+              </select>
+              <button class="mock-button" style="background: #52c41a; color: #fff; border-color: #52c41a;">预览模板内容</button>
+            </div>
+
+            <!-- 参数填写区（可选） -->
+            <div style="border: 1px solid #e8e8e8; border-radius: 4px; padding: 12px; background: #fffbe6;">
+              <div style="font-size: 12px; color: #d48806; margin-bottom: 8px;">⚙️ 参数配置（可选，留空则使用模板默认值）</div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                <div>
+                  <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">namespace</label>
+                  <input class="mock-input" style="width: 100%;" placeholder="{{namespace}}">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">port</label>
+                  <input class="mock-input" style="width: 100%;" placeholder="8088">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">platform_api</label>
+                  <input class="mock-input" style="width: 100%;" placeholder="http://...">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">ocr_service</label>
+                  <input class="mock-input" style="width: 100%;" placeholder="http://...">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">logging_level</label>
+                  <select class="mock-input" style="width: 100%;"><option>INFO</option><option>DEBUG</option><option>WARNING</option></select>
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">device_check_interval</label>
+                  <input class="mock-input" style="width: 100%;" placeholder="300">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 机器预览表格 -->
+        <div style="flex: 1; background: #fff; border: 1px solid #e8e8e8; border-radius: 8px;">
+          <div style="padding: 12px 16px; background: #fafafa; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 500; font-size: 14px;">📋 目标机器预览</span>
+            <span style="background: #1890ff; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 12px;">已选: 3台</span>
+          </div>
+          <div style="padding: 12px;">
+            <div style="background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px;">
+              <span style="color: #1890ff;"><strong>可下发:</strong> 15台</span>
+              <span style="color: #faad14; margin-left: 16px;"><strong>配置更新中:</strong> 2台</span>
+              <span style="color: #52c41a; margin-left: 16px;"><strong>离线:</strong> 3台</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="background: #fafafa;">
+                  <th style="padding: 8px; border: 1px solid #e8e8e8; width: 40px;"><input type="checkbox"></th>
+                  <th style="padding: 8px; border: 1px solid #e8e8e8;">IP地址</th>
+                  <th style="padding: 8px; border: 1px solid #e8e8e8;">命名空间</th>
+                  <th style="padding: 8px; border: 1px solid #e8e8e8;">设备类型</th>
+                  <th style="padding: 8px; border: 1px solid #e8e8e8;">状态</th>
+                  <th style="padding: 8px; border: 1px solid #e8e8e8;">配置状态</th>
+                  <th style="padding: 8px; border: 1px solid #e8e8e8;">当前版本</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><input type="checkbox" checked></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">192.168.0.101</code></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">集成验证</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">Windows</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="color: #52c41a;">在线</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="background: #f6ffed; color: #52c41a; padding: 2px 6px; border-radius: 4px;">已同步</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">20260415</td>
+                </tr>
+                <tr style="background: #fafafa;">
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><input type="checkbox" checked></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">192.168.0.102</code></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">APP</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">Windows</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="color: #52c41a;">在线</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="background: #f6ffed; color: #52c41a; padding: 2px 6px; border-radius: 4px;">已同步</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">20260414</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><input type="checkbox" checked></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">192.168.0.103</code></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">音视频</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">Mac</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="color: #722ed1;">配置更新中</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="background: #f9f0ff; color: #722ed1; padding: 2px 6px; border-radius: 4px;">更新中</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">20260415</td>
+                </tr>
+                <tr style="background: #fafafa;">
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><input type="checkbox" disabled></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 2px;">192.168.0.104</code></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">公共设备</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">Windows</td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="color: #ff4d4f;">离线</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;"><span style="background: #fff1f0; color: #ff4d4f; padding: 2px 6px; border-radius: 4px;">离线</span></td>
+                  <td style="padding: 8px; border: 1px solid #e8e8e8;">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- 操作按钮 -->
+          <div style="padding: 12px 16px; border-top: 1px solid #e8e8e8; display: flex; gap: 12px;">
+            <button class="mock-button" style="background: #1890ff; color: #fff; padding: 8px 16px;">下发配置 (3台)</button>
+            <button class="mock-button" style="background: #fff; color: #333; border: 1px solid #d9d9d9;">重置筛选</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>设计说明</h3>
+  <ul style="font-size: 13px; color: #666; line-height: 1.8;">
+    <li><strong>左侧模板区</strong>：管理配置模板列表，点击选中后高亮显示，可新建/编辑/删除模板</li>
+    <li><strong>右侧下发区</strong>：分三部分 - 筛选条件、参数配置（可选）、机器预览表格</li>
+    <li><strong>参数配置</strong>：可选填写，留空则使用模板默认值；只显示当前模板定义的参数</li>
+    <li><strong>状态追踪</strong>：机器有"配置状态"列，显示：已同步/更新中/离线；下发后标记为"更新中"</li>
+  </ul>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>整体布局认可</h3>
+      <p>左右分区、功能模块清晰，可以继续细化</p>
+    </div>
+  </div>
+  <div class="option" data-choice="modify" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>需要调整布局</h3>
+      <p>请在下方说明需要调整的部分</p>
+    </div>
+  </div>
+</div>

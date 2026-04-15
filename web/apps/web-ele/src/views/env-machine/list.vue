@@ -457,7 +457,7 @@ onMounted(() => {
               {{ row.mark || '-' }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="status" label="状态" min-width="60" align="center">
+          <ElTableColumn prop="status" label="状态" min-width="70" align="center">
             <template #default="{ row }">
               <span :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
             </template>
