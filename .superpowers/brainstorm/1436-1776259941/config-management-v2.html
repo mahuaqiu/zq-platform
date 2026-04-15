@@ -1,0 +1,134 @@
+<h2>配置模板管理设计</h2>
+<p class="subtitle">设计稿 v2 - 模板新建/编辑弹窗</p>
+
+<div class="mockup">
+  <div class="mockup-header">新建/编辑配置模板弹窗</div>
+  <div class="mockup-body">
+    <div style="max-width: 600px; background: #fff; border-radius: 8px; overflow: hidden;">
+      <!-- 弹窗头部 -->
+      <div style="padding: 16px 20px; background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%); display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #fff; font-size: 16px; font-weight: 500;">📝 新建配置模板</span>
+        <span style="color: #fff; cursor: pointer;">✕</span>
+      </div>
+
+      <!-- 弹窗内容 -->
+      <div style="padding: 20px;">
+        <!-- 基本信息 -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 13px; font-weight: 500; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">基本信息</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">模板名称 *</label>
+              <input class="mock-input" style="width: 100%;" placeholder="如：默认配置模板" value="默认配置模板">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">适用命名空间</label>
+              <select class="mock-input" style="width: 100%;">
+                <option>全部命名空间</option>
+                <option>集成验证 (meeting_gamma)</option>
+                <option>APP (meeting_app)</option>
+                <option>音视频 (meeting_av)</option>
+                <option>公共设备 (meeting_public)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 12px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">备注说明</label>
+            <input class="mock-input" style="width: 100%;" placeholder="模板用途说明">
+          </div>
+        </div>
+
+        <!-- 配置内容 -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 13px; font-weight: 500; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">配置内容 (YAML)</div>
+          <div style="background: #f5f5f5; border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px;">
+            <textarea style="width: 100%; min-height: 200px; font-family: Consolas, Monaco, monospace; font-size: 12px; border: none; background: transparent; resize: vertical; line-height: 1.5;" placeholder="在此编辑 YAML 配置文件..."># Worker Configuration File
+# 使用 {{参数名}} 表示可变字段，下发时可选填入
+
+worker:
+  id: null
+  ip: null                          # 自动从机器获取
+  port: {{port}}                    # 默认: 8088
+  namespace: {{namespace}}          # 命名空间
+  device_check_interval: 300
+  service_retry_count: 3
+
+external_services:
+  platform_api: "{{platform_api}}"
+  ocr_service: "{{ocr_service}}"
+
+platforms:
+  web:
+    enabled: null
+    headless: false
+    browser_type: chrome
+    timeout: 30000
+
+logging:
+  level: {{logging_level}}
+  file: null
+  max_size: 52428800</textarea>
+          </div>
+          <div style="font-size: 11px; color: #999; margin-top: 8px;">
+            💡 提示：使用 <code style="background: #f5f5f5; padding: 1px 4px;">{{参数名}}</code> 定义可变字段，下发时可选择性填入值
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+          <button class="mock-button" style="background: #fff; color: #333; border: 1px solid #d9d9d9; padding: 8px 20px;">取消</button>
+          <button class="mock-button" style="background: #1890ff; color: #fff; padding: 8px 20px;">保存模板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="mockup" style="margin-top: 24px;">
+  <div class="mockup-header">删除模板确认弹窗</div>
+  <div class="mockup-body">
+    <div style="max-width: 400px; background: #fff; border-radius: 8px; overflow: hidden;">
+      <div style="padding: 24px; text-align: center;">
+        <div style="width: 48px; height: 48px; background: #fff1f0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span style="color: #ff4d4f; font-size: 24px;">🗑️</span>
+        </div>
+        <div style="font-size: 16px; font-weight: 500; color: #333; margin-bottom: 8px;">确定删除模板？</div>
+        <div style="font-size: 13px; color: #666;">删除后将无法恢复，已下发的配置不受影响</div>
+        <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 4px; font-size: 13px;">
+          <strong>模板名称：</strong>默认配置模板
+        </div>
+      </div>
+      <div style="padding: 16px 24px; background: #fafafa; display: flex; justify-content: center; gap: 12px;">
+        <button class="mock-button" style="background: #fff; color: #333; border: 1px solid #d9d9d9; padding: 8px 24px;">取消</button>
+        <button class="mock-button" style="background: #ff4d4f; color: #fff; padding: 8px 24px;">确认删除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>简化后的页面布局</h3>
+  <ul style="font-size: 13px; color: #666; line-height: 1.8;">
+    <li><strong>左侧模板区</strong>：模板列表 + 新建按钮，点击模板行可编辑，右侧有删除按钮</li>
+    <li><strong>右侧下发区</strong>：筛选条件 → 选择模板 → 机器预览表格 → 下发按钮</li>
+    <li><strong>移除了参数配置区</strong>，简化操作流程</li>
+  </ul>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>模板管理设计认可</h3>
+      <p>弹窗设计清晰，可以继续细化其他部分</p>
+    </div>
+  </div>
+  <div class="option" data-choice="modify" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>需要调整</h3>
+      <p>请在下方说明需要调整的部分</p>
+    </div>
+  </div>
+</div>

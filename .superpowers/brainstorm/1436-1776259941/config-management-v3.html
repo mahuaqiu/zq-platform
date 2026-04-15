@@ -1,0 +1,174 @@
+<h2>配置模板管理设计</h2>
+<p class="subtitle">设计稿 v3 - 简化版，模板即完整配置</p>
+
+<div class="mockup">
+  <div class="mockup-header">新建/编辑配置模板弹窗</div>
+  <div class="mockup-body">
+    <div style="max-width: 720px; background: #fff; border-radius: 8px; overflow: hidden;">
+      <!-- 弹窗头部 -->
+      <div style="padding: 16px 20px; background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%); display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #fff; font-size: 16px; font-weight: 500;">📝 新建配置模板</span>
+        <span style="color: #fff; cursor: pointer;">✕</span>
+      </div>
+
+      <!-- 弹窗内容 -->
+      <div style="padding: 20px;">
+        <!-- 基本信息 -->
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 13px; font-weight: 500; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">基本信息</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">模板名称 *</label>
+              <input class="mock-input" style="width: 100%;" placeholder="如：默认配置模板" value="默认配置模板">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">适用命名空间</label>
+              <select class="mock-input" style="width: 100%;">
+                <option>全部命名空间</option>
+                <option>集成验证 (meeting_gamma)</option>
+                <option>APP (meeting_app)</option>
+                <option>音视频 (meeting_av)</option>
+                <option>公共设备 (meeting_public)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 12px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 6px;">备注说明</label>
+            <input class="mock-input" style="width: 100%;" placeholder="模板用途说明">
+          </div>
+        </div>
+
+        <!-- 配置内容 - 拉长 -->
+        <div>
+          <div style="font-size: 13px; font-weight: 500; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">配置内容 (YAML)</div>
+          <div style="background: #1e1e1e; border-radius: 4px; padding: 16px;">
+            <textarea style="width: 100%; min-height: 320px; font-family: Consolas, Monaco, 'Courier New', monospace; font-size: 13px; border: none; background: transparent; resize: vertical; line-height: 1.6; color: #d4d4d4;" placeholder="在此编辑 YAML 配置文件..."># Worker Configuration File
+# Edit this file after installation based on your environment
+
+# Worker Basic Settings
+worker:
+  id: null                          # Auto-generated, or specify manually
+  ip: null                          # Specify IP address, null means auto-detect
+  port: 8088                        # HTTP service port
+  namespace: meeting_public         # Namespace for categorizing Workers
+  device_check_interval: 300        # Device check interval (seconds)
+  service_retry_count: 3            # Service startup retry count
+  service_retry_interval: 10        # Retry interval (seconds)
+  action_step_delay: 0.5            # Action step delay (seconds)
+
+# External Services (Required)
+external_services:
+  platform_api: "http://192.168.0.102:8000"
+  ocr_service: "http://192.168.0.102:9021"
+
+# Platform Settings
+platforms:
+  web:
+    enabled: null
+    headless: false
+    browser_type: chrome
+    timeout: 30000
+    session_timeout: 300
+    screenshot_dir: data/screenshots
+    ignore_https_errors: true
+    user_data_dir: data/chrome_profile
+    permissions:
+      - camera
+      - microphone
+    clear_profile_on_start: true
+    request_blacklist:
+      - pattern: "uba.js"
+        action: "404"
+      - pattern: "tinyReporter.min.js"
+        action: "404"
+    token_headers:
+      - "X-Auth-Token"
+      - "X-Request-Operator"
+
+  android:
+    enabled: null
+    u2_port: 7912
+    session_timeout: 300
+    screenshot_dir: data/screenshots
+
+  ios:
+    enabled: null
+    wda_base_port: 8100
+    wda_ipa_path: wda/WebDriverAgent.ipa
+    session_timeout: 300
+    screenshot_dir: data/screenshots
+
+# Logging Settings
+logging:
+  level: INFO
+  file: null
+  max_size: 52428800
+  backup_count: 5
+
+# Upgrade Settings
+upgrade:
+  check_url: ""
+  check_timeout: 30
+  download_timeout: 300</textarea>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #eee;">
+          <button class="mock-button" style="background: #fff; color: #333; border: 1px solid #d9d9d9; padding: 8px 20px;">取消</button>
+          <button class="mock-button" style="background: #1890ff; color: #fff; padding: 8px 20px;">保存模板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="mockup" style="margin-top: 24px;">
+  <div class="mockup-header">删除模板确认弹窗</div>
+  <div class="mockup-body">
+    <div style="max-width: 400px; background: #fff; border-radius: 8px; overflow: hidden;">
+      <div style="padding: 24px; text-align: center;">
+        <div style="width: 48px; height: 48px; background: #fff1f0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span style="color: #ff4d4f; font-size: 24px;">🗑️</span>
+        </div>
+        <div style="font-size: 16px; font-weight: 500; color: #333; margin-bottom: 8px;">确定删除模板？</div>
+        <div style="font-size: 13px; color: #666;">删除后将无法恢复，已下发的配置不受影响</div>
+        <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 4px; font-size: 13px;">
+          <strong>模板名称：</strong>默认配置模板
+        </div>
+      </div>
+      <div style="padding: 16px 24px; background: #fafafa; display: flex; justify-content: center; gap: 12px;">
+        <button class="mock-button" style="background: #fff; color: #333; border: 1px solid #d9d9d9; padding: 8px 24px;">取消</button>
+        <button class="mock-button" style="background: #ff4d4f; color: #fff; padding: 8px 24px;">确认删除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>设计说明</h3>
+  <ul style="font-size: 13px; color: #666; line-height: 1.8;">
+    <li><strong>模板即完整配置</strong>：YAML 内容直接是完整的配置文件，无需占位符</li>
+    <li><strong>弹窗更宽更长</strong>：720px 宽度，YAML 编辑区 320px 高度，方便查看和编辑</li>
+    <li><strong>深色编辑区</strong>：代码编辑采用深色背景，更专业</li>
+    <li><strong>下发流程简化</strong>：选择模板 → 筛选机器 → 直接下发</li>
+  </ul>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>设计认可</h3>
+      <p>可以继续细化主页面布局</p>
+    </div>
+  </div>
+  <div class="option" data-choice="modify" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>需要调整</h3>
+      <p>请在下方说明需要调整的部分</p>
+    </div>
+  </div>
+</div>
