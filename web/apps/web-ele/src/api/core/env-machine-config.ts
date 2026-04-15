@@ -66,10 +66,18 @@ export interface DeployResponse {
 }
 
 /**
+ * 分页响应
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+}
+
+/**
  * 获取配置模板列表
  */
 export async function getConfigTemplateListApi() {
-  return requestClient.get<ConfigTemplate[]>('/api/core/config-template');
+  return requestClient.get<PaginatedResponse<ConfigTemplate>>('/api/core/config-template');
 }
 
 /**

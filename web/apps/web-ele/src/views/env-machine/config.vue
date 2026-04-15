@@ -102,10 +102,10 @@ async function loadTemplates() {
   templateLoading.value = true;
   try {
     const data = await getConfigTemplateListApi();
-    templateList.value = data;
+    templateList.value = data.items || [];
     // 默认选中第一个
-    if (data.length > 0 && !selectedTemplate.value) {
-      selectedTemplate.value = data[0];
+    if (templateList.value.length > 0 && !selectedTemplate.value) {
+      selectedTemplate.value = templateList.value[0];
     }
   } catch (error) {
     ElMessage.error('加载模板列表失败');
