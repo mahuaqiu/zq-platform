@@ -481,6 +481,7 @@ onMounted(async () => {
                 border
                 stripe
                 class="preview-table"
+                max-height="400"
               >
                 <ElTableColumn :width="40" label="选择" align="center">
                   <template #header>
