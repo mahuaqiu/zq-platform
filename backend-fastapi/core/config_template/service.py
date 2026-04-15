@@ -198,11 +198,10 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         ]
 
         # 命名空间筛选
+        # 前端传了 namespace 参数时按参数筛选
+        # 前端没传时，不强制使用模板的 namespace（模板 namespace 只是标识适用范围）
         if namespace:
             conditions.append(EnvMachine.namespace == namespace)
-        elif template.namespace:
-            # 如果模板指定了命名空间，使用模板的命名空间
-            conditions.append(EnvMachine.namespace == template.namespace)
 
         # 设备类型筛选
         if device_type:
