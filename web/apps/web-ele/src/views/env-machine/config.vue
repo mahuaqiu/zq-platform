@@ -56,11 +56,19 @@ const filterForm = ref({
 // Namespace 选项
 const NAMESPACE_OPTIONS = [
   { label: '全部', value: 'all' },
-  { label: '集成验证 (meeting_gamma)', value: 'meeting_gamma' },
-  { label: 'APP (meeting_app)', value: 'meeting_app' },
-  { label: '音视频 (meeting_av)', value: 'meeting_av' },
-  { label: '公共设备 (meeting_public)', value: 'meeting_public' },
+  { label: '集成验证', value: 'meeting_gamma' },
+  { label: 'APP', value: 'meeting_app' },
+  { label: '音视频', value: 'meeting_av' },
+  { label: '公共设备', value: 'meeting_public' },
 ];
+
+// Namespace 显示名称
+const NAMESPACE_DISPLAY: Record<string, string> = {
+  meeting_gamma: '集成验证',
+  meeting_app: 'APP',
+  meeting_av: '音视频',
+  meeting_public: '公共设备',
+};
 
 // 设备类型选项（含全部）
 const DEVICE_TYPE_FILTER_OPTIONS = [
@@ -96,6 +104,12 @@ const isIndeterminate = computed(() => {
   const selectableLen = selectableMachines.value.length;
   return selectedLen > 0 && selectedLen < selectableLen;
 });
+
+// 获取模板适用命名空间的显示文本
+function getTemplateNamespaceDisplay(namespace?: string): string {
+  if (!namespace) return '全部命名空间';
+  return NAMESPACE_DISPLAY[namespace] || namespace;
+}
 
 // 加载模板列表
 async function loadTemplates() {
@@ -198,6 +212,7 @@ async function handleDeleteTemplate(template: ConfigTemplate) {
 // 选择模板
 function handleSelectTemplate(template: ConfigTemplate) {
   selectedTemplate.value = template;
+  loadPreview();
 }
 
 // 加载预览
@@ -298,26 +313,26 @@ async function executeDeploy() {
   }
 }
 
-// 获取状态样式
-function getStatusStyle(status: string): { bg: string; color: string } {
-  const styleMap: Record<string, { bg: string; color: string }> = {
-    online: { bg: '#f6ffed', color: '#52c41a' },
-    offline: { bg: '#fff1f0', color: '#ff4d4f' },
-    using: { bg: '#fff7e6', color: '#faad14' },
-    config_updating: { bg: '#f9f0ff', color: '#722ed1' },
-  };
-  return styleMap[status] || { bg: '#f5f5f5', color: '#666' };
-}
-
 // 获取状态文本
 function getStatusText(status: string): string {
   const textMap: Record<string, string> = {
     online: '在线',
     offline: '离线',
     using: '使用中',
-    config_updating: '更新中',
+    config_updating: '配置更新中',
   };
   return textMap[status] || status;
+}
+
+// 获取状态颜色
+function getStatusColor(status: string): string {
+  const colorMap: Record<string, string> = {
+    online: '#52c41a',
+    offline: '#ff4d4f',
+    using: '#faad14',
+    config_updating: '#722ed1',
+  };
+  return colorMap[status] || '#666';
 }
 
 // 获取配置状态样式
@@ -340,6 +355,22 @@ function getConfigStatusText(configStatus: string): string {
     offline: '离线',
   };
   return textMap[configStatus] || configStatus;
+}
+
+// 获取配置版本颜色
+function getConfigVersionColor(configStatus: string): string {
+  const colorMap: Record<string, string> = {
+    synced: '#52c41a',
+    pending: '#faad14',
+    updating: '#722ed1',
+    offline: '#999',
+  };
+  return colorMap[configStatus] || '#999';
+}
+
+// 获取命名空间显示名称
+function getNamespaceDisplay(namespace: string): string {
+  return NAMESPACE_DISPLAY[namespace] || namespace;
 }
 
 // 初始化
@@ -368,8 +399,11 @@ onMounted(async () => {
               :class="['template-item', { active: selectedTemplate?.id === item.id }]"
               @click="handleSelectTemplate(item)"
             >
-              <div class="template-name">{{ item.name }}</div>
-              <div class="template-note">{{ item.note || '-' }}</div>
+              <div class="template-info">
+                <div class="template-name">{{ item.name }}</div>
+                <div class="template-meta">适用：{{ getTemplateNamespaceDisplay(item.namespace) }}</div>
+                <div class="template-version">版本：{{ item.version }}</div>
+              </div>
               <div class="template-actions">
                 <a class="action-link" @click.stop="handleEditTemplate(item)">编辑</a>
                 <a class="action-link danger" @click.stop="handleDeleteTemplate(item)">删除</a>
@@ -379,95 +413,65 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 右侧：下发区域 -->
+      <!-- 右侧：下发配置区 -->
       <div class="deploy-panel">
-        <!-- 选中的模板信息 -->
-        <div class="template-info-card">
-          <div class="card-header">
-            <span class="card-title">当前模板</span>
-          </div>
-          <div class="card-body">
-            <div v-if="selectedTemplate" class="template-content">
-              <div class="template-meta">
-                <span class="meta-label">名称:</span>
-                <span class="meta-value">{{ selectedTemplate.name }}</span>
-              </div>
-              <div class="template-meta">
-                <span class="meta-label">备注:</span>
-                <span class="meta-value">{{ selectedTemplate.note || '-' }}</span>
-              </div>
-              <div class="template-meta">
-                <span class="meta-label">版本:</span>
-                <span class="meta-value">{{ selectedTemplate.version }}</span>
-              </div>
-              <div class="config-preview">
-                <pre>{{ selectedTemplate.config_content }}</pre>
-              </div>
-            </div>
-            <div v-else class="no-template">
-              <span>请选择一个配置模板</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 筛选条件 -->
-        <div class="filter-card">
-          <div class="card-header">
-            <span class="card-title">下发筛选</span>
-          </div>
-          <div class="card-body">
+        <div class="deploy-card">
+          <div class="deploy-header">下发配置</div>
+          <div class="deploy-body">
+            <!-- 筛选条件行 -->
             <div class="filter-row">
               <div class="filter-item">
-                <label class="filter-label">设备类别:</label>
-                <ElSelect v-model="filterForm.namespace" style="width: 180px">
+                <label class="filter-label">命名空间:</label>
+                <ElSelect v-model="filterForm.namespace" style="width: 140px">
                   <ElOption v-for="opt in NAMESPACE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </ElSelect>
               </div>
               <div class="filter-item">
                 <label class="filter-label">设备类型:</label>
-                <ElSelect v-model="filterForm.device_type" style="width: 120px">
+                <ElSelect v-model="filterForm.device_type" style="width: 100px">
                   <ElOption v-for="opt in DEVICE_TYPE_FILTER_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </ElSelect>
               </div>
               <div class="filter-item">
-                <label class="filter-label">IP地址:</label>
-                <ElInput v-model="filterForm.ip" placeholder="输入IP模糊匹配" clearable style="width: 160px" />
+                <label class="filter-label">IP搜索:</label>
+                <ElInput v-model="filterForm.ip" placeholder="输入IP筛选" clearable style="width: 140px" />
               </div>
               <ElButton type="primary" @click="loadPreview">查询预览</ElButton>
               <ElButton class="reset-btn" @click="handleReset">重置</ElButton>
             </div>
-          </div>
-        </div>
 
-        <!-- 预览区域 -->
-        <div class="preview-card">
-          <div class="card-header card-header-flex">
-            <span class="card-title">设备预览</span>
-            <span v-if="previewData" class="stats-badge">
-              可下发 {{ previewData.deployable_count }} 台 / 更新中 {{ previewData.updating_count }} 台 / 离线 {{ previewData.offline_count }} 台
-            </span>
-          </div>
-          <div class="card-body">
+            <!-- 当前模板提示条 -->
+            <div v-if="selectedTemplate" class="template-tip">
+              <span class="tip-label">当前模板：</span>
+              <span class="tip-name">{{ selectedTemplate.name }}</span>
+              <span class="tip-version">（v{{ selectedTemplate.version }}）</span>
+              <span class="tip-hint">点击左侧切换</span>
+            </div>
+
+            <!-- 统计信息 -->
+            <div v-if="previewData" class="stats-row">
+              <span class="stats-item stats-deployable"><strong>可下发:</strong> {{ previewData.deployable_count }}台</span>
+              <span class="stats-item stats-updating"><strong>配置更新中:</strong> {{ previewData.updating_count }}台</span>
+              <span class="stats-item stats-offline"><strong>离线:</strong> {{ previewData.offline_count }}台</span>
+            </div>
+
+            <!-- 机器列表表格 -->
             <div class="table-wrapper">
               <ElTable
                 :data="previewData?.machines || []"
                 v-loading="previewLoading"
                 border
-                stripe
                 class="preview-table"
               >
-                <ElTableColumn :width="100" label="选择">
+                <ElTableColumn :width="50" label="选择" align="center">
                   <template #header>
-                    <div class="select-header">
-                      <input
-                        type="checkbox"
-                        class="native-checkbox"
-                        :checked="isAllSelected"
-                        :indeterminate.prop="isIndeterminate"
-                        @change="handleSelectAllChange($event.target.checked)"
-                      />
-                      <span class="select-label">全选</span>
-                    </div>
+                    <input
+                      type="checkbox"
+                      class="native-checkbox"
+                      :checked="isAllSelected"
+                      :indeterminate.prop="isIndeterminate"
+                      @change="handleSelectAllChange($event.target.checked)"
+                    />
                   </template>
                   <template #default="{ row }">
                     <input
@@ -484,19 +488,19 @@ onMounted(async () => {
                     <code class="ip-code">{{ row.ip }}</code>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="namespace" label="设备类别" min-width="120">
+                <ElTableColumn prop="namespace" label="命名空间" min-width="100">
                   <template #default="{ row }">
-                    <span class="namespace-tag">{{ row.namespace }}</span>
+                    {{ getNamespaceDisplay(row.namespace) }}
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="device_type" label="设备类型" min-width="100">
+                <ElTableColumn prop="device_type" label="设备类型" min-width="80">
                   <template #default="{ row }">
                     {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="status" label="机器状态" min-width="80">
+                <ElTableColumn prop="status" label="机器状态" min-width="100">
                   <template #default="{ row }">
-                    <span class="status-tag" :class="`status-${row.status}`">
+                    <span :style="{ color: getStatusColor(row.status) }">
                       {{ getStatusText(row.status) }}
                     </span>
                   </template>
@@ -516,7 +520,9 @@ onMounted(async () => {
                 </ElTableColumn>
                 <ElTableColumn prop="config_version" label="配置版本" min-width="140">
                   <template #default="{ row }">
-                    <span class="version-text">{{ row.config_version || '-' }}</span>
+                    <span :style="{ color: getConfigVersionColor(row.config_status) }">
+                      {{ row.config_version || '-' }}
+                    </span>
                   </template>
                 </ElTableColumn>
               </ElTable>
@@ -524,9 +530,8 @@ onMounted(async () => {
 
             <!-- 操作按钮 -->
             <div class="action-row">
-              <ElButton type="primary" @click="openDeployDialog">
-                下发配置到选中机器 ({{ selectedMachineIds.length }}台)
-              </ElButton>
+              <div class="selected-count">已选择 <strong class="count-num">{{ selectedMachineIds.length }}</strong> 台机器</div>
+              <ElButton type="primary" @click="openDeployDialog">下发配置</ElButton>
             </div>
           </div>
         </div>
@@ -637,8 +642,8 @@ onMounted(async () => {
 .template-panel {
   display: flex;
   flex-direction: column;
-  width: 280px;
-  min-width: 280px;
+  width: 300px;
+  min-width: 300px;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
@@ -648,8 +653,9 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .panel-title {
@@ -661,7 +667,7 @@ onMounted(async () => {
 .panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 12px;
 }
 
 .loading-text,
@@ -680,8 +686,8 @@ onMounted(async () => {
 .template-item {
   padding: 12px;
   cursor: pointer;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -690,29 +696,39 @@ onMounted(async () => {
 }
 
 .template-item.active {
-  border-color: #1890ff;
+  border: 2px solid #1890ff;
   background: #e6f7ff;
 }
 
+.template-info {
+  margin-bottom: 8px;
+}
+
 .template-name {
-  margin-bottom: 4px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #333;
 }
 
-.template-note {
-  margin-bottom: 8px;
+.template-item.active .template-name {
+  color: #1890ff;
+}
+
+.template-meta {
+  margin-top: 4px;
   font-size: 12px;
+  color: #666;
+}
+
+.template-version {
+  margin-top: 4px;
+  font-size: 11px;
   color: #999;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .template-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .action-link {
@@ -731,105 +747,48 @@ onMounted(async () => {
 
 /* 右侧下发面板 */
 .deploy-panel {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: 16px;
   min-width: 0;
 }
 
-/* 通用卡片样式 */
-.template-info-card,
-.filter-card,
-.preview-card {
+.deploy-card {
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
 }
 
-.card-header {
-  padding: 16px 16px 8px;
-  border-bottom: 1px solid #eee;
-}
-
-.card-header-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 12px;
-}
-
-.card-title {
+.deploy-header {
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
   font-size: 14px;
   font-weight: 500;
   color: #333;
 }
 
-.card-body {
+.deploy-body {
   padding: 16px;
 }
 
-/* 模板信息 */
-.template-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.template-meta {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.meta-label {
-  font-size: 13px;
-  color: #666;
-}
-
-.meta-value {
-  font-size: 13px;
-  color: #333;
-}
-
-.config-preview {
-  max-height: 200px;
-  padding: 12px;
-  overflow: auto;
-  background: #f5f5f5;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
-}
-
-.config-preview pre {
-  margin: 0;
-  font-family: Consolas, Monaco, monospace;
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.no-template {
-  padding: 40px 20px;
-  text-align: center;
-  color: #999;
-}
-
-/* 筛选条件 */
+/* 筛选条件行 */
 .filter-row {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   align-items: center;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 16px;
 }
 
 .filter-item {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .filter-label {
-  margin-right: 8px;
   font-size: 12px;
   color: #666;
 }
@@ -840,18 +799,66 @@ onMounted(async () => {
   border: 1px solid #d9d9d9;
 }
 
-/* 统计徽章 */
-.stats-badge {
-  padding: 2px 8px;
+/* 当前模板提示条 */
+.template-tip {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.tip-label {
+  font-size: 13px;
+  color: #d48806;
+}
+
+.tip-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.tip-version {
   font-size: 12px;
-  color: #fff;
-  background: #1890ff;
-  border-radius: 10px;
+  color: #666;
+}
+
+.tip-hint {
+  font-size: 12px;
+  color: #999;
+  margin-left: 8px;
+}
+
+/* 统计信息行 */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.stats-item {
+  color: #1890ff;
+}
+
+.stats-updating {
+  color: #722ed1;
+}
+
+.stats-offline {
+  color: #ff4d4f;
 }
 
 /* 表格 */
 .table-wrapper {
-  overflow: hidden;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
 }
@@ -860,42 +867,18 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-/* 表头样式 */
-.preview-table :deep(th.el-table__cell),
-.preview-table :deep(.el-table__header th) {
+.preview-table :deep(th.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   color: #000 !important;
   background: #fafafa !important;
-  border-right: 1px solid #e8e8e8 !important;
-  border-bottom: 1px solid #e8e8e8 !important;
 }
 
-/* 表格单元格样式 */
 .preview-table :deep(td.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
-  font-weight: 400 !important;
   color: #333 !important;
-  border-right: 1px solid #e8e8e8 !important;
-}
-
-/* 斑马纹交替背景 */
-.preview-table :deep(.el-table__row--striped td.el-table__cell) {
-  background: #fafafa !important;
-}
-
-/* 鼠标悬停样式 */
-.preview-table :deep(.el-table__row:hover td.el-table__cell) {
-  background: #f5f5f5 !important;
-}
-
-.select-header {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  white-space: nowrap;
 }
 
 .native-checkbox {
@@ -910,27 +893,12 @@ onMounted(async () => {
   opacity: 0.5;
 }
 
-.select-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #1890ff;
-}
-
 .ip-code {
   padding: 2px 4px;
   font-family: Consolas, Monaco, monospace;
   font-size: 13px;
   background: #f5f5f5;
   border-radius: 2px;
-}
-
-.namespace-tag {
-  display: inline-block;
-  padding: 2px 6px;
-  font-size: 12px;
-  color: #1890ff;
-  background: #e6f7ff;
-  border-radius: 4px;
 }
 
 .status-tag {
@@ -943,8 +911,18 @@ onMounted(async () => {
 /* 操作按钮 */
 .action-row {
   display: flex;
-  gap: 12px;
-  margin-top: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: #666;
+}
+
+.count-num {
+  color: #1890ff;
 }
 
 /* 模板表单 */
@@ -999,10 +977,6 @@ onMounted(async () => {
 }
 
 /* 下发确认弹窗 */
-.deploy-confirm-dialog :deep(.el-overlay-dialog) {
-  background: transparent !important;
-}
-
 .dialog-box {
   overflow: hidden;
   background: #fff;
