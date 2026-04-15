@@ -409,7 +409,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         """
         url = f"http://{machine.ip}:{machine.port}/worker/config"
         payload = {
-            "version": template.version,
+            "config_version": template.version,
             "config_content": template.config_content,
             "namespace": template.namespace,
         }
@@ -424,7 +424,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
 
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get("status") == "updating":
+                    if data.get("status") == "success":
                         return True, None, machine.id
                     else:
                         return False, f"Worker 返回异常状态: {data.get('status')}", machine.id

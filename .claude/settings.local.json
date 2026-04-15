@@ -103,7 +103,10 @@
       "Bash(cat web/apps/web-ele/.env)",
       "Bash(scripts/start-server.sh --project-dir \"D:/code/zq-platform\")",
       "Bash(npx vue-tsc:*)",
-      "Bash(ls *)"
+      "Bash(ls *)",
+      "Read(//d/code/autotest//**)",
+      "Read(//d/code/autotest/**)",
+      "Bash(netstat -ano)"
     ]
   }
 }
