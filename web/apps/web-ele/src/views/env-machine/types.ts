@@ -25,6 +25,27 @@ export const NAMESPACE_MAP: Record<string, string> = {
 };
 
 /**
+ * 命名空间选项（用于筛选下拉框）
+ */
+export const NAMESPACE_OPTIONS = [
+  { label: '全部', value: '' },
+  { label: '集成验证', value: 'meeting_gamma' },
+  { label: 'APP', value: 'meeting_app' },
+  { label: '音视频', value: 'meeting_av' },
+  { label: '公共设备', value: 'meeting_public' },
+];
+
+/**
+ * 命名空间中文映射（用于表格显示）
+ */
+export const NAMESPACE_DISPLAY_MAP: Record<string, string> = {
+  meeting_gamma: '集成验证',
+  meeting_app: 'APP',
+  meeting_av: '音视频',
+  meeting_public: '公共设备',
+};
+
+/**
  * 设备类型选项
  */
 export const DEVICE_TYPE_OPTIONS = [
