@@ -49,40 +49,42 @@ VITE_NAMESPACE_CONFIG={"meeting_gamma":"集成验证","meeting_app":"APP","meeti
 | `web/apps/web-ele/.env.development` | 新增 `VITE_NAMESPACE_CONFIG` |
 | `web/apps/web-ele/.env.production` | 新增 `VITE_NAMESPACE_CONFIG` |
 | `web/apps/web-ele/src/views/env-machine/types.ts` | 改为动态读取配置生成 `NAMESPACE_OPTIONS` 和 `NAMESPACE_DISPLAY_MAP`，导出供其他组件使用。**注意：`NAMESPACE_MAP`（短名称映射）保持不变，它用于其他场景的内部映射，不参与配置动态化。** |
-| `web/apps/web-ele/src/views/env-machine/upgrade.vue` | 删除重复的 namespace 定义（第 48-51 行），引用 `types.ts` 导出的 `NAMESPACE_OPTIONS` 和 `NAMESPACE_DISPLAY_MAP` |
-| `web/apps/web-ele/src/views/env-machine/config.vue` | 删除重复的 namespace 定义，引用 `types.ts` 导出。涉及三处：筛选下拉框（第 63-66 行）、弹窗下拉框（第 72-75 行）、显示映射（第 80-83 行），全部替换为导入的 `NAMESPACE_OPTIONS` 和 `NAMESPACE_DISPLAY_MAP` |
+| `web/apps/web-ele/src/views/env-machine/upgrade.vue` | 删除重复的 namespace 定义（第 46-52 行 `NAMESPACE_OPTIONS`），引用 `types.ts` 导出的 `NAMESPACE_OPTIONS` 和 `NAMESPACE_DISPLAY_MAP` |
+| `web/apps/web-ele/src/views/env-machine/config.vue` | 删除重复的 namespace 定义，引用 `types.ts` 导出。涉及三处：`NAMESPACE_OPTIONS`（第 61-67 行）、`NAMESPACE_OPTIONS_DIALOG`（第 70-76 行）、`NAMESPACE_DISPLAY`（第 79-84 行），全部替换为导入的 `NAMESPACE_OPTIONS` 和 `NAMESPACE_DISPLAY_MAP` |
 
 ## 核心代码示例
 
 ### 后端 config.py
 
+在 `Settings` 类中添加配置字段和解析属性，参考现有 `TASK_AGGREGATION_CONFIG` 的实现模式：
+
 ```python
-import json
-import os
-import logging
+# 在 Settings 类中添加配置字段（约第 72 行附近）
+NAMESPACE_CONFIG: str = ""
 
-logger = logging.getLogger(__name__)
-
-# 默认配置
-DEFAULT_NAMESPACE_CONFIG = {"meeting_gamma": "集成验证", "meeting_app": "APP", "meeting_av": "音视频", "meeting_public": "公共设备"}
-
-# 解析配置，捕获 JSON 解析异常
-try:
-    NAMESPACE_CONFIG: dict = json.loads(
-        os.getenv("NAMESPACE_CONFIG", json.dumps(DEFAULT_NAMESPACE_CONFIG))
-    )
-except json.JSONDecodeError as e:
-    logger.error(f"NAMESPACE_CONFIG JSON 解析失败: {e}, 使用默认配置")
-    NAMESPACE_CONFIG = DEFAULT_NAMESPACE_CONFIG
+# 在 Settings 类中添加 @property 方法（约第 171 行附近）
+@property
+def namespace_map(self) -> Dict[str, str]:
+    """解析 namespace 配置"""
+    default_config = {"meeting_gamma": "集成验证", "meeting_app": "APP", "meeting_av": "音视频", "meeting_public": "公共设备"}
+    if not self.NAMESPACE_CONFIG:
+        return default_config
+    try:
+        return json.loads(self.NAMESPACE_CONFIG)
+    except json.JSONDecodeError as e:
+        logger.warning(f"NAMESPACE_CONFIG JSON 解析失败: {e}, 使用默认配置")
+        return default_config
 ```
 
 ### 后端 service.py
 
 ```python
-from app.config import NAMESPACE_CONFIG
+from app.config import get_settings
+
+settings = get_settings()
 
 # 替换硬编码
-VALID_NAMESPACE_LIST = list(NAMESPACE_CONFIG.keys())
+VALID_NAMESPACE_LIST = list(settings.namespace_map.keys())
 ```
 
 ### 前端 types.ts
