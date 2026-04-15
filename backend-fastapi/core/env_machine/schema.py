@@ -24,7 +24,7 @@ class EnvRegisterRequest(BaseModel):
 
 class EnvMachineListRequest(BaseModel):
     """执行机列表查询请求 Schema"""
-    namespace: str = Field(..., description="机器分类")
+    namespace: Optional[str] = Field(None, description="机器分类，None表示查询全部")
     device_type: Optional[str] = Field(None, description="机器类型")
     ip: Optional[str] = Field(None, description="IP地址（模糊查询）")
     asset_number: Optional[str] = Field(None, description="资产编号（模糊查询）")
