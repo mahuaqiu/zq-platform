@@ -947,23 +947,38 @@ onMounted(async () => {
   font-weight: 600 !important;
   color: #000 !important;
   background: #fafafa !important;
-  border-right: 1px solid #e8e8e8 !important;
-  border-bottom: 1px solid #e8e8e8 !important;
 }
 
 .preview-table :deep(td.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
   color: #333 !important;
-  border-right: 1px solid #e8e8e8 !important;
 }
 
+/* 使用 stripe 属性的斑马纹 */
 .preview-table :deep(.el-table__row--striped td.el-table__cell) {
   background: #fafafa !important;
 }
 
 .preview-table :deep(.el-table__row:hover td.el-table__cell) {
   background: #f5f5f5 !important;
+}
+
+/* Element Plus border 样式调整 */
+.preview-table :deep(.el-table--border .el-table__cell) {
+  border-right: 1px solid #e8e8e8 !important;
+}
+
+.preview-table :deep(.el-table--border::after) {
+  background-color: #e8e8e8 !important;
+}
+
+.preview-table :deep(.el-table--border::before) {
+  background-color: #e8e8e8 !important;
+}
+
+.preview-table :deep(.el-table__border-left-patch) {
+  width: 0 !important;
 }
 
 .native-checkbox {
