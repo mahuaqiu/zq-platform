@@ -483,7 +483,7 @@ onMounted(async () => {
                 class="preview-table"
                 max-height="400"
               >
-                <ElTableColumn :width="40" label="选择" align="center">
+                <ElTableColumn :width="50" label="选择" align="center">
                   <template #header>
                     <input
                       type="checkbox"
@@ -977,6 +977,11 @@ onMounted(async () => {
 /* hover 效果 */
 .preview-table :deep(.el-table__row:hover td.el-table__cell) {
   background: #f5f5f5 !important;
+}
+
+/* 修复单元格内部容器 overflow */
+.preview-table :deep(.el-table__cell .cell) {
+  overflow: visible !important;
 }
 
 /* checkbox 样式 */
