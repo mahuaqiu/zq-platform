@@ -30,7 +30,7 @@ export interface EnvMachine {
  * 查询参数
  */
 export interface EnvMachineQueryParams {
-  namespace: string;
+  namespace?: string;  // 改为可选，空表示查询全部
   device_type?: string;
   ip?: string;
   asset_number?: string;
