@@ -89,6 +89,8 @@ async def register_env_machine(
                     existing_machine.port = data.port
                     if data.version:
                         existing_machine.version = data.version
+                    if data.config_version:
+                        existing_machine.config_version = data.config_version
                 else:
                     # 不存在则插入
                     new_machine = EnvMachine(
@@ -101,6 +103,7 @@ async def register_env_machine(
                         available=False,
                         sync_time=now,
                         version=data.version,
+                        config_version=data.config_version,
                     )
                     db.add(new_machine)
 
@@ -125,6 +128,8 @@ async def register_env_machine(
                         existing_machine.port = data.port
                         if data.version:
                             existing_machine.version = data.version
+                        if data.config_version:
+                            existing_machine.config_version = data.config_version
                     else:
                         # 不存在则插入
                         new_machine = EnvMachine(
@@ -137,6 +142,7 @@ async def register_env_machine(
                             available=False,
                             sync_time=now,
                             version=data.version,
+                            config_version=data.config_version,
                         )
                         db.add(new_machine)
 
