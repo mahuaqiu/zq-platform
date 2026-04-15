@@ -32,47 +32,18 @@ MENUS = [
         "order": 100,
         "parent_id": None,
     },
-    # 二级菜单
+    # 二级菜单：设备列表（合并）
     {
-        "id": "env-machine-gamma",
-        "name": "EnvMachineGamma",
-        "title": "集成验证",
-        "path": "/env-machine/gamma",
+        "id": "env-machine-list",
+        "name": "EnvMachineList",
+        "title": "设备列表",
+        "path": "/env-machine/list",
         "type": "menu",
-        "component": "/views/env-machine/index",
+        "component": "/views/env-machine/list",
         "parent_id": "env-machine-root",
         "order": 1,
     },
-    {
-        "id": "env-machine-app",
-        "name": "EnvMachineApp",
-        "title": "APP",
-        "path": "/env-machine/app",
-        "type": "menu",
-        "component": "/views/env-machine/index",
-        "parent_id": "env-machine-root",
-        "order": 2,
-    },
-    {
-        "id": "env-machine-av",
-        "name": "EnvMachineAv",
-        "title": "音视频",
-        "path": "/env-machine/av",
-        "type": "menu",
-        "component": "/views/env-machine/index",
-        "parent_id": "env-machine-root",
-        "order": 3,
-    },
-    {
-        "id": "env-machine-public",
-        "name": "EnvMachinePublic",
-        "title": "公共设备",
-        "path": "/env-machine/public",
-        "type": "menu",
-        "component": "/views/env-machine/index",
-        "parent_id": "env-machine-root",
-        "order": 4,
-    },
+    # 二级菜单：手工使用
     {
         "id": "env-machine-manual",
         "name": "EnvMachineManual",
@@ -81,7 +52,7 @@ MENUS = [
         "type": "menu",
         "component": "/views/env-machine/index",
         "parent_id": "env-machine-root",
-        "order": 5,
+        "order": 2,
     },
 ]
 
