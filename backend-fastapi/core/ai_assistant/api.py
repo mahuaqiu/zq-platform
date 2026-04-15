@@ -417,7 +417,8 @@ async def create_group(
             "id": role.role_id or str(role.id),
             "name": role.name,
             "trigger": f"@{role.name}",
-            "description": role.description
+            "description": role.description,
+            "system_prompt": role.system_prompt,  # 添加系统提示词
         })
 
     if profiles:
@@ -477,7 +478,8 @@ async def update_group(
             "id": role.role_id or str(role.id),
             "name": role.name,
             "trigger": f"@{role.name}",
-            "description": role.description
+            "description": role.description,
+            "system_prompt": role.system_prompt,  # 添加系统提示词
         })
 
     if profiles:

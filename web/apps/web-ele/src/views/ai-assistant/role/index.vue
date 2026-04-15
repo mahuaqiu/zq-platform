@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import type { AIRole } from '#/api/core/ai-assistant';
 
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch, nextTick } from 'vue';
+import * as monaco from 'monaco-editor';
 
 import { Page } from '@vben/common-ui';
 
@@ -58,6 +59,10 @@ const formData = ref({
   is_active: true,
 });
 
+// Monaco Editor 实例
+let editorInstance: monaco.editor.IStandaloneCodeEditor | null = null;
+const editorContainer = ref<HTMLElement | null>(null);
+
 // 加载数据
 async function loadData() {
   loading.value = true;
@@ -106,8 +111,43 @@ function handleSizeChange(size: number) {
   loadData();
 }
 
+// 初始化 Monaco Editor
+function initEditor() {
+  if (!editorContainer.value) return;
+
+  // 如果已存在实例，先销毁
+  destroyEditor();
+
+  editorInstance = monaco.editor.create(editorContainer.value, {
+    value: formData.value.system_prompt,
+    language: 'markdown',
+    theme: 'vs-dark',
+    lineNumbers: 'on',
+    minimap: { enabled: false },
+    fontSize: 14,
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    wordWrap: 'on',
+    wrappingStrategy: 'advanced',
+    tabSize: 2,
+  });
+
+  // 监听内容变化
+  editorInstance.onDidChangeModelContent(() => {
+    formData.value.system_prompt = editorInstance?.getValue() || '';
+  });
+}
+
+// 销毁编辑器
+function destroyEditor() {
+  if (editorInstance) {
+    editorInstance.dispose();
+    editorInstance = null;
+  }
+}
+
 // 新增
-function handleCreate() {
+async function handleCreate() {
   isEdit.value = false;
   editId.value = '';
   formData.value = {
@@ -118,10 +158,13 @@ function handleCreate() {
     is_active: true,
   };
   dialogVisible.value = true;
+  // 等待 DOM 更新后初始化编辑器
+  await nextTick();
+  initEditor();
 }
 
 // 编辑
-function handleEdit(row: AIRole) {
+async function handleEdit(row: AIRole) {
   isEdit.value = true;
   editId.value = row.id;
   formData.value = {
@@ -132,7 +175,18 @@ function handleEdit(row: AIRole) {
     is_active: row.is_active,
   };
   dialogVisible.value = true;
+  // 等待 DOM 更新后初始化编辑器
+  await nextTick();
+  initEditor();
 }
+
+// 监听弹窗关闭
+watch(dialogVisible, (newVisible) => {
+  if (!newVisible) {
+    // 关闭时销毁编辑器
+    destroyEditor();
+  }
+});
 
 // 删除
 function handleDelete(row: AIRole) {
@@ -313,12 +367,9 @@ onMounted(() => {
 
         <!-- 系统提示词 -->
         <ElFormItem label="系统提示词">
-          <ElInput
-            v-model="formData.system_prompt"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入系统提示词（AI角色的核心配置）"
-          />
+          <div class="editor-wrapper">
+            <div ref="editorContainer" class="monaco-editor-container"></div>
+          </div>
         </ElFormItem>
 
         <!-- 角色头像 -->
@@ -483,5 +534,18 @@ onMounted(() => {
 /* 不换行 - 用于操作列 */
 .nowrap {
   white-space: nowrap;
+}
+
+/* Monaco Editor 样式 */
+.editor-wrapper {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+
+.monaco-editor-container {
+  width: 100%;
+  height: 300px;
 }
 </style>

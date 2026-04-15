@@ -72,7 +72,7 @@ class NanoClawClient:
         Args:
             chat_id: 聊天唯一标识
             folder: 群组文件夹名称
-            profiles: 角色数组（新格式），每个元素包含 id, name, trigger, description 等
+            profiles: 角色数组（新格式），每个元素包含 id, name, trigger, description, system_prompt 等
             name: 群组名称（旧格式）
             trigger: 触发词（旧格式）
             default_profile: 默认角色 ID（新格式）
@@ -661,6 +661,245 @@ class NanoClawClient:
             return {"error": "request_error", "message": str(e)}
         except Exception as e:
             logger.error(f"[NanoClaw] 查询角色 Skill 列表异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    # ==================== 角色管理 API ====================
+
+    async def get_profiles(self, jid: str) -> Dict[str, Any]:
+        """
+        获取群组角色列表
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+
+        Returns:
+            {
+                "jid": "http:chat-123",
+                "profiles": [
+                    {
+                        "id": "xiaoma",
+                        "name": "小马",
+                        "trigger": "@XiaoMa",
+                        "description": "...",
+                        "system_prompt": "# 小马\n\n你是一个...",
+                        "is_active": true,
+                        "added_at": "2026-04-15T..."
+                    }
+                ],
+                "count": 1
+            }
+        """
+        url = f"{self.api_url}/api/profiles/{jid}"
+        logger.info(f"[NanoClaw] 获取角色列表请求: GET {url}")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 获取角色列表响应: jid={jid}, count={result.get('count', 0)}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 获取角色列表超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 获取角色列表请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 获取角色列表异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def get_profile(self, jid: str, profile_id: str) -> Dict[str, Any]:
+        """
+        获取单个角色详情
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            profile_id: 角色 ID
+
+        Returns:
+            {
+                "jid": "http:chat-123",
+                "profile": {
+                    "id": "xiaoma",
+                    "name": "小马",
+                    "trigger": "@XiaoMa",
+                    "description": "...",
+                    "system_prompt": "# 小马\n\n你是一个...",
+                    "is_active": true,
+                    "added_at": "..."
+                }
+            }
+        """
+        url = f"{self.api_url}/api/profiles/{jid}/{profile_id}"
+        logger.info(f"[NanoClaw] 获取角色详情请求: GET {url}")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 获取角色详情响应: jid={jid}, profile_id={profile_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 获取角色详情超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 获取角色详情请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 获取角色详情异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def create_profile(
+        self,
+        jid: str,
+        name: str,
+        trigger: str,
+        system_prompt: Optional[str] = None,
+        description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        创建角色
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            name: 角色名称
+            trigger: 触发词（如 @XiaoMa）
+            system_prompt: 系统提示词（可选，不传则自动生成）
+            description: 角色描述（可选）
+
+        Returns:
+            {
+                "status": "ok",
+                "jid": "http:chat-123",
+                "profile": {
+                    "id": "profile-xxx",
+                    "name": "小马",
+                    "trigger": "@XiaoMa",
+                    "system_prompt": "# 小马\n\n...",
+                    "is_active": true,
+                    "added_at": "..."
+                }
+            }
+        """
+        url = f"{self.api_url}/api/profiles/{jid}"
+        data = {
+            "name": name,
+            "trigger": trigger,
+        }
+        if system_prompt:
+            data["system_prompt"] = system_prompt
+        if description:
+            data["description"] = description
+
+        logger.info(f"[NanoClaw] 创建角色请求: POST {url}")
+        logger.info(f"[NanoClaw] 创建角色请求体: {json.dumps(data, ensure_ascii=False)}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=self.headers, json=data)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 创建角色响应: jid={jid}, name={name}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 创建角色超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 创建角色请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 创建角色异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def update_profile(
+        self,
+        jid: str,
+        profile_id: str,
+        system_prompt: Optional[str] = None,
+        name: Optional[str] = None,
+        trigger: Optional[str] = None,
+        description: Optional[str] = None,
+        is_active: Optional[bool] = None
+    ) -> Dict[str, Any]:
+        """
+        更新角色
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            profile_id: 角色 ID
+            system_prompt: 系统提示词（可选）
+            name: 角色名称（可选）
+            trigger: 触发词（可选）
+            description: 角色描述（可选）
+            is_active: 是否启用（可选）
+
+        Returns:
+            {
+                "status": "ok",
+                "jid": "http:chat-123",
+                "profileId": "xiaoma",
+                "updates": { ... }
+            }
+        """
+        url = f"{self.api_url}/api/profiles/{jid}/{profile_id}"
+        data = {}
+        if system_prompt is not None:
+            data["system_prompt"] = system_prompt
+        if name is not None:
+            data["name"] = name
+        if trigger is not None:
+            data["trigger"] = trigger
+        if description is not None:
+            data["description"] = description
+        if is_active is not None:
+            data["is_active"] = is_active
+
+        logger.info(f"[NanoClaw] 更新角色请求: PUT {url}")
+        logger.info(f"[NanoClaw] 更新角色请求体: {json.dumps(data, ensure_ascii=False)}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.put(url, headers=self.headers, json=data)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 更新角色响应: jid={jid}, profile_id={profile_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 更新角色超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 更新角色请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 更新角色异常: {str(e)}")
+            return {"error": "unknown", "message": str(e)}
+
+    async def delete_profile(self, jid: str, profile_id: str) -> Dict[str, Any]:
+        """
+        删除角色
+
+        Args:
+            jid: 群组标识，格式 http:{chat_id}
+            profile_id: 角色 ID
+
+        Returns:
+            {"status": "ok", ...} 或 {"error": "..."}
+        """
+        url = f"{self.api_url}/api/profiles/{jid}/{profile_id}"
+        logger.info(f"[NanoClaw] 删除角色请求: DELETE {url}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.delete(url, headers=self.headers)
+                resp.raise_for_status()
+                result = resp.json()
+                logger.info(f"[NanoClaw] 删除角色响应: jid={jid}, profile_id={profile_id}")
+                return result
+        except httpx.TimeoutException as e:
+            logger.error(f"[NanoClaw] 删除角色超时: {str(e)}")
+            return {"error": "timeout", "message": str(e)}
+        except httpx.RequestError as e:
+            logger.error(f"[NanoClaw] 删除角色请求失败: {str(e)}")
+            return {"error": "request_error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"[NanoClaw] 删除角色异常: {str(e)}")
             return {"error": "unknown", "message": str(e)}
 
 
