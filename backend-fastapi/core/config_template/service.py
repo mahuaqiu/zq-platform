@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 # Worker 配置接口超时时间（秒）
 WORKER_CONFIG_TIMEOUT = 10
 
+# 合法的命名空间列表（用于配置下发筛选）
+VALID_NAMESPACE_LIST = ["meeting_gamma", "meeting_app", "meeting_av", "meeting_public"]
+
 
 class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, ConfigTemplateUpdate]):
     """
@@ -198,10 +201,12 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         ]
 
         # 命名空间筛选
-        # 前端传了 namespace 参数时按参数筛选
-        # 前端没传时，不强制使用模板的 namespace（模板 namespace 只是标识适用范围）
+        # 前端传了特定 namespace 参数时按参数筛选
+        # 前端没传时（全部），只查询合法命名空间的机器
         if namespace:
             conditions.append(EnvMachine.namespace == namespace)
+        else:
+            conditions.append(EnvMachine.namespace.in_(VALID_NAMESPACE_LIST))
 
         # 设备类型筛选
         if device_type:
