@@ -314,7 +314,7 @@ async def release_env_machines(
 
 @router.get("", response_model=PaginatedResponse[EnvMachineResponse], summary="查询执行机列表")
 async def list_env_machines(
-    namespace: str,
+    namespace: Optional[str] = None,  # 改为 Optional
     device_type: Optional[str] = None,
     ip: Optional[str] = None,
     asset_number: Optional[str] = None,
@@ -328,7 +328,9 @@ async def list_env_machines(
     """
     查询执行机列表
 
-    支持 namespace 必填筛选，其他条件可选。
+    支持 namespace 可选筛选，其他条件可选。
+    - namespace 为 None 时查询所有4个分类设备
+    - namespace 有值时按指定分类筛选
     """
     machines, total = await EnvMachineService.get_list_with_filters(
         db,
