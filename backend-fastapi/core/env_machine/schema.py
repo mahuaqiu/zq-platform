@@ -19,6 +19,7 @@ class EnvRegisterRequest(BaseModel):
     port: str = Field(..., description="机器端口")
     namespace: str = Field(..., description="机器分类")
     version: Optional[str] = Field(None, description="机器版本")
+    config_version: Optional[str] = Field(None, description="配置版本")
     devices: Dict[str, List[str]] = Field(..., description="设备列表，key为device_type，value为device_sn列表")
 
 
@@ -101,6 +102,7 @@ class EnvMachineResponse(BaseModel):
     sync_time: Optional[datetime] = Field(None, description="同步时间")
     extra_message: Optional[Dict[str, Any]] = Field(None, description="扩展信息")
     version: Optional[str] = Field(None, description="机器版本")
+    config_version: Optional[str] = Field(None, description="配置版本")
     last_keepusing_time: Optional[datetime] = Field(None, description="最后保持使用时间")
     sort: int = Field(default=0, description="排序")
     is_deleted: bool = Field(default=False, description="是否删除")
