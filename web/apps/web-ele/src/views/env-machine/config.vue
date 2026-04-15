@@ -842,6 +842,7 @@ onMounted(async () => {
 
 .deploy-body {
   padding: 16px;
+  overflow-x: auto;
 }
 
 /* 筛选条件行 */
@@ -935,6 +936,7 @@ onMounted(async () => {
 .table-wrapper {
   border: 1px solid #e8e8e8;
   border-radius: 4px;
+  overflow-x: auto;
 }
 
 .preview-table {
