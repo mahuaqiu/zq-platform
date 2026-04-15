@@ -10,7 +10,6 @@ import {
   ElDialog,
   ElInput,
   ElMessage,
-  ElMessageBox,
   ElOption,
   ElSelect,
   ElTable,
@@ -46,6 +45,11 @@ const templateForm = ref({
 });
 const templateFormLoading = ref(false);
 
+// 删除确认弹窗
+const deleteDialogVisible = ref(false);
+const deleteTargetTemplate = ref<ConfigTemplate | null>(null);
+const deleteLoading = ref(false);
+
 // 下发筛选
 const filterForm = ref({
   namespace: 'all',
@@ -60,6 +64,15 @@ const NAMESPACE_OPTIONS = [
   { label: 'APP', value: 'meeting_app' },
   { label: '音视频', value: 'meeting_av' },
   { label: '公共设备', value: 'meeting_public' },
+];
+
+// Namespace 显示名称（带括号后缀）
+const NAMESPACE_OPTIONS_FULL = [
+  { label: '全部命名空间', value: '' },
+  { label: '集成验证 (meeting_gamma)', value: 'meeting_gamma' },
+  { label: 'APP (meeting_app)', value: 'meeting_app' },
+  { label: '音视频 (meeting_av)', value: 'meeting_av' },
+  { label: '公共设备 (meeting_public)', value: 'meeting_public' },
 ];
 
 // Namespace 显示名称
@@ -130,14 +143,14 @@ async function loadTemplates() {
 
 // 新建模板
 function handleCreateTemplate() {
-  templateDialogTitle.value = '新建模板';
+  templateDialogTitle.value = '新建配置模板';
   templateForm.value = { name: '', namespace: '', config_content: '', note: '' };
   templateDialogVisible.value = true;
 }
 
 // 编辑模板
 function handleEditTemplate(template: ConfigTemplate) {
-  templateDialogTitle.value = '编辑模板';
+  templateDialogTitle.value = '编辑配置模板';
   templateForm.value = {
     name: template.name,
     namespace: template.namespace || '',
@@ -161,7 +174,7 @@ async function handleSaveTemplate() {
 
   templateFormLoading.value = true;
   try {
-    if (templateDialogTitle.value === '新建模板') {
+    if (templateDialogTitle.value === '新建配置模板') {
       await createConfigTemplateApi({
         name: templateForm.value.name,
         namespace: templateForm.value.namespace || undefined,
@@ -183,30 +196,35 @@ async function handleSaveTemplate() {
     templateDialogVisible.value = false;
     await loadTemplates();
   } catch (error) {
-    ElMessage.error(templateDialogTitle.value === '新建模板' ? '创建失败' : '更新失败');
+    ElMessage.error(templateDialogTitle.value === '新建配置模板' ? '创建失败' : '更新失败');
   } finally {
     templateFormLoading.value = false;
   }
 }
 
-// 删除模板
-async function handleDeleteTemplate(template: ConfigTemplate) {
-  ElMessageBox.confirm(`确定删除模板 "${template.name}" 吗？`, '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning',
-  }).then(async () => {
-    try {
-      await deleteConfigTemplateApi(template.id);
-      ElMessage.success('删除成功');
-      if (selectedTemplate.value?.id === template.id) {
-        selectedTemplate.value = null;
-      }
-      await loadTemplates();
-    } catch {
-      ElMessage.error('删除失败');
+// 打开删除确认弹窗
+function handleDeleteTemplate(template: ConfigTemplate) {
+  deleteTargetTemplate.value = template;
+  deleteDialogVisible.value = true;
+}
+
+// 执行删除
+async function executeDelete() {
+  if (!deleteTargetTemplate.value) return;
+  deleteLoading.value = true;
+  try {
+    await deleteConfigTemplateApi(deleteTargetTemplate.value.id);
+    ElMessage.success('删除成功');
+    if (selectedTemplate.value?.id === deleteTargetTemplate.value.id) {
+      selectedTemplate.value = null;
     }
-  });
+    deleteDialogVisible.value = false;
+    await loadTemplates();
+  } catch {
+    ElMessage.error('删除失败');
+  } finally {
+    deleteLoading.value = false;
+  }
 }
 
 // 选择模板
@@ -386,7 +404,7 @@ onMounted(async () => {
       <!-- 左侧：模板列表 -->
       <div class="template-panel">
         <div class="panel-header">
-          <span class="panel-title">配置模板</span>
+          <span class="panel-title">📝 配置模板</span>
           <ElButton type="primary" size="small" @click="handleCreateTemplate">新建</ElButton>
         </div>
         <div class="panel-body">
@@ -416,7 +434,7 @@ onMounted(async () => {
       <!-- 右侧：下发配置区 -->
       <div class="deploy-panel">
         <div class="deploy-card">
-          <div class="deploy-header">下发配置</div>
+          <div class="deploy-header">🚀 下发配置</div>
           <div class="deploy-body">
             <!-- 筛选条件行 -->
             <div class="filter-row">
@@ -442,7 +460,7 @@ onMounted(async () => {
 
             <!-- 当前模板提示条 -->
             <div v-if="selectedTemplate" class="template-tip">
-              <span class="tip-label">当前模板：</span>
+              <span class="tip-label">📦 当前模板：</span>
               <span class="tip-name">{{ selectedTemplate.name }}</span>
               <span class="tip-version">（v{{ selectedTemplate.version }}）</span>
               <span class="tip-hint">点击左侧切换</span>
@@ -461,9 +479,10 @@ onMounted(async () => {
                 :data="previewData?.machines || []"
                 v-loading="previewLoading"
                 border
+                stripe
                 class="preview-table"
               >
-                <ElTableColumn :width="50" label="选择" align="center">
+                <ElTableColumn :width="40" label="选择" align="center">
                   <template #header>
                     <input
                       type="checkbox"
@@ -538,44 +557,98 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- 模板编辑弹窗 -->
+    <!-- 新建/编辑模板弹窗 -->
     <ElDialog
       v-model="templateDialogVisible"
-      :title="templateDialogTitle"
       width="720px"
+      class="template-dialog"
+      :show-title="false"
       :close-on-click-modal="false"
     >
-      <div class="template-form">
-        <div class="form-item">
-          <label class="form-label">模板名称 <span class="required">*</span></label>
-          <ElInput v-model="templateForm.name" placeholder="请输入模板名称" />
+      <div class="template-dialog-box">
+        <!-- 弹窗头部 -->
+        <div class="template-dialog-header">
+          <span class="template-dialog-title">📝 {{ templateDialogTitle }}</span>
+          <span class="template-dialog-close" @click="templateDialogVisible = false">✕</span>
         </div>
-        <div class="form-item">
-          <label class="form-label">适用命名空间</label>
-          <ElSelect v-model="templateForm.namespace" placeholder="全部" clearable style="width: 100%">
-            <ElOption v-for="opt in NAMESPACE_OPTIONS.filter(o => o.value !== 'all')" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </ElSelect>
-        </div>
-        <div class="form-item">
-          <label class="form-label">配置内容 <span class="required">*</span></label>
-          <div class="yaml-editor">
-            <textarea
-              v-model="templateForm.config_content"
-              class="yaml-textarea"
-              placeholder="请输入 YAML 配置内容..."
-              rows="15"
-            ></textarea>
+
+        <!-- 弹窗内容 -->
+        <div class="template-dialog-body">
+          <!-- 基本信息 -->
+          <div class="form-section">
+            <div class="section-title">基本信息</div>
+            <div class="section-content">
+              <div class="form-row">
+                <div class="form-col">
+                  <label class="form-label">模板名称 <span class="required">*</span></label>
+                  <ElInput v-model="templateForm.name" placeholder="如：默认配置模板" />
+                </div>
+                <div class="form-col">
+                  <label class="form-label">适用命名空间</label>
+                  <ElSelect v-model="templateForm.namespace" placeholder="全部命名空间" clearable style="width: 100%">
+                    <ElOption v-for="opt in NAMESPACE_OPTIONS_FULL" :key="opt.value" :label="opt.label" :value="opt.value" />
+                  </ElSelect>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-col-full">
+                  <label class="form-label">备注说明</label>
+                  <ElInput v-model="templateForm.note" placeholder="模板用途说明" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 配置内容 -->
+          <div class="form-section">
+            <div class="section-title">配置内容 (YAML)</div>
+            <div class="section-content">
+              <div class="yaml-editor">
+                <textarea
+                  v-model="templateForm.config_content"
+                  class="yaml-textarea"
+                  placeholder="在此编辑 YAML 配置文件..."
+                  rows="18"
+                ></textarea>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="form-item">
-          <label class="form-label">备注</label>
-          <ElInput v-model="templateForm.note" placeholder="请输入备注" />
+
+        <!-- 操作按钮 -->
+        <div class="template-dialog-footer">
+          <ElButton class="btn-cancel" @click="templateDialogVisible = false">取消</ElButton>
+          <ElButton class="btn-save" type="primary" :loading="templateFormLoading" @click="handleSaveTemplate">保存模板</ElButton>
         </div>
       </div>
-      <template #footer>
-        <ElButton @click="templateDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" :loading="templateFormLoading" @click="handleSaveTemplate">保存</ElButton>
-      </template>
+    </ElDialog>
+
+    <!-- 删除确认弹窗 -->
+    <ElDialog
+      v-model="deleteDialogVisible"
+      width="400px"
+      class="delete-dialog"
+      :show-title="false"
+      :close-on-click-modal="false"
+    >
+      <div class="delete-dialog-box">
+        <div class="delete-dialog-body">
+          <div class="delete-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <path fill="#ff4d4f" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+          </div>
+          <div class="delete-title">确定删除模板？</div>
+          <div class="delete-desc">删除后将无法恢复，已下发的配置不受影响</div>
+          <div class="delete-template-name">
+            <strong>模板名称：</strong>{{ deleteTargetTemplate?.name }}
+          </div>
+        </div>
+        <div class="delete-dialog-footer">
+          <ElButton class="btn-cancel" @click="deleteDialogVisible = false">取消</ElButton>
+          <ElButton class="btn-delete" :loading="deleteLoading" @click="executeDelete">确认删除</ElButton>
+        </div>
+      </div>
     </ElDialog>
 
     <!-- 下发确认弹窗 -->
@@ -861,6 +934,7 @@ onMounted(async () => {
 .table-wrapper {
   border: 1px solid #e8e8e8;
   border-radius: 4px;
+  overflow: hidden;
 }
 
 .preview-table {
@@ -873,12 +947,23 @@ onMounted(async () => {
   font-weight: 600 !important;
   color: #000 !important;
   background: #fafafa !important;
+  border-right: 1px solid #e8e8e8 !important;
+  border-bottom: 1px solid #e8e8e8 !important;
 }
 
 .preview-table :deep(td.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
   color: #333 !important;
+  border-right: 1px solid #e8e8e8 !important;
+}
+
+.preview-table :deep(.el-table__row--striped td.el-table__cell) {
+  background: #fafafa !important;
+}
+
+.preview-table :deep(.el-table__row:hover td.el-table__cell) {
+  background: #f5f5f5 !important;
 }
 
 .native-checkbox {
@@ -925,55 +1010,202 @@ onMounted(async () => {
   color: #1890ff;
 }
 
-/* 模板表单 */
-.template-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* 模板编辑弹窗 */
+.template-dialog-box {
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
 }
 
-.form-item {
+.template-dialog-header {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
 }
 
-.form-label {
+.template-dialog-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.template-dialog-close {
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.template-dialog-close:hover {
+  opacity: 0.8;
+}
+
+.template-dialog-body {
+  padding: 20px;
+}
+
+.form-section {
+  margin-bottom: 16px;
+}
+
+.section-title {
   font-size: 13px;
   font-weight: 500;
   color: #333;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.section-content {
+  /* 内容区域 */
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-col-full {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 12px;
+  color: #666;
 }
 
 .required {
   color: #ff4d4f;
 }
 
-/* YAML 编辑器样式 */
 .yaml-editor {
   background: #1e1e1e;
   border-radius: 4px;
-  overflow: hidden;
+  padding: 16px;
 }
 
 .yaml-textarea {
   width: 100%;
-  padding: 12px;
+  min-height: 320px;
   font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: #d4d4d4;
-  background: #1e1e1e;
+  background: transparent;
   border: none;
   resize: vertical;
   outline: none;
 }
 
-.yaml-textarea:focus {
-  background: #252526;
-}
-
 .yaml-textarea::placeholder {
   color: #6a9955;
+}
+
+.template-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+}
+
+.btn-cancel {
+  padding: 8px 20px;
+  font-size: 14px;
+  color: #333;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.btn-cancel:hover {
+  color: #1890ff;
+  border-color: #1890ff;
+}
+
+.btn-save {
+  padding: 8px 20px;
+  font-size: 14px;
+  color: #fff;
+  background: #1890ff;
+  border: none;
+  border-radius: 4px;
+}
+
+/* 删除确认弹窗 */
+.delete-dialog-box {
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.delete-dialog-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.delete-icon {
+  width: 48px;
+  height: 48px;
+  background: #fff1f0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.delete-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.delete-desc {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.delete-template-name {
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.delete-dialog-footer {
+  padding: 16px 24px;
+  background: #fafafa;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.btn-delete {
+  padding: 8px 24px;
+  font-size: 14px;
+  color: #fff;
+  background: #ff4d4f;
+  border: none;
+  border-radius: 4px;
+}
+
+.btn-delete:hover {
+  background: #ff7875;
 }
 
 /* 下发确认弹窗 */
@@ -1096,22 +1328,6 @@ onMounted(async () => {
   background: #fafafa;
 }
 
-.btn-cancel {
-  padding: 10px 24px;
-  font-size: 14px;
-  color: #595959;
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.btn-cancel:hover {
-  color: #1890ff;
-  background: #fff;
-  border-color: #1890ff;
-}
-
 .btn-confirm {
   padding: 10px 28px;
   font-size: 14px;
@@ -1133,6 +1349,62 @@ onMounted(async () => {
 
 <!-- 全局样式：Dialog 通过 teleport 渲染到 body 下，scoped 样式无法穿透 -->
 <style>
+.el-dialog.template-dialog {
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.el-dialog.template-dialog .el-dialog__header {
+  display: none !important;
+}
+
+.el-dialog.template-dialog .el-dialog__headerbtn {
+  display: none !important;
+}
+
+.el-dialog.template-dialog .el-dialog__body {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.el-dialog.template-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border: none !important;
+}
+
+.el-dialog.delete-dialog {
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.el-dialog.delete-dialog .el-dialog__header {
+  display: none !important;
+}
+
+.el-dialog.delete-dialog .el-dialog__headerbtn {
+  display: none !important;
+}
+
+.el-dialog.delete-dialog .el-dialog__body {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.el-dialog.delete-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border: none !important;
+}
+
 .el-dialog.deploy-confirm-dialog {
   padding: 0 !important;
   overflow: hidden !important;
