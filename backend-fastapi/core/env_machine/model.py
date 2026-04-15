@@ -75,6 +75,9 @@ class EnvMachine(BaseModel):
     # 机器版本
     version = Column(String(32), nullable=True, comment="机器版本")
 
+    # 配置版本
+    config_version = Column(String(20), nullable=True, comment="配置版本")
+
     # 最后保持使用时间
     last_keepusing_time = Column(DateTime, nullable=True, comment="最后保持使用时间")
 
@@ -91,6 +94,7 @@ class EnvMachine(BaseModel):
         "using": "使用中",
         "offline": "离线",
         "upgrading": "升级中",
+        "config_updating": "配置更新中",
     }
 
     def get_status_display(self) -> str:
@@ -114,6 +118,7 @@ class EnvMachine(BaseModel):
             "sync_time": self.sync_time.isoformat() if self.sync_time else None,
             "extra_message": self.extra_message,
             "version": self.version,
+            "config_version": self.config_version,
             "last_keepusing_time": self.last_keepusing_time.isoformat() if self.last_keepusing_time else None,
         }
 
