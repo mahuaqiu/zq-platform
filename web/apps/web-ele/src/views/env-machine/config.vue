@@ -66,13 +66,13 @@ const NAMESPACE_OPTIONS = [
   { label: '公共设备', value: 'meeting_public' },
 ];
 
-// Namespace 显示名称（带括号后缀）
-const NAMESPACE_OPTIONS_FULL = [
+// Namespace 显示名称（弹窗用，只显示中文）
+const NAMESPACE_OPTIONS_DIALOG = [
   { label: '全部命名空间', value: '' },
-  { label: '集成验证 (meeting_gamma)', value: 'meeting_gamma' },
-  { label: 'APP (meeting_app)', value: 'meeting_app' },
-  { label: '音视频 (meeting_av)', value: 'meeting_av' },
-  { label: '公共设备 (meeting_public)', value: 'meeting_public' },
+  { label: '集成验证', value: 'meeting_gamma' },
+  { label: 'APP', value: 'meeting_app' },
+  { label: '音视频', value: 'meeting_av' },
+  { label: '公共设备', value: 'meeting_public' },
 ];
 
 // Namespace 显示名称
@@ -586,7 +586,7 @@ onMounted(async () => {
                 <div class="form-col">
                   <label class="form-label">适用命名空间</label>
                   <ElSelect v-model="templateForm.namespace" placeholder="全部命名空间" clearable style="width: 100%">
-                    <ElOption v-for="opt in NAMESPACE_OPTIONS_FULL" :key="opt.value" :label="opt.label" :value="opt.value" />
+                    <ElOption v-for="opt in NAMESPACE_OPTIONS_DIALOG" :key="opt.value" :label="opt.label" :value="opt.value" />
                   </ElSelect>
                 </div>
               </div>
