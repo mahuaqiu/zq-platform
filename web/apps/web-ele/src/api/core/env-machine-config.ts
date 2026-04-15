@@ -6,9 +6,10 @@ import { requestClient } from '#/api/request';
 export interface ConfigTemplate {
   id: string;
   name: string;
-  content: string;
+  namespace?: string;
   note?: string;
-  sort?: number;
+  config_content: string;
+  version: string;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
 }
@@ -19,18 +20,20 @@ export interface ConfigTemplate {
 export interface ConfigPreviewMachine {
   id: string;
   ip: string;
-  device_type: string;
   namespace: string;
+  device_type: string;
   status: string;
-  current_config?: string;
+  config_status: string;  // synced/pending/updating/offline
+  config_version?: string;
 }
 
 /**
  * 配置预览响应
  */
 export interface ConfigPreviewResponse {
-  total_count: number;
-  online_count: number;
+  template_version: string;
+  deployable_count: number;
+  updating_count: number;
   offline_count: number;
   machines: ConfigPreviewMachine[];
 }
@@ -40,9 +43,7 @@ export interface ConfigPreviewResponse {
  */
 export interface DeployRequest {
   template_id: string;
-  machine_ids?: string[];
-  namespace?: string;
-  device_type?: string;
+  machine_ids: string[];
 }
 
 /**
@@ -51,8 +52,8 @@ export interface DeployRequest {
 export interface DeployDetail {
   machine_id: string;
   ip: string;
-  status: string;
-  message: string;
+  status: string;  // success/failed
+  error_message?: string;
 }
 
 /**
@@ -61,7 +62,6 @@ export interface DeployDetail {
 export interface DeployResponse {
   success_count: number;
   failed_count: number;
-  skipped_count: number;
   details: DeployDetail[];
 }
 
@@ -69,36 +69,41 @@ export interface DeployResponse {
  * 获取配置模板列表
  */
 export async function getConfigTemplateListApi() {
-  return requestClient.get<ConfigTemplate[]>('/api/core/env-machine-config/template');
+  return requestClient.get<ConfigTemplate[]>('/api/core/config-template');
 }
 
 /**
  * 创建配置模板
  */
 export async function createConfigTemplateApi(data: Partial<ConfigTemplate>) {
-  return requestClient.post<ConfigTemplate>('/api/core/env-machine-config/template', data);
+  return requestClient.post<ConfigTemplate>('/api/core/config-template', data);
 }
 
 /**
  * 更新配置模板
  */
 export async function updateConfigTemplateApi(id: string, data: Partial<ConfigTemplate>) {
-  return requestClient.put<ConfigTemplate>(`/api/core/env-machine-config/template/${id}`, data);
+  return requestClient.put<ConfigTemplate>(`/api/core/config-template/${id}`, data);
 }
 
 /**
  * 删除配置模板
  */
 export async function deleteConfigTemplateApi(id: string) {
-  return requestClient.delete(`/api/core/env-machine-config/template/${id}`);
+  return requestClient.delete(`/api/core/config-template/${id}`);
 }
 
 /**
  * 获取配置预览
  */
-export async function getConfigPreviewApi(namespace?: string, deviceType?: string, ip?: string) {
-  return requestClient.get<ConfigPreviewResponse>('/api/core/env-machine-config/preview', {
-    params: { namespace, device_type: deviceType, ip },
+export async function getConfigPreviewApi(
+  templateId: string,
+  namespace?: string,
+  deviceType?: string,
+  ip?: string
+) {
+  return requestClient.get<ConfigPreviewResponse>('/api/core/config-template/preview', {
+    params: { template_id: templateId, namespace, device_type: deviceType, ip },
   });
 }
 
@@ -106,5 +111,5 @@ export async function getConfigPreviewApi(namespace?: string, deviceType?: strin
  * 下发配置
  */
 export async function deployConfigApi(data: DeployRequest) {
-  return requestClient.post<DeployResponse>('/api/core/env-machine-config/deploy', data);
+  return requestClient.post<DeployResponse>('/api/core/config-template/deploy', data);
 }

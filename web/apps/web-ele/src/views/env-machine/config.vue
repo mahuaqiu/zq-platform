@@ -40,7 +40,8 @@ const templateDialogVisible = ref(false);
 const templateDialogTitle = ref('新建模板');
 const templateForm = ref({
   name: '',
-  content: '',
+  namespace: '',
+  config_content: '',
   note: '',
 });
 const templateFormLoading = ref(false);
@@ -77,10 +78,10 @@ const selectedMachineIds = ref<string[]>([]);
 const deployDialogVisible = ref(false);
 const deployLoading = ref(false);
 
-// 可选机器列表（在线）
+// 可选机器列表（synced 或 pending）
 const selectableMachines = computed(() => {
   if (!previewData.value) return [];
-  return previewData.value.machines.filter(m => m.status === 'online');
+  return previewData.value.machines.filter(m => m.config_status === 'synced' || m.config_status === 'pending');
 });
 
 // 全选状态计算
@@ -116,7 +117,7 @@ async function loadTemplates() {
 // 新建模板
 function handleCreateTemplate() {
   templateDialogTitle.value = '新建模板';
-  templateForm.value = { name: '', content: '', note: '' };
+  templateForm.value = { name: '', namespace: '', config_content: '', note: '' };
   templateDialogVisible.value = true;
 }
 
@@ -125,7 +126,8 @@ function handleEditTemplate(template: ConfigTemplate) {
   templateDialogTitle.value = '编辑模板';
   templateForm.value = {
     name: template.name,
-    content: template.content,
+    namespace: template.namespace || '',
+    config_content: template.config_content,
     note: template.note || '',
   };
   selectedTemplate.value = template;
@@ -138,7 +140,7 @@ async function handleSaveTemplate() {
     ElMessage.warning('请输入模板名称');
     return;
   }
-  if (!templateForm.value.content.trim()) {
+  if (!templateForm.value.config_content.trim()) {
     ElMessage.warning('请输入配置内容');
     return;
   }
@@ -148,7 +150,8 @@ async function handleSaveTemplate() {
     if (templateDialogTitle.value === '新建模板') {
       await createConfigTemplateApi({
         name: templateForm.value.name,
-        content: templateForm.value.content,
+        namespace: templateForm.value.namespace || undefined,
+        config_content: templateForm.value.config_content,
         note: templateForm.value.note,
       });
       ElMessage.success('创建成功');
@@ -156,7 +159,8 @@ async function handleSaveTemplate() {
       if (selectedTemplate.value) {
         await updateConfigTemplateApi(selectedTemplate.value.id, {
           name: templateForm.value.name,
-          content: templateForm.value.content,
+          namespace: templateForm.value.namespace || undefined,
+          config_content: templateForm.value.config_content,
           note: templateForm.value.note,
         });
         ElMessage.success('更新成功');
@@ -198,9 +202,11 @@ function handleSelectTemplate(template: ConfigTemplate) {
 
 // 加载预览
 async function loadPreview() {
+  if (!selectedTemplate.value) return;
   previewLoading.value = true;
   try {
     const data = await getConfigPreviewApi(
+      selectedTemplate.value.id,
       filterForm.value.namespace === 'all' ? undefined : filterForm.value.namespace,
       filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type,
       filterForm.value.ip || undefined
@@ -234,9 +240,9 @@ function handleCheckboxChange(machineId: string, checked: boolean) {
   }
 }
 
-// 判断是否可选（在线）
-function isSelectable(status: string): boolean {
-  return status === 'online';
+// 判断是否可选（synced 或 pending）
+function isSelectable(configStatus: string): boolean {
+  return configStatus === 'synced' || configStatus === 'pending';
 }
 
 // 重置筛选
@@ -274,7 +280,7 @@ async function executeDeploy() {
     const failedDetails = result.details.filter(d => d.status === 'failed');
 
     if (result.failed_count > 0) {
-      const failedMessages = failedDetails.map(d => `${d.ip}: ${d.message}`).join('\n');
+      const failedMessages = failedDetails.map(d => `${d.ip}: ${d.error_message}`).join('\n');
       ElMessage.warning({
         message: `下发完成，但有 ${result.failed_count} 台失败:\n${failedMessages}`,
         duration: 5000,
@@ -298,6 +304,7 @@ function getStatusStyle(status: string): { bg: string; color: string } {
     online: { bg: '#f6ffed', color: '#52c41a' },
     offline: { bg: '#fff1f0', color: '#ff4d4f' },
     using: { bg: '#fff7e6', color: '#faad14' },
+    config_updating: { bg: '#f9f0ff', color: '#722ed1' },
   };
   return styleMap[status] || { bg: '#f5f5f5', color: '#666' };
 }
@@ -308,8 +315,31 @@ function getStatusText(status: string): string {
     online: '在线',
     offline: '离线',
     using: '使用中',
+    config_updating: '更新中',
   };
   return textMap[status] || status;
+}
+
+// 获取配置状态样式
+function getConfigStatusStyle(configStatus: string): { bg: string; color: string } {
+  const styleMap: Record<string, { bg: string; color: string }> = {
+    synced: { bg: '#f6ffed', color: '#52c41a' },
+    pending: { bg: '#fff7e6', color: '#faad14' },
+    updating: { bg: '#f9f0ff', color: '#722ed1' },
+    offline: { bg: '#fff1f0', color: '#ff4d4f' },
+  };
+  return styleMap[configStatus] || { bg: '#f5f5f5', color: '#666' };
+}
+
+// 获取配置状态文本
+function getConfigStatusText(configStatus: string): string {
+  const textMap: Record<string, string> = {
+    synced: '已同步',
+    pending: '待更新',
+    updating: '更新中',
+    offline: '离线',
+  };
+  return textMap[configStatus] || configStatus;
 }
 
 // 初始化
@@ -366,8 +396,12 @@ onMounted(async () => {
                 <span class="meta-label">备注:</span>
                 <span class="meta-value">{{ selectedTemplate.note || '-' }}</span>
               </div>
+              <div class="template-meta">
+                <span class="meta-label">版本:</span>
+                <span class="meta-value">{{ selectedTemplate.version }}</span>
+              </div>
               <div class="config-preview">
-                <pre>{{ selectedTemplate.content }}</pre>
+                <pre>{{ selectedTemplate.config_content }}</pre>
               </div>
             </div>
             <div v-else class="no-template">
@@ -410,7 +444,7 @@ onMounted(async () => {
           <div class="card-header card-header-flex">
             <span class="card-title">设备预览</span>
             <span v-if="previewData" class="stats-badge">
-              共 {{ previewData.total_count }} 台 / 在线 {{ previewData.online_count }} 台
+              可下发 {{ previewData.deployable_count }} 台 / 更新中 {{ previewData.updating_count }} 台 / 离线 {{ previewData.offline_count }} 台
             </span>
           </div>
           <div class="card-body">
@@ -440,7 +474,7 @@ onMounted(async () => {
                       type="checkbox"
                       class="native-checkbox"
                       :checked="selectedMachineIds.includes(row.id)"
-                      :disabled="!isSelectable(row.status)"
+                      :disabled="!isSelectable(row.config_status)"
                       @change="handleCheckboxChange(row.id, $event.target.checked)"
                     />
                   </template>
@@ -450,27 +484,39 @@ onMounted(async () => {
                     <code class="ip-code">{{ row.ip }}</code>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="device_type" label="设备类型" min-width="100">
-                  <template #default="{ row }">
-                    {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
-                  </template>
-                </ElTableColumn>
                 <ElTableColumn prop="namespace" label="设备类别" min-width="120">
                   <template #default="{ row }">
                     <span class="namespace-tag">{{ row.namespace }}</span>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="status" label="状态" min-width="80">
+                <ElTableColumn prop="device_type" label="设备类型" min-width="100">
+                  <template #default="{ row }">
+                    {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="status" label="机器状态" min-width="80">
+                  <template #default="{ row }">
+                    <span class="status-tag" :class="`status-${row.status}`">
+                      {{ getStatusText(row.status) }}
+                    </span>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="config_status" label="配置状态" min-width="100">
                   <template #default="{ row }">
                     <span
                       class="status-tag"
                       :style="{
-                        background: getStatusStyle(row.status).bg,
-                        color: getStatusStyle(row.status).color
+                        background: getConfigStatusStyle(row.config_status).bg,
+                        color: getConfigStatusStyle(row.config_status).color
                       }"
                     >
-                      {{ getStatusText(row.status) }}
+                      {{ getConfigStatusText(row.config_status) }}
                     </span>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="config_version" label="配置版本" min-width="140">
+                  <template #default="{ row }">
+                    <span class="version-text">{{ row.config_version || '-' }}</span>
                   </template>
                 </ElTableColumn>
               </ElTable>
@@ -491,7 +537,7 @@ onMounted(async () => {
     <ElDialog
       v-model="templateDialogVisible"
       :title="templateDialogTitle"
-      width="600px"
+      width="720px"
       :close-on-click-modal="false"
     >
       <div class="template-form">
@@ -500,13 +546,21 @@ onMounted(async () => {
           <ElInput v-model="templateForm.name" placeholder="请输入模板名称" />
         </div>
         <div class="form-item">
+          <label class="form-label">适用命名空间</label>
+          <ElSelect v-model="templateForm.namespace" placeholder="全部" clearable style="width: 100%">
+            <ElOption v-for="opt in NAMESPACE_OPTIONS.filter(o => o.value !== 'all')" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </ElSelect>
+        </div>
+        <div class="form-item">
           <label class="form-label">配置内容 <span class="required">*</span></label>
-          <ElInput
-            v-model="templateForm.content"
-            type="textarea"
-            :rows="10"
-            placeholder="请输入配置内容（JSON格式）"
-          />
+          <div class="yaml-editor">
+            <textarea
+              v-model="templateForm.config_content"
+              class="yaml-textarea"
+              placeholder="请输入 YAML 配置内容..."
+              rows="15"
+            ></textarea>
+          </div>
         </div>
         <div class="form-item">
           <label class="form-label">备注</label>
@@ -914,6 +968,34 @@ onMounted(async () => {
 
 .required {
   color: #ff4d4f;
+}
+
+/* YAML 编辑器样式 */
+.yaml-editor {
+  background: #1e1e1e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.yaml-textarea {
+  width: 100%;
+  padding: 12px;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #d4d4d4;
+  background: #1e1e1e;
+  border: none;
+  resize: vertical;
+  outline: none;
+}
+
+.yaml-textarea:focus {
+  background: #252526;
+}
+
+.yaml-textarea::placeholder {
+  color: #6a9955;
 }
 
 /* 下发确认弹窗 */
