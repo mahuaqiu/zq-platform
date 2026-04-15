@@ -520,6 +520,8 @@ git commit -m "feat: 新增配置模板 Service 层"
 **Files:**
 - Create: `backend-fastapi/core/config_template/api.py`
 
+**重要：路由顺序** - `/preview` 和 `/deploy` 必须放在 `/{template_id}` 之前，否则会被当作 template_id 参数捕获。
+
 - [ ] **Step 1: 创建 API 路由**
 
 ```python
@@ -551,6 +553,8 @@ from core.config_template.service import ConfigTemplateService
 router = APIRouter(prefix="/config-template", tags=["配置模板管理"])
 
 
+# === 静态路由必须放在动态路由之前 ===
+
 @router.get("", response_model=List[ConfigTemplateResponse], summary="获取模板列表")
 async def get_template_list(
     db: AsyncSession = Depends(get_db)
@@ -560,16 +564,29 @@ async def get_template_list(
     return [ConfigTemplateResponse.model_validate(t) for t in templates]
 
 
-@router.get("/{template_id}", response_model=ConfigTemplateResponse, summary="获取模板详情")
-async def get_template_detail(
-    template_id: str,
+@router.get("/preview", response_model=ConfigPreviewResponse, summary="配置下发预览")
+async def get_deploy_preview(
+    template_id: str = Query(..., description="配置模板ID"),
+    namespace: Optional[str] = Query(None, description="命名空间筛选"),
+    device_type: Optional[str] = Query(None, description="设备类型筛选"),
+    ip: Optional[str] = Query(None, description="IP模糊搜索"),
     db: AsyncSession = Depends(get_db)
-) -> ConfigTemplateResponse:
-    """获取单个配置模板详情"""
-    template = await ConfigTemplateService.get_by_id(db, template_id)
-    if not template:
-        raise HTTPException(status_code=404, detail="模板不存在")
-    return ConfigTemplateResponse.model_validate(template)
+) -> ConfigPreviewResponse:
+    """获取配置下发预览（机器列表+配置状态）"""
+    try:
+        template_version, deployable, updating, offline, machines = \
+            await ConfigTemplateService.get_preview(
+                db, template_id, namespace, device_type, ip
+            )
+        return ConfigPreviewResponse(
+            template_version=template_version,
+            deployable_count=deployable,
+            updating_count=updating,
+            offline_count=offline,
+            machines=machines,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("", response_model=ConfigTemplateResponse, summary="新建配置模板")
@@ -584,6 +601,39 @@ async def create_template(
         raise HTTPException(status_code=400, detail="模板名称已存在")
 
     template = await ConfigTemplateService.create_with_version(db, data)
+    return ConfigTemplateResponse.model_validate(template)
+
+
+@router.post("/deploy", response_model=DeployResponse, summary="执行配置下发")
+async def deploy_config(
+    data: DeployRequest,
+    db: AsyncSession = Depends(get_db)
+) -> DeployResponse:
+    """执行配置下发到目标机器"""
+    try:
+        success, failed, details = await ConfigTemplateService.deploy_config(
+            db, data.template_id, data.machine_ids
+        )
+        return DeployResponse(
+            success_count=success,
+            failed_count=failed,
+            details=details,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# === 动态路由放在最后 ===
+
+@router.get("/{template_id}", response_model=ConfigTemplateResponse, summary="获取模板详情")
+async def get_template_detail(
+    template_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> ConfigTemplateResponse:
+    """获取单个配置模板详情"""
+    template = await ConfigTemplateService.get_by_id(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
     return ConfigTemplateResponse.model_validate(template)
 
 
@@ -619,50 +669,6 @@ async def delete_template(
     await ConfigTemplateService.delete(db, template_id)
     await db.commit()
     return {"status": "success", "message": "删除成功"}
-
-
-@router.get("/preview", response_model=ConfigPreviewResponse, summary="配置下发预览")
-async def get_deploy_preview(
-    template_id: str = Query(..., description="配置模板ID"),
-    namespace: Optional[str] = Query(None, description="命名空间筛选"),
-    device_type: Optional[str] = Query(None, description="设备类型筛选"),
-    ip: Optional[str] = Query(None, description="IP模糊搜索"),
-    db: AsyncSession = Depends(get_db)
-) -> ConfigPreviewResponse:
-    """获取配置下发预览（机器列表+配置状态）"""
-    try:
-        template_version, deployable, updating, offline, machines = \
-            await ConfigTemplateService.get_preview(
-                db, template_id, namespace, device_type, ip
-            )
-        return ConfigPreviewResponse(
-            template_version=template_version,
-            deployable_count=deployable,
-            updating_count=updating,
-            offline_count=offline,
-            machines=machines,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/deploy", response_model=DeployResponse, summary="执行配置下发")
-async def deploy_config(
-    data: DeployRequest,
-    db: AsyncSession = Depends(get_db)
-) -> DeployResponse:
-    """执行配置下发到目标机器"""
-    try:
-        success, failed, details = await ConfigTemplateService.deploy_config(
-            db, data.template_id, data.machine_ids
-        )
-        return DeployResponse(
-            success_count=success,
-            failed_count=failed,
-            details=details,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 ```
 
 - [ ] **Step 2: Commit**
@@ -1089,17 +1095,814 @@ git commit -m "feat: 新增配置管理路由配置"
 
 - [ ] **Step 1: 创建配置管理页面**
 
-页面代码较长，参考 upgrade.vue 的风格，实现：
-- 左侧模板列表（新建、编辑、删除）
-- 右侧下发区（筛选、预览、下发）
+```vue
+<script lang="ts" setup>
+import type { ConfigTemplate, ConfigPreviewMachine, ConfigPreviewResponse, DeployResponse } from '#/api/core/env-machine-config';
 
-详见实际代码实现。
+import { computed, onMounted, ref } from 'vue';
 
-- [ ] **Step 2: Commit**
+import { Page } from '@vben/common-ui';
 
-```bash
-git add web/apps/web-ele/src/views/env-machine/config.vue
-git commit -m "feat: 新增配置管理页面"
+import {
+  ElButton,
+  ElDialog,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+} from 'element-plus';
+
+import {
+  getConfigTemplateListApi,
+  createConfigTemplateApi,
+  updateConfigTemplateApi,
+  deleteConfigTemplateApi,
+  getConfigPreviewApi,
+  deployConfigApi,
+} from '#/api/core/env-machine-config';
+
+defineOptions({ name: 'EnvMachineConfigPage' });
+
+// 模板数据
+const templateList = ref<ConfigTemplate[]>([]);
+const selectedTemplate = ref<ConfigTemplate | null>(null);
+const templateLoading = ref(false);
+
+// 弹窗
+const editDialogVisible = ref(false);
+const editLoading = ref(false);
+const isEdit = ref(false);
+const editId = ref('');
+
+const editForm = ref({
+  name: '',
+  namespace: '',
+  note: '',
+  config_content: '',
+});
+
+// 下发预览
+const previewData = ref<ConfigPreviewResponse | null>(null);
+const previewLoading = ref(false);
+const selectedMachineIds = ref<string[]>([]);
+
+// 筛选
+const filterForm = ref({
+  namespace: '',
+  device_type: '',
+  ip: '',
+});
+
+// 下发确认弹窗
+const deployDialogVisible = ref(false);
+const deployLoading = ref(false);
+
+// 命名空间选项
+const NAMESPACE_OPTIONS = [
+  { label: '全部', value: '' },
+  { label: '集成验证 (meeting_gamma)', value: 'meeting_gamma' },
+  { label: 'APP (meeting_app)', value: 'meeting_app' },
+  { label: '音视频 (meeting_av)', value: 'meeting_av' },
+  { label: '公共设备 (meeting_public)', value: 'meeting_public' },
+];
+
+// 设备类型选项
+const DEVICE_TYPE_OPTIONS = [
+  { label: '全部', value: '' },
+  { label: 'Windows', value: 'windows' },
+  { label: 'Mac', value: 'mac' },
+];
+
+// 可选机器（在线 + 待更新/已同步）
+const selectableMachines = computed(() => {
+  if (!previewData.value) return [];
+  return previewData.value.machines.filter(m =>
+    m.config_status === 'synced' || m.config_status === 'pending'
+  );
+});
+
+// 全选状态
+const isAllSelected = computed(() => {
+  if (selectableMachines.value.length === 0) return false;
+  return selectedMachineIds.value.length === selectableMachines.value.length;
+});
+
+// 半选状态
+const isIndeterminate = computed(() => {
+  const selectedLen = selectedMachineIds.value.length;
+  const selectableLen = selectableMachines.value.length;
+  return selectedLen > 0 && selectedLen < selectableLen;
+});
+
+// 加载模板列表
+async function loadTemplates() {
+  templateLoading.value = true;
+  try {
+    templateList.value = await getConfigTemplateListApi();
+    // 默认选中第一个
+    if (templateList.value.length > 0 && !selectedTemplate.value) {
+      selectedTemplate.value = templateList.value[0];
+    }
+  } catch {
+    ElMessage.error('加载模板失败');
+  } finally {
+    templateLoading.value = false;
+  }
+}
+
+// 选中模板
+function handleSelectTemplate(template: ConfigTemplate) {
+  selectedTemplate.value = template;
+  selectedMachineIds.value = [];
+  loadPreview();
+}
+
+// 新建模板
+function handleCreateTemplate() {
+  isEdit.value = false;
+  editId.value = '';
+  editForm.value = {
+    name: '',
+    namespace: '',
+    note: '',
+    config_content: '# Worker Configuration File\n\nworker:\n  port: 8088\n  namespace: meeting_public\n  device_check_interval: 300\n\nexternal_services:\n  platform_api: "http://192.168.0.102:8000"\n  ocr_service: "http://192.168.0.102:9021"\n\nlogging:\n  level: INFO\n',
+  };
+  editDialogVisible.value = true;
+}
+
+// 编辑模板
+function handleEditTemplate(template: ConfigTemplate) {
+  isEdit.value = true;
+  editId.value = template.id;
+  editForm.value = {
+    name: template.name,
+    namespace: template.namespace || '',
+    note: template.note || '',
+    config_content: template.config_content,
+  };
+  editDialogVisible.value = true;
+}
+
+// 删除模板
+async function handleDeleteTemplate(template: ConfigTemplate) {
+  await ElMessageBox.confirm(
+    `确定删除模板 "${template.name}"？删除后将无法恢复。`,
+    '删除确认',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+  );
+  try {
+    await deleteConfigTemplateApi(template.id);
+    ElMessage.success('删除成功');
+    await loadTemplates();
+    if (selectedTemplate.value?.id === template.id) {
+      selectedTemplate.value = templateList.value[0] || null;
+    }
+  } catch {
+    ElMessage.error('删除失败');
+  }
+}
+
+// 保存模板
+async function handleSaveTemplate() {
+  if (!editForm.value.name.trim()) {
+    ElMessage.warning('模板名称不能为空');
+    return;
+  }
+  if (!editForm.value.config_content.trim()) {
+    ElMessage.warning('配置内容不能为空');
+    return;
+  }
+
+  editLoading.value = true;
+  try {
+    if (isEdit.value) {
+      await updateConfigTemplateApi(editId.value, {
+        name: editForm.value.name,
+        namespace: editForm.value.namespace || undefined,
+        note: editForm.value.note || undefined,
+        config_content: editForm.value.config_content,
+      });
+      ElMessage.success('更新成功');
+    } else {
+      const newTemplate = await createConfigTemplateApi({
+        name: editForm.value.name,
+        namespace: editForm.value.namespace || undefined,
+        note: editForm.value.note || undefined,
+        config_content: editForm.value.config_content,
+      });
+      ElMessage.success('创建成功');
+      selectedTemplate.value = newTemplate;
+    }
+    editDialogVisible.value = false;
+    await loadTemplates();
+    await loadPreview();
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.detail || '操作失败');
+  } finally {
+    editLoading.value = false;
+  }
+}
+
+// 加载预览
+async function loadPreview() {
+  if (!selectedTemplate.value) return;
+  previewLoading.value = true;
+  try {
+    previewData.value = await getConfigPreviewApi(
+      selectedTemplate.value.id,
+      filterForm.value.namespace || undefined,
+      filterForm.value.device_type || undefined,
+      filterForm.value.ip || undefined
+    );
+    selectedMachineIds.value = [];
+  } catch {
+    ElMessage.error('加载预览失败');
+  } finally {
+    previewLoading.value = false;
+  }
+}
+
+// 全选切换
+function handleSelectAllChange(val: boolean) {
+  if (val) {
+    selectedMachineIds.value = selectableMachines.value.map(m => m.id);
+  } else {
+    selectedMachineIds.value = [];
+  }
+}
+
+// 单选切换
+function handleCheckboxChange(machineId: string, checked: boolean) {
+  if (checked) {
+    if (!selectedMachineIds.value.includes(machineId)) {
+      selectedMachineIds.value.push(machineId);
+    }
+  } else {
+    selectedMachineIds.value = selectedMachineIds.value.filter(id => id !== machineId);
+  }
+}
+
+// 判断是否可选
+function isSelectable(configStatus: string): boolean {
+  return configStatus === 'synced' || configStatus === 'pending';
+}
+
+// 获取配置状态样式
+function getConfigStatusStyle(status: string): { bg: string; color: string } {
+  const styleMap: Record<string, { bg: string; color: string }> = {
+    synced: { bg: '#f6ffed', color: '#52c41a' },
+    pending: { bg: '#fff7e6', color: '#faad14' },
+    updating: { bg: '#f9f0ff', color: '#722ed1' },
+    offline: { bg: '#fff1f0', color: '#ff4d4f' },
+  };
+  return styleMap[status] || { bg: '#f5f5f5', color: '#666' };
+}
+
+// 获取配置状态文本
+function getConfigStatusText(status: string): string {
+  const textMap: Record<string, string> = {
+    synced: '已同步',
+    pending: '待更新',
+    updating: '更新中',
+    offline: '离线',
+  };
+  return textMap[status] || status;
+}
+
+// 获取命名空间显示文本
+function getNamespaceText(namespace: string): string {
+  const opt = NAMESPACE_OPTIONS.find(o => o.value === namespace);
+  return opt?.label || namespace;
+}
+
+// 打开下发确认弹窗
+function openDeployDialog() {
+  if (selectedMachineIds.value.length === 0) {
+    ElMessage.warning('请选择要下发配置的机器');
+    return;
+  }
+  deployDialogVisible.value = true;
+}
+
+// 执行下发
+async function executeDeploy() {
+  if (!selectedTemplate.value) return;
+  deployLoading.value = true;
+  try {
+    const result: DeployResponse = await deployConfigApi({
+      template_id: selectedTemplate.value.id,
+      machine_ids: selectedMachineIds.value,
+    });
+
+    if (result.failed_count > 0) {
+      const failedMessages = result.details
+        .filter(d => d.status === 'failed')
+        .map(d => `${d.ip}: ${d.error_message}`)
+        .join('\n');
+      ElMessage.warning({
+        message: `下发完成，但有 ${result.failed_count} 台失败:\n${failedMessages}`,
+        duration: 5000,
+      });
+    } else {
+      ElMessage.success(`下发成功：${result.success_count} 台`);
+    }
+
+    deployDialogVisible.value = false;
+    await loadPreview();
+  } catch {
+    ElMessage.error('下发失败');
+  } finally {
+    deployLoading.value = false;
+  }
+}
+
+// 重置筛选
+function handleReset() {
+  filterForm.value = { namespace: '', device_type: '', ip: '' };
+  loadPreview();
+}
+
+// 初始化
+onMounted(() => {
+  loadTemplates();
+});
+</script>
+
+<template>
+  <Page auto-content-height>
+    <div class="config-page">
+      <!-- 左侧：模板列表 -->
+      <div class="template-panel">
+        <div class="panel-header">
+          <span class="panel-title">📝 配置模板</span>
+          <ElButton type="primary" size="small" @click="handleCreateTemplate">新建</ElButton>
+        </div>
+        <div class="panel-body" v-loading="templateLoading">
+          <div
+            v-for="template in templateList"
+            :key="template.id"
+            :class="['template-item', { selected: selectedTemplate?.id === template.id }]"
+            @click="handleSelectTemplate(template)"
+          >
+            <div class="template-info">
+              <div class="template-name">{{ template.name }}</div>
+              <div class="template-meta">
+                <span>适用：{{ template.namespace ? getNamespaceText(template.namespace) : '全部' }}</span>
+              </div>
+              <div class="template-version">版本：{{ template.version }}</div>
+            </div>
+            <div class="template-actions">
+              <a class="action-link" @click.stop="handleEditTemplate(template)">编辑</a>
+              <a class="action-link danger" @click.stop="handleDeleteTemplate(template)">删除</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：下发区 -->
+      <div class="deploy-panel">
+        <div class="panel-header">
+          <span class="panel-title">🚀 下发配置</span>
+        </div>
+        <div class="panel-body">
+          <!-- 筛选条件 -->
+          <div class="filter-row">
+            <ElSelect v-model="filterForm.namespace" placeholder="命名空间" clearable style="width: 140px">
+              <ElOption v-for="opt in NAMESPACE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </ElSelect>
+            <ElSelect v-model="filterForm.device_type" placeholder="设备类型" clearable style="width: 100px">
+              <ElOption v-for="opt in DEVICE_TYPE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </ElSelect>
+            <ElInput v-model="filterForm.ip" placeholder="IP搜索" clearable style="width: 140px" />
+            <ElButton type="primary" @click="loadPreview">查询预览</ElButton>
+            <ElButton @click="handleReset">重置</ElButton>
+          </div>
+
+          <!-- 当前模板提示 -->
+          <div class="template-tip" v-if="selectedTemplate">
+            <span class="tip-label">当前模板：</span>
+            <span class="tip-name">{{ selectedTemplate.name }}</span>
+            <span class="tip-version">（{{ selectedTemplate.version }}）</span>
+            <span class="tip-hint">点击左侧切换</span>
+          </div>
+
+          <!-- 统计信息 -->
+          <div class="stats-row" v-if="previewData">
+            <span class="stats-item primary">可下发: {{ previewData.deployable_count }}台</span>
+            <span class="stats-item purple">更新中: {{ previewData.updating_count }}台</span>
+            <span class="stats-item danger">离线: {{ previewData.offline_count }}台</span>
+          </div>
+
+          <!-- 机器表格 -->
+          <div class="table-wrapper">
+            <ElTable :data="previewData?.machines || []" v-loading="previewLoading" border stripe>
+              <ElTableColumn :width="60" label="选择">
+                <template #header>
+                  <input type="checkbox" :checked="isAllSelected" :indeterminate.prop="isIndeterminate"
+                    @change="handleSelectAllChange($event.target.checked)" />
+                </template>
+                <template #default="{ row }">
+                  <input type="checkbox" :checked="selectedMachineIds.includes(row.id)"
+                    :disabled="!isSelectable(row.config_status)"
+                    @change="handleCheckboxChange(row.id, $event.target.checked)" />
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="ip" label="IP地址" min-width="140">
+                <template #default="{ row }">
+                  <code class="ip-code">{{ row.ip }}</code>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="namespace" label="命名空间" min-width="100">
+                <template #default="{ row }">
+                  {{ getNamespaceText(row.namespace) }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="device_type" label="设备类型" min-width="80">
+                <template #default="{ row }">
+                  {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="status" label="机器状态" min-width="80">
+                <template #default="{ row }">
+                  <span :class="`status-${row.status}`">{{ row.status }}</span>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="config_status" label="配置状态" min-width="90">
+                <template #default="{ row }">
+                  <span class="config-status-tag"
+                    :style="{ background: getConfigStatusStyle(row.config_status).bg, color: getConfigStatusStyle(row.config_status).color }">
+                    {{ getConfigStatusText(row.config_status) }}
+                  </span>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="config_version" label="配置版本" min-width="140">
+                <template #default="{ row }">
+                  {{ row.config_version || '-' }}
+                </template>
+              </ElTableColumn>
+            </ElTable>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="action-row">
+            <span class="selected-count">已选择 <strong>{{ selectedMachineIds.length }}</strong> 台</span>
+            <ElButton type="primary" :disabled="selectedMachineIds.length === 0" @click="openDeployDialog">
+              下发配置
+            </ElButton>
+          </div>
+        </div>
+      </div>
+
+      <!-- 编辑模板弹窗 -->
+      <ElDialog v-model="editDialogVisible" :title="isEdit ? '编辑模板' : '新建模板'" width="720px"
+        :close-on-click-modal="false">
+        <ElForm label-width="80px">
+          <ElFormItem label="模板名称">
+            <ElInput v-model="editForm.name" placeholder="如：默认配置模板" />
+          </ElFormItem>
+          <ElFormItem label="适用命名空间">
+            <ElSelect v-model="editForm.namespace" placeholder="全部" clearable style="width: 100%">
+              <ElOption v-for="opt in NAMESPACE_OPTIONS.filter(o => o.value)" :key="opt.value"
+                :label="opt.label" :value="opt.value" />
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="备注">
+            <ElInput v-model="editForm.note" placeholder="模板用途说明" />
+          </ElFormItem>
+          <ElFormItem label="配置内容">
+            <div class="yaml-editor">
+              <textarea v-model="editForm.config_content" class="yaml-textarea"
+                placeholder="在此编辑 YAML 配置文件..."></textarea>
+            </div>
+          </ElFormItem>
+        </ElForm>
+        <template #footer>
+          <ElButton @click="editDialogVisible = false">取消</ElButton>
+          <ElButton type="primary" :loading="editLoading" @click="handleSaveTemplate">保存</ElButton>
+        </template>
+      </ElDialog>
+
+      <!-- 下发确认弹窗 -->
+      <ElDialog v-model="deployDialogVisible" title="确认下发配置" width="400px"
+        :close-on-click-modal="false">
+        <div class="deploy-confirm">
+          <p class="deploy-desc">即将对选中的设备下发配置，下发后机器将自动重启服务。</p>
+          <div class="deploy-count">
+            <span class="count-number">{{ selectedMachineIds.length }}</span>
+            <span class="count-label">台机器待下发</span>
+          </div>
+          <div class="deploy-warning">
+            <span>⚠️ 下发期间机器将暂停服务</span>
+          </div>
+        </div>
+        <template #footer>
+          <ElButton @click="deployDialogVisible = false">取消</ElButton>
+          <ElButton type="primary" :loading="deployLoading" @click="executeDeploy">确认下发</ElButton>
+        </template>
+      </ElDialog>
+    </div>
+  </Page>
+</template>
+
+<style scoped>
+.config-page {
+  display: flex;
+  gap: 16px;
+  min-height: 100%;
+  padding: 20px;
+  background: #f5f5f5;
+}
+
+/* 左侧模板面板 */
+.template-panel {
+  flex: 0 0 300px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+}
+
+.panel-header {
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.panel-body {
+  padding: 12px;
+}
+
+.template-item {
+  padding: 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.template-item:hover {
+  border-color: #1890ff;
+}
+
+.template-item.selected {
+  border-color: #1890ff;
+  background: #e6f7ff;
+}
+
+.template-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.template-item.selected .template-name {
+  color: #1890ff;
+}
+
+.template-meta {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.template-version {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.template-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-link {
+  font-size: 12px;
+  color: #1890ff;
+  cursor: pointer;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}
+
+.action-link.danger {
+  color: #ff4d4f;
+}
+
+/* 右侧下发面板 */
+.deploy-panel {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.template-tip {
+  padding: 10px 12px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.tip-label {
+  color: #d48806;
+}
+
+.tip-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.tip-version {
+  color: #666;
+}
+
+.tip-hint {
+  color: #999;
+  margin-left: 8px;
+}
+
+.stats-row {
+  padding: 8px 12px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.stats-item {
+  margin-right: 16px;
+}
+
+.stats-item.primary {
+  color: #1890ff;
+}
+
+.stats-item.purple {
+  color: #722ed1;
+}
+
+.stats-item.danger {
+  color: #ff4d4f;
+}
+
+.table-wrapper {
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+
+.ip-code {
+  padding: 2px 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 13px;
+  background: #f5f5f5;
+  border-radius: 2px;
+}
+
+.status-online {
+  color: #52c41a;
+}
+
+.status-using {
+  color: #e6a23c;
+}
+
+.status-offline {
+  color: #ff4d4f;
+}
+
+.status-config_updating {
+  color: #722ed1;
+}
+
+.config-status-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: #666;
+}
+
+.selected-count strong {
+  color: #1890ff;
+}
+
+/* YAML 编辑器 */
+.yaml-editor {
+  background: #1e1e1e;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.yaml-textarea {
+  width: 100%;
+  min-height: 300px;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  border: none;
+  background: transparent;
+  color: #d4d4d4;
+  resize: vertical;
+}
+
+/* 下发确认弹窗 */
+.deploy-confirm {
+  text-align: center;
+}
+
+.deploy-desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.deploy-count {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #e6f7ff;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.count-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1890ff;
+}
+
+.count-label {
+  font-size: 14px;
+  color: #1890ff;
+}
+
+.deploy-warning {
+  padding: 12px;
+  background: #fff7e6;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #d48806;
+}
+
+/* 表格样式 */
+:deep(th.el-table__cell) {
+  padding: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  background: #fafafa !important;
+}
+
+:deep(td.el-table__cell) {
+  padding: 10px !important;
+  font-size: 13px !important;
+}
+
+:deep(.el-table__row--striped td.el-table__cell) {
+  background: #fafafa !important;
+}
+</style>
 ```
 
 ---
