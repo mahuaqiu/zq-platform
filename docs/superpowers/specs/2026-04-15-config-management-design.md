@@ -64,11 +64,13 @@
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/core/config-template/list` | GET | 获取模板列表 |
+| `/api/core/config-template` | GET | 获取模板列表 |
 | `/api/core/config-template/{id}` | GET | 获取模板详情 |
 | `/api/core/config-template` | POST | 新建模板 |
 | `/api/core/config-template/{id}` | PUT | 编辑模板 |
 | `/api/core/config-template/{id}` | DELETE | 删除模板 |
+
+> 注：API 路径命名遵循项目 RESTful 风格，列表查询直接用 GET /资源路径
 
 **模板 Schema**：
 ```python
@@ -94,7 +96,12 @@ class ConfigTemplate(BaseModel):
 **下发预览接口**：
 ```
 GET /api/core/config-template/preview
-参数：namespace, device_type, ip, template_id
+参数：
+- template_id: str（必填）- 配置模板 ID
+- namespace: str | None（可选）- 命名空间筛选
+- device_type: str | None（可选）- 设备类型筛选
+- ip: str | None（可选）- IP 模糊搜索
+
 返回：机器列表 + 配置状态
 ```
 
@@ -110,8 +117,20 @@ POST /api/core/config-template/deploy
 {
   "success_count": 10,
   "failed_count": 2,
-  "details": [...]
+  "details": [
+    {"machine_id": "id1", "ip": "192.168.0.101", "status": "success", "error_message": null},
+    {"machine_id": "id2", "ip": "192.168.0.102", "status": "failed", "error_message": "连接超时"}
+  ]
 }
+```
+
+**下发详情 Schema**：
+```python
+class DeployDetail(BaseModel):
+    machine_id: str
+    ip: str
+    status: str           # success / failed
+    error_message: str | None
 ```
 
 ### 3.3 Worker 配置接收接口
@@ -164,8 +183,14 @@ CREATE TABLE config_template (
     sys_create_datetime TIMESTAMP,
     sys_update_datetime TIMESTAMP,
     sys_creator_id UUID,
-    sys_modifier_id UUID
+    sys_modifier_id UUID,
+    
+    -- 唯一约束：模板名称不能重复
+    CONSTRAINT uq_config_template_name UNIQUE (name)
 );
+
+-- 索引：按命名空间查询
+CREATE INDEX ix_config_template_namespace ON config_template(namespace);
 ```
 
 ### 4.2 执行机表变更
@@ -233,29 +258,62 @@ ALTER TABLE env_machine ADD COLUMN config_version VARCHAR(20);
 | 配置更新中 | 更新中 | ✗ 不可勾选 |
 | 离线 | 离线 | ✗ 不可勾选 |
 
+### 6.3 异常处理
+
+| 异常场景 | 处理方式 |
+|----------|----------|
+| 下发失败（Worker 不可达） | 返回失败详情，机器状态不变 |
+| 机器离线时下发 | 直接返回失败，不允许下发 |
+| 机器重启超时（>120秒） | 状态恢复为"离线"，配置状态保持"更新中" |
+
 ## 7. 实现要点
 
 ### 7.1 后端实现
 
-1. 新建 `config_template` 模块（model.py, schema.py, service.py, api.py）
-2. 在 `env_machine.model.py` 新增 `config_version` 字段
-3. 在 `env_machine.api.py` 修改注册接口，接收 `config_version`
-4. 实现下发逻辑：调用 Worker 的 `/worker/config` 接口
+**新建模块**：`backend-fastapi/core/config_template/`
+
+需要新建的文件：
+- `model.py` - 配置模板数据模型
+- `schema.py` - Pydantic Schema 定义
+- `service.py` - 业务逻辑层
+- `api.py` - FastAPI 路由
+
+需要修改的文件：
+- `backend-fastapi/core/router.py` - 注册 config_template 路由
+- `backend-fastapi/core/env_machine/model.py` - 新增 `config_version` 字段
+- `backend-fastapi/core/env_machine/schema.py` - 注册请求新增 `config_version` 字段
+- `backend-fastapi/core/env_machine/api.py` - 注册接口接收 `config_version` 字段
 
 ### 7.2 前端实现
 
-1. 新建 `web/apps/web-ele/src/views/config-template/index.vue`
-2. 新建 `web/apps/web-ele/src/api/core/config-template.ts`
-3. 新建路由配置
-4. 新建菜单初始化脚本
+**新建文件**（与现有 env-machine 模块命名风格一致）：
+- `web/apps/web-ele/src/views/env-machine/config.vue` - 配置管理页面
+- `web/apps/web-ele/src/api/core/env-machine-config.ts` - API 接口定义
+
+**新建路由配置**：
+- `web/apps/web-ele/src/router/routes/modules/env-machine-config.ts`
+
+**新建菜单初始化脚本**：
+- `backend-fastapi/scripts/init_config_template_menu.py`
 
 ### 7.3 Worker 实现
 
-1. 新增 `/worker/config` 接口，接收配置内容
-2. 保存配置文件到本地
-3. 记录 `config_version`
-4. 重启服务
-5. 注册时上报 `config_version`
+**新增接口**：`POST /worker/config`
+
+处理流程：
+1. 接收配置内容（需验证请求来源，使用现有的 Worker 认证机制）
+2. 保存配置文件到本地（如 `config/worker.yaml`）
+3. 记录 `config_version` 到本地状态文件
+4. 触发 Worker 服务重启
+5. 重启后注册时上报 `config_version`
+
+**错误响应**：
+```json
+{
+  "success": false,
+  "error": "配置保存失败" | "服务重启失败" | ...
+}
+```
 
 ## 8. 菜单配置
 
