@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # 任务聚合配置，JSON格式，如 {"windows_uisdk": ["windows_uisdk1", "windows_uisdk2"]}
     TASK_AGGREGATION_CONFIG: str = ""
 
+    # Namespace 配置（JSON 格式）
+    NAMESPACE_CONFIG: str = ""
+
     # 执行主机IP（用于定时任务IP匹配）
     HOST_IP: str = ""
 
@@ -177,6 +180,18 @@ class Settings(BaseSettings):
         except json.JSONDecodeError as e:
             logger.warning(f"TASK_AGGREGATION_CONFIG JSON 解析失败: {e}")
             return {}
+
+    @property
+    def namespace_map(self) -> Dict[str, str]:
+        """解析 namespace 配置"""
+        default_config = {"meeting_gamma": "集成验证", "meeting_app": "APP", "meeting_av": "音视频", "meeting_public": "公共设备"}
+        if not self.NAMESPACE_CONFIG:
+            return default_config
+        try:
+            return json.loads(self.NAMESPACE_CONFIG)
+        except json.JSONDecodeError as e:
+            logger.warning(f"NAMESPACE_CONFIG JSON 解析失败: {e}, 使用默认配置")
+            return default_config
 
 
 def get_settings() -> Settings:

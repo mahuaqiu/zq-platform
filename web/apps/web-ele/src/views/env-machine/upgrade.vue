@@ -28,6 +28,8 @@ import {
   removeUpgradeQueueApi,
 } from '#/api/core/env-machine-upgrade';
 
+import { NAMESPACE_OPTIONS_WITH_ALL } from './types';
+
 defineOptions({ name: 'EnvMachineUpgradePage' });
 
 // 版本配置数据
@@ -41,15 +43,6 @@ const filterForm = ref({
   device_type: 'all',
   ip: '',
 });
-
-// Namespace 选项
-const NAMESPACE_OPTIONS = [
-  { label: '全部', value: 'all' },
-  { label: '集成验证 (meeting_gamma)', value: 'meeting_gamma' },
-  { label: 'APP (meeting_app)', value: 'meeting_app' },
-  { label: '音视频 (meeting_av)', value: 'meeting_av' },
-  { label: '公共设备 (meeting_public)', value: 'meeting_public' },
-];
 
 // 设备类型选项（含全部）
 const DEVICE_TYPE_FILTER_OPTIONS = [
@@ -390,7 +383,7 @@ onMounted(async () => {
             <div class="filter-item">
               <label class="filter-label">设备类别:</label>
               <ElSelect v-model="filterForm.namespace" style="width: 150px">
-                <ElOption v-for="opt in NAMESPACE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <ElOption v-for="opt in NAMESPACE_OPTIONS_WITH_ALL" :key="opt.value" :label="opt.label" :value="opt.value" />
               </ElSelect>
             </div>
             <div class="filter-item">

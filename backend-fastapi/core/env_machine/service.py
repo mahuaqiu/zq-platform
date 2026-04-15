@@ -15,7 +15,10 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
+from app.config import get_settings
 from core.env_machine.model import EnvMachine
+
+settings = get_settings()
 
 
 class EnvMachineCreateSchema(BaseModel):
@@ -192,8 +195,8 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         :param page_size: 每页数量
         :return: (机器列表, 总数)
         """
-        # 定义有效的命名空间列表（排除手工使用）
-        VALID_NAMESPACES = ['meeting_gamma', 'meeting_app', 'meeting_av', 'meeting_public']
+        # 定义有效的命名空间列表（排除手工使用，从配置动态获取）
+        VALID_NAMESPACES = list(settings.namespace_map.keys())
 
         filters = [EnvMachine.is_deleted == False]
 

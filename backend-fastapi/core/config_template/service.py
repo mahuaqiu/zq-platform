@@ -17,6 +17,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
+from app.config import get_settings
 from core.config_template.model import ConfigTemplate
 from core.config_template.schema import (
     ConfigTemplateCreate,
@@ -30,11 +31,13 @@ from core.env_machine.model import EnvMachine
 
 logger = logging.getLogger(__name__)
 
+settings = get_settings()
+
 # Worker 配置接口超时时间（秒）
 WORKER_CONFIG_TIMEOUT = 10
 
-# 合法的命名空间列表（用于配置下发筛选）
-VALID_NAMESPACE_LIST = ["meeting_gamma", "meeting_app", "meeting_av", "meeting_public"]
+# 合法的命名空间列表（用于配置下发筛选，从配置动态获取）
+VALID_NAMESPACE_LIST = list(settings.namespace_map.keys())
 
 
 class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, ConfigTemplateUpdate]):

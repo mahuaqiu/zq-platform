@@ -25,6 +25,8 @@ import {
   deployConfigApi,
 } from '#/api/core/env-machine-config';
 
+import { NAMESPACE_OPTIONS_WITH_ALL, NAMESPACE_OPTIONS_DIALOG, NAMESPACE_DISPLAY_MAP } from './types';
+
 defineOptions({ name: 'EnvMachineConfigPage' });
 
 // 模板列表数据
@@ -56,32 +58,6 @@ const filterForm = ref({
   device_type: 'all',
   ip: '',
 });
-
-// Namespace 选项
-const NAMESPACE_OPTIONS = [
-  { label: '全部', value: 'all' },
-  { label: '集成验证', value: 'meeting_gamma' },
-  { label: 'APP', value: 'meeting_app' },
-  { label: '音视频', value: 'meeting_av' },
-  { label: '公共设备', value: 'meeting_public' },
-];
-
-// Namespace 显示名称（弹窗用，只显示中文）
-const NAMESPACE_OPTIONS_DIALOG = [
-  { label: '全部命名空间', value: '' },
-  { label: '集成验证', value: 'meeting_gamma' },
-  { label: 'APP', value: 'meeting_app' },
-  { label: '音视频', value: 'meeting_av' },
-  { label: '公共设备', value: 'meeting_public' },
-];
-
-// Namespace 显示名称
-const NAMESPACE_DISPLAY: Record<string, string> = {
-  meeting_gamma: '集成验证',
-  meeting_app: 'APP',
-  meeting_av: '音视频',
-  meeting_public: '公共设备',
-};
 
 // 设备类型选项（含全部）
 const DEVICE_TYPE_FILTER_OPTIONS = [
@@ -121,7 +97,7 @@ const isIndeterminate = computed(() => {
 // 获取模板适用命名空间的显示文本
 function getTemplateNamespaceDisplay(namespace?: string): string {
   if (!namespace) return '全部命名空间';
-  return NAMESPACE_DISPLAY[namespace] || namespace;
+  return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
 }
 
 // 加载模板列表
@@ -388,7 +364,7 @@ function getConfigVersionColor(configStatus: string): string {
 
 // 获取命名空间显示名称
 function getNamespaceDisplay(namespace: string): string {
-  return NAMESPACE_DISPLAY[namespace] || namespace;
+  return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
 }
 
 // 初始化
@@ -441,7 +417,7 @@ onMounted(async () => {
               <div class="filter-item">
                 <label class="filter-label">命名空间:</label>
                 <ElSelect v-model="filterForm.namespace" style="width: 140px">
-                  <ElOption v-for="opt in NAMESPACE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+                  <ElOption v-for="opt in NAMESPACE_OPTIONS_WITH_ALL" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </ElSelect>
               </div>
               <div class="filter-item">
