@@ -20,6 +20,7 @@ from core.test_report.api import router as test_report_router
 from core.scheduler.api import router as scheduler_router
 from core.ai_assistant.api import router as ai_assistant_router
 from core.ai_assistant.public_api import router as ai_public_router
+from core.config_template.api import router as config_template_router
 
 router = APIRouter()
 
@@ -39,3 +40,4 @@ router.include_router(test_report_router)
 router.include_router(scheduler_router)
 router.include_router(ai_assistant_router)
 router.include_router(ai_public_router)
+router.include_router(config_template_router)
