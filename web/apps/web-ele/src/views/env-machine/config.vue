@@ -934,58 +934,55 @@ onMounted(async () => {
 .table-wrapper {
   border: 1px solid #e8e8e8;
   border-radius: 4px;
-  overflow: hidden;
 }
 
 .preview-table {
   font-size: 13px;
 }
 
-.preview-table :deep(th.el-table__cell) {
+/* 表头样式 */
+.preview-table :deep(.el-table__header-wrapper th.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   color: #000 !important;
   background: #fafafa !important;
+  border-bottom: 1px solid #e8e8e8 !important;
 }
 
-.preview-table :deep(td.el-table__cell) {
+/* 表格单元格样式 */
+.preview-table :deep(.el-table__body-wrapper td.el-table__cell) {
   padding: 10px !important;
   font-size: 13px !important;
   color: #333 !important;
 }
 
-/* 使用 stripe 属性的斑马纹 */
+/* 边框样式 - ElTable border 属性 */
+.preview-table.el-table--border :deep(.el-table__cell) {
+  border-right: 1px solid #e8e8e8 !important;
+}
+
+.preview-table.el-table--border :deep(th.el-table__cell) {
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 斑马纹 */
 .preview-table :deep(.el-table__row--striped td.el-table__cell) {
   background: #fafafa !important;
 }
 
+/* hover 效果 */
 .preview-table :deep(.el-table__row:hover td.el-table__cell) {
   background: #f5f5f5 !important;
 }
 
-/* Element Plus border 样式调整 */
-.preview-table :deep(.el-table--border .el-table__cell) {
-  border-right: 1px solid #e8e8e8 !important;
-}
-
-.preview-table :deep(.el-table--border::after) {
-  background-color: #e8e8e8 !important;
-}
-
-.preview-table :deep(.el-table--border::before) {
-  background-color: #e8e8e8 !important;
-}
-
-.preview-table :deep(.el-table__border-left-patch) {
-  width: 0 !important;
-}
-
+/* checkbox 样式 */
 .native-checkbox {
   width: 14px;
   height: 14px;
   accent-color: #1890ff;
   cursor: pointer;
+  vertical-align: middle;
 }
 
 .native-checkbox:disabled {
