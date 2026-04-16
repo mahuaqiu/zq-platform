@@ -609,11 +609,13 @@ onMounted(() => {
 .job-status-warning {
   color: #faad14;
   background: #fffbe6;
+  border: 1px solid #ffe58f;
 }
 
 .job-status-info {
   color: #1890ff;
   background: #e6f7ff;
+  border: 1px solid #91d5ff;
 }
 
 /* 操作链接 */
