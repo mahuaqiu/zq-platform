@@ -283,7 +283,7 @@ onMounted(() => {
           </div>
 
           <!-- 新增按钮 -->
-          <ElButton type="success" class="scheduler-create-btn" @click="handleCreate">
+          <ElButton class="scheduler-create-btn" @click="handleCreate">
             + 新增任务
           </ElButton>
         </div>
@@ -433,10 +433,10 @@ onMounted(() => {
 
 .scheduler-create-btn {
   margin-left: auto;
+  background: #f5f5f5 !important;
+  color: #111 !important;
+  border: 1px solid #d9d9d9 !important;
   font-weight: 500;
-  color: #fff !important;
-  background: #52c41a !important;
-  border-color: #52c41a !important;
 }
 
 /* 统计卡片 */
@@ -597,11 +597,13 @@ onMounted(() => {
 .job-status-success {
   color: #52c41a;
   background: #f6ffed;
+  border: 1px solid #b7eb8f;
 }
 
 .job-status-danger {
   color: #ff4d4f;
-  background: #fff2f0;
+  background: #fff1f0;
+  border: 1px solid #ffa39e;
 }
 
 .job-status-warning {
