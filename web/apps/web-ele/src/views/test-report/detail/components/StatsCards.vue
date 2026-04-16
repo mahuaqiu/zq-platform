@@ -48,7 +48,7 @@ const compareDisplay = computed(() => {
     <ElCard class="stats-card">
       <div class="stats-label">每轮都失败</div>
       <div class="stats-value stat-orange">{{ summary?.failAlways ?? '--' }}</div>
-      <div class="stats-sub" style="color: #111">重点关注</div>
+      <div class="stats-sub">重点关注</div>
     </ElCard>
     <ElCard class="stats-card">
       <div class="stats-label">不稳定用例</div>
@@ -84,7 +84,6 @@ const compareDisplay = computed(() => {
   font-weight: 600;
 }
 
-/* 标题全黑加粗 */
 .stats-label {
   margin-top: 4px;
   font-size: 14px;
@@ -95,10 +94,9 @@ const compareDisplay = computed(() => {
 .stats-sub {
   margin-top: 2px;
   font-size: 11px;
-  color: #111; /* 改为全黑 */
+  color: #111;
 }
 
-/* 语义色 - 替换旧颜色 */
 .stat-blue {
   color: #3b82f6;
 }
