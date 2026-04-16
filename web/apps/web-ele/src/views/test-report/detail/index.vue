@@ -75,8 +75,8 @@ onMounted(() => {
           <span class="header-time">执行时间：{{ formatExecuteTime(summary?.executeTime ?? null) }}</span>
         </div>
         <div class="header-actions">
-          <ElButton @click="handleExport">导出报告</ElButton>
-          <ElButton type="primary" @click="handleBack">返回列表</ElButton>
+          <ElButton class="btn-export" @click="handleExport">导出报告</ElButton>
+          <ElButton class="btn-back" @click="handleBack">返回列表</ElButton>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 24px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
 }
@@ -129,12 +129,13 @@ onMounted(() => {
 }
 
 .header-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: #111;
 }
 
 .header-time {
+  font-size: 14px;
   color: #666;
 }
 
@@ -143,25 +144,42 @@ onMounted(() => {
   gap: 8px;
 }
 
+/* 导出报告按钮 - 蓝色边框 */
+.btn-export {
+  background: #fff;
+  color: #1890ff;
+  border: 1px solid #1890ff;
+}
+
+/* 返回列表按钮 - 浅灰背景 */
+.btn-back {
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #d9d9d9;
+}
+
 /* AI 分析区 */
 .ai-analysis {
-  padding: 16px;
+  padding: 24px;
   background: #fff;
-  border-top: 1px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin: 16px;
 }
 
 .ai-title {
   margin-bottom: 12px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: #111;
 }
 
 .ai-content {
   padding: 16px;
-  color: #666;
-  background: #f5f7fa;
-  border-radius: 4px;
+  color: #1e40af;
+  background: #eff6ff;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
 }
 
 .ai-content p {
