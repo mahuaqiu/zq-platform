@@ -291,28 +291,28 @@ onMounted(() => {
 
       <!-- 统计卡片 -->
       <div class="scheduler-statistics">
-        <ElCard class="stat-card stat-card-purple" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">总任务数</div>
-            <div class="stat-value">{{ statistics.total_jobs }}</div>
+            <div class="stat-value stat-blue">{{ statistics.total_jobs }}</div>
           </div>
         </ElCard>
-        <ElCard class="stat-card stat-card-green" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">启用任务</div>
-            <div class="stat-value">{{ statistics.enabled_jobs }}</div>
+            <div class="stat-value stat-green">{{ statistics.enabled_jobs }}</div>
           </div>
         </ElCard>
-        <ElCard class="stat-card stat-card-pink" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">执行成功率</div>
-            <div class="stat-value">{{ formatSuccessRate(statistics.success_rate) }}</div>
+            <div class="stat-value stat-green">{{ formatSuccessRate(statistics.success_rate) }}</div>
           </div>
         </ElCard>
-        <ElCard class="stat-card stat-card-blue" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">今天总执行</div>
-            <div class="stat-value">{{ statistics.total_executions }}</div>
+            <div class="stat-value stat-blue">{{ statistics.total_executions }}</div>
           </div>
         </ElCard>
       </div>
@@ -449,7 +449,10 @@ onMounted(() => {
 
 .stat-card {
   cursor: pointer;
-  border-radius: 8px;
+  background: #fff !important;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  border: 1px solid #e8e8e8;
   transition: transform 0.2s ease;
 }
 
@@ -466,32 +469,33 @@ onMounted(() => {
 }
 
 .stat-label {
-  font-size: 12px;
-  color: rgb(255 255 255 / 90%);
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
 }
 
 .stat-value {
   margin-top: 8px;
   font-size: 28px;
   font-weight: 600;
-  color: #fff;
+  color: #3b82f6;
 }
 
-/* 渐变背景 */
-.stat-card-purple {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* 数字颜色类 */
+.stat-blue {
+  color: #3b82f6;
 }
 
-.stat-card-green {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+.stat-green {
+  color: #22c55e;
 }
 
-.stat-card-pink {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+.stat-red {
+  color: #ef4444;
 }
 
-.stat-card-blue {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+.stat-orange {
+  color: #f59e0b;
 }
 
 /* 表格区域 */
