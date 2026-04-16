@@ -35,6 +35,7 @@ import {
   isMobileDevice,
 } from './types';
 import LogDialog from './LogDialog.vue';
+import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineListPage' });
 
@@ -548,11 +549,13 @@ onMounted(() => {
         </ElFormItem>
 
         <ElFormItem label="扩展信息">
-          <ElInput
+          <CodeEditor
             v-model="formData.extra_message_raw"
-            type="textarea"
-            :rows="8"
+            language="json"
+            :height="300"
             placeholder="JSON格式，按标签存储账号信息"
+            :line-wrapping="true"
+            :line-numbers="false"
           />
           <div v-if="jsonError" class="json-error">{{ jsonError }}</div>
         </ElFormItem>
@@ -561,7 +564,7 @@ onMounted(() => {
           <ElInput
             v-model="formData.note"
             type="textarea"
-            :rows="3"
+            :rows="1"
             placeholder="请输入备注信息"
           />
         </ElFormItem>
