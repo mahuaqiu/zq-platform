@@ -159,12 +159,12 @@ onUnmounted(() => {
         <div class="left-panel">
           <!-- 左侧标题栏 -->
           <div class="left-panel-header">
-            🔴 实时状态
+            实时状态
           </div>
 
           <!-- 模块1：设备台数统计 -->
           <div class="stats-card device-stats-card">
-            <div class="card-title">📊 设备台数统计</div>
+            <div class="card-title">设备台数统计</div>
 
             <!-- 汇总行 -->
             <div class="summary-row">
@@ -212,7 +212,7 @@ onUnmounted(() => {
 
           <!-- 模块6：异步机器排查 -->
           <div class="stats-card offline-card">
-            <div class="card-title warning">⚠️ 异步机器排查（启用但离线）</div>
+            <div class="card-title warning">异步机器排查（启用但离线）</div>
             <ElScrollbar class="offline-list" v-if="stats?.offline_machines?.length">
               <div
                 v-for="item in stats?.offline_machines || []"
@@ -259,7 +259,7 @@ onUnmounted(() => {
           <div class="top-cards-row">
             <!-- 申请次数 TOP10 -->
             <div class="stats-card top-card">
-              <div class="card-title">📈 申请次数 TOP10 标签</div>
+              <div class="card-title">申请次数 TOP10 标签</div>
               <div class="top-list">
                 <div
                   v-for="(item, index) in stats?.top10_tags || []"
@@ -279,7 +279,7 @@ onUnmounted(() => {
 
             <!-- 资源不足 TOP10 -->
             <div class="stats-card top-card">
-              <div class="card-title warning">⚠️ 资源不足 TOP10 标签</div>
+              <div class="card-title warning">资源不足 TOP10 标签</div>
               <div class="top-list">
                 <div
                   v-for="(item, index) in stats?.top10_insufficient || []"
@@ -300,7 +300,7 @@ onUnmounted(() => {
 
           <!-- 模块4：占用时长 TOP20 -->
           <div class="stats-card duration-card">
-            <div class="card-title">⏱️ 机器占用时长 TOP20</div>
+            <div class="card-title">机器占用时长 TOP20</div>
             <ElScrollbar class="duration-list">
               <div
                 v-for="(item, index) in stats?.top20_duration || []"
@@ -337,7 +337,7 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   padding: 16px;
-  background: #f5f7fa;
+  background: #f0f2f5; /* 改为浅灰 */
 }
 
 /* 筛选栏 */
@@ -374,10 +374,10 @@ onUnmounted(() => {
 .left-panel-header {
   padding-bottom: 8px;
   margin-bottom: 16px;
-  font-size: 16px;
-  font-weight: bold;
-  color: #722ed1;
-  border-bottom: 2px solid #722ed1;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+  border-bottom: 2px solid #e8e8e8;
 }
 
 /* 右侧面板 */
@@ -397,13 +397,13 @@ onUnmounted(() => {
 
 .card-title {
   margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
 }
 
 .card-title.warning {
-  color: #fa8c16;
+  color: #111;
 }
 
 /* 设备统计卡片 */
