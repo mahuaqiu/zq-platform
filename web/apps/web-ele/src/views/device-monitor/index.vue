@@ -168,16 +168,16 @@ onUnmounted(() => {
 
             <!-- 汇总行 -->
             <div class="summary-row">
-              <div class="summary-item purple">
-                <div class="summary-value">{{ stats?.device_stats?.total || 0 }}</div>
+              <div class="summary-item">
+                <div class="summary-value stat-blue">{{ stats?.device_stats?.total || 0 }}</div>
                 <div class="summary-label">总数</div>
               </div>
-              <div class="summary-item green">
-                <div class="summary-value">{{ stats?.device_stats?.online || 0 }}</div>
+              <div class="summary-item">
+                <div class="summary-value stat-green">{{ stats?.device_stats?.online || 0 }}</div>
                 <div class="summary-label">在线</div>
               </div>
-              <div class="summary-item red">
-                <div class="summary-value">{{ stats?.device_stats?.offline || 0 }}</div>
+              <div class="summary-item">
+                <div class="summary-value stat-red">{{ stats?.device_stats?.offline || 0 }}</div>
                 <div class="summary-label">离线</div>
               </div>
             </div>
@@ -201,12 +201,8 @@ onUnmounted(() => {
 
             <!-- 启用/未启用 -->
             <div class="enabled-row">
-              <div class="enabled-item green">
-                启用 {{ stats?.device_stats?.by_type?.reduce((sum, t) => sum + t.enabled, 0) || 0 }}
-              </div>
-              <div class="enabled-item red">
-                未启用 {{ stats?.device_stats?.by_type?.reduce((sum, t) => sum + t.disabled, 0) || 0 }}
-              </div>
+              <div class="enabled-item enabled-green">启用 {{ stats?.device_stats?.by_type?.reduce((sum, t) => sum + t.enabled, 0) || 0 }}</div>
+              <div class="enabled-item enabled-red">未启用 {{ stats?.device_stats?.by_type?.reduce((sum, t) => sum + t.disabled, 0) || 0 }}</div>
             </div>
           </div>
 
@@ -406,11 +402,12 @@ onUnmounted(() => {
   color: #111;
 }
 
-/* 设备统计卡片 */
+/* 设备统计卡片 - 白色背景 */
 .device-stats-card {
   padding: 12px;
-  background: #f9f0ff;
-  border-radius: 6px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .summary-row {
@@ -421,29 +418,31 @@ onUnmounted(() => {
   border-bottom: 1px dashed #d9d9d9;
 }
 
+/* 汇总项 - 移除彩色背景 */
 .summary-item {
   flex: 1;
   padding: 8px;
-  color: #fff;
   text-align: center;
+  background: #f5f5f5;
   border-radius: 6px;
-}
-
-.summary-item.purple {
-  background: #722ed1;
-}
-
-.summary-item.green {
-  background: #52c41a;
-}
-
-.summary-item.red {
-  background: #ff4d4f;
 }
 
 .summary-value {
   font-size: 20px;
-  font-weight: bold;
+  font-weight: 600;
+}
+
+/* 数字颜色类 */
+.stat-blue {
+  color: #3b82f6;
+}
+
+.stat-green {
+  color: #22c55e;
+}
+
+.stat-red {
+  color: #ef4444;
 }
 
 .summary-label {
@@ -461,9 +460,11 @@ onUnmounted(() => {
   text-align: center;
 }
 
+/* 类型数字改为蓝色 */
 .type-value {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 600;
+  color: #3b82f6;
 }
 
 .type-label {
@@ -480,17 +481,20 @@ onUnmounted(() => {
   flex: 1;
   padding: 4px;
   font-size: 12px;
-  color: #fff;
   text-align: center;
   border-radius: 4px;
 }
 
-.enabled-item.green {
-  background: #52c41a;
+.enabled-green {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
 }
 
-.enabled-item.red {
-  background: #ff4d4f;
+.enabled-red {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
 }
 
 /* 离线机器卡片 */
