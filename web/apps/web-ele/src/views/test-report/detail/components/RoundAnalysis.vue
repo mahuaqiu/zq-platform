@@ -35,30 +35,29 @@ function getRoundClass(index: number, total: number) {
 <style scoped>
 .round-analysis {
   padding: 16px;
-  background: #f5f7fa;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .round-title {
   margin-bottom: 12px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: #111;
 }
 
 .round-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
 }
 
 .round-card {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 12px 20px;
+  padding: 16px 24px;
   background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
+  border-radius: 8px;
+  text-align: center;
 }
 
 .round-value {
@@ -71,27 +70,33 @@ function getRoundClass(index: number, total: number) {
   color: #666;
 }
 
+/* 第一轮失败 - 红色背景 */
 .round-red {
-  border-color: #ff4d4f;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
 }
 
 .round-red .round-value {
-  color: #ff4d4f;
+  color: #ef4444;
 }
 
+/* 中间轮次 - 橙色背景 */
 .round-orange {
-  border-color: #faad14;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
 }
 
 .round-orange .round-value {
-  color: #faad14;
+  color: #f59e0b;
 }
 
+/* 最后一轮 - 绿色背景 */
 .round-green {
-  border-color: #52c41a;
+  background: #dcfce7;
+  border: 1px solid #86efac;
 }
 
 .round-green .round-value {
-  color: #52c41a;
+  color: #22c55e;
 }
 </style>
