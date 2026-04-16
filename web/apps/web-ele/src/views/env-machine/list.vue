@@ -101,7 +101,10 @@ function validateExtraMessageWithTag(): boolean {
 
   try {
     const parsed = JSON.parse(raw);
-    return parsed.hasOwnProperty(mark) && typeof parsed[mark] === 'object';
+    // 标签可能是多个（用逗号分隔），需要拆分检查每个标签
+    const tags = mark.split(',').map((t) => t.trim()).filter((t) => t);
+    // 检查每个标签是否都在扩展信息中有对应配置
+    return tags.every((tag) => parsed.hasOwnProperty(tag) && typeof parsed[tag] === 'object');
   } catch {
     return false;
   }
