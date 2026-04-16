@@ -88,7 +88,7 @@ class EnvMachineScheduler:
             await scheduler.configure_task(job_id, func=cls._release_machine_job_wrapper)
             await scheduler.add_schedule(
                 func_or_task_id=job_id,
-                trigger=DateTrigger(run_date=run_time),
+                trigger=DateTrigger(run_time=run_time),
                 id=job_id,
                 args=[machine_id],
             )
@@ -132,7 +132,7 @@ class EnvMachineScheduler:
             await scheduler.configure_task(job_id, func=cls._release_machine_job_wrapper)
             await scheduler.add_schedule(
                 func_or_task_id=job_id,
-                trigger=DateTrigger(run_date=new_run_time),
+                trigger=DateTrigger(run_time=new_run_time),
                 id=job_id,
                 args=[machine_id],
             )
