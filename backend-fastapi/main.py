@@ -7,6 +7,7 @@
 @File: main.py
 @Desc: 应用生命周期管理 - # 启动时
 """
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -42,16 +43,19 @@ async def lifespan(app: FastAPI):
     # ========== 调度器初始化结束 ==========
 
     # ========== 执行机管理模块启动初始化 ==========
-    from core.env_machine.scheduler import reset_using_machines
+    from core.env_machine.scheduler import reset_using_machines, reload_machine_status_after_restart
     from core.env_machine.pool_manager import EnvPoolManager
     from app.database import AsyncSessionLocal
 
     # 1. 重置 using 状态的机器为 online（服务重启后任务丢失）
     await reset_using_machines()
 
-    # 2. 加载机器池到 Redis
+    # 2. 加载机器池到 Redis（初始加载，状态会在后续重载中更新）
     async with AsyncSessionLocal() as db:
         await EnvPoolManager.load_machine_pool(db)
+
+    # 3. 启动后台任务：延迟10秒后主动访问设备验证状态
+    asyncio.create_task(reload_machine_status_after_restart())
     # ========== 执行机管理模块启动初始化结束 ==========
 
     # ========== 测试报告模块启动初始化 ==========

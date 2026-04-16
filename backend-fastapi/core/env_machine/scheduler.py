@@ -5,16 +5,18 @@
 @Contact: 939589097@qq.com
 @Time: 2025-03-25
 @File: scheduler.py
-@Desc: 执行机定时任务管理器 - 延迟释放和离线检测
+@Desc: 执行机定时任务管理器 - 延迟释放、离线检测、重启后状态重载
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, List
 
+import httpx
 from apscheduler import JobLookupError, AsyncScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
@@ -458,3 +460,160 @@ async def modify_release_job(machine_id: str) -> bool:
 async def remove_release_job(machine_id: str) -> bool:
     """移除延迟释放任务"""
     return await EnvMachineScheduler.remove_release_job(machine_id)
+
+
+async def _check_single_worker(
+    client: httpx.AsyncClient,
+    worker_key: str,
+    worker_machines: List[EnvMachine],
+) -> tuple[str, List[EnvMachine], bool, Optional[Dict]]:
+    """
+    检查单个 Worker 的状态
+
+    Args:
+        client: HTTP 客户端
+        worker_key: Worker 标识 (ip:port)
+        worker_machines: 该 Worker 下的所有机器
+
+    Returns:
+        tuple: (worker_key, worker_machines, success, response_data)
+    """
+    ip = worker_machines[0].ip
+    port = worker_machines[0].port
+    url = f"http://{ip}:{port}/worker_devices"
+
+    try:
+        resp = await client.get(url)
+        if resp.status_code == 200:
+            data = resp.json()
+            return (worker_key, worker_machines, True, data)
+        else:
+            logger.warning(f"Worker {worker_key} 返回异常状态码: {resp.status_code}")
+            return (worker_key, worker_machines, False, None)
+
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning(f"Worker {worker_key} 连接失败: {type(e).__name__}")
+        return (worker_key, worker_machines, False, None)
+
+    except Exception as e:
+        logger.error(f"Worker {worker_key} 访问异常: {str(e)}")
+        return (worker_key, worker_machines, False, None)
+
+
+async def reload_machine_status_after_restart() -> Dict:
+    """
+    服务重启后重载机器状态
+
+    延迟10秒后执行，遍历所有机器，主动访问每台设备的/worker_devices接口验证状态。
+    - 访问成功：更新设备状态为 online，刷新缓存
+    - 访问失败：更新设备状态为 offline，从缓存移除
+
+    Returns:
+        Dict: 重载结果统计 {"online_count": N, "offline_count": M, "total": T}
+    """
+    logger.info("开始执行重启后机器状态重载...")
+
+    # 等待10秒，让服务完全启动
+    await asyncio.sleep(10)
+
+    async with AsyncSessionLocal() as db:
+        # 查询所有机器（不包括已删除的）
+        stmt = select(EnvMachine).where(
+            EnvMachine.is_deleted == False,  # noqa: E712
+        )
+        result = await db.execute(stmt)
+        machines = result.scalars().all()
+
+        if not machines:
+            logger.info("没有机器需要重载")
+            return {"online_count": 0, "offline_count": 0, "total": 0}
+
+        # 按 IP+Port 分组（避免重复请求同一台 Worker）
+        worker_groups: Dict[str, List[EnvMachine]] = {}
+        for machine in machines:
+            key = f"{machine.ip}:{machine.port}"
+            if key not in worker_groups:
+                worker_groups[key] = []
+            worker_groups[key].append(machine)
+
+        total_machines = len(machines)
+        online_count = 0
+        offline_count = 0
+        machine_ids_to_update: List[str] = []
+
+        logger.info(f"准备重载 {total_machines} 台机器，涉及 {len(worker_groups)} 个 Worker")
+
+        # 并发访问所有 Worker
+        async with httpx.AsyncClient(timeout=5.0, trust_env=True, verify=False) as client:
+            # 创建并发任务
+            tasks = [
+                _check_single_worker(client, worker_key, worker_machines)
+                for worker_key, worker_machines in worker_groups.items()
+            ]
+            results = await asyncio.gather(*tasks)
+
+        # 处理结果
+        now = datetime.now()
+        for worker_key, worker_machines, success, data in results:
+            if success and data:
+                devices = data.get("devices", {})
+                namespace = data.get("namespace", "")
+                version = data.get("version")
+                config_version = data.get("config_version")
+
+                for machine in worker_machines:
+                    device_type = machine.device_type
+                    if device_type in ("windows", "mac"):
+                        # Windows/Mac 不需要检查 device_sn
+                        machine.status = "online"
+                        machine.sync_time = now
+                        machine.namespace = namespace or machine.namespace
+                        if version:
+                            machine.version = version
+                        if config_version:
+                            machine.config_version = config_version
+                        online_count += 1
+                        machine_ids_to_update.append(str(machine.id))
+                    elif device_type in ("android", "ios"):
+                        # 移动端需要检查 device_sn 是否在列表中
+                        device_sns = devices.get(device_type, [])
+                        if machine.device_sn in device_sns:
+                            machine.status = "online"
+                            machine.sync_time = now
+                            machine.namespace = namespace or machine.namespace
+                            if version:
+                                machine.version = version
+                            if config_version:
+                                machine.config_version = config_version
+                            online_count += 1
+                            machine_ids_to_update.append(str(machine.id))
+                        else:
+                            # 设备不在列表中，标记为 offline
+                            machine.status = "offline"
+                            offline_count += 1
+                            machine_ids_to_update.append(str(machine.id))
+
+                logger.info(f"Worker {worker_key} 访问成功，更新 {len(worker_machines)} 台机器")
+
+            else:
+                # 访问失败，标记为 offline
+                for machine in worker_machines:
+                    machine.status = "offline"
+                    offline_count += 1
+                    machine_ids_to_update.append(str(machine.id))
+
+        # 提交数据库更改
+        await db.commit()
+
+        # 批量同步 Redis 缓存
+        from core.env_machine.pool_manager import EnvPoolManager
+        await EnvPoolManager.batch_sync_cache(db, machine_ids_to_update)
+
+        result = {
+            "online_count": online_count,
+            "offline_count": offline_count,
+            "total": total_machines,
+        }
+        logger.info(f"重启后机器状态重载完成: online={online_count}, offline={offline_count}, total={total_machines}")
+
+        return result
