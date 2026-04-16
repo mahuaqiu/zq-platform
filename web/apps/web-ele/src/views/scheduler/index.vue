@@ -215,7 +215,7 @@ onMounted(() => {
 
 <template>
   <Page auto-content-height>
-    <div class="flex h-full flex-col">
+    <div class="scheduler-page flex h-full flex-col">
       <!-- 搜索区域 -->
       <div class="scheduler-search-area">
         <div class="scheduler-search-form">
@@ -384,7 +384,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
-
+/* 页面容器 */
+.scheduler-page {
+  background: #f0f2f5;
+}
 
 /* 响应式：小屏幕下统计卡片改为2列 */
 @media (max-width: 1200px) {

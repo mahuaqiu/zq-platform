@@ -111,6 +111,7 @@ onMounted(() => {
   flex-direction: column;
   height: 100%;
   overflow: auto;
+  background: #f0f2f5;
 }
 
 .detail-header {
