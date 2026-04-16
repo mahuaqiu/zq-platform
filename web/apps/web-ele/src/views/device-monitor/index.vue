@@ -504,9 +504,9 @@ onUnmounted(() => {
   flex-direction: column;
   min-height: 0;
   padding: 12px;
-  background: #fff7e6;
-  border: 1px solid #ffd591;
-  border-radius: 6px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .offline-card .card-title {
@@ -526,7 +526,8 @@ onUnmounted(() => {
   font-size: 12px;
   line-height: 1.8;
   color: #333;
-  background: #fff;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
   border-radius: 4px;
 }
 
@@ -553,7 +554,9 @@ onUnmounted(() => {
 /* 申请统计卡片 */
 .apply-card {
   padding: 16px;
-  border: 2px solid #1890ff;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .apply-main {
@@ -569,8 +572,8 @@ onUnmounted(() => {
 
 .apply-value {
   font-size: 28px;
-  font-weight: bold;
-  color: #1890ff;
+  font-weight: 600;
+  color: #3b82f6; /* 蓝色 */
 }
 
 .apply-label {
@@ -605,19 +608,19 @@ onUnmounted(() => {
 
 .detail-value {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
-.detail-item.success .detail-value {
-  color: #52c41a;
+.detail-value.success {
+  color: #22c55e;
 }
 
-.detail-item.insufficient .detail-value {
-  color: #fa8c16;
+.detail-value.insufficient {
+  color: #f59e0b;
 }
 
-.detail-item.failed .detail-value {
-  color: #ff4d4f;
+.detail-value.failed {
+  color: #ef4444;
 }
 
 .detail-label {
@@ -654,14 +657,16 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+/* 申请次数 TOP10 - 蓝色 */
 .top-bar {
   height: 14px;
-  background: #1890ff;
+  background: #3b82f6;
   border-radius: 3px;
 }
 
+/* 资源不足 TOP10 - 红色 */
 .top-bar.red {
-  background: #ff4d4f;
+  background: #ef4444;
 }
 
 .top-count {
