@@ -1237,6 +1237,29 @@
   },
   {
     "model": "core.menu.model.Menu",
+    "pk": "env-machine-config",
+    "fields": {
+      "id": "env-machine-config",
+      "name": "EnvMachineConfig",
+      "title": "配置管理",
+      "path": "/env-machine/config",
+      "type": "menu",
+      "icon": "setting",
+      "component": "/views/env-machine/config",
+      "parent_id": "env-machine-root",
+      "order": 150,
+      "sort": 150,
+      "is_deleted": false,
+      "hideInMenu": false,
+      "hideChildrenInMenu": false,
+      "hideInBreadcrumb": false,
+      "hideInTab": false,
+      "keepAlive": false,
+      "affixTab": false
+    }
+  },
+  {
+    "model": "core.menu.model.Menu",
     "pk": "ai-assistant-root",
     "fields": {
       "id": "ai-assistant-root",

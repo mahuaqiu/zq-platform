@@ -22,22 +22,22 @@ from core.menu.model import Menu
 async def init_upgrade_menu():
     """初始化升级管理菜单"""
     async with AsyncSessionLocal() as session:
-        # 查找设备管理父菜单
-        result = await session.execute(select(Menu).where(Menu.path == "/env-machine"))
+        # 查找设备管理父菜单（使用 ID 查找更可靠）
+        result = await session.execute(select(Menu).where(Menu.id == "env-machine-root"))
         parent = result.scalar_one_or_none()
 
         if not parent:
-            print("未找到设备管理父菜单")
+            print("[错误] 未找到设备管理父菜单 (env-machine-root)")
             return
 
         # 检查是否已存在升级管理菜单
         result = await session.execute(
-            select(Menu).where(Menu.path == "/env-machine/upgrade")
+            select(Menu).where(Menu.id == "env-machine-upgrade")
         )
         existing = result.scalar_one_or_none()
 
         if existing:
-            print("升级管理菜单已存在，跳过")
+            print("[OK] 升级管理菜单已存在，跳过")
             return
 
         # 创建升级管理子菜单
@@ -55,7 +55,7 @@ async def init_upgrade_menu():
         )
         session.add(menu)
         await session.commit()
-        print("升级管理菜单创建成功！超级管理员用户请刷新前端页面查看。")
+        print("[OK] 升级管理菜单创建成功！超级管理员用户请刷新前端页面查看。")
 
 
 if __name__ == "__main__":
