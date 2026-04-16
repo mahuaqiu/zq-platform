@@ -348,145 +348,6 @@ class EnvPoolManager:
         return device_type in ("android", "ios")
 
     @classmethod
-    async def allocate_machines(
-        cls,
-        db: AsyncSession,
-        namespace: str,
-        requests: dict[str, str],
-        testcase_id: Optional[str] = None  # 新增参数
-    ) -> tuple[bool, dict[str, dict] | str]:
-        """
-        分配机器
-
-        Args:
-            db: 数据库会话
-            namespace: 申请的命名空间
-            requests: 申请请求 {"userA": "windows", "userB": "web"}
-            testcase_id: 测试用例ID（可选）
-
-        Returns:
-            tuple: (是否成功, 成功时返回分配结果字典，失败时返回错误信息)
-        """
-        # 1. 参数校验：请求体不能为空
-        if not requests:
-            return False, "请求体不能为空"
-
-        # 2. 获取分布式锁
-        try:
-            async with EnvLockManager.env_lock_or_raise(namespace) as holder_id:
-                # 3. 获取查找顺序
-                pool_hierarchy = cls._get_pool_hierarchy(namespace)
-
-                if not pool_hierarchy:
-                    return False, "namespace 不支持申请"
-
-                # 4. 按顺序获取所有候选池
-                candidate_pools: list[tuple[str, dict]] = []
-                for pool_ns in pool_hierarchy:
-                    machines = await cls.get_pool_machines(pool_ns)
-                    candidate_pools.append((pool_ns, machines))
-
-                # 5. 筛选可用机器
-                # 记录已占用的 IP/SN，避免重复分配
-                occupied_ips: set[str] = set()
-                occupied_sns: set[str] = set()
-
-                # 分配结果
-                allocations: dict[str, dict] = {}
-                # 需要更新数据库的机器ID列表
-                allocated_machine_ids: list[str] = []
-
-                # 6. 按用户分配机器
-                for user, request_tag in requests.items():
-                    # 按池层级顺序查找
-                    allocated = None
-                    for pool_ns, machines in candidate_pools:
-                        allocated = cls._allocate_single(
-                            machines,
-                            request_tag,
-                            occupied_ips,
-                            occupied_sns,
-                        )
-                        if allocated:
-                            allocated["source_pool"] = pool_ns  # 记录来源池
-                            break
-
-                    if not allocated:
-                        # 分配失败，记录失败日志
-                        now = datetime.now()
-                        await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
-                            namespace=namespace,
-                            machine_id="",
-                            ip=None,
-                            device_type=request_tag.split("_")[0],
-                            device_sn=None,
-                            mark=request_tag,
-                            testcase_id=testcase_id,  # 新增
-                            action="apply",
-                            result="fail",
-                            fail_reason="env not enough",
-                            apply_time=now
-                        ))
-                        await db.commit()
-                        return False, "env not enough"
-
-                    # 记录分配结果
-                    allocations[user] = allocated
-                    allocated_machine_ids.append(allocated["id"])
-                    # 记录分配日志
-                    logger.info(f"执行机分配 | 机器ID: {allocated['id']} | 用户: {user} | 标签: {request_tag}")
-
-                # 6. 分配成功，更新数据库
-                now = datetime.now()
-
-                # 6.1 删除同一 testcase_id 的失败记录（如果有）
-                if testcase_id:
-                    await EnvMachineLogService.delete_failed_logs_by_testcase_id(db, testcase_id)
-
-                stmt = (
-                    update(EnvMachine)
-                    .where(EnvMachine.id.in_(allocated_machine_ids))
-                    .values(
-                        status="using",
-                        last_keepusing_time=now,
-                    )
-                )
-                await db.execute(stmt)
-
-                # 6.1 记录申请成功日志
-                for user, allocated in allocations.items():
-                    await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
-                        namespace=namespace,
-                        machine_id=allocated["id"],
-                        ip=allocated.get("ip"),
-                        device_type=allocated.get("actual_device_type") or allocated.get("device_type"),
-                        device_sn=allocated.get("device_sn"),
-                        mark=requests.get(user),
-                        testcase_id=testcase_id,  # 新增
-                        action="apply",
-                        result="success",
-                        fail_reason=None,
-                        apply_time=now,
-                        source_pool=allocated.get("source_pool"),
-                    ))
-                await db.commit()
-
-                # 7. 更新 Redis 缓存（移除已分配的机器）
-                for machine_id in allocated_machine_ids:
-                    # 从所有涉及的池中移除
-                    for pool_ns in pool_hierarchy:
-                        await cls.remove_machine_from_cache(machine_id, pool_ns)
-
-                # 8. 创建延迟释放任务（使用 APScheduler）
-                for machine_id in allocated_machine_ids:
-                    await create_release_job(machine_id)
-
-                return True, allocations
-
-        except LockAcquireError as e:
-            return False, e.message
-
-    @classmethod
     def _allocate_single(
         cls,
         machines: dict[str, dict],
@@ -546,6 +407,185 @@ class EnvPoolManager:
             return cls._merge_extra_message(machine_data, request_tag)
 
         return None
+
+    @classmethod
+    def _calculate_tag_scarcity(
+        cls,
+        candidate_pools: list[tuple[str, dict]],
+        requests: dict[str, str],
+    ) -> dict[str, int]:
+        """
+        计算每个申请标签的稀缺度（能匹配该标签的可用机器数量）
+
+        稀缺度越低（匹配机器越少），优先级越高
+
+        Args:
+            candidate_pools: 候选机器池列表 [(namespace, machines_dict), ...]
+            requests: 申请请求 {"userA": "web", "userB": "web_app", ...}
+
+        Returns:
+            dict: {标签: 可匹配机器数量}，数量越少越稀缺
+        """
+        scarcity = {}
+        unique_tags = set(requests.values())
+
+        for tag in unique_tags:
+            matching_count = 0
+            for pool_ns, machines in candidate_pools:
+                for machine_data in machines.values():
+                    # 检查是否匹配标签
+                    if cls._match_tag(machine_data.get("mark"), tag):
+                        matching_count += 1
+            scarcity[tag] = matching_count
+
+        return scarcity
+
+    @classmethod
+    async def allocate_machines(
+        cls,
+        db: AsyncSession,
+        namespace: str,
+        requests: dict[str, str],
+        testcase_id: Optional[str] = None
+    ) -> tuple[bool, dict[str, dict] | str]:
+        """
+        分配机器（稀缺优先策略）
+
+        Args:
+            db: 数据库会话
+            namespace: 申请的命名空间
+            requests: 申请请求 {"userA": "windows", "userB": "web"}
+            testcase_id: 测试用例ID（可选）
+
+        Returns:
+            tuple: (是否成功, 成功时返回分配结果字典，失败时返回错误信息)
+        """
+        # 1. 参数校验：请求体不能为空
+        if not requests:
+            return False, "请求体不能为空"
+
+        # 2. 获取分布式锁
+        try:
+            async with EnvLockManager.env_lock_or_raise(namespace) as holder_id:
+                # 3. 获取查找顺序
+                pool_hierarchy = cls._get_pool_hierarchy(namespace)
+
+                if not pool_hierarchy:
+                    return False, "namespace 不支持申请"
+
+                # 4. 按顺序获取所有候选池
+                candidate_pools: list[tuple[str, dict]] = []
+                for pool_ns in pool_hierarchy:
+                    machines = await cls.get_pool_machines(pool_ns)
+                    candidate_pools.append((pool_ns, machines))
+
+                # 5. 计算标签稀缺度，按稀缺优先排序申请
+                scarcity = cls._calculate_tag_scarcity(candidate_pools, requests)
+                sorted_requests = sorted(
+                    requests.items(),
+                    key=lambda x: scarcity.get(x[1], float('inf')),
+                    reverse=False  # 稀缺度低的（匹配机器少的）先分配
+                )
+
+                # 6. 筛选可用机器
+                # 记录已占用的 IP/SN，避免重复分配
+                occupied_ips: set[str] = set()
+                occupied_sns: set[str] = set()
+
+                # 分配结果
+                allocations: dict[str, dict] = {}
+                # 需要更新数据库的机器ID列表
+                allocated_machine_ids: list[str] = []
+
+                # 7. 按稀缺优先顺序分配机器
+                for user, request_tag in sorted_requests:
+                    # 按池层级顺序查找
+                    allocated = None
+                    for pool_ns, machines in candidate_pools:
+                        allocated = cls._allocate_single(
+                            machines,
+                            request_tag,
+                            occupied_ips,
+                            occupied_sns,
+                        )
+                        if allocated:
+                            allocated["source_pool"] = pool_ns  # 记录来源池
+                            break
+
+                    if not allocated:
+                        # 分配失败，记录失败日志
+                        now = datetime.now()
+                        await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
+                            namespace=namespace,
+                            machine_id="",
+                            ip=None,
+                            device_type=request_tag.split("_")[0],
+                            device_sn=None,
+                            mark=request_tag,
+                            testcase_id=testcase_id,
+                            action="apply",
+                            result="fail",
+                            fail_reason="env not enough",
+                            apply_time=now
+                        ))
+                        await db.commit()
+                        return False, "env not enough"
+
+                    # 记录分配结果
+                    allocations[user] = allocated
+                    allocated_machine_ids.append(allocated["id"])
+                    # 记录分配日志
+                    logger.info(f"执行机分配 | 机器ID: {allocated['id']} | 用户: {user} | 标签: {request_tag} | 稀缺度: {scarcity.get(request_tag, 0)}")
+
+                # 8. 分配成功，更新数据库
+                now = datetime.now()
+
+                # 8.1 删除同一 testcase_id 的失败记录（如果有）
+                if testcase_id:
+                    await EnvMachineLogService.delete_failed_logs_by_testcase_id(db, testcase_id)
+
+                stmt = (
+                    update(EnvMachine)
+                    .where(EnvMachine.id.in_(allocated_machine_ids))
+                    .values(
+                        status="using",
+                        last_keepusing_time=now,
+                    )
+                )
+                await db.execute(stmt)
+
+                # 8.2 记录申请成功日志
+                for user, allocated in allocations.items():
+                    await EnvMachineLogService.create_log(db, EnvMachineLogCreate(
+                        namespace=namespace,
+                        machine_id=allocated["id"],
+                        ip=allocated.get("ip"),
+                        device_type=allocated.get("actual_device_type") or allocated.get("device_type"),
+                        device_sn=allocated.get("device_sn"),
+                        mark=requests.get(user),
+                        testcase_id=testcase_id,
+                        action="apply",
+                        result="success",
+                        fail_reason=None,
+                        apply_time=now,
+                        source_pool=allocated.get("source_pool"),
+                    ))
+                await db.commit()
+
+                # 9. 更新 Redis 缓存（移除已分配的机器）
+                for machine_id in allocated_machine_ids:
+                    # 从所有涉及的池中移除
+                    for pool_ns in pool_hierarchy:
+                        await cls.remove_machine_from_cache(machine_id, pool_ns)
+
+                # 10. 创建延迟释放任务（使用 APScheduler）
+                for machine_id in allocated_machine_ids:
+                    await create_release_job(machine_id)
+
+                return True, allocations
+
+        except LockAcquireError as e:
+            return False, e.message
 
     @classmethod
     async def release_machine(
