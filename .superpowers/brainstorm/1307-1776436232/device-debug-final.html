@@ -1,0 +1,165 @@
+<h2>设备调试界面设计示意（最终版）</h2>
+<p class="subtitle">所有按钮统一蓝色背景+白色文字</p>
+
+<div class="mockup">
+  <div class="mockup-header">
+    <span style="display:flex;align-items:center;gap:12px">
+      <span class="mock-icon">📱</span>
+      <span style="font-weight:600">设备调试 - iPhone 14 Pro</span>
+      <span class="mock-tag" style="background:#22c55e;color:#fff">在线</span>
+      <span class="mock-tag" style="background:#3b82f6;color:#fff">iOS</span>
+    </span>
+    <span style="color:#666;font-size:13px">设备ID: 00008030-001234567890ABCD</span>
+  </div>
+
+  <div class="mockup-body" style="padding:16px">
+    <!-- 主区域：左历史 + 中手机 + 右工具 -->
+    <div style="display:flex;gap:16px;align-items:flex-start;justify-content:center">
+      <!-- 左侧：操作历史 -->
+      <div style="width:220px">
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:12px">
+          <div style="font-weight:500;font-size:14px;margin-bottom:10px;color:#333">📋 操作历史</div>
+          <div style="font-size:13px;max-height:620px;overflow-y:auto;color:#333">
+            <div style="padding:8px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:8px;align-items:center">
+              <span style="color:#22c55e">✓</span><span style="flex:1">点击(200,90)</span><span style="color:#999;font-size:11px">14:32</span>
+            </div>
+            <div style="padding:8px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:8px;align-items:center">
+              <span style="color:#22c55e">✓</span><span style="flex:1">上滑</span><span style="color:#999;font-size:11px">14:31</span>
+            </div>
+            <div style="padding:8px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:8px;align-items:center">
+              <span style="color:#22c55e">✓</span><span style="flex:1">刷新截图</span><span style="color:#999;font-size:11px">14:30</span>
+            </div>
+            <div style="padding:8px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:8px;align-items:center">
+              <span style="color:#22c55e">✓</span><span style="flex:1">输入"test"</span><span style="color:#999;font-size:11px">14:29</span>
+            </div>
+            <div style="padding:8px 0;display:flex;gap:8px;align-items:center">
+              <span style="color:#22c55e">✓</span><span style="flex:1">Home键</span><span style="color:#999;font-size:11px">14:28</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中间：手机截图 -->
+      <div style="background:#1a1a1a;border-radius:32px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,0.35)">
+        <div style="width:400px;height:700px;background:#fff;border-radius:20px;overflow:hidden;cursor:crosshair;position:relative">
+          <div style="height:54px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;border-bottom:1px solid #e5e5e5;color:#333">设置</div>
+          <div style="padding:18px;color:#333">
+            <div style="padding:16px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between">通用 <span style="color:#ccc">›</span></div>
+            <div style="padding:16px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between">隐私与安全 <span style="color:#ccc">›</span></div>
+            <div style="padding:16px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between">蓝牙 <span style="color:#ccc">›</span></div>
+            <div style="padding:16px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between">WiFi <span style="color:#22c55e;font-size:13px">已连接 ›</span></div>
+            <div style="padding:16px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between">蜂窝网络 <span style="color:#ccc">›</span></div>
+            <div style="padding:16px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between">显示与亮度 <span style="color:#ccc">›</span></div>
+          </div>
+          <!-- 点击指示器 -->
+          <div style="position:absolute;top:90px;left:200px;width:32px;height:32px;border:3px solid #3b82f6;border-radius:50%;background:rgba(59,130,246,0.25);box-shadow:0 0 12px rgba(59,130,246,0.5)"></div>
+          <!-- 实时坐标显示 -->
+          <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.75);color:#fff;padding:6px 10px;border-radius:4px;font-size:13px;font-family:monospace">
+            X: 200, Y: 90
+          </div>
+        </div>
+        <div style="width:150px;height:5px;background:#333;border-radius:3px;margin:12px auto"></div>
+      </div>
+
+      <!-- 右侧：工具栏 -->
+      <div style="width:200px;display:flex;flex-direction:column;gap:10px">
+        <!-- 刷新截图 -->
+        <button class="mock-button" style="width:100%;padding:12px;font-size:14px;background:#3b82f6;color:#fff;border-radius:6px">
+          🔄 刷新截图
+        </button>
+
+        <!-- 滑动操作 -->
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:12px">
+          <div style="font-weight:500;font-size:14px;margin-bottom:8px;color:#333">👆 滑动操作</div>
+          <div style="display:flex;gap:4px">
+            <button class="mock-button" style="padding:10px;font-size:14px;flex:1;background:#3b82f6;color:#fff;border-radius:4px">⬆️ 上滑</button>
+            <button class="mock-button" style="padding:10px;font-size:14px;flex:1;background:#3b82f6;color:#fff;border-radius:4px">⬇️ 下滑</button>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:4px">
+            <button class="mock-button" style="padding:10px;font-size:14px;flex:1;background:#3b82f6;color:#fff;border-radius:4px">⬅️ 左滑</button>
+            <button class="mock-button" style="padding:10px;font-size:14px;flex:1;background:#3b82f6;color:#fff;border-radius:4px">➡️ 右滑</button>
+          </div>
+        </div>
+
+        <!-- 自定义滑动 -->
+        <button class="mock-button" style="width:100%;padding:12px;font-size:13px;background:#fff;border:1px solid #e5e5e5;border-radius:6px;color:#333">
+          🎯 自定义滑动
+        </button>
+
+        <!-- 输入操作 -->
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:12px">
+          <div style="font-weight:500;font-size:14px;margin-bottom:8px;color:#333">⌨️ 文本输入</div>
+          <input class="mock-input" style="width:100%;padding:8px;font-size:12px;box-sizing:border-box;margin-bottom:6px;color:#333" placeholder="输入文本内容...">
+          <button class="mock-button" style="width:100%;padding:8px;font-size:12px;background:#3b82f6;color:#fff;border-radius:4px">发送</button>
+        </div>
+
+        <!-- 按键操作 -->
+        <button class="mock-button" style="width:100%;padding:12px;font-size:13px;background:#fff;border:1px solid #e5e5e5;border-radius:6px;color:#333">
+          🎹 按键操作
+        </button>
+
+        <!-- 操作提示 -->
+        <div style="background:#f0f7ff;border:1px solid #3b82f6;border-radius:6px;padding:10px;font-size:12px;color:#333;line-height:1.5">
+          💡 点击截图发送点击指令<br>
+          鼠标悬停显示实时坐标
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 弹窗设计 -->
+<div style="margin-top:24px"><h3>两个弹窗设计</h3></div>
+
+<!-- 滑动弹窗 -->
+<div class="mockup" style="margin-top:16px">
+  <div class="mockup-header" style="font-size:14px">🎯 自定义滑动弹窗</div>
+  <div class="mockup-body" style="padding:16px">
+    <div style="max-width:380px;margin:0 auto">
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:16px">
+        <div style="font-size:13px;color:#666;margin-bottom:6px">起点坐标</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <div style="flex:1"><label style="font-size:11px;color:#999">X</label><input class="mock-input" style="width:100%;padding:8px;margin-top:2px;color:#333" value="200"></div>
+          <div style="flex:1"><label style="font-size:11px;color:#999">Y</label><input class="mock-input" style="width:100%;padding:8px;margin-top:2px;color:#333" value="500"></div>
+        </div>
+        <div style="font-size:13px;color:#666;margin-bottom:6px">终点坐标</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <div style="flex:1"><label style="font-size:11px;color:#999">X</label><input class="mock-input" style="width:100%;padding:8px;margin-top:2px;color:#333" value="200"></div>
+          <div style="flex:1"><label style="font-size:11px;color:#999">Y</label><input class="mock-input" style="width:100%;padding:8px;margin-top:2px;color:#333" value="150"></div>
+        </div>
+        <div style="font-size:13px;color:#666;margin-bottom:6px">滑动时长 (ms)</div>
+        <input class="mock-input" style="width:100%;padding:8px;margin-bottom:12px;color:#333" value="500">
+        <div style="background:#f5f5f5;padding:8px;border-radius:4px;font-size:12px;color:#666;margin-bottom:12px">
+          💡 可在截图上拖拽选择起点终点
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="mock-button" style="padding:8px 16px;background:#f5f5f5;color:#333;border-radius:4px">取消</button>
+          <button class="mock-button" style="padding:8px 16px;background:#3b82f6;color:#fff;border-radius:4px">执行滑动</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 按键弹窗 -->
+<div class="mockup" style="margin-top:16px">
+  <div class="mockup-header" style="font-size:14px">🎹 按键选择弹窗</div>
+  <div class="mockup-body" style="padding:16px">
+    <div style="max-width:380px;margin:0 auto">
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:16px">
+        <div style="font-size:13px;color:#666;margin-bottom:10px">选择按键类型</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="mock-button" style="padding:10px;font-size:13px;text-align:left;display:flex;align-items:center;gap:8px;background:#3b82f6;color:#fff;border-radius:4px">🏠 Home (返回主页)</button>
+          <button class="mock-button" style="padding:10px;font-size:13px;text-align:left;display:flex;align-items:center;gap:8px;background:#3b82f6;color:#fff;border-radius:4px">↩️ Back (返回上一页)</button>
+          <button class="mock-button" style="padding:10px;font-size:13px;text-align:left;display:flex;align-items:center;gap:8px;background:#3b82f6;color:#fff;border-radius:4px">⏎ Enter (确认)</button>
+          <button class="mock-button" style="padding:10px;font-size:13px;text-align:left;display:flex;align-items:center;gap:8px;background:#3b82f6;color:#fff;border-radius:4px">🔴 Power (电源键)</button>
+          <button class="mock-button" style="padding:10px;font-size:13px;text-align:left;display:flex;align-items:center;gap:8px;background:#3b82f6;color:#fff;border-radius:4px">🔊 Volume Up (音量+)</button>
+          <button class="mock-button" style="padding:10px;font-size:13px;text-align:left;display:flex;align-items:center;gap:8px;background:#3b82f6;color:#fff;border-radius:4px">🔉 Volume Down (音量-)</button>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">
+          点击按键立即执行
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
