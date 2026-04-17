@@ -1,0 +1,101 @@
+<h2>页面设计稿汇总（最终版）</h2>
+<p class="subtitle">现代极简主义数据仪表盘 · 统一设计风格</p>
+
+<div class="options" style="margin-bottom: 24px;">
+  <div class="option" data-choice="scheduler" onclick="toggleSelect(this)" style="padding: 16px;">
+    <div class="content">
+      <h3 style="margin: 0;">定时任务页面（V4）</h3>
+      <p style="margin: 4px 0 0; color: #666;">白色卡片 + 蓝色/绿色数字 + 加粗标题 ✓ 已确认</p>
+    </div>
+  </div>
+  <div class="option" data-choice="monitor" onclick="toggleSelect(this)" style="padding: 16px;">
+    <div class="content">
+      <h3 style="margin: 0;">设备监控页面（V3）</h3>
+      <p style="margin: 4px 0 0; color: #666;">白色卡片 + 蓝色/绿色/红色数字 + 加粗标题 ✓ 已更新</p>
+    </div>
+  </div>
+  <div class="option" data-choice="report" onclick="toggleSelect(this)" style="padding: 16px;">
+    <div class="content">
+      <h3 style="margin: 0;">测试报告详情页面（V6）</h3>
+      <p style="margin: 4px 0 0; color: #666;">白色卡片 + 蓝色/绿色/红色/橙色数字 + 加粗标题 ✓ 已更新</p>
+    </div>
+  </div>
+</div>
+
+<!-- 统一设计规范 -->
+<div style="padding: 24px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+  <h3 style="font-size: 16px; color: #111; font-weight: 600; margin-bottom: 16px;">统一设计规范</h3>
+
+  <!-- 数字配色 -->
+  <div style="margin-bottom: 24px;">
+    <h4 style="font-size: 14px; color: #111; margin-bottom: 12px; font-weight: 600;">数字配色（三个页面统一）</h4>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+      <div style="padding: 16px; background: #fff; border-radius: 8px; border: 2px solid #3b82f6; text-align: center;">
+        <div style="font-size: 28px; font-weight: 600; color: #3b82f6;">128</div>
+        <div style="font-size: 13px; color: #3b82f6; font-weight: 500;">蓝色</div>
+        <div style="font-size: 11px; color: #666;">#3b82f6</div>
+        <div style="font-size: 10px; color: #999;">统计/总数类</div>
+      </div>
+      <div style="padding: 16px; background: #fff; border-radius: 8px; border: 2px solid #22c55e; text-align: center;">
+        <div style="font-size: 28px; font-weight: 600; color: #22c55e;">95</div>
+        <div style="font-size: 13px; color: #22c55e; font-weight: 500;">绿色</div>
+        <div style="font-size: 11px; color: #666;">#22c55e</div>
+        <div style="font-size: 10px; color: #999;">成功/启用类</div>
+      </div>
+      <div style="padding: 16px; background: #fff; border-radius: 8px; border: 2px solid #f59e0b; text-align: center;">
+        <div style="font-size: 28px; font-weight: 600; color: #f59e0b;">23</div>
+        <div style="font-size: 13px; color: #f59e0b; font-weight: 500;">橙色</div>
+        <div style="font-size: 11px; color: #666;">#f59e0b</div>
+        <div style="font-size: 10px; color: #999;">警告/不稳定类</div>
+      </div>
+      <div style="padding: 16px; background: #fff; border-radius: 8px; border: 2px solid #ef4444; text-align: center;">
+        <div style="font-size: 28px; font-weight: 600; color: #ef4444;">61</div>
+        <div style="font-size: 13px; color: #ef4444; font-weight: 500;">红色</div>
+        <div style="font-size: 11px; color: #666;">#ef4444</div>
+        <div style="font-size: 10px; color: #999;">失败/离线类</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 其他规范 -->
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+    <div style="padding: 16px; background: #f5f5f5; border-radius: 8px;">
+      <h4 style="font-size: 14px; color: #111; margin-bottom: 8px; font-weight: 600;">卡片样式</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #666; line-height: 1.8;">
+        <li>背景：白色(#fff)</li>
+        <li>圆角：12px</li>
+        <li>阴影：0 1px 3px rgba(0,0,0,0.08)</li>
+        <li>内边距：20px</li>
+      </ul>
+    </div>
+    <div style="padding: 16px; background: #f5f5f5; border-radius: 8px;">
+      <h4 style="font-size: 14px; color: #111; margin-bottom: 8px; font-weight: 600;">标题样式</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #666; line-height: 1.8;">
+        <li>字号：14px(小标题) / 15px(区块标题)</li>
+        <li>加粗：font-weight: 600</li>
+        <li>颜色：#111</li>
+      </ul>
+    </div>
+    <div style="padding: 16px; background: #f5f5f5; border-radius: 8px;">
+      <h4 style="font-size: 14px; color: #111; margin-bottom: 8px; font-weight: 600;">按钮样式</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #666; line-height: 1.8;">
+        <li>主要按钮：蓝色(#1890ff)</li>
+        <li>次要按钮：白色 + 边框(#d9d9d9)</li>
+        <li>圆角：6px</li>
+      </ul>
+    </div>
+    <div style="padding: 16px; background: #f5f5f5; border-radius: 8px;">
+      <h4 style="font-size: 14px; color: #111; margin-bottom: 8px; font-weight: 600;">页面背景</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #666; line-height: 1.8;">
+        <li>背景色：#f0f2f5</li>
+        <li>内边距：24px</li>
+        <li>卡片间距：16-20px</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 16px; font-size: 14px; color: #888; text-align: center;">
+  三个页面设计稿已完成，风格统一。点击上方选项查看各页面详细设计。<br>
+  如满意，可以开始编写实现计划。
+</p>

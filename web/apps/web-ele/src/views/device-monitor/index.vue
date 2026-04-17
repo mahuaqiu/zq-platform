@@ -1,29 +1,40 @@
 <script lang="ts" setup>
-import type {
-  DashboardStatsResponse,
-  TopTagItem,
-  TopDurationItem,
-  OfflineMachineItem,
-} from '#/api/core/device-monitor';
+import type { DashboardStatsResponse } from '#/api/core/device-monitor';
 
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { ElScrollbar, ElSelect, ElOption } from 'element-plus';
+import { ElScrollbar, ElSelect, ElOption, ElTag } from 'element-plus';
 
-import {
-  getDashboardStatsApi,
-  getNamespacesApi,
-} from '#/api/core/device-monitor';
+import { getDashboardStatsApi } from '#/api/core/device-monitor';
+import { NAMESPACE_OPTIONS } from '#/views/env-machine/types';
 
 defineOptions({ name: 'DeviceMonitorPage' });
+
+// namespace 选项（排除"全部"选项）
+const namespaceOptions = computed(() => {
+  return NAMESPACE_OPTIONS.filter(opt => opt.value !== '');
+});
+
+// 判断是否选中了所有 namespace
+const isAllSelected = computed(() => {
+  return selectedNamespaces.value.length === namespaceOptions.value.length;
+});
+
+// 自定义显示文本
+const selectDisplayText = computed(() => {
+  if (isAllSelected.value) {
+    return '全部';
+  }
+  return '';
+});
 
 // 数据
 const loading = ref(false);
 const stats = ref<DashboardStatsResponse | null>(null);
-const namespaces = ref<string[]>([]);
-const selectedNamespace = ref<string>('');
+// 默认选中所有配置的 namespace
+const selectedNamespaces = ref<string[]>(namespaceOptions.value.map(opt => opt.value));
 
 // 自动刷新定时器
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -81,19 +92,16 @@ const deviceTypeNames: Record<string, string> = {
   ios: 'iOS',
 };
 
-// 设备类型颜色
-const deviceTypeColors: Record<string, string> = {
-  windows: '#1890ff',
-  mac: '#52c41a',
-  android: '#faad14',
-  ios: '#eb2f96',
-};
-
 // 加载数据
 async function loadStats() {
   loading.value = true;
   try {
-    const res = await getDashboardStatsApi(selectedNamespace.value || undefined);
+    // 传递选中的 namespace 列表（逗号分隔）
+    // 如果没有选中任何 namespace，传递空字符串让后端返回空数据
+    const namespaceParam = selectedNamespaces.value.length > 0
+      ? selectedNamespaces.value.join(',')
+      : '';
+    const res = await getDashboardStatsApi(namespaceParam);
     stats.value = res;
   } catch (error) {
     console.error('加载统计数据失败:', error);
@@ -102,24 +110,17 @@ async function loadStats() {
   }
 }
 
-// 加载 namespace 列表
-async function loadNamespaces() {
-  try {
-    const res = await getNamespacesApi();
-    namespaces.value = res;
-  } catch (error) {
-    console.error('加载 namespace 列表失败:', error);
+// namespace 变化时重新加载数据（防止清空所有选项）
+function handleNamespaceChange(val: string[]) {
+  // 如果清空了所有选项，恢复到选中所有
+  if (val.length === 0) {
+    selectedNamespaces.value = namespaceOptions.value.map(opt => opt.value);
   }
-}
-
-// namespace 变化时重新加载数据
-function handleNamespaceChange() {
   loadStats();
 }
 
 // 初始化
 onMounted(() => {
-  loadNamespaces();
   loadStats();
   // 30分钟自动刷新
   refreshTimer = setInterval(loadStats, 30 * 60 * 1000);
@@ -135,20 +136,38 @@ onUnmounted(() => {
 <template>
   <Page auto-content-height>
     <div class="device-monitor-page">
-      <!-- 筛选栏 -->
-      <div class="filter-bar">
+      <!-- 页面顶部标题栏 -->
+      <div class="page-header">
+        <h1 class="page-title">设备监控</h1>
         <ElSelect
-          v-model="selectedNamespace"
-          placeholder="全部 Namespace"
-          clearable
-          style="width: 200px"
+          v-model="selectedNamespaces"
+          multiple
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="请选择 Namespace"
+          style="width: 250px"
           @change="handleNamespaceChange"
         >
+          <template #tag>
+            <ElTag v-if="isAllSelected" type="info">全部</ElTag>
+            <template v-else>
+              <ElTag
+                v-for="ns in selectedNamespaces.slice(0, 1)"
+                :key="ns"
+                type="info"
+              >
+                {{ namespaceOptions.find(opt => opt.value === ns)?.label || ns }}
+              </ElTag>
+              <ElTag v-if="selectedNamespaces.length > 1" type="info">
+                +{{ selectedNamespaces.length - 1 }}
+              </ElTag>
+            </template>
+          </template>
           <ElOption
-            v-for="ns in namespaces"
-            :key="ns"
-            :label="ns"
-            :value="ns"
+            v-for="opt in namespaceOptions"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
           />
         </ElSelect>
       </div>
@@ -157,28 +176,23 @@ onUnmounted(() => {
       <div v-loading="loading" class="main-content">
         <!-- 左侧面板 -->
         <div class="left-panel">
-          <!-- 左侧标题栏 -->
-          <div class="left-panel-header">
-            实时状态
-          </div>
-
-          <!-- 模块1：设备台数统计 -->
+          <!-- 设备台数统计 -->
           <div class="stats-card device-stats-card">
             <div class="card-title">设备台数统计</div>
 
             <!-- 汇总行 -->
             <div class="summary-row">
               <div class="summary-item">
-                <div class="summary-value stat-blue">{{ stats?.device_stats?.total || 0 }}</div>
-                <div class="summary-label">总数</div>
+                <span class="summary-value stat-blue">{{ stats?.device_stats?.total || 0 }}</span>
+                <span class="summary-label">总数</span>
               </div>
               <div class="summary-item">
-                <div class="summary-value stat-green">{{ stats?.device_stats?.online || 0 }}</div>
-                <div class="summary-label">在线</div>
+                <span class="summary-value stat-green">{{ stats?.device_stats?.online || 0 }}</span>
+                <span class="summary-label">在线</span>
               </div>
               <div class="summary-item">
-                <div class="summary-value stat-red">{{ stats?.device_stats?.offline || 0 }}</div>
-                <div class="summary-label">离线</div>
+                <span class="summary-value stat-red">{{ stats?.device_stats?.offline || 0 }}</span>
+                <span class="summary-label">离线</span>
               </div>
             </div>
 
@@ -189,12 +203,7 @@ onUnmounted(() => {
                 :key="item.type"
                 class="type-item"
               >
-                <div
-                  class="type-value"
-                  :style="{ color: deviceTypeColors[item.type] }"
-                >
-                  {{ item.total }}
-                </div>
+                <div class="type-value stat-blue">{{ item.total }}</div>
                 <div class="type-label">{{ deviceTypeNames[item.type] || item.type }}</div>
               </div>
             </div>
@@ -206,52 +215,56 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- 模块6：异步机器排查 -->
+          <!-- 异步机器排查 -->
           <div class="stats-card offline-card">
-            <div class="card-title warning">异步机器排查（启用但离线）</div>
+            <div class="card-title">
+              异步机器排查
+            </div>
+            <div class="card-subtitle">（启用但离线）</div>
             <ElScrollbar class="offline-list" v-if="stats?.offline_machines?.length">
               <div
                 v-for="item in stats?.offline_machines || []"
                 :key="item.id"
                 class="offline-item"
               >
-                <span class="offline-dot">●</span>
+                <span class="offline-dot"></span>
                 <span class="offline-name">{{ item.name || item.ip || item.device_sn }}</span>
-                <span class="offline-ip">({{ item.ip || item.device_sn }})</span>
+                <span class="offline-ip">{{ item.ip || item.device_sn }}</span>
                 <span class="offline-duration">离线 {{ item.offline_duration }}</span>
               </div>
             </ElScrollbar>
-            <div v-else class="no-data">暂无离线设备</div>
+            <div v-else class="no-data">暂无更多离线设备</div>
           </div>
         </div>
 
         <!-- 右侧面板 -->
         <div class="right-panel">
-          <!-- 模块2：24h申请总次数 -->
+          <!-- 24小时申请统计 -->
           <div class="stats-card apply-card">
+            <div class="card-title">24小时申请统计</div>
             <div class="apply-main">
               <div class="apply-total">
-                <div class="apply-value">{{ stats?.apply_24h?.total || 0 }}</div>
-                <div class="apply-label">24h申请总次数</div>
+                <div class="apply-value stat-blue">{{ stats?.apply_24h?.total || 0 }}</div>
+                <div class="apply-label">申请总次数</div>
               </div>
               <div class="apply-detail">
                 <div class="detail-item success">
-                  <div class="detail-value">{{ stats?.apply_24h?.success || 0 }}</div>
+                  <div class="detail-value stat-green">{{ stats?.apply_24h?.success || 0 }}</div>
                   <div class="detail-label">成功</div>
                 </div>
                 <div class="detail-item insufficient">
-                  <div class="detail-value">{{ stats?.apply_24h?.failed || 0 }}</div>
+                  <div class="detail-value stat-orange">{{ stats?.apply_24h?.failed || 0 }}</div>
                   <div class="detail-label">资源不足</div>
                 </div>
                 <div class="detail-item failed">
-                  <div class="detail-value">{{ otherFailedCount }}</div>
+                  <div class="detail-value stat-red">{{ otherFailedCount }}</div>
                   <div class="detail-label">失败</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 模块3 & 5：TOP10 标签 -->
+          <!-- TOP10 标签 -->
           <div class="top-cards-row">
             <!-- 申请次数 TOP10 -->
             <div class="stats-card top-card">
@@ -262,12 +275,14 @@ onUnmounted(() => {
                   :key="index"
                   class="top-item"
                 >
-                  <div class="top-tag">{{ item.tag }}</div>
-                  <div
-                    class="top-bar"
-                    :style="{ width: getTagBarWidth(item.count) }"
-                  ></div>
-                  <span class="top-count">{{ item.count }}</span>
+                  <span class="top-tag">{{ item.tag }}</span>
+                  <div class="top-bar-bg">
+                    <div
+                      class="top-bar"
+                      :style="{ width: getTagBarWidth(item.count) }"
+                    ></div>
+                  </div>
+                  <span class="top-count stat-blue">{{ item.count }}</span>
                 </div>
                 <div v-if="!stats?.top10_tags?.length" class="no-data">暂无数据</div>
               </div>
@@ -275,26 +290,31 @@ onUnmounted(() => {
 
             <!-- 资源不足 TOP10 -->
             <div class="stats-card top-card">
-              <div class="card-title warning">资源不足 TOP10 标签</div>
+              <div class="card-title">
+                资源不足 TOP10 标签
+              </div>
+              <div v-if="stats?.top10_insufficient?.length" class="card-subtitle">设备资源紧张，需关注</div>
               <div class="top-list">
                 <div
                   v-for="(item, index) in stats?.top10_insufficient || []"
                   :key="index"
                   class="top-item"
                 >
-                  <div class="top-tag">{{ item.tag }}</div>
-                  <div
-                    class="top-bar red"
-                    :style="{ width: getInsufficientBarWidth(item.count) }"
-                  ></div>
-                  <span class="top-count">{{ item.count }}</span>
+                  <span class="top-tag">{{ item.tag }}</span>
+                  <div class="top-bar-bg">
+                    <div
+                      class="top-bar red"
+                      :style="{ width: getInsufficientBarWidth(item.count) }"
+                    ></div>
+                  </div>
+                  <span class="top-count stat-red">{{ item.count }}</span>
                 </div>
                 <div v-if="!stats?.top10_insufficient?.length" class="no-data">暂无数据</div>
               </div>
             </div>
           </div>
 
-          <!-- 模块4：占用时长 TOP20 -->
+          <!-- 占用时长 TOP20 -->
           <div class="stats-card duration-card">
             <div class="card-title">机器占用时长 TOP20</div>
             <ElScrollbar class="duration-list">
@@ -305,20 +325,17 @@ onUnmounted(() => {
               >
                 <div class="duration-info">
                   <div class="duration-ip">{{ item.ip || item.device_sn }}</div>
-                  <div
-                    class="duration-type"
-                    :style="{ color: deviceTypeColors[item.device_type] }"
-                  >
-                    {{ deviceTypeNames[item.device_type] || item.device_type }}
-                  </div>
+                  <div class="duration-type">{{ deviceTypeNames[item.device_type] || item.device_type }}</div>
                 </div>
-                <div
-                  class="duration-bar"
-                  :style="{ width: getDurationBarWidth(item.duration_minutes) }"
-                ></div>
-                <span class="duration-value">{{ item.duration_display }}</span>
+                <div class="duration-bar-bg">
+                  <div
+                    class="duration-bar"
+                    :style="{ width: getDurationBarWidth(item.duration_minutes) }"
+                  ></div>
+                </div>
+                <span class="duration-value stat-green">{{ item.duration_display }}</span>
               </div>
-              <div v-if="!stats?.top20_duration?.length" class="no-data">暂无数据</div>
+              <div v-if="!stats?.top20_duration?.length" class="no-data">更多数据请向下滚动查看</div>
             </ElScrollbar>
           </div>
         </div>
@@ -332,26 +349,32 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
-  background: #f0f2f5; /* 改为浅灰 */
+  background: #f0f2f5;
 }
 
-/* 筛选栏 */
-.filter-bar {
+/* 页面顶部标题栏 */
+.page-header {
   display: flex;
-  gap: 12px;
+  justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  margin-bottom: 12px;
+  padding: 20px 24px;
   background: #fff;
-  border-radius: 8px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111;
 }
 
 /* 主内容区域 */
 .main-content {
   display: flex;
   flex: 1;
-  gap: 16px;
+  gap: 20px;
+  padding: 24px;
   min-height: 0;
 }
 
@@ -360,20 +383,7 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-}
-
-/* 左侧面板标题 */
-.left-panel-header {
-  padding-bottom: 8px;
-  margin-bottom: 16px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #111;
-  border-bottom: 2px solid #e8e8e8;
+  gap: 20px;
 }
 
 /* 右侧面板 */
@@ -381,58 +391,60 @@ onUnmounted(() => {
   display: flex;
   flex: 2;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 
 /* 卡片基础样式 */
 .stats-card {
-  padding: 12px;
+  padding: 24px;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .card-title {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font-size: 15px;
   font-weight: 600;
   color: #111;
 }
 
-.card-title.warning {
-  color: #111;
+.card-subtitle {
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #999;
 }
 
-/* 设备统计卡片 - 白色背景 */
+/* 设备统计卡片 */
 .device-stats-card {
-  padding: 12px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  /* 继承基础样式 */
 }
 
 .summary-row {
   display: flex;
-  gap: 8px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px dashed #d9d9d9;
+  gap: 32px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e8e8e8;
 }
 
-/* 汇总项 - 移除彩色背景 */
 .summary-item {
-  flex: 1;
-  padding: 8px;
-  text-align: center;
-  background: #f5f5f5;
-  border-radius: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .summary-value {
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 600;
 }
 
-/* 数字颜色类 */
+.summary-label {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 数字颜色 */
 .stat-blue {
   color: #3b82f6;
 }
@@ -445,44 +457,45 @@ onUnmounted(() => {
   color: #ef4444;
 }
 
-.summary-label {
-  font-size: 11px;
+.stat-orange {
+  color: #f59e0b;
 }
 
 .type-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 24px;
+  margin-bottom: 16px;
 }
 
 .type-item {
   flex: 1;
+  padding: 12px;
   text-align: center;
+  background: #f5f5f5;
+  border-radius: 8px;
 }
 
-/* 类型数字改为蓝色 */
 .type-value {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
-  color: #3b82f6;
 }
 
 .type-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #666;
 }
 
 .enabled-row {
   display: flex;
-  gap: 8px;
+  gap: 16px;
 }
 
 .enabled-item {
   flex: 1;
-  padding: 4px;
-  font-size: 12px;
+  padding: 10px;
+  font-size: 14px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .enabled-green {
@@ -503,14 +516,14 @@ onUnmounted(() => {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 12px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .offline-card .card-title {
-  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+.offline-card .card-subtitle {
+  margin-bottom: 12px;
 }
 
 .offline-list {
@@ -521,59 +534,59 @@ onUnmounted(() => {
 .offline-item {
   display: flex;
   align-items: center;
-  padding: 6px;
-  margin-bottom: 4px;
-  font-size: 12px;
-  line-height: 1.8;
-  color: #333;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
   background: #fff5f5;
   border: 1px solid #fecaca;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .offline-dot {
-  margin-right: 4px;
-  color: #fa8c16;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
 }
 
 .offline-name {
-  color: #333;
+  flex: 1;
+  font-size: 13px;
+  color: #111;
 }
 
 .offline-ip {
-  margin-left: 2px;
-  font-size: 11px;
+  font-size: 12px;
   color: #666;
 }
 
 .offline-duration {
-  margin-left: auto;
-  color: #fa8c16;
+  font-size: 12px;
+  color: #ef4444;
 }
 
 /* 申请统计卡片 */
 .apply-card {
-  padding: 16px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  /* 继承基础样式 */
 }
 
 .apply-main {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   align-items: center;
 }
 
 .apply-total {
   flex: 1;
+  padding: 16px;
   text-align: center;
+  background: #f5f5f5;
+  border-radius: 8px;
 }
 
 .apply-value {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 600;
-  color: #3b82f6; /* 蓝色 */
 }
 
 .apply-label {
@@ -584,54 +597,45 @@ onUnmounted(() => {
 .apply-detail {
   display: flex;
   flex: 2;
-  gap: 12px;
+  gap: 16px;
 }
 
 .detail-item {
   flex: 1;
-  padding: 8px;
+  padding: 16px;
   text-align: center;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .detail-item.success {
-  background: #f6ffed;
+  background: #dcfce7;
+  border: 1px solid #86efac;
 }
 
 .detail-item.insufficient {
-  background: #fff7e6;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
 }
 
 .detail-item.failed {
-  background: #fff2f0;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
 }
 
 .detail-value {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
 }
 
-.detail-value.success {
-  color: #22c55e;
-}
-
-.detail-value.insufficient {
-  color: #f59e0b;
-}
-
-.detail-value.failed {
-  color: #ef4444;
-}
-
 .detail-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #666;
 }
 
 /* TOP 卡片行 */
 .top-cards-row {
   display: flex;
-  gap: 12px;
+  gap: 20px;
 }
 
 .top-card {
@@ -639,40 +643,51 @@ onUnmounted(() => {
 }
 
 .top-list {
-  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .top-item {
   display: flex;
   align-items: center;
-  margin-bottom: 6px;
+  gap: 12px;
 }
 
 .top-tag {
-  width: 70px;
+  width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
-  color: #333;
+  font-size: 12px;
+  color: #666;
   white-space: nowrap;
 }
 
-/* 申请次数 TOP10 - 蓝色 */
+/* 进度条背景轨道 */
+.top-bar-bg {
+  flex: 1;
+  height: 12px;
+  background: #e5e5e5;
+  border-radius: 3px;
+  position: relative;
+}
+
 .top-bar {
-  height: 14px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
   background: #3b82f6;
   border-radius: 3px;
 }
 
-/* 资源不足 TOP10 - 红色 */
 .top-bar.red {
   background: #ef4444;
 }
 
 .top-count {
-  margin-left: 6px;
-  font-size: 11px;
-  color: #666;
+  width: 40px;
+  font-size: 12px;
 }
 
 /* 占用时长卡片 */
@@ -684,19 +699,19 @@ onUnmounted(() => {
 }
 
 .duration-card .card-title {
-  flex-shrink: 0;
+  margin-bottom: 16px;
 }
 
 .duration-list {
   flex: 1;
-  height: 270px;
   min-height: 0;
 }
 
 .duration-item {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .duration-info {
@@ -704,34 +719,42 @@ onUnmounted(() => {
 }
 
 .duration-ip {
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 12px;
-  color: #333;
-  white-space: nowrap;
+  color: #111;
 }
 
 .duration-type {
-  font-size: 10px;
+  font-size: 11px;
+  color: #666;
+}
+
+/* 进度条背景轨道 */
+.duration-bar-bg {
+  flex: 1;
+  height: 14px;
+  background: #e5e5e5;
+  border-radius: 3px;
+  position: relative;
 }
 
 .duration-bar {
-  height: 14px;
-  background: #52c41a;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #22c55e;
   border-radius: 3px;
 }
 
 .duration-value {
-  margin-left: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #52c41a;
+  width: 60px;
+  font-size: 12px;
 }
 
 /* 无数据 */
 .no-data {
-  padding: 20px;
-  font-size: 12px;
+  padding: 16px 20px;
+  font-size: 13px;
   color: #999;
   text-align: center;
 }

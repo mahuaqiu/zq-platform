@@ -2,12 +2,12 @@ import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
-    name: 'DeviceMonitor',
-    path: '/overview/device-monitor',
+    path: '/env-machine/monitor',
+    name: 'EnvMachineMonitor',
     component: () => import('#/views/device-monitor/index.vue'),
     meta: {
-      hideInMenu: true,
       title: '设备监控',
+      hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },
 ];

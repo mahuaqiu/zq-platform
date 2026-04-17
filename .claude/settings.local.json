@@ -106,7 +106,8 @@
       "Bash(ls *)",
       "Read(//d/code/autotest//**)",
       "Read(//d/code/autotest/**)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(cat \"D:\\\\code\\\\zq-platform\\\\.superpowers\\\\brainstorm\"/*/\\\\.server-info)"
     ]
   }
 }

@@ -452,21 +452,40 @@ async def get_dashboard_stats(
     获取设备监控看板统计数据
 
     Args:
-        namespace: 可选，筛选指定 namespace，默认查询全部
+        namespace: 可选，筛选指定 namespace。
+                   支持单个 namespace 或逗号分隔的多个 namespace。
+                   例如: "meeting_gamma" 或 "meeting_gamma,meeting_app"
+                   如果为空字符串，返回空数据。
 
     Returns:
         DashboardStatsResponse: 看板统计数据
     """
     from core.env_machine.log_service import EnvMachineLogService
-    from core.env_machine.log_schema import DashboardStatsResponse
+    from core.env_machine.log_schema import DashboardStatsResponse, DeviceStats, Apply24hStats
+
+    # 解析 namespace 参数：支持逗号分隔的多个值
+    namespaces = None
+    if namespace:
+        namespaces = [ns.strip() for ns in namespace.split(',') if ns.strip()]
+
+    # 如果 namespace 参数存在但解析后为空列表，返回空数据
+    if namespace and not namespaces:
+        return DashboardStatsResponse(
+            device_stats=DeviceStats(total=0, online=0, offline=0, by_type=[]),
+            apply_24h=Apply24hStats(total=0, success=0, failed=0),
+            top10_tags=[],
+            top20_duration=[],
+            top10_insufficient=[],
+            offline_machines=[]
+        )
 
     # 获取各项统计数据
-    device_stats = await EnvMachineLogService.get_device_stats(db, namespace)
-    apply_24h = await EnvMachineLogService.get_apply_24h_stats(db, namespace)
-    top10_tags = await EnvMachineLogService.get_top10_tags(db, namespace)
-    top20_duration = await EnvMachineLogService.get_top20_duration(db, namespace)
-    top10_insufficient = await EnvMachineLogService.get_top10_insufficient(db, namespace)
-    offline_machines = await EnvMachineLogService.get_offline_machines(db, namespace)
+    device_stats = await EnvMachineLogService.get_device_stats(db, namespaces)
+    apply_24h = await EnvMachineLogService.get_apply_24h_stats(db, namespaces)
+    top10_tags = await EnvMachineLogService.get_top10_tags(db, namespaces)
+    top20_duration = await EnvMachineLogService.get_top20_duration(db, namespaces)
+    top10_insufficient = await EnvMachineLogService.get_top10_insufficient(db, namespaces)
+    offline_machines = await EnvMachineLogService.get_offline_machines(db, namespaces)
 
     return DashboardStatsResponse(
         device_stats=device_stats,

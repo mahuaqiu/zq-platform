@@ -223,18 +223,18 @@ onMounted(() => {
             <label class="scheduler-search-label">任务名称</label>
             <ElInput
               v-model="searchForm.name"
-              placeholder="请输入任务名称"
+              placeholder="请输入"
               clearable
-              style="width: 180px"
+              style="width: 160px"
             />
           </div>
           <div class="scheduler-search-item">
             <label class="scheduler-search-label">触发类型</label>
             <ElSelect
               v-model="searchForm.trigger_type"
-              placeholder="请选择"
+              placeholder="全部"
               clearable
-              style="width: 140px"
+              style="width: 120px"
             >
               <ElOption
                 v-for="opt in TRIGGER_TYPE_OPTIONS"
@@ -248,9 +248,9 @@ onMounted(() => {
             <label class="scheduler-search-label">任务状态</label>
             <ElSelect
               v-model="searchForm.status"
-              placeholder="请选择"
+              placeholder="全部"
               clearable
-              style="width: 120px"
+              style="width: 100px"
             >
               <ElOption
                 v-for="opt in JOB_STATUS_OPTIONS"
@@ -264,9 +264,9 @@ onMounted(() => {
             <label class="scheduler-search-label">任务分组</label>
             <ElSelect
               v-model="searchForm.group"
-              placeholder="请选择"
+              placeholder="全部"
               clearable
-              style="width: 150px"
+              style="width: 140px"
             >
               <ElOption
                 v-for="group in groupOptions"
@@ -282,7 +282,6 @@ onMounted(() => {
             <ElButton @click="handleReset">重置</ElButton>
           </div>
 
-          <!-- 新增按钮 -->
           <ElButton class="scheduler-create-btn" @click="handleCreate">
             + 新增任务
           </ElButton>
@@ -403,35 +402,33 @@ onMounted(() => {
 }
 
 .scheduler-search-area {
-  padding: 16px;
-  margin-bottom: 16px;
-  background: #fafafa;
-  border-radius: 4px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .scheduler-search-form {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .scheduler-search-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  align-items: center;
 }
 
 .scheduler-search-label {
-  display: block;
-  font-size: 12px;
-  color: #666;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
 }
 
 .scheduler-search-buttons {
   display: flex;
   gap: 8px;
-  align-items: flex-end;
 }
 
 .scheduler-create-btn {
@@ -439,6 +436,8 @@ onMounted(() => {
   background: #f5f5f5 !important;
   color: #111 !important;
   border: 1px solid #d9d9d9 !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
   font-weight: 500;
 }
 
@@ -447,7 +446,8 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 16px;
+  padding: 24px;
+  margin-bottom: 0;
 }
 
 .stat-card {
@@ -464,7 +464,7 @@ onMounted(() => {
 }
 
 .stat-card :deep(.el-card__body) {
-  padding: 16px;
+  padding: 20px;
 }
 
 .stat-content {
@@ -479,7 +479,7 @@ onMounted(() => {
 
 .stat-value {
   margin-top: 8px;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 600;
   color: #3b82f6;
 }
@@ -504,10 +504,8 @@ onMounted(() => {
 /* 表格区域 */
 .scheduler-table-wrapper {
   flex: 1;
-  padding: 16px;
+  padding: 0 24px 24px;
   overflow: auto;
-  background: #fff;
-  border-radius: 4px;
 }
 
 /* 表格支持水平滚动 */
@@ -523,6 +521,9 @@ onMounted(() => {
   --el-table-row-hover-bg-color: #fafafa;
   --el-table-text-color: #333;
   --el-table-header-text-color: #333;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 /* 确保表格有外边框 */
@@ -536,9 +537,9 @@ onMounted(() => {
 
 /* 表头样式 */
 .scheduler-table :deep(th.el-table__cell) {
-  padding: 12px 10px !important;
+  padding: 12px 16px !important;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
   white-space: nowrap;
   background: #fafafa !important;
@@ -547,14 +548,24 @@ onMounted(() => {
   border-bottom: 1px solid #e8e8e8 !important;
 }
 
-/* 表格单元格样式 */
+/* 表格单元格样式 - 确保无斑马纹/阴影背景 */
 .scheduler-table :deep(td.el-table__cell) {
-  padding: 12px 10px !important;
+  padding: 14px 16px !important;
   font-size: 13px;
   color: #333;
+  background: #fff !important;
   border-color: #e8e8e8 !important;
   border-right: 1px solid #e8e8e8 !important;
   border-bottom: 1px solid #e8e8e8 !important;
+}
+
+/* 去掉斑马纹效果 */
+.scheduler-table :deep(.el-table__row--striped) {
+  background: #fff !important;
+}
+
+.scheduler-table :deep(.el-table__row--striped td.el-table__cell) {
+  background: #fff !important;
 }
 
 /* 代码样式 */

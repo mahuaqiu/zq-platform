@@ -174,7 +174,7 @@ onMounted(() => {
 
 <template>
   <Page auto-content-height>
-    <div class="flex h-full flex-col">
+    <div class="scheduler-page flex h-full flex-col">
       <!-- 搜索区域 -->
       <div class="scheduler-search-area">
         <div class="scheduler-search-form">
@@ -185,7 +185,7 @@ onMounted(() => {
               placeholder="全部任务"
               clearable
               filterable
-              style="width: 200px"
+              style="width: 160px"
             >
               <ElOption
                 v-for="job in jobOptions"
@@ -199,9 +199,9 @@ onMounted(() => {
             <label class="scheduler-search-label">执行状态</label>
             <ElSelect
               v-model="searchForm.status"
-              placeholder="请选择"
+              placeholder="全部"
               clearable
-              style="width: 120px"
+              style="width: 100px"
             >
               <ElOption
                 v-for="opt in LOG_STATUS_OPTIONS"
@@ -219,7 +219,7 @@ onMounted(() => {
               placeholder="选择开始时间"
               format="YYYY-MM-DD HH:mm:ss"
               value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 180px"
+              style="width: 160px"
               clearable
             />
           </div>
@@ -231,7 +231,7 @@ onMounted(() => {
               placeholder="选择结束时间"
               format="YYYY-MM-DD HH:mm:ss"
               value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 180px"
+              style="width: 160px"
               clearable
             />
           </div>
@@ -250,28 +250,28 @@ onMounted(() => {
 
       <!-- 统计卡片 -->
       <div class="scheduler-statistics">
-        <ElCard class="stat-card stat-card-gray" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">总执行次数</div>
-            <div class="stat-value">{{ statistics.total_executions }}</div>
+            <div class="stat-value stat-blue">{{ statistics.total_executions }}</div>
           </div>
         </ElCard>
-        <ElCard class="stat-card stat-card-success" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">成功次数</div>
-            <div class="stat-value">{{ statistics.success_executions }}</div>
+            <div class="stat-value stat-green">{{ statistics.success_executions }}</div>
           </div>
         </ElCard>
-        <ElCard class="stat-card stat-card-fail" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">失败次数</div>
-            <div class="stat-value">{{ statistics.failed_executions }}</div>
+            <div class="stat-value stat-red">{{ statistics.failed_executions }}</div>
           </div>
         </ElCard>
-        <ElCard class="stat-card stat-card-rate" shadow="hover">
+        <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">成功率</div>
-            <div class="stat-value">{{ formatSuccessRate(statistics.success_rate) }}</div>
+            <div class="stat-value stat-green">{{ formatSuccessRate(statistics.success_rate) }}</div>
           </div>
         </ElCard>
       </div>
@@ -345,7 +345,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
-
+/* 页面容器 */
+.scheduler-page {
+  background: #f0f2f5;
+}
 
 /* 响应式：小屏幕下统计卡片改为2列 */
 @media (max-width: 1200px) {
@@ -361,35 +364,33 @@ onMounted(() => {
 }
 
 .scheduler-search-area {
-  padding: 16px;
-  margin-bottom: 16px;
-  background: #fafafa;
-  border-radius: 4px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .scheduler-search-form {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .scheduler-search-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  align-items: center;
 }
 
 .scheduler-search-label {
-  display: block;
-  font-size: 12px;
-  color: #666;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
 }
 
 .scheduler-search-buttons {
   display: flex;
   gap: 8px;
-  align-items: flex-end;
 }
 
 .scheduler-clean-btn {
@@ -401,12 +402,16 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 16px;
+  padding: 24px;
+  margin-bottom: 0;
 }
 
 .stat-card {
   cursor: pointer;
-  border-radius: 8px;
+  background: #fff !important;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  border: 1px solid #e8e8e8;
   transition: transform 0.2s ease;
 }
 
@@ -415,7 +420,7 @@ onMounted(() => {
 }
 
 .stat-card :deep(.el-card__body) {
-  padding: 12px 16px;
+  padding: 20px;
 }
 
 .stat-content {
@@ -423,60 +428,36 @@ onMounted(() => {
 }
 
 .stat-label {
-  font-size: 12px;
-  color: #666;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
 }
 
 .stat-value {
-  margin-top: 4px;
-  font-size: 24px;
+  margin-top: 8px;
+  font-size: 32px;
   font-weight: 600;
+  color: #3b82f6;
 }
 
-/* 简洁风格背景（非渐变） */
-.stat-card-gray {
-  background: #f6f8fa;
-  border: 1px solid #e8e8e8;
+/* 数字颜色类 */
+.stat-blue {
+  color: #3b82f6;
 }
 
-.stat-card-gray .stat-value {
-  color: #333;
+.stat-green {
+  color: #22c55e;
 }
 
-.stat-card-success {
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
-}
-
-.stat-card-success .stat-value {
-  color: #52c41a;
-}
-
-.stat-card-fail {
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
-}
-
-.stat-card-fail .stat-value {
-  color: #ff4d4f;
-}
-
-.stat-card-rate {
-  background: #e6f7ff;
-  border: 1px solid #91d5ff;
-}
-
-.stat-card-rate .stat-value {
-  color: #1890ff;
+.stat-red {
+  color: #ef4444;
 }
 
 /* 表格区域 */
 .scheduler-table-wrapper {
   flex: 1;
-  padding: 16px;
+  padding: 0 24px 24px;
   overflow: auto;
-  background: #fff;
-  border-radius: 4px;
 }
 
 /* 表格支持水平滚动 */
@@ -492,6 +473,9 @@ onMounted(() => {
   --el-table-row-hover-bg-color: #fafafa;
   --el-table-text-color: #333;
   --el-table-header-text-color: #333;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 /* 确保表格有外边框 */
@@ -505,9 +489,9 @@ onMounted(() => {
 
 /* 表头样式 */
 .scheduler-table :deep(th.el-table__cell) {
-  padding: 12px 10px !important;
+  padding: 12px 16px !important;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
   white-space: nowrap;
   background: #fafafa !important;
@@ -516,35 +500,24 @@ onMounted(() => {
   border-bottom: 1px solid #e8e8e8 !important;
 }
 
-/* 表格单元格样式 */
+/* 表格单元格样式 - 确保无斑马纹/阴影背景 */
 .scheduler-table :deep(td.el-table__cell) {
-  padding: 12px 10px !important;
+  padding: 14px 16px !important;
   font-size: 13px;
   color: #333;
+  background: #fff !important;
   border-color: #e8e8e8 !important;
   border-right: 1px solid #e8e8e8 !important;
   border-bottom: 1px solid #e8e8e8 !important;
 }
 
-/* 状态样式 */
-.scheduler-status-success {
-  font-weight: 500;
-  color: #52c41a;
+/* 去掉斑马纹效果 */
+.scheduler-table :deep(.el-table__row--striped) {
+  background: #fff !important;
 }
 
-.scheduler-status-danger {
-  font-weight: 500;
-  color: #ff4d4f;
-}
-
-.scheduler-status-warning {
-  font-weight: 500;
-  color: #faad14;
-}
-
-.scheduler-status-info {
-  font-weight: 500;
-  color: #1890ff;
+.scheduler-table :deep(.el-table__row--striped td.el-table__cell) {
+  background: #fff !important;
 }
 
 /* 状态标签样式（带背景色） */
@@ -559,21 +532,25 @@ onMounted(() => {
 .log-status-success {
   color: #52c41a;
   background: #f6ffed;
+  border: 1px solid #b7eb8f;
 }
 
 .log-status-danger {
   color: #ff4d4f;
-  background: #fff2f0;
+  background: #fff1f0;
+  border: 1px solid #ffa39e;
 }
 
 .log-status-warning {
   color: #faad14;
   background: #fffbe6;
+  border: 1px solid #ffe58f;
 }
 
 .log-status-info {
   color: #1890ff;
   background: #e6f7ff;
+  border: 1px solid #91d5ff;
 }
 
 /* 代码样式 */
@@ -604,6 +581,4 @@ onMounted(() => {
   justify-content: flex-end;
   padding: 16px 0 0;
 }
-
-/* 搜索区域 */
 </style>

@@ -1,0 +1,184 @@
+<h2>定时任务页面 - 完整设计稿（修订版 v4）</h2>
+<p class="subtitle">现代极简主义 · 卡片式设计 · 专业商业风格</p>
+
+<div class="mockup" style="background: #f0f2f5; border-radius: 12px; overflow: hidden; max-width: 100%;">
+  <!-- 页面顶部 -->
+  <div style="background: #fff; padding: 20px 24px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+    <h1 style="font-size: 20px; font-weight: 600; color: #111; margin: 0;">定时任务</h1>
+    <button style="background: #f5f5f5; color: #111; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid #d9d9d9; cursor: pointer;">
+      + 新增任务
+    </button>
+  </div>
+
+  <!-- 筛选区域 -->
+  <div style="background: #fff; padding: 16px 24px; border-bottom: 1px solid #e8e8e8;">
+    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <label style="font-size: 13px; color: #666;">任务名称</label>
+        <input type="text" placeholder="请输入" style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; width: 160px; outline: none;">
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <label style="font-size: 13px; color: #666;">触发类型</label>
+        <select style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; width: 120px; outline: none; background: #fff;">
+          <option>全部</option>
+          <option>定时触发</option>
+          <option>手动触发</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <label style="font-size: 13px; color: #666;">任务状态</label>
+        <select style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; width: 100px; outline: none; background: #fff;">
+          <option>全部</option>
+          <option>启用</option>
+          <option>禁用</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <label style="font-size: 13px; color: #666;">任务分组</label>
+        <select style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; width: 140px; outline: none; background: #fff;">
+          <option>全部</option>
+          <option>测试任务</option>
+          <option>清理任务</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 8px; margin-left: auto;">
+        <button style="background: #1890ff; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 14px; border: none; cursor: pointer;">查询</button>
+        <button style="background: #fff; color: #666; padding: 8px 16px; border-radius: 6px; font-size: 14px; border: 1px solid #d9d9d9; cursor: pointer;">重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计卡片区域 - 白色背景 + 彩色数字 + 加粗标题 -->
+  <div style="padding: 24px;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+      <div style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size: 13px; color: #111; font-weight: 600;">总任务数</div>
+        <div style="font-size: 32px; font-weight: 600; color: #3b82f6; margin-top: 8px;">128</div>
+      </div>
+      <div style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size: 13px; color: #111; font-weight: 600;">启用任务</div>
+        <div style="font-size: 32px; font-weight: 600; color: #22c55e; margin-top: 8px;">95</div>
+      </div>
+      <div style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size: 13px; color: #111; font-weight: 600;">执行成功率</div>
+        <div style="font-size: 32px; font-weight: 600; color: #22c55e; margin-top: 8px;">98.5%</div>
+      </div>
+      <div style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size: 13px; color: #111; font-weight: 600;">今天总执行</div>
+        <div style="font-size: 32px; font-weight: 600; color: #3b82f6; margin-top: 8px;">1,256</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 表格区域 -->
+  <div style="padding: 0 24px 24px;">
+    <div style="background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden;">
+      <!-- 表格容器 -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <!-- 表头 -->
+        <thead>
+          <tr style="background: #fafafa;">
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">任务分组</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">任务名称</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">任务编码</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">触发类型</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">触发配置</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: center;">状态</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: center;">今日执行</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">下次执行时间</th>
+            <th style="padding: 12px 16px; border: 1px solid #e8e8e8; font-weight: 600; color: #333; text-align: left;">操作</th>
+          </tr>
+        </thead>
+        <!-- 表格内容 -->
+        <tbody>
+          <tr>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">测试任务</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">每日清理日志</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #333;">clean_logs</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">定时触发</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="font-family: monospace; font-size: 12px; color: #666;">0 2 * * *</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center;"><span style="background: #f6ffed; color: #52c41a; padding: 4px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #b7eb8f;">启用</span></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center; color: #111;">12</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">2024-01-17 02:00</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;">
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">执行</a>
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">编辑</a>
+              <a style="color: #ff4d4f; cursor: pointer;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">测试任务</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">自动化测试执行</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #333;">auto_test</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">定时触发</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="font-family: monospace; font-size: 12px; color: #666;">0 8 * * 1-5</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center;"><span style="background: #f6ffed; color: #52c41a; padding: 4px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #b7eb8f;">启用</span></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center; color: #111;">5</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">2024-01-17 08:00</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;">
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">执行</a>
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">编辑</a>
+              <a style="color: #ff4d4f; cursor: pointer;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">清理任务</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">数据库备份</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #333;">db_backup</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">定时触发</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="font-family: monospace; font-size: 12px; color: #666;">0 0 * * *</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center;"><span style="background: #fff1f0; color: #ff4d4f; padding: 4px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #ffa39e;">禁用</span></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center; color: #111;">0</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #999;">-</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;">
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">执行</a>
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">编辑</a>
+              <a style="color: #ff4d4f; cursor: pointer;">删除</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">监控任务</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">设备状态检测</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #333;">device_check</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #111;">定时触发</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;"><code style="font-family: monospace; font-size: 12px; color: #666;">*/30 * * * *</code></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center;"><span style="background: #f6ffed; color: #52c41a; padding: 4px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #b7eb8f;">启用</span></td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; text-align: center; color: #111;">48</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8; color: #666;">2024-01-16 16:30</td>
+            <td style="padding: 14px 16px; border: 1px solid #e8e8e8;">
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">执行</a>
+              <a style="color: #1890ff; cursor: pointer; margin-right: 12px;">编辑</a>
+              <a style="color: #ff4d4f; cursor: pointer;">删除</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 分页 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #fafafa; border-top: 1px solid #e8e8e8;">
+        <div style="font-size: 13px; color: #666;">共 128 条</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select style="padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; background: #fff;">
+            <option>20条/页</option>
+            <option>50条/页</option>
+            <option>100条/页</option>
+          </select>
+          <div style="display: flex; gap: 4px;">
+            <button style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; background: #fff; cursor: pointer; color: #666;">上一页</button>
+            <button style="padding: 6px 12px; border: 1px solid #1890ff; border-radius: 4px; font-size: 13px; background: #fff; color: #1890ff; cursor: pointer;">1</button>
+            <button style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; background: #fff; cursor: pointer; color: #666;">2</button>
+            <button style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; background: #fff; cursor: pointer; color: #666;">3</button>
+            <button style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; background: #fff; cursor: pointer; color: #666;">下一页</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 16px; font-size: 14px; color: #888; text-align: center;">
+  本次修改：<br>
+  1. 卡片背景回退为白色<br>
+  2. 数字颜色：总任务数/今天总执行用蓝色(#3b82f6)，启用任务/成功率用绿色(#22c55e)<br>
+  3. 标题加粗(font-weight: 600)
+</p>
