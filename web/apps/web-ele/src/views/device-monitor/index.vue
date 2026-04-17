@@ -138,7 +138,7 @@ onUnmounted(() => {
     <div class="device-monitor-page">
       <!-- 页面顶部标题栏 -->
       <div class="page-header">
-        <h1 class="page-title">设备监控</h1>
+        <h1 class="page-title">设备总览</h1>
         <ElSelect
           v-model="selectedNamespaces"
           multiple
@@ -381,7 +381,7 @@ onUnmounted(() => {
 /* 左侧面板 */
 .left-panel {
   display: flex;
-  flex: 1;
+  flex: 1.2;
   flex-direction: column;
   gap: 20px;
 }
@@ -389,9 +389,9 @@ onUnmounted(() => {
 /* 右侧面板 */
 .right-panel {
   display: flex;
-  flex: 2;
+  flex: 1.8;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 /* 卡片基础样式 */
@@ -435,12 +435,12 @@ onUnmounted(() => {
 }
 
 .summary-value {
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 600;
 }
 
 .summary-label {
-  font-size: 13px;
+  font-size: 14px;
   color: #666;
 }
 
@@ -476,12 +476,12 @@ onUnmounted(() => {
 }
 
 .type-value {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 600;
 }
 
 .type-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #666;
 }
 
@@ -492,8 +492,8 @@ onUnmounted(() => {
 
 .enabled-item {
   flex: 1;
-  padding: 10px;
-  font-size: 14px;
+  padding: 12px;
+  font-size: 15px;
   text-align: center;
   border-radius: 6px;
 }
@@ -535,7 +535,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 14px;
   margin-bottom: 8px;
   background: #fff5f5;
   border: 1px solid #fecaca;
@@ -543,66 +543,66 @@ onUnmounted(() => {
 }
 
 .offline-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   background: #ef4444;
   border-radius: 50%;
 }
 
 .offline-name {
   flex: 1;
-  font-size: 13px;
+  font-size: 14px;
   color: #111;
 }
 
 .offline-ip {
-  font-size: 12px;
+  font-size: 13px;
   color: #666;
 }
 
 .offline-duration {
-  font-size: 12px;
+  font-size: 13px;
   color: #ef4444;
 }
 
 /* 申请统计卡片 */
 .apply-card {
-  /* 继承基础样式 */
+  padding: 20px;
 }
 
 .apply-main {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: center;
 }
 
 .apply-total {
   flex: 1;
-  padding: 16px;
+  padding: 12px;
   text-align: center;
   background: #f5f5f5;
   border-radius: 8px;
 }
 
 .apply-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 600;
 }
 
 .apply-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
 }
 
 .apply-detail {
   display: flex;
   flex: 2;
-  gap: 16px;
+  gap: 12px;
 }
 
 .detail-item {
   flex: 1;
-  padding: 16px;
+  padding: 12px;
   text-align: center;
   border-radius: 8px;
 }
@@ -623,23 +623,24 @@ onUnmounted(() => {
 }
 
 .detail-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
 }
 
 .detail-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
 }
 
 /* TOP 卡片行 */
 .top-cards-row {
   display: flex;
-  gap: 20px;
+  gap: 16px;
 }
 
 .top-card {
   flex: 1;
+  padding: 20px;
 }
 
 .top-list {
@@ -696,10 +697,11 @@ onUnmounted(() => {
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  padding: 20px;
 }
 
 .duration-card .card-title {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .duration-list {
