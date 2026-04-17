@@ -29,10 +29,10 @@ MENUS = [
         "path": "/env-machine",
         "type": "catalog",
         "icon": "ep:monitor",
-        "order": 100,
+        "order": 1,  # 排序为1
         "parent_id": None,
     },
-    # 二级菜单：设备列表（合并）
+    # 二级菜单：设备列表
     {
         "id": "env-machine-list",
         "name": "EnvMachineList",
@@ -40,17 +40,6 @@ MENUS = [
         "path": "/env-machine/list",
         "type": "menu",
         "component": "/views/env-machine/list",
-        "parent_id": "env-machine-root",
-        "order": 1,
-    },
-    # 二级菜单：手工使用
-    {
-        "id": "env-machine-manual",
-        "name": "EnvMachineManual",
-        "title": "手工使用",
-        "path": "/env-machine/manual",
-        "type": "menu",
-        "component": "/views/env-machine/index",
         "parent_id": "env-machine-root",
         "order": 2,
     },

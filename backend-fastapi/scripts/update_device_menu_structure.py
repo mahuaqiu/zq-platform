@@ -112,7 +112,7 @@ async def update_menu_structure():
             upgrade_menu.icon = ""
             print("[更新] 升级管理排序为 3，移除图标")
 
-        # 8. 更新配置管理排序
+        # 8. 更新配置管理排序和移除图标
         result = await session.execute(
             select(Menu).where(Menu.id == "env-machine-config")
         )
@@ -120,7 +120,8 @@ async def update_menu_structure():
         if config_menu:
             config_menu.order = 4
             config_menu.sort = 4
-            print("[更新] 配置管理排序为 4")
+            config_menu.icon = ""
+            print("[更新] 配置管理排序为 4，移除图标")
 
         await session.commit()
         print("\n菜单结构更新完成！")

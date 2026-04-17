@@ -48,10 +48,10 @@ async def init_upgrade_menu():
             path="/env-machine/upgrade",
             type="menu",
             component="/views/env-machine/upgrade",
-            icon="",
+            icon="",  # 移除图标
             parent_id=parent.id,
-            order=100,
-            sort=100,
+            order=3,
+            sort=3,
         )
         session.add(menu)
         await session.commit()

@@ -29,7 +29,7 @@ MENUS = [
         "path": "/scheduler",
         "type": "catalog",
         "icon": "mdi:clock-outline",
-        "order": 110,
+        "order": 4,  # 排序为4
         "parent_id": None,
     },
     # 二级菜单

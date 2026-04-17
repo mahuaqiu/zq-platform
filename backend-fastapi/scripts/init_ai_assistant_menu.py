@@ -27,7 +27,7 @@ MENUS = [
         "path": "/ai-assistant",
         "type": "catalog",
         "icon": "ep:chat-dot-round",
-        "order": 50,
+        "order": 3,  # 排序为3
         "parent_id": None,
     },
     {

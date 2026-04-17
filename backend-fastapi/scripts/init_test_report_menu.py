@@ -27,7 +27,7 @@ MENUS = [
         "path": "/test-report",
         "type": "catalog",
         "icon": "ep:document",
-        "order": 90,
+        "order": 2,  # 排序为2
         "parent_id": None,
     },
     # 二级菜单 - 报告列表

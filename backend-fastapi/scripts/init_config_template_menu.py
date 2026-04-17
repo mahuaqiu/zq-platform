@@ -48,10 +48,10 @@ async def init_config_menu():
             path="/env-machine/config",
             type="menu",
             component="/views/env-machine/config",
-            icon="setting",
+            icon="",  # 移除图标
             parent_id=parent.id,
-            order=150,
-            sort=150,
+            order=4,
+            sort=4,
         )
         session.add(menu)
         await session.commit()
