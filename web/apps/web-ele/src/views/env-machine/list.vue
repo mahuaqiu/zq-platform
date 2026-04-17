@@ -35,6 +35,7 @@ import {
   isMobileDevice,
 } from './types';
 import LogDialog from './LogDialog.vue';
+import DebugDialog from './DebugDialog.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineListPage' });
@@ -83,12 +84,22 @@ const logMachineId = ref('');
 const logMachineIp = ref('');
 const logMachinePort = ref('');
 
+// 调试弹窗
+const debugDialogVisible = ref(false);
+const debugMachine = ref<EnvMachine | null>(null);
+
 // 打开日志弹窗
 function handleViewLogs(row: EnvMachine) {
   logMachineId.value = row.id;
   logMachineIp.value = row.ip || row.id;
   logMachinePort.value = row.port || '';
   logDialogVisible.value = true;
+}
+
+// 打开调试弹窗
+function handleDebug(row: EnvMachine) {
+  debugMachine.value = row;
+  debugDialogVisible.value = true;
 }
 
 // 验证扩展信息是否包含标签对应的账号信息
@@ -495,6 +506,7 @@ onMounted(() => {
             <template #default="{ row }">
               <span class="nowrap">
                 <a v-if="!isMobileDevice(row.device_type) && row.status !== 'offline'" class="env-link" @click="handleViewLogs(row)">日志</a>
+                <a v-if="isMobileDevice(row.device_type) && row.status === 'online'" class="env-link" @click="handleDebug(row)">调试</a>
                 <a class="env-link" @click="handleEdit(row)">编辑</a>
                 <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
               </span>
@@ -584,6 +596,12 @@ onMounted(() => {
       :machine-id="logMachineId"
       :machine-ip="logMachineIp"
       :machine-port="logMachinePort"
+    />
+
+    <!-- 调试弹窗 -->
+    <DebugDialog
+      v-model:visible="debugDialogVisible"
+      :machine="debugMachine"
     />
   </Page>
 </template>

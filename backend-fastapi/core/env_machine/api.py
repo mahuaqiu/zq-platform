@@ -27,6 +27,8 @@ from core.env_machine.schema import (
     EnvMachineCreateRequest,
     EnvMachineUpdateRequest,
     EnvMachineResponse,
+    DebugActionRequest,
+    DebugActionResponse,
 )
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
@@ -541,3 +543,101 @@ async def get_machine_logs(
         raise HTTPException(status_code=504, detail="获取日志超时")
     except httpx.ConnectError:
         raise HTTPException(status_code=502, detail="无法连接到设备")
+
+
+@router.post("/{machine_id}/debug-action", response_model=DebugActionResponse, summary="设备调试操作")
+async def debug_device_action(
+    machine_id: str,
+    data: DebugActionRequest,
+    db: AsyncSession = Depends(get_db)
+) -> DebugActionResponse:
+    """
+    设备调试操作接口
+
+    代理转发调试操作到 Worker，支持以下操作：
+    - screenshot: 获取截图
+    - click: 点击坐标
+    - swipe: 滑动操作
+    - input: 文本输入
+    - press: 按键操作
+
+    流程：
+    1. 根据 machine_id 查询设备信息
+    2. 校验设备类型（必须是 ios/android）
+    3. 校验设备状态（必须是 online）
+    4. 构造 Worker API 请求体
+    5. POST http://{ip}:{port}/task/execute
+    6. 返回结果
+    """
+    # 查询设备信息
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    # 校验设备类型
+    if machine.device_type not in ("ios", "android"):
+        raise HTTPException(status_code=400, detail="仅支持 iOS/Android 设备调试")
+
+    # 校验设备状态
+    if machine.status != "online":
+        raise HTTPException(status_code=400, detail=f"设备状态为 {machine.status}，无法调试")
+
+    # 构造 Worker API 请求体
+    action_type = data.action_type
+    params = data.params
+
+    # 构建 actions 列表
+    actions = []
+
+    if action_type == "screenshot":
+        actions.append({"action_type": "screenshot", "value": "debug"})
+    elif action_type == "click":
+        actions.append({"action_type": "click", "x": params.get("x"), "y": params.get("y")})
+    elif action_type == "swipe":
+        actions.append({
+            "action_type": "swipe",
+            "from": {"x": params.get("from_x"), "y": params.get("from_y")},
+            "to": {"x": params.get("to_x"), "y": params.get("to_y")},
+            "duration": params.get("duration", 500)
+        })
+    elif action_type == "input":
+        actions.append({
+            "action_type": "input",
+            "x": params.get("x"),
+            "y": params.get("y"),
+            "text": params.get("text")
+        })
+    elif action_type == "press":
+        actions.append({"action_type": "press", "key": params.get("key")})
+    else:
+        raise HTTPException(status_code=400, detail=f"不支持的操作类型: {action_type}")
+
+    # 发送请求到 Worker
+    worker_url = f"http://{machine.ip}:{machine.port}/task/execute"
+    worker_request = {
+        "platform": machine.device_type,
+        "device_id": machine.device_sn or machine_id,
+        "actions": actions
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=True, verify=False) as client:
+            resp = await client.post(worker_url, json=worker_request)
+            if resp.status_code == 200:
+                worker_result = resp.json()
+                # 提取截图结果
+                result = {}
+                if action_type == "screenshot" and worker_result.get("screenshots"):
+                    result["screenshot_base64"] = worker_result["screenshots"][0]
+                return DebugActionResponse(success=True, result=result)
+            elif resp.status_code == 502:
+                return DebugActionResponse(success=False, result={"error": "无法连接到设备"})
+            else:
+                return DebugActionResponse(success=False, result={"error": f"设备返回异常: {resp.status_code}"})
+    except httpx.TimeoutException:
+        return DebugActionResponse(success=False, result={"error": "操作超时"})
+    except httpx.ConnectError:
+        return DebugActionResponse(success=False, result={"error": "无法连接到设备"})
+    except Exception as e:
+        logger.error(f"调试操作失败: {e}")
+        return DebugActionResponse(success=False, result={"error": str(e)})

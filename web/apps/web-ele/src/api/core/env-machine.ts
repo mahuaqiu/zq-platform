@@ -125,3 +125,35 @@ export async function getMachineLogsApi(machineId: string, lines: number = 400) 
     params: { lines },
   });
 }
+
+/**
+ * 调试操作参数
+ */
+export interface DebugActionParams {
+  action_type: 'click' | 'swipe' | 'input' | 'press' | 'screenshot';
+  params: Record<string, any>;
+}
+
+/**
+ * 调试操作结果
+ */
+export interface DebugActionResult {
+  success: boolean;
+  result?: {
+    screenshot_base64?: string;
+    error?: string;
+  };
+}
+
+/**
+ * 设备调试操作
+ */
+export async function debugDeviceActionApi(
+  deviceId: string,
+  params: DebugActionParams,
+) {
+  return requestClient.post<DebugActionResult>(
+    `/api/core/env/${deviceId}/debug-action`,
+    params,
+  );
+}

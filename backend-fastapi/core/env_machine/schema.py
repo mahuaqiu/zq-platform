@@ -110,3 +110,15 @@ class EnvMachineResponse(BaseModel):
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DebugActionRequest(BaseModel):
+    """设备调试操作请求 Schema"""
+    action_type: str = Field(..., description="操作类型：click/swipe/input/press/screenshot")
+    params: Dict[str, Any] = Field(default_factory=dict, description="操作参数")
+
+
+class DebugActionResponse(BaseModel):
+    """设备调试操作响应 Schema"""
+    success: bool = Field(..., description="操作是否成功")
+    result: Optional[Dict[str, Any]] = Field(None, description="操作结果，如截图返回 screenshot_base64")
