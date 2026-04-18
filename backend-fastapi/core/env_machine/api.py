@@ -627,8 +627,13 @@ async def debug_device_action(
                 worker_result = resp.json()
                 # 提取截图结果
                 result = {}
-                if action_type == "screenshot" and worker_result.get("screenshots"):
-                    result["screenshot_base64"] = worker_result["screenshots"][0]
+                if action_type == "screenshot":
+                    # 从 actions 里提取截图
+                    actions_result = worker_result.get("actions", [])
+                    for action in actions_result:
+                        if action.get("action_type") == "screenshot" and action.get("screenshot"):
+                            result["screenshot_base64"] = action["screenshot"]
+                            break
                 return DebugActionResponse(success=True, result=result)
             elif resp.status_code == 502:
                 return DebugActionResponse(success=False, result={"error": "无法连接到设备"})

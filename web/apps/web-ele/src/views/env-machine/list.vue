@@ -461,13 +461,13 @@ onMounted(() => {
               <span v-else class="env-dash">-</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="device_sn" label="SN" min-width="100">
+          <ElTableColumn prop="device_sn" label="SN" min-width="100" show-overflow-tooltip>
             <template #default="{ row }">
               {{ row.device_sn || '-' }}
             </template>
           </ElTableColumn>
           <ElTableColumn prop="asset_number" label="资产编号" min-width="110" />
-          <ElTableColumn prop="mark" label="标签" min-width="80">
+          <ElTableColumn prop="mark" label="标签" min-width="80" show-overflow-tooltip>
             <template #default="{ row }">
               {{ row.mark || '-' }}
             </template>

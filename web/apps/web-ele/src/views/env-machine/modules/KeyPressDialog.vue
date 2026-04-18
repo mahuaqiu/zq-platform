@@ -17,12 +17,12 @@ const emit = defineEmits<Emits>();
 
 // 按键列表
 const keys = [
-  { value: 'Home', label: 'Home', desc: '返回主页' },
-  { value: 'Back', label: 'Back', desc: '返回上一页' },
-  { value: 'Enter', label: 'Enter', desc: '确认' },
-  { value: 'Power', label: 'Power', desc: '电源键' },
-  { value: 'Volume Up', label: '音量+', desc: '音量增加' },
-  { value: 'Volume Down', label: '音量-', desc: '音量减少' },
+  { value: 'Home', label: '🏠 Home', desc: '返回主页' },
+  { value: 'Back', label: '↩️ Back', desc: '返回上一页' },
+  { value: 'Enter', label: '⏎ Enter', desc: '确认' },
+  { value: 'Power', label: '🔴 Power', desc: '电源键' },
+  { value: 'Volume Up', label: '🔊 Volume Up', desc: '音量+' },
+  { value: 'Volume Down', label: '🔉 Volume Down', desc: '音量-' },
 ];
 
 // 关闭弹窗
@@ -40,69 +40,72 @@ function handleKeyPress(key: string) {
 <template>
   <ElDialog
     :model-value="visible"
-    title="按键操作"
-    width="360px"
+    title="🎹 按键选择"
+    width="380px"
     :close-on-click-modal="false"
     @update:model-value="emit('update:visible', $event)"
   >
-    <div class="key-grid">
-      <div
+    <div class="key-desc-top">选择按键类型</div>
+    <div class="key-list">
+      <ElButton
         v-for="key in keys"
         :key="key.value"
-        class="key-item"
-        :class="{ disabled: disabled }"
-        @click="!disabled && handleKeyPress(key.value)"
+        type="primary"
+        class="key-item-btn"
+        :disabled="disabled"
+        @click="handleKeyPress(key.value)"
       >
-        <div class="key-label">{{ key.label }}</div>
-        <div class="key-desc">{{ key.desc }}</div>
-      </div>
+        <span class="key-content">
+          <span class="key-label">{{ key.label }}</span>
+          <span class="key-desc">({{ key.desc }})</span>
+        </span>
+      </ElButton>
     </div>
-
-    <template #footer>
-      <ElButton @click="handleClose">取消</ElButton>
-    </template>
+    <div class="key-tip">点击按键立即执行</div>
   </ElDialog>
 </template>
 
 <style scoped>
-.key-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+.key-desc-top {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 10px;
 }
 
-.key-item {
-  padding: 12px 8px;
-  text-align: center;
-  background: #f5f5f5;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+.key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.key-item:hover:not(.disabled) {
-  background: #1890ff;
+.key-item-btn {
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  justify-content: flex-start;
 }
 
-.key-item:hover:not(.disabled) .key-label,
-.key-item:hover:not(.disabled) .key-desc {
-  color: #fff;
-}
-
-.key-item.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.key-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .key-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
+  font-size: 13px;
 }
 
 .key-desc {
   font-size: 12px;
-  color: #666;
-  margin-top: 4px;
+  opacity: 0.8;
+}
+
+.key-tip {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
 }
 </style>

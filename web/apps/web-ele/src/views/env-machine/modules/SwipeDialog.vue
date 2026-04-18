@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 
-import { ElButton, ElDialog, ElFormItem, ElInputNumber } from 'element-plus';
+import { ElButton, ElDialog, ElInputNumber } from 'element-plus';
 
 interface Props {
   visible: boolean;
@@ -76,60 +76,70 @@ defineExpose({ setFromPoint, setToPoint });
 <template>
   <ElDialog
     :model-value="visible"
-    title="自定义滑动"
+    title="🎯 自定义滑动"
     width="400px"
     :close-on-click-modal="false"
     @update:model-value="emit('update:visible', $event)"
   >
     <div class="swipe-form">
-      <ElFormItem label="起点 X">
-        <ElInputNumber
-          v-model="fromX"
-          :min="0"
-          :max="screenshotWidth || 1000"
-          :disabled="disabled"
-          controls-position="right"
-        />
-      </ElFormItem>
-      <ElFormItem label="起点 Y">
-        <ElInputNumber
-          v-model="fromY"
-          :min="0"
-          :max="screenshotHeight || 2000"
-          :disabled="disabled"
-          controls-position="right"
-        />
-      </ElFormItem>
-      <ElFormItem label="终点 X">
-        <ElInputNumber
-          v-model="toX"
-          :min="0"
-          :max="screenshotWidth || 1000"
-          :disabled="disabled"
-          controls-position="right"
-        />
-      </ElFormItem>
-      <ElFormItem label="终点 Y">
-        <ElInputNumber
-          v-model="toY"
-          :min="0"
-          :max="screenshotHeight || 2000"
-          :disabled="disabled"
-          controls-position="right"
-        />
-      </ElFormItem>
-      <ElFormItem label="滑动时长(ms)">
-        <ElInputNumber
-          v-model="duration"
-          :min="100"
-          :max="2000"
-          :step="100"
-          :disabled="disabled"
-          controls-position="right"
-        />
-      </ElFormItem>
+      <div class="form-group-label">起点坐标</div>
+      <div class="form-group-row">
+        <div class="form-field">
+          <label class="form-label">X</label>
+          <ElInputNumber
+            v-model="fromX"
+            :min="0"
+            :max="screenshotWidth || 1000"
+            :disabled="disabled"
+            controls-position="right"
+          />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Y</label>
+          <ElInputNumber
+            v-model="fromY"
+            :min="0"
+            :max="screenshotHeight || 2000"
+            :disabled="disabled"
+            controls-position="right"
+          />
+        </div>
+      </div>
+      <div class="form-group-label">终点坐标</div>
+      <div class="form-group-row">
+        <div class="form-field">
+          <label class="form-label">X</label>
+          <ElInputNumber
+            v-model="toX"
+            :min="0"
+            :max="screenshotWidth || 1000"
+            :disabled="disabled"
+            controls-position="right"
+          />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Y</label>
+          <ElInputNumber
+            v-model="toY"
+            :min="0"
+            :max="screenshotHeight || 2000"
+            :disabled="disabled"
+            controls-position="right"
+          />
+        </div>
+      </div>
+      <div class="form-group-label">滑动时长 (ms)</div>
+      <ElInputNumber
+        v-model="duration"
+        :min="100"
+        :max="2000"
+        :step="100"
+        :disabled="disabled"
+        controls-position="right"
+        class="duration-input"
+      />
       <div class="swipe-tip">
-        提示：可在截图上拖拽选择起点和终点
+        💡 可在截图上拖拽选择起点终点
       </div>
     </div>
 
@@ -144,28 +154,46 @@ defineExpose({ setFromPoint, setToPoint });
 
 <style scoped>
 .swipe-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.swipe-form :deep(.el-form-item) {
-  margin-bottom: 12px;
+.form-group-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
 }
 
-.swipe-form :deep(.el-form-item__label) {
-  width: 60px;
+.form-group-row {
+  display: flex;
+  gap: 8px;
 }
 
-.swipe-form :deep(.el-input-number) {
+.form-field {
+  flex: 1;
+}
+
+.form-label {
+  font-size: 11px;
+  color: #999;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.form-field :deep(.el-input-number) {
+  width: 100%;
+}
+
+.duration-input {
   width: 100%;
 }
 
 .swipe-tip {
-  grid-column: 1 / -1;
+  background: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
   font-size: 12px;
-  color: #999;
-  text-align: center;
-  margin-top: 8px;
+  color: #666;
 }
 </style>

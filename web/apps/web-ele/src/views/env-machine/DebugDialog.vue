@@ -99,6 +99,24 @@ function formatTime() {
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 }
 
+function formatHistoryDisplay(type: string, params: Record<string, any>): string {
+  switch (type) {
+    case 'screenshot':
+      return '刷新截图';
+    case 'click':
+      return `点击(${params.x}, ${params.y})`;
+    case 'swipe':
+      return '滑动';
+    case 'input':
+      const text = params.text || '';
+      return `输入"${text.length > 10 ? text.slice(0, 10) + '...' : text}"`;
+    case 'press':
+      return `${params.key}键`;
+    default:
+      return type;
+  }
+}
+
 function addHistory(type: string, params: string, status: 'pending' | 'success' | 'failed') {
   operationHistory.value.unshift({
     type,
@@ -124,6 +142,7 @@ async function executeOperation(
   actionType: string,
   params: Record<string, any>,
   skipRefresh = false,
+  isAuto = false,  // 自动操作不记录历史
 ): Promise<boolean> {
   if (!props.machine) return false;
 
@@ -138,9 +157,11 @@ async function executeOperation(
   isOperating.value = true;
   lastOperationTime.value = Date.now();
 
-  // 记录操作开始
-  const paramsStr = Object.entries(params).map(([k, v]) => `${k}=${v}`).join(', ');
-  addHistory(actionType, paramsStr || '无参数', 'pending');
+  // 记录操作开始（自动操作不记录）
+  if (!isAuto) {
+    const displayText = formatHistoryDisplay(actionType, params);
+    addHistory(actionType, displayText, 'pending');
+  }
 
   try {
     // 超时控制
@@ -154,8 +175,10 @@ async function executeOperation(
     ]);
 
     if (result && result.success) {
-      // 更新历史记录状态
-      updateHistoryStatus('success');
+      // 更新历史记录状态（自动操作不更新）
+      if (!isAuto) {
+        updateHistoryStatus('success');
+      }
 
       // 处理截图结果
       if (actionType === 'screenshot' && result.result?.screenshot_base64) {
@@ -179,12 +202,16 @@ async function executeOperation(
       return true;
     } else {
       const errorMsg = result?.result?.error || '操作失败';
-      updateHistoryStatus('failed');
+      if (!isAuto) {
+        updateHistoryStatus('failed');
+      }
       ElMessage.error(errorMsg);
       return false;
     }
   } catch (error: any) {
-    updateHistoryStatus('failed');
+    if (!isAuto) {
+      updateHistoryStatus('failed');
+    }
     const errorMsg = error.message || '操作失败';
     ElMessage.error(errorMsg);
     return false;
@@ -207,7 +234,7 @@ async function refreshScreenshot(auto = false) {
   }
 
   screenshotLoading.value = true;
-  await executeOperation('screenshot', {}, true);
+  await executeOperation('screenshot', {}, true, auto);
   screenshotLoading.value = false;
 }
 
@@ -349,7 +376,7 @@ function handleDialogOpen() {
     <div class="debug-content">
       <!-- 左侧：操作历史 -->
       <div class="debug-history">
-        <div class="history-title">操作历史</div>
+        <div class="history-title">📋 操作历史</div>
         <div class="history-list">
           <div
             v-for="(record, index) in operationHistory"
@@ -410,47 +437,45 @@ function handleDialogOpen() {
         <!-- 刷新截图 -->
         <ElButton
           type="primary"
+          class="toolbar-btn"
           :disabled="isOperating"
           :loading="screenshotLoading"
           @click="refreshScreenshot()"
         >
-          刷新截图
+          🔄 刷新截图
         </ElButton>
 
-        <!-- 快捷滑动 -->
-        <div class="swipe-section">
-          <div class="section-title">滑动操作</div>
+        <!-- 滑动操作卡片 -->
+        <div class="toolbar-card">
+          <div class="card-title">👆 滑动操作</div>
           <div class="swipe-buttons">
-            <ElButton size="small" :disabled="isOperating" @click="handleQuickSwipe('up')">↑ 上滑</ElButton>
-            <ElButton size="small" :disabled="isOperating" @click="handleQuickSwipe('down')">↓ 下滑</ElButton>
-            <ElButton size="small" :disabled="isOperating" @click="handleQuickSwipe('left')">← 左滑</ElButton>
-            <ElButton size="small" :disabled="isOperating" @click="handleQuickSwipe('right')">→ 右滑</ElButton>
+            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('up')">⬆️ 上滑</ElButton>
+            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('down')">⬇️ 下滑</ElButton>
           </div>
-          <ElButton size="small" :disabled="isOperating" @click="handleOpenSwipeDialog">
-            🎯 自定义滑动
-          </ElButton>
-          <ElButton
-            v-if="selectMode !== 'none'"
-            size="small"
-            type="warning"
-            @click="startSelectFrom"
-          >
-            选择起点
-          </ElButton>
+          <div class="swipe-buttons">
+            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('left')">⬅️ 左滑</ElButton>
+            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('right')">➡️ 右滑</ElButton>
+          </div>
         </div>
 
-        <!-- 文本输入 -->
-        <div class="input-section">
-          <div class="section-title">文本输入</div>
+        <!-- 自定义滑动 -->
+        <ElButton class="outline-btn toolbar-btn" :disabled="isOperating" @click="handleOpenSwipeDialog">
+          🎯 自定义滑动
+        </ElButton>
+
+        <!-- 文本输入卡片 -->
+        <div class="toolbar-card">
+          <div class="card-title">⌨️ 文本输入</div>
           <ElInput
             v-model="textInputValue"
-            placeholder="输入文本后发送"
+            placeholder="输入文本内容..."
             :disabled="isOperating"
             size="small"
           />
           <ElButton
-            size="small"
             type="primary"
+            size="small"
+            class="send-btn"
             :disabled="isOperating || !textInputValue.trim()"
             @click="handleTextInput"
           >
@@ -459,12 +484,26 @@ function handleDialogOpen() {
         </div>
 
         <!-- 按键操作 -->
-        <div class="key-section">
-          <div class="section-title">按键操作</div>
-          <ElButton :disabled="isOperating" @click="handleOpenKeyPressDialog">
-            🎹 按键操作
-          </ElButton>
+        <ElButton class="outline-btn toolbar-btn" :disabled="isOperating" @click="handleOpenKeyPressDialog">
+          🎹 按键操作
+        </ElButton>
+
+        <!-- 操作提示 -->
+        <div class="tip-section">
+          💡 点击截图发送点击指令<br>
+          鼠标悬停显示实时坐标
         </div>
+
+        <!-- 选择起点按钮（仅在选择模式时显示） -->
+        <ElButton
+          v-if="selectMode !== 'none'"
+          size="small"
+          type="warning"
+          class="toolbar-btn"
+          @click="startSelectFrom"
+        >
+          选择起点
+        </ElButton>
       </div>
     </div>
 
@@ -625,38 +664,78 @@ function handleDialogOpen() {
 
 /* 右侧工具栏 */
 .debug-toolbar {
-  width: 180px;
+  width: 200px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
-.section-title {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.swipe-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.input-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.input-section :deep(.el-input) {
+/* 工具栏按钮 */
+.toolbar-btn {
   width: 100%;
+  padding: 12px;
+  font-size: 14px;
 }
 
-.key-section {
+.toolbar-btn :deep(.el-button__content) {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 工具栏卡片 */
+.toolbar-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+/* 滑动按钮 */
+.swipe-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.swipe-buttons .el-button {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+}
+
+/* 发送按钮 */
+.send-btn {
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* 白色背景+边框按钮 */
+.outline-btn {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  color: #333;
+}
+
+.outline-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #d5d5d5;
+}
+
+/* 操作提示 */
+.tip-section {
+  background: #f0f7ff;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  color: #333;
+  line-height: 1.5;
 }
 </style>
