@@ -629,7 +629,7 @@ onMounted(async () => {
                   <label class="form-label">模板类型 <span class="required">*</span></label>
                   <ElSelect v-model="templateForm.type" style="width: 100%">
                     <ElOption label="配置" value="config" />
-                    <ElOption label="脚本内容" value="script" />
+                    <ElOption label="脚本" value="script" />
                   </ElSelect>
                 </div>
               </div>
