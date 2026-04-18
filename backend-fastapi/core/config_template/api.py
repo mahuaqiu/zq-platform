@@ -27,7 +27,7 @@ from core.config_template.service import ConfigTemplateService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/config-template", tags=["配置模板管理"])
+router = APIRouter(prefix="/config-template", tags=["设备配置管理"])
 
 
 # ==================== 静态路由（必须在动态路由之前）====================
@@ -111,7 +111,7 @@ async def create_config_template(
 
     try:
         template = await ConfigTemplateService.create_with_version(db, data)
-        logger.info(f"创建配置模板成功: id={template.id}, name={template.name}")
+        logger.info(f"创建配置模板成功: id={template.id}, name={template.name}, type={template.type}")
         return ConfigTemplateResponse.model_validate(template)
     except Exception as e:
         await db.rollback()
