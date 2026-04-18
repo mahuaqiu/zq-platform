@@ -85,11 +85,13 @@ Expected: 数据库表新增两个字段
 
 - [ ] **Step 4: 验证迁移**
 
+使用 alembic 确认迁移状态：
+
 ```bash
-cd backend-fastapi && python -c "from app.database import engine; import asyncio; from sqlalchemy import text; async def check(): async with engine.begin() as conn: result = await conn.execute(text('SELECT column_name FROM information_schema.columns WHERE table_name = \"config_template\"')); print([r[0] for r in result]); asyncio.run(check())"
+cd backend-fastapi && alembic current
 ```
 
-Expected: 输出包含 'type' 和 'script_name'
+Expected: 显示最新迁移版本号
 
 - [ ] **Step 5: Commit**
 
@@ -172,8 +174,9 @@ git commit -m "feat(model): ConfigTemplate 新增 type 和 script_name 字段"
 - [ ] **Step 1: 修改 ConfigTemplateCreate**
 
 ```python
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-import re
+from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationInfo
+from typing import Optional
+from datetime import datetime
 
 class ConfigTemplateCreate(BaseModel):
     """创建配置模板请求 Schema"""
@@ -193,7 +196,7 @@ class ConfigTemplateCreate(BaseModel):
 
     @field_validator('script_name')
     @classmethod
-    def validate_script_name(cls, v: Optional[str], info) -> Optional[str]:
+    def validate_script_name(cls, v: Optional[str], info: ValidationInfo) -> Optional[str]:
         # 脚本类型时 script_name 必填
         if info.data.get('type') == 'script' and not v:
             raise ValueError('脚本类型必须填写脚本名称')
@@ -364,71 +367,11 @@ git commit -m "feat(service): 新增 _send_script_to_worker 方法"
 **Files:**
 - Modify: `backend-fastapi/core/config_template/service.py`
 
-- [ ] **Step 1: 修改 deploy_config 方法**
+- [ ] **Step 1: 在 for machine in machines 循环中新增脚本类型校验**
 
-找到 `deploy_config` 方法，修改下发调用部分：
+找到 `deploy_config` 方法中的 for 循环（约第330行），在原有离线和更新中校验之后，插入脚本类型校验：
 
 ```python
-@classmethod
-async def deploy_config(
-    cls,
-    db: AsyncSession,
-    template_id: str,
-    machine_ids: List[str],
-) -> DeployResponse:
-    """
-    下发配置/脚本到机器
-
-    :param db: 数据库会话
-    :param template_id: 模板 ID
-    :param machine_ids: 机器 ID 列表
-    :return: 下发响应
-    """
-    # 获取模板
-    template = await cls.get_by_id(db, template_id)
-    if not template:
-        raise ValueError(f"模板不存在: {template_id}")
-
-    # 查询机器
-    result = await db.execute(
-        select(EnvMachine).where(
-            and_(
-                EnvMachine.id.in_(machine_ids),
-                EnvMachine.is_deleted == False,  # noqa: E712
-            )
-        )
-    )
-    machines = result.scalars().all()
-
-    response = DeployResponse(success_count=0, failed_count=0, details=[])
-
-    # 收集并发任务
-    deploy_tasks = []
-    deploy_machine_map = {}
-
-    for machine in machines:
-        # 跳过离线机器
-        if machine.status == "offline":
-            response.failed_count += 1
-            response.details.append(DeployDetail(
-                machine_id=machine.id,
-                ip=machine.ip,
-                status="failed",
-                error_message="机器离线"
-            ))
-            continue
-
-        # 跳过正在更新配置的机器
-        if hasattr(machine, 'config_status') and machine.config_status == "updating":
-            response.failed_count += 1
-            response.details.append(DeployDetail(
-                machine_id=machine.id,
-                ip=machine.ip,
-                status="failed",
-                error_message="配置正在更新中"
-            ))
-            continue
-
         # 脚本类型：校验设备类型匹配
         if template.type == 'script':
             target_os = cls._get_target_os_from_extension(template.script_name)
@@ -450,57 +393,31 @@ async def deploy_config(
                     error_message="脚本仅支持 Mac 设备"
                 ))
                 continue
+```
 
-        # 收集并发任务 - 根据 type 选择不同的下发方法
+- [ ] **Step 2: 修改下发任务收集逻辑**
+
+找到原有的 `deploy_tasks.append(cls._send_config_to_worker(machine, template))` 行，改为条件分支：
+
+```python
+        # 根据 type 选择不同的下发方法
         if template.type == 'script':
             deploy_tasks.append(cls._send_script_to_worker(machine, template))
         else:
             deploy_tasks.append(cls._send_config_to_worker(machine, template))
-        deploy_machine_map[machine.id] = machine
+```
 
+- [ ] **Step 3: 修改并发日志输出**
+
+找到并发下发的日志行，添加类型信息：
+
+```python
     # 并发下发
     if deploy_tasks:
         logger.info(f"并发下发到 {len(deploy_tasks)} 台机器，类型: {template.type}")
-        results = await asyncio.gather(*deploy_tasks, return_exceptions=True)
-
-        # 处理结果
-        for task_result in results:
-            if isinstance(task_result, Exception):
-                logger.error(f"并发任务异常: {task_result}")
-                response.failed_count += 1
-                continue
-
-            success, error_message, machine_id = task_result
-            machine = deploy_machine_map[machine_id]
-
-            if success:
-                # 更新机器状态
-                if hasattr(machine, 'config_status'):
-                    machine.config_status = "updating"
-                if hasattr(machine, 'config_version'):
-                    machine.config_version = template.version
-
-                response.success_count += 1
-                response.details.append(DeployDetail(
-                    machine_id=machine.id,
-                    ip=machine.ip,
-                    status="success",
-                    error_message=None
-                ))
-            else:
-                response.failed_count += 1
-                response.details.append(DeployDetail(
-                    machine_id=machine.id,
-                    ip=machine.ip,
-                    status="failed",
-                    error_message=error_message
-                ))
-
-    await db.commit()
-    return response
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add backend-fastapi/core/config_template/service.py
@@ -837,12 +754,13 @@ git commit -m "feat(router): 路由标题更新为 '设备配置'"
 
 - [ ] **Step 2: 修改弹窗标题**
 
-找到 `templateDialogTitle` 的赋值部分：
+找到 `templateDialogTitle` 的赋值部分，新建时清除 selectedTemplate：
 
 ```typescript
 // 新建模板
 function handleCreateTemplate() {
   templateDialogTitle.value = '新建模板';  // 从 "新建配置模板" 改为 "新建模板"
+  selectedTemplate.value = null;  // 新建时清除选中模板
   templateForm.value = {
     name: '',
     type: 'config',  // 新增：默认类型为 config
@@ -885,6 +803,8 @@ const templateForm = ref({
 
 - [ ] **Step 4: 修改保存模板逻辑**
 
+使用 `selectedTemplate.value` 是否为 null 判断新建还是编辑：
+
 ```typescript
 async function handleSaveTemplate() {
   if (!templateForm.value.name.trim()) {
@@ -910,9 +830,10 @@ async function handleSaveTemplate() {
     return;
   }
 
+  const isNewTemplate = selectedTemplate.value === null;
   templateFormLoading.value = true;
   try {
-    if (templateDialogTitle.value === '新建模板') {
+    if (isNewTemplate) {
       await createConfigTemplateApi({
         name: templateForm.value.name,
         type: templateForm.value.type,
@@ -923,22 +844,20 @@ async function handleSaveTemplate() {
       });
       ElMessage.success('创建成功');
     } else {
-      if (selectedTemplate.value) {
-        await updateConfigTemplateApi(selectedTemplate.value.id, {
-          name: templateForm.value.name,
-          type: templateForm.value.type,
-          script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
-          namespace: templateForm.value.namespace || undefined,
-          config_content: templateForm.value.config_content,
-          note: templateForm.value.note,
-        });
-        ElMessage.success('更新成功');
-      }
+      await updateConfigTemplateApi(selectedTemplate.value!.id, {
+        name: templateForm.value.name,
+        type: templateForm.value.type,
+        script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
+        namespace: templateForm.value.namespace || undefined,
+        config_content: templateForm.value.config_content,
+        note: templateForm.value.note,
+      });
+      ElMessage.success('更新成功');
     }
     templateDialogVisible.value = false;
     await loadTemplates();
   } catch (error) {
-    ElMessage.error(templateDialogTitle.value === '新建模板' ? '创建失败' : '更新失败');
+    ElMessage.error(isNewTemplate ? '创建失败' : '更新失败');
   } finally {
     templateFormLoading.value = false;
   }
@@ -1264,7 +1183,7 @@ function getEditorLanguage(): string {
   const scriptName = templateForm.value.script_name || '';
   const ext = scriptName.toLowerCase().split('.').pop();
   if (ext === 'ps1') return 'powershell';
-  if (ext === 'bat') return 'bat';  // Monaco 不直接支持 bat，用 basic 替代
+  if (ext === 'bat') return 'shell';  // bat 使用 shell 语法近似
   if (ext === 'sh') return 'shell';
   return 'plaintext';
 }
