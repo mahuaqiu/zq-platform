@@ -212,7 +212,13 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
             conditions.append(EnvMachine.namespace.in_(VALID_NAMESPACE_LIST))
 
         # 设备类型筛选
-        if device_type:
+        # 脚本类型：根据扩展名自动过滤设备类型，忽略前端传入的 device_type
+        if template.type == 'script':
+            target_os = cls._get_target_os_from_extension(template.script_name)
+            if target_os:
+                conditions.append(EnvMachine.device_type == target_os)
+        elif device_type:
+            # 配置类型：使用前端传入的筛选条件
             conditions.append(EnvMachine.device_type == device_type)
 
         # 指定机器 ID
@@ -290,6 +296,23 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         # 待更新
         return "pending"
 
+    @staticmethod
+    def _get_target_os_from_extension(script_name: str) -> str:
+        """
+        根据脚本扩展名返回目标操作系统
+
+        :param script_name: 脚本名称
+        :return: 'windows' 或 'mac' 或 ''
+        """
+        if not script_name:
+            return ''
+        ext = script_name.lower().split('.')[-1] if '.' in script_name else ''
+        if ext in ('ps1', 'bat'):
+            return 'windows'
+        elif ext == 'sh':
+            return 'mac'
+        return ''
+
     @classmethod
     async def deploy_config(
         cls,
@@ -350,13 +373,38 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
                 ))
                 continue
 
-            # 收集并发任务
-            deploy_tasks.append(cls._send_config_to_worker(machine, template))
+            # 脚本类型：校验设备类型匹配
+            if template.type == 'script':
+                target_os = cls._get_target_os_from_extension(template.script_name)
+                if target_os == 'windows' and machine.device_type != 'windows':
+                    response.failed_count += 1
+                    response.details.append(DeployDetail(
+                        machine_id=machine.id,
+                        ip=machine.ip,
+                        status="failed",
+                        error_message="脚本仅支持 Windows 设备"
+                    ))
+                    continue
+                elif target_os == 'mac' and machine.device_type != 'mac':
+                    response.failed_count += 1
+                    response.details.append(DeployDetail(
+                        machine_id=machine.id,
+                        ip=machine.ip,
+                        status="failed",
+                        error_message="脚本仅支持 Mac 设备"
+                    ))
+                    continue
+
+            # 收集并发任务 - 根据 type 选择不同的下发方法
+            if template.type == 'script':
+                deploy_tasks.append(cls._send_script_to_worker(machine, template))
+            else:
+                deploy_tasks.append(cls._send_config_to_worker(machine, template))
             deploy_machine_map[machine.id] = machine
 
         # 并发下发
         if deploy_tasks:
-            logger.info(f"并发下发配置到 {len(deploy_tasks)} 台机器")
+            logger.info(f"并发下发到 {len(deploy_tasks)} 台机器，类型: {template.type}")
             results = await asyncio.gather(*deploy_tasks, return_exceptions=True)
 
             # 处理结果
@@ -437,4 +485,53 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
             return False, "无法连接到 Worker", machine.id
         except Exception as e:
             logger.error(f"调用 Worker 配置接口失败: {e}")
+            return False, f"网络错误: {str(e)}", machine.id
+
+    @staticmethod
+    async def _send_script_to_worker(
+        machine: EnvMachine,
+        template: ConfigTemplate
+    ) -> Tuple[bool, Optional[str], str]:
+        """
+        调用 Worker scripts 接口下发脚本
+
+        :param machine: 机器对象
+        :param template: 配置模板（脚本类型）
+        :return: (是否成功, 错误信息, machine_id)
+        """
+        url = f"http://{machine.ip}:{machine.port}/worker/scripts"
+        payload = {
+            "name": template.script_name,
+            "content": template.config_content,
+            "version": template.version,
+            "overwrite": True
+        }
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=WORKER_CONFIG_TIMEOUT,
+                trust_env=True,
+                verify=False
+            ) as client:
+                response = await client.post(url, json=payload)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "success":
+                        return True, None, machine.id
+                    else:
+                        return False, f"Worker 返回异常状态: {data.get('status')}", machine.id
+                elif response.status_code == 409:
+                    return False, "脚本更新进行中或已存在", machine.id
+                elif response.status_code == 503:
+                    return False, "Worker 未初始化", machine.id
+                else:
+                    return False, f"Worker 返回错误状态码: {response.status_code}", machine.id
+
+        except httpx.TimeoutException:
+            return False, "Worker 响应超时", machine.id
+        except httpx.ConnectError:
+            return False, "无法连接到 Worker", machine.id
+        except Exception as e:
+            logger.error(f"调用 Worker scripts 接口失败: {e}")
             return False, f"网络错误: {str(e)}", machine.id
