@@ -41,6 +41,8 @@ const templateDialogVisible = ref(false);
 const templateDialogTitle = ref('新建模板');
 const templateForm = ref({
   name: '',
+  type: 'config' as 'config' | 'script',
+  script_name: '',
   namespace: '',
   config_content: '',
   note: '',
@@ -94,10 +96,41 @@ const isIndeterminate = computed(() => {
   return selectedLen > 0 && selectedLen < selectableLen;
 });
 
+// 脚本类型模板：禁用设备类型筛选（已自动过滤）
+const isDeviceTypeFilterDisabled = computed(() => {
+  return selectedTemplate.value?.type === 'script';
+});
+
+// 脚本类型模板：显示当前筛选的目标系统
+const deviceTypeFilterHint = computed(() => {
+  if (selectedTemplate.value?.type === 'script' && selectedTemplate.value?.script_name) {
+    const targetOs = getTargetOsDisplay(selectedTemplate.value.script_name);
+    return `已自动筛选 ${targetOs} 设备`;
+  }
+  return '';
+});
+
+// 下发按钮文案
+const deployButtonText = computed(() => {
+  if (selectedTemplate.value?.type === 'script') {
+    return '下发脚本';
+  }
+  return '下发配置';
+});
+
 // 获取模板适用命名空间的显示文本
 function getTemplateNamespaceDisplay(namespace?: string): string {
   if (!namespace) return '全部命名空间';
   return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
+}
+
+// 根据脚本扩展名获取目标系统显示
+function getTargetOsDisplay(scriptName?: string): string {
+  if (!scriptName) return '';
+  const ext = scriptName.toLowerCase().split('.').pop();
+  if (ext === 'ps1' || ext === 'bat') return 'Windows';
+  if (ext === 'sh') return 'Mac';
+  return '';
 }
 
 // 加载模板列表
@@ -119,16 +152,19 @@ async function loadTemplates() {
 
 // 新建模板
 function handleCreateTemplate() {
-  templateDialogTitle.value = '新建配置模板';
-  templateForm.value = { name: '', namespace: '', config_content: '', note: '' };
+  templateDialogTitle.value = '新建模板';
+  selectedTemplate.value = null;
+  templateForm.value = { name: '', type: 'config', script_name: '', namespace: '', config_content: '', note: '' };
   templateDialogVisible.value = true;
 }
 
 // 编辑模板
 function handleEditTemplate(template: ConfigTemplate) {
-  templateDialogTitle.value = '编辑配置模板';
+  templateDialogTitle.value = '编辑模板';
   templateForm.value = {
     name: template.name,
+    type: template.type || 'config',
+    script_name: template.script_name || '',
     namespace: template.namespace || '',
     config_content: template.config_content,
     note: template.note || '',
@@ -143,36 +179,53 @@ async function handleSaveTemplate() {
     ElMessage.warning('请输入模板名称');
     return;
   }
+
+  // 脚本类型校验
+  if (templateForm.value.type === 'script') {
+    if (!templateForm.value.script_name.trim()) {
+      ElMessage.warning('请输入脚本名称');
+      return;
+    }
+    const ext = templateForm.value.script_name.toLowerCase().split('.').pop();
+    if (ext && !['ps1', 'bat', 'sh'].includes(ext)) {
+      ElMessage.warning('脚本扩展名必须是 .ps1, .bat 或 .sh');
+      return;
+    }
+  }
+
   if (!templateForm.value.config_content.trim()) {
     ElMessage.warning('请输入配置内容');
     return;
   }
 
+  const isNewTemplate = selectedTemplate.value === null;
   templateFormLoading.value = true;
   try {
-    if (templateDialogTitle.value === '新建配置模板') {
+    if (isNewTemplate) {
       await createConfigTemplateApi({
         name: templateForm.value.name,
+        type: templateForm.value.type,
+        script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
         namespace: templateForm.value.namespace || undefined,
         config_content: templateForm.value.config_content,
         note: templateForm.value.note,
       });
       ElMessage.success('创建成功');
     } else {
-      if (selectedTemplate.value) {
-        await updateConfigTemplateApi(selectedTemplate.value.id, {
-          name: templateForm.value.name,
-          namespace: templateForm.value.namespace || undefined,
-          config_content: templateForm.value.config_content,
-          note: templateForm.value.note,
-        });
-        ElMessage.success('更新成功');
-      }
+      await updateConfigTemplateApi(selectedTemplate.value!.id, {
+        name: templateForm.value.name,
+        type: templateForm.value.type,
+        script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
+        namespace: templateForm.value.namespace || undefined,
+        config_content: templateForm.value.config_content,
+        note: templateForm.value.note,
+      });
+      ElMessage.success('更新成功');
     }
     templateDialogVisible.value = false;
     await loadTemplates();
   } catch (error) {
-    ElMessage.error(templateDialogTitle.value === '新建配置模板' ? '创建失败' : '更新失败');
+    ElMessage.error(isNewTemplate ? '创建失败' : '更新失败');
   } finally {
     templateFormLoading.value = false;
   }
@@ -380,7 +433,7 @@ onMounted(async () => {
       <!-- 左侧：模板列表 -->
       <div class="template-panel">
         <div class="panel-header">
-          <span class="panel-title">📝 配置模板</span>
+          <span class="panel-title">📝 下发列表</span>
           <ElButton type="primary" size="small" @click="handleCreateTemplate">新建</ElButton>
         </div>
         <div class="panel-body">
@@ -396,6 +449,13 @@ onMounted(async () => {
               <div class="template-info">
                 <div class="template-name">{{ item.name }}</div>
                 <div class="template-meta">适用：{{ getTemplateNamespaceDisplay(item.namespace) }}</div>
+
+                <!-- 脚本类型：显示脚本名称和目标系统 -->
+                <div v-if="item.type === 'script'" class="template-script-info">
+                  <span class="script-name">{{ item.script_name }}</span>
+                  <span class="script-os">{{ getTargetOsDisplay(item.script_name) }}</span>
+                </div>
+
                 <div class="template-version">版本：{{ item.version }}</div>
               </div>
               <div class="template-actions">
@@ -422,9 +482,14 @@ onMounted(async () => {
               </div>
               <div class="filter-item">
                 <label class="filter-label">设备类型:</label>
-                <ElSelect v-model="filterForm.device_type" style="width: 100px">
+                <ElSelect
+                  v-model="filterForm.device_type"
+                  style="width: 100px"
+                  :disabled="isDeviceTypeFilterDisabled"
+                >
                   <ElOption v-for="opt in DEVICE_TYPE_FILTER_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </ElSelect>
+                <span v-if="deviceTypeFilterHint" class="filter-hint">{{ deviceTypeFilterHint }}</span>
               </div>
               <div class="filter-item">
                 <label class="filter-label">IP搜索:</label>
@@ -445,7 +510,7 @@ onMounted(async () => {
             <!-- 统计信息 -->
             <div v-if="previewData" class="stats-row">
               <span class="stats-item stats-deployable"><strong>可下发:</strong> {{ previewData.deployable_count }}台</span>
-              <span class="stats-item stats-updating"><strong>配置更新中:</strong> {{ previewData.updating_count }}台</span>
+              <span class="stats-item stats-updating"><strong>下发更新中:</strong> {{ previewData.updating_count }}台</span>
               <span class="stats-item stats-offline"><strong>离线:</strong> {{ previewData.offline_count }}台</span>
             </div>
 
@@ -501,7 +566,7 @@ onMounted(async () => {
                     </span>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="config_status" label="配置状态" min-width="100">
+                <ElTableColumn prop="config_status" label="下发状态" min-width="100">
                   <template #default="{ row }">
                     <span
                       class="status-tag"
@@ -514,7 +579,7 @@ onMounted(async () => {
                     </span>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="config_version" label="配置版本" min-width="140">
+                <ElTableColumn prop="config_version" label="下发版本" min-width="140">
                   <template #default="{ row }">
                     <span :style="{ color: getConfigVersionColor(row.config_status) }">
                       {{ row.config_version || '-' }}
@@ -527,7 +592,7 @@ onMounted(async () => {
             <!-- 操作按钮 -->
             <div class="action-row">
               <div class="selected-count">已选择 <strong class="count-num">{{ selectedMachineIds.length }}</strong> 台机器</div>
-              <ElButton type="primary" @click="openDeployDialog">下发配置</ElButton>
+              <ElButton type="primary" @click="openDeployDialog">{{ deployButtonText }}</ElButton>
             </div>
           </div>
         </div>
@@ -561,14 +626,33 @@ onMounted(async () => {
                   <ElInput v-model="templateForm.name" placeholder="如：默认配置模板" />
                 </div>
                 <div class="form-col">
+                  <label class="form-label">模板类型 <span class="required">*</span></label>
+                  <ElSelect v-model="templateForm.type" style="width: 100%">
+                    <ElOption label="配置" value="config" />
+                    <ElOption label="脚本内容" value="script" />
+                  </ElSelect>
+                </div>
+              </div>
+
+              <!-- 脚本名称：仅脚本类型显示 -->
+              <div v-if="templateForm.type === 'script'" class="form-row">
+                <div class="form-col-full">
+                  <label class="form-label">脚本名称 <span class="required">*</span></label>
+                  <ElInput
+                    v-model="templateForm.script_name"
+                    placeholder="如 play_ppt.ps1，扩展名仅支持 .ps1/.bat/.sh"
+                  />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-col">
                   <label class="form-label">适用命名空间</label>
                   <ElSelect v-model="templateForm.namespace" placeholder="全部命名空间" clearable style="width: 100%">
                     <ElOption v-for="opt in NAMESPACE_OPTIONS_DIALOG" :key="opt.value" :label="opt.label" :value="opt.value" />
                   </ElSelect>
                 </div>
-              </div>
-              <div class="form-row">
-                <div class="form-col-full">
+                <div class="form-col">
                   <label class="form-label">备注说明</label>
                   <ElInput v-model="templateForm.note" placeholder="模板用途说明" />
                 </div>
@@ -576,15 +660,17 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- 配置内容 -->
+          <!-- 配置内容/脚本内容 -->
           <div class="form-section">
-            <div class="section-title">配置内容 (YAML)</div>
+            <div class="section-title">
+              {{ templateForm.type === 'config' ? '配置内容 (YAML)' : '脚本内容' }}
+            </div>
             <div class="section-content">
               <div class="yaml-editor">
                 <textarea
                   v-model="templateForm.config_content"
                   class="yaml-textarea"
-                  placeholder="在此编辑 YAML 配置文件..."
+                  :placeholder="templateForm.type === 'config' ? '在此编辑 YAML 配置文件...' : '在此编辑脚本内容...'"
                   rows="18"
                 ></textarea>
               </div>
@@ -643,11 +729,18 @@ onMounted(async () => {
               <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
             </svg>
           </div>
-          <div class="dialog-title">确认下发配置</div>
+          <div class="dialog-title">
+            {{ selectedTemplate?.type === 'script' ? '确认下发脚本' : '确认下发配置' }}
+          </div>
         </div>
 
         <div class="dialog-body">
-          <p class="dialog-desc">即将把配置下发到选中的设备，下发后设备将应用新配置。</p>
+          <p class="dialog-desc">
+            {{ selectedTemplate?.type === 'script'
+              ? '即将把脚本下发到选中的设备，下发后设备将保存脚本文件。'
+              : '即将把配置下发到选中的设备，下发后设备将应用新配置。'
+            }}
+          </p>
 
           <div class="info-card">
             <div class="info-row">
@@ -664,7 +757,9 @@ onMounted(async () => {
             <svg class="warning-icon" viewBox="0 0 24 24" width="20" height="20">
               <path fill="#fa8c16" d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
             </svg>
-            <span class="warning-text">配置下发后将立即生效，请确认配置内容正确</span>
+            <span class="warning-text">
+              {{ selectedTemplate?.type === 'script' ? '脚本下发后将保存到设备，请确认脚本内容正确' : '配置下发后将立即生效，请确认配置内容正确' }}
+            </span>
           </div>
         </div>
 
@@ -776,6 +871,21 @@ onMounted(async () => {
   color: #999;
 }
 
+.template-script-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.script-name {
+  color: #1890ff;
+}
+
+.script-os {
+  color: #666;
+}
+
 .template-actions {
   display: flex;
   gap: 8px;
@@ -848,6 +958,12 @@ onMounted(async () => {
   color: #333;
   background: #fff;
   border: 1px solid #d9d9d9;
+}
+
+.filter-hint {
+  font-size: 12px;
+  color: #faad14;
+  margin-left: 8px;
 }
 
 /* 当前模板提示条 */
