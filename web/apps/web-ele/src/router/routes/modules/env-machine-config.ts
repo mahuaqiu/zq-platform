@@ -6,7 +6,7 @@ const routes: RouteRecordRaw[] = [
     name: 'EnvMachineConfig',
     component: () => import('#/views/env-machine/config.vue'),
     meta: {
-      title: '配置管理',
+      title: '设备配置',
       hideInMenu: true, // 菜单从后端获取，前端只定义组件映射
     },
   },

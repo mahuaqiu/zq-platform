@@ -6,6 +6,8 @@ import { requestClient } from '#/api/request';
 export interface ConfigTemplate {
   id: string;
   name: string;
+  type: 'config' | 'script';
+  script_name?: string;
   namespace?: string;
   note?: string;
   config_content: string;
