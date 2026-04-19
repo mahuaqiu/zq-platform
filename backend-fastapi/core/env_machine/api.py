@@ -111,7 +111,19 @@ async def register_env_machine(
 
             elif device_type in ("android", "ios"):
                 # Android/iOS：根据 device_sn 列表，每个 sn 插入一条记录
-                for device_sn in device_sns:
+                # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
+                for device_item in device_sns:
+                    if not device_item:
+                        continue
+
+                    # 提取 device_sn
+                    if isinstance(device_item, dict):
+                        device_sn = device_item.get("udid")
+                    elif isinstance(device_item, str):
+                        device_sn = device_item
+                    else:
+                        continue
+
                     if not device_sn:
                         continue
 
@@ -596,9 +608,10 @@ async def debug_device_action(
     elif action_type == "swipe":
         actions.append({
             "action_type": "swipe",
-            "from": {"x": params.get("from_x"), "y": params.get("from_y")},
-            "to": {"x": params.get("to_x"), "y": params.get("to_y")},
-            "duration": params.get("duration", 500)
+            "x": params.get("from_x"),
+            "y": params.get("from_y"),
+            "end_x": params.get("to_x"),
+            "end_y": params.get("to_y")
         })
     elif action_type == "input":
         actions.append({
@@ -625,15 +638,29 @@ async def debug_device_action(
             resp = await client.post(worker_url, json=worker_request)
             if resp.status_code == 200:
                 worker_result = resp.json()
+
+                # 检查 action 执行状态
+                actions_result = worker_result.get("actions", [])
+                if actions_result:
+                    first_action = actions_result[0]
+                    action_status = first_action.get("status", "")
+                    action_error = first_action.get("error", "")
+
+                    # action 执行失败
+                    if action_status == "failed":
+                        return DebugActionResponse(
+                            success=False,
+                            result={"error": action_error or "操作执行失败"}
+                        )
+
                 # 提取截图结果
                 result = {}
                 if action_type == "screenshot":
-                    # 从 actions 里提取截图
-                    actions_result = worker_result.get("actions", [])
                     for action in actions_result:
                         if action.get("action_type") == "screenshot" and action.get("screenshot"):
                             result["screenshot_base64"] = action["screenshot"]
                             break
+
                 return DebugActionResponse(success=True, result=result)
             elif resp.status_code == 502:
                 return DebugActionResponse(success=False, result={"error": "无法连接到设备"})

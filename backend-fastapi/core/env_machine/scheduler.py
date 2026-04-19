@@ -576,7 +576,15 @@ async def reload_machine_status_after_restart() -> Dict:
                         machine_ids_to_update.append(str(machine.id))
                     elif device_type in ("android", "ios"):
                         # 移动端需要检查 device_sn 是否在列表中
-                        device_sns = devices.get(device_type, [])
+                        # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
+                        device_items = devices.get(device_type, [])
+                        device_sns = []
+                        for item in device_items:
+                            if isinstance(item, dict):
+                                device_sns.append(item.get("udid"))
+                            elif isinstance(item, str):
+                                device_sns.append(item)
+
                         if machine.device_sn in device_sns:
                             machine.status = "online"
                             machine.sync_time = now

@@ -17,12 +17,12 @@ const emit = defineEmits<Emits>();
 
 // 按键列表
 const keys = [
-  { value: 'Home', label: '🏠 Home', desc: '返回主页' },
-  { value: 'Back', label: '↩️ Back', desc: '返回上一页' },
-  { value: 'Enter', label: '⏎ Enter', desc: '确认' },
-  { value: 'Power', label: '🔴 Power', desc: '电源键' },
-  { value: 'Volume Up', label: '🔊 Volume Up', desc: '音量+' },
-  { value: 'Volume Down', label: '🔉 Volume Down', desc: '音量-' },
+  { value: 'Home', icon: '🏠', text: 'Home', desc: '返回主页' },
+  { value: 'Back', icon: '↩️', text: 'Back', desc: '返回上一页' },
+  { value: 'Enter', icon: '⏎', text: 'Enter', desc: '确认' },
+  { value: 'Power', icon: '🔴', text: 'Power', desc: '电源键' },
+  { value: 'Volume Up', icon: '🔊', text: 'Volume Up', desc: '音量+' },
+  { value: 'Volume Down', icon: '🔉', text: 'Volume Down', desc: '音量-' },
 ];
 
 // 关闭弹窗
@@ -55,10 +55,9 @@ function handleKeyPress(key: string) {
         :disabled="disabled"
         @click="handleKeyPress(key.value)"
       >
-        <span class="key-content">
-          <span class="key-label">{{ key.label }}</span>
-          <span class="key-desc">({{ key.desc }})</span>
-        </span>
+        <span class="key-icon">{{ key.icon }}</span>
+        <span class="key-text">{{ key.text }}</span>
+        <span class="key-desc">({{ key.desc }})</span>
       </ElButton>
     </div>
     <div class="key-tip">点击按键立即执行</div>
@@ -85,14 +84,19 @@ function handleKeyPress(key: string) {
   justify-content: flex-start;
 }
 
-.key-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.key-item-btn :deep(.el-button__content) {
+  justify-content: flex-start;
 }
 
-.key-label {
+.key-icon {
+  display: inline-block;
+  width: 24px;
+  text-align: center;
+}
+
+.key-text {
   font-size: 13px;
+  min-width: 100px;
 }
 
 .key-desc {

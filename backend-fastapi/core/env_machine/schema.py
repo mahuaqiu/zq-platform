@@ -20,7 +20,7 @@ class EnvRegisterRequest(BaseModel):
     namespace: str = Field(..., description="机器分类")
     version: Optional[str] = Field(None, description="机器版本")
     config_version: Optional[str] = Field(None, description="配置版本")
-    devices: Dict[str, List[str]] = Field(..., description="设备列表，key为device_type，value为device_sn列表")
+    devices: Dict[str, List[Any]] = Field(..., description="设备列表，key为device_type，value为device_sn列表（字符串或{\"udid\":\"...\"}对象）")
 
 
 class EnvMachineListRequest(BaseModel):

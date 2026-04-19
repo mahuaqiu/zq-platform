@@ -545,7 +545,7 @@ function handleDialogOpen() {
 
 /* 左侧操作历史 */
 .debug-history {
-  width: 200px;
+  width: 240px;
   background: #f5f5f5;
   border-radius: 8px;
   overflow: hidden;
@@ -566,29 +566,35 @@ function handleDialogOpen() {
 }
 
 .history-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 6px 8px;
   font-size: 12px;
   border-radius: 4px;
   margin-bottom: 4px;
   background: #fff;
+  white-space: nowrap;
 }
 
 .history-status {
-  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .history-type {
+  flex-shrink: 0;
   font-weight: 500;
   color: #333;
 }
 
 .history-params {
+  flex-shrink: 0;
   color: #666;
-  margin-left: 4px;
 }
 
 .history-time {
-  float: right;
+  flex-shrink: 0;
+  margin-left: auto;
   color: #999;
 }
 
