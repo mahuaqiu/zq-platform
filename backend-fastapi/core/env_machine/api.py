@@ -608,10 +608,9 @@ async def debug_device_action(
     elif action_type == "swipe":
         actions.append({
             "action_type": "swipe",
-            "x": params.get("from_x"),
-            "y": params.get("from_y"),
-            "end_x": params.get("to_x"),
-            "end_y": params.get("to_y")
+            "from": {"x": params.get("from_x"), "y": params.get("from_y")},
+            "to": {"x": params.get("to_x"), "y": params.get("to_y")},
+            "duration": params.get("duration", 500)
         })
     elif action_type == "input":
         actions.append({
@@ -622,6 +621,8 @@ async def debug_device_action(
         })
     elif action_type == "press":
         actions.append({"action_type": "press", "key": params.get("key")})
+    elif action_type == "unlock_screen":
+        actions.append({"action_type": "unlock_screen", "value": params.get("value")})
     else:
         raise HTTPException(status_code=400, detail=f"不支持的操作类型: {action_type}")
 

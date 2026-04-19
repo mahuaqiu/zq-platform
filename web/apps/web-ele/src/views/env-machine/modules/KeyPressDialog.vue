@@ -1,10 +1,15 @@
 <script lang="ts" setup>
 
+import { computed } from 'vue';
+
 import { ElButton, ElDialog } from 'element-plus';
+
+import type { DeviceType } from '../types';
 
 interface Props {
   visible: boolean;
   disabled?: boolean;
+  deviceType?: DeviceType;
 }
 
 interface Emits {
@@ -12,18 +17,29 @@ interface Emits {
   (e: 'press', key: string): void;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-// 按键列表
-const keys = [
-  { value: 'Home', icon: '🏠', text: 'Home', desc: '返回主页' },
-  { value: 'Back', icon: '↩️', text: 'Back', desc: '返回上一页' },
-  { value: 'Enter', icon: '⏎', text: 'Enter', desc: '确认' },
-  { value: 'Power', icon: '🔴', text: 'Power', desc: '电源键' },
-  { value: 'Volume Up', icon: '🔊', text: 'Volume Up', desc: '音量+' },
-  { value: 'Volume Down', icon: '🔉', text: 'Volume Down', desc: '音量-' },
+// 所有按键定义
+const allKeys = [
+  { value: 'HOME', icon: '🏠', text: 'Home', desc: '返回主页', devices: ['android', 'ios'] },
+  { value: 'BACK', icon: '↩️', text: 'Back', desc: '返回上一页', devices: ['android'] },
+  { value: 'MENU', icon: '📋', text: 'Menu', desc: '菜单键', devices: ['android'] },
+  { value: 'ENTER', icon: '⏎', text: 'Enter', desc: '确认', devices: ['android'] },
+  { value: 'SEARCH', icon: '🔍', text: 'Search', desc: '搜索键', devices: ['android'] },
+  { value: 'VOLUME_UP', icon: '🔊', text: 'Volume Up', desc: '音量+(24)', devices: ['android', 'ios'] },
+  { value: 'VOLUME_DOWN', icon: '🔉', text: 'Volume Down', desc: '音量-(25)', devices: ['android', 'ios'] },
+  { value: 'LOCK', icon: '🔴', text: 'Lock', desc: '电源键(26)', devices: ['android', 'ios'] },
 ];
+
+// 根据设备类型过滤按键列表
+const keys = computed(() => {
+  if (!props.deviceType) {
+    // 没有设备类型时显示所有按键
+    return allKeys;
+  }
+  return allKeys.filter(key => key.devices.includes(props.deviceType!));
+});
 
 // 关闭弹窗
 function handleClose() {

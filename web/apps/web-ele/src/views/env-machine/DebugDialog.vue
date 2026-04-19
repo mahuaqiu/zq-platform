@@ -14,7 +14,6 @@ import {
 import { debugDeviceActionApi } from '#/api/core/env-machine';
 import { DEVICE_TYPE_OPTIONS, STATUS_OPTIONS } from './types';
 import KeyPressDialog from './modules/KeyPressDialog.vue';
-import SwipeDialog from './modules/SwipeDialog.vue';
 
 interface Props {
   visible: boolean;
@@ -57,6 +56,11 @@ const mouseCoord = ref<{ x: number; y: number } | null>(null);
 // 点击指示器
 const clickIndicator = ref<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
 
+// 拖拽滑动状态
+const isDragging = ref(false);
+const dragStart = ref<{ x: number; y: number } | null>(null);
+const dragEnd = ref<{ x: number; y: number } | null>(null);
+
 // 操作状态
 const isOperating = ref(false);
 const lastOperationTime = ref(0);
@@ -73,21 +77,17 @@ const operationHistory = ref<OperationRecord[]>([]);
 
 // 子弹窗
 const keyPressDialogVisible = ref(false);
-const swipeDialogVisible = ref(false);
 
 // 文本输入
 const textInputValue = ref('');
 
-// 滑动弹窗引用
-const swipeDialogRef = ref<{ setFromPoint: (x: number, y: number) => void; setToPoint: (x: number, y: number) => void } | null>(null);
-
-// 选择模式（用于在截图上选择起点/终点）
-const selectMode = ref<'none' | 'from' | 'to'>('none');
+// 解锁密码
+const unlockPassword = ref('');
 
 // 常量
 const OPERATION_TIMEOUT = 10000;
 const MIN_OPERATION_INTERVAL = 300;
-const SCREENSHOT_COOLDOWN = 2000;
+const SCREENSHOT_COOLDOWN = 1000;
 
 // 辅助函数
 function sleep(ms: number) {
@@ -102,7 +102,7 @@ function formatTime() {
 function formatHistoryDisplay(type: string, params: Record<string, any>): string {
   switch (type) {
     case 'screenshot':
-      return '刷新截图';
+      return ''; // 截图操作不显示在历史中
     case 'click':
       return `点击(${params.x}, ${params.y})`;
     case 'swipe':
@@ -111,7 +111,9 @@ function formatHistoryDisplay(type: string, params: Record<string, any>): string
       const text = params.text || '';
       return `输入"${text.length > 10 ? text.slice(0, 10) + '...' : text}"`;
     case 'press':
-      return `${params.key}键`;
+      return `${params.key}`;
+    case 'unlock_screen':
+      return `解锁屏幕`;
     default:
       return type;
   }
@@ -157,8 +159,8 @@ async function executeOperation(
   isOperating.value = true;
   lastOperationTime.value = Date.now();
 
-  // 记录操作开始（自动操作不记录）
-  if (!isAuto) {
+  // 记录操作开始（自动操作和截图不记录）
+  if (!isAuto && actionType !== 'screenshot') {
     const displayText = formatHistoryDisplay(actionType, params);
     addHistory(actionType, displayText, 'pending');
   }
@@ -196,6 +198,7 @@ async function executeOperation(
 
       // 操作成功后自动刷新截图（除了截图操作本身）
       if (!skipRefresh && actionType !== 'screenshot') {
+        await sleep(1000);  // 等待 1 秒后再截图
         await refreshScreenshot(true);
       }
 
@@ -238,27 +241,67 @@ async function refreshScreenshot(auto = false) {
   screenshotLoading.value = false;
 }
 
-// 点击截图
-async function handleScreenshotClick(event: MouseEvent) {
-  if (isOperating.value || !screenshotBase64.value) return;
-  if (selectMode.value !== 'none') {
-    // 选择模式，用于设置滑动起点/终点
-    handleSelectPoint(event);
-    return;
-  }
-
+// 获取图片上的坐标
+function getImageCoords(event: MouseEvent): { x: number; y: number } {
   const img = event.currentTarget as HTMLImageElement;
   const rect = img.getBoundingClientRect();
   const x = Math.round((event.clientX - rect.left) * (screenshotWidth.value / rect.width));
   const y = Math.round((event.clientY - rect.top) * (screenshotHeight.value / rect.height));
+  return { x, y };
+}
 
-  // 显示点击指示器
-  clickIndicator.value = { x, y, show: true };
-  setTimeout(() => {
-    clickIndicator.value.show = false;
-  }, 500);
+// 拖拽开始（按下鼠标）
+function handleDragStart(event: MouseEvent) {
+  if (isOperating.value || !screenshotBase64.value) return;
+  event.preventDefault(); // 阻止默认行为
 
-  await executeOperation('click', { x, y });
+  isDragging.value = true;
+  dragStart.value = getImageCoords(event);
+  dragEnd.value = null;
+}
+
+// 拖拽移动
+function handleDragMove(event: MouseEvent) {
+  if (isDragging.value) {
+    dragEnd.value = getImageCoords(event);
+    mouseCoord.value = dragEnd.value; // 拖拽时显示终点坐标
+  } else {
+    // 非拖拽时显示鼠标位置坐标
+    handleMouseMove(event);
+  }
+}
+
+// 拖拽结束（松开鼠标）
+async function handleDragEnd(event: MouseEvent) {
+  if (!isDragging.value || !dragStart.value) return;
+
+  isDragging.value = false;
+  const endCoord = getImageCoords(event);
+
+  // 计算滑动距离，如果距离太短则视为点击
+  const dx = Math.abs(endCoord.x - dragStart.value.x);
+  const dy = Math.abs(endCoord.y - dragStart.value.y);
+
+  if (dx < 20 && dy < 20) {
+    // 距离太短，执行点击
+    clickIndicator.value = { x: dragStart.value.x, y: dragStart.value.y, show: true };
+    setTimeout(() => {
+      clickIndicator.value.show = false;
+    }, 500);
+    await executeOperation('click', { x: dragStart.value.x, y: dragStart.value.y });
+  } else {
+    // 执行滑动
+    await executeOperation('swipe', {
+      from_x: dragStart.value.x,
+      from_y: dragStart.value.y,
+      to_x: endCoord.x,
+      to_y: endCoord.y,
+      duration: 500,
+    });
+  }
+
+  dragStart.value = null;
+  dragEnd.value = null;
 }
 
 // 鼠标移动显示坐标
@@ -273,54 +316,12 @@ function handleMouseMove(event: MouseEvent) {
 
 function handleMouseLeave() {
   mouseCoord.value = null;
-}
-
-// 选择起点/终点
-function handleSelectPoint(event: MouseEvent) {
-  const img = event.currentTarget as HTMLImageElement;
-  const rect = img.getBoundingClientRect();
-  const x = Math.round((event.clientX - rect.left) * (screenshotWidth.value / rect.width));
-  const y = Math.round((event.clientY - rect.top) * (screenshotHeight.value / rect.height));
-
-  if (selectMode.value === 'from') {
-    swipeDialogRef.value?.setFromPoint(x, y);
-    selectMode.value = 'to';
-    ElMessage.info('已设置起点，请点击选择终点');
-  } else if (selectMode.value === 'to') {
-    swipeDialogRef.value?.setToPoint(x, y);
-    selectMode.value = 'none';
-    ElMessage.success('起点和终点已设置');
+  // 鼠标离开时取消拖拽
+  if (isDragging.value) {
+    isDragging.value = false;
+    dragStart.value = null;
+    dragEnd.value = null;
   }
-}
-
-// 快捷滑动
-async function handleQuickSwipe(direction: 'up' | 'down' | 'left' | 'right') {
-  const w = screenshotWidth.value;
-  const h = screenshotHeight.value;
-
-  const presets = {
-    up: { from_x: w / 2, from_y: h * 0.8, to_x: w / 2, to_y: h * 0.2 },
-    down: { from_x: w / 2, from_y: h * 0.2, to_x: w / 2, to_y: h * 0.8 },
-    left: { from_x: w * 0.8, from_y: h / 2, to_x: w * 0.2, to_y: h / 2 },
-    right: { from_x: w * 0.2, from_y: h / 2, to_x: w * 0.8, to_y: h / 2 },
-  };
-
-  await executeOperation('swipe', { ...presets[direction], duration: 500 });
-}
-
-// 自定义滑动
-function handleOpenSwipeDialog() {
-  swipeDialogVisible.value = true;
-}
-
-async function handleSwipe(params: { from_x: number; from_y: number; to_x: number; to_y: number; duration: number }) {
-  await executeOperation('swipe', params);
-}
-
-// 开始在截图上选择起点
-function startSelectFrom() {
-  selectMode.value = 'from';
-  ElMessage.info('请在截图上点击选择起点');
 }
 
 // 文本输入
@@ -340,6 +341,16 @@ function handleOpenKeyPressDialog() {
 
 async function handleKeyPress(key: string) {
   await executeOperation('press', { key });
+}
+
+// 解锁屏幕
+async function handleUnlockScreen() {
+  if (!unlockPassword.value.trim()) {
+    ElMessage.warning('请输入解锁密码');
+    return;
+  }
+  await executeOperation('unlock_screen', { value: unlockPassword.value });
+  unlockPassword.value = '';
 }
 
 // 弹窗打开时获取截图
@@ -369,7 +380,7 @@ function handleDialogOpen() {
     <div class="debug-header">
       <ElTag v-if="deviceInfo" type="success">{{ deviceInfo.status }}</ElTag>
       <ElTag v-if="deviceInfo" type="info">{{ deviceInfo.type }}</ElTag>
-      <span class="device-id">设备ID: {{ machine?.id }}</span>
+      <span class="device-id">设备SN: {{ machine?.device_sn || machine?.id }}</span>
     </div>
 
     <!-- 三栏布局 -->
@@ -385,10 +396,13 @@ function handleDialogOpen() {
           >
             <span class="history-status">
               <template v-if="record.status === 'pending'">⏳</template>
-              <template v-else-if="record.status === 'success'">✓</template>
-              <template v-else>✗</template>
+              <template v-else-if="record.status === 'success'">
+                <span class="status-success">✓</span>
+              </template>
+              <template v-else>
+                <span class="status-failed">✗</span>
+              </template>
             </span>
-            <span class="history-type">{{ record.type }}</span>
             <span class="history-params">{{ record.params }}</span>
             <span class="history-time">{{ record.time }}</span>
           </div>
@@ -411,8 +425,10 @@ function handleDialogOpen() {
             v-if="screenshotBase64"
             :src="`data:image/png;base64,${screenshotBase64}`"
             class="screenshot-img"
-            @click="handleScreenshotClick"
-            @mousemove="handleMouseMove"
+            draggable="false"
+            @mousedown="handleDragStart"
+            @mousemove="handleDragMove"
+            @mouseup="handleDragEnd"
             @mouseleave="handleMouseLeave"
           />
           <div v-else class="screenshot-placeholder">
@@ -429,6 +445,42 @@ function handleDialogOpen() {
               top: `${(clickIndicator.y / screenshotHeight) * 100}%`,
             }"
           />
+
+          <!-- 拖拽轨迹指示器 -->
+          <div
+            v-if="isDragging && dragStart && dragEnd"
+            class="drag-track"
+          >
+            <div
+              class="drag-point drag-point-start"
+              :style="{
+                left: `${(dragStart.x / screenshotWidth) * 100}%`,
+                top: `${(dragStart.y / screenshotHeight) * 100}%`,
+              }"
+            />
+            <div
+              class="drag-line-visual"
+              :style="{
+                left: `${(dragStart.x / screenshotWidth) * 100}%`,
+                top: `${(dragStart.y / screenshotHeight) * 100}%`,
+                width: `${Math.sqrt(
+                  Math.pow((dragEnd.x - dragStart.x) / screenshotWidth * 100, 2) +
+                  Math.pow((dragEnd.y - dragStart.y) / screenshotHeight * 100, 2)
+                )}%`,
+                transform: `rotate(${Math.atan2(
+                  (dragEnd.y - dragStart.y) / screenshotHeight,
+                  (dragEnd.x - dragStart.x) / screenshotWidth
+                ) * 180 / Math.PI}deg)`,
+              }"
+            />
+            <div
+              class="drag-point drag-point-end"
+              :style="{
+                left: `${(dragEnd.x / screenshotWidth) * 100}%`,
+                top: `${(dragEnd.y / screenshotHeight) * 100}%`,
+              }"
+            />
+          </div>
         </div>
       </div>
 
@@ -443,24 +495,6 @@ function handleDialogOpen() {
           @click="refreshScreenshot()"
         >
           🔄 刷新截图
-        </ElButton>
-
-        <!-- 滑动操作卡片 -->
-        <div class="toolbar-card">
-          <div class="card-title">👆 滑动操作</div>
-          <div class="swipe-buttons">
-            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('up')">⬆️ 上滑</ElButton>
-            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('down')">⬇️ 下滑</ElButton>
-          </div>
-          <div class="swipe-buttons">
-            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('left')">⬅️ 左滑</ElButton>
-            <ElButton type="primary" size="small" :disabled="isOperating" @click="handleQuickSwipe('right')">➡️ 右滑</ElButton>
-          </div>
-        </div>
-
-        <!-- 自定义滑动 -->
-        <ElButton class="outline-btn toolbar-btn" :disabled="isOperating" @click="handleOpenSwipeDialog">
-          🎯 自定义滑动
         </ElButton>
 
         <!-- 文本输入卡片 -->
@@ -488,22 +522,32 @@ function handleDialogOpen() {
           🎹 按键操作
         </ElButton>
 
+        <!-- 解锁屏幕卡片 -->
+        <div class="toolbar-card">
+          <div class="card-title">🔓 解锁屏幕</div>
+          <ElInput
+            v-model="unlockPassword"
+            placeholder="输入解锁密码..."
+            :disabled="isOperating"
+            size="small"
+          />
+          <ElButton
+            type="primary"
+            size="small"
+            class="send-btn"
+            :disabled="isOperating || !unlockPassword.trim()"
+            @click="handleUnlockScreen"
+          >
+            解锁
+          </ElButton>
+        </div>
+
         <!-- 操作提示 -->
         <div class="tip-section">
           💡 点击截图发送点击指令<br>
+          拖拽（按住拖动）执行滑动操作<br>
           鼠标悬停显示实时坐标
         </div>
-
-        <!-- 选择起点按钮（仅在选择模式时显示） -->
-        <ElButton
-          v-if="selectMode !== 'none'"
-          size="small"
-          type="warning"
-          class="toolbar-btn"
-          @click="startSelectFrom"
-        >
-          选择起点
-        </ElButton>
       </div>
     </div>
 
@@ -511,15 +555,8 @@ function handleDialogOpen() {
     <KeyPressDialog
       v-model:visible="keyPressDialogVisible"
       :disabled="isOperating"
+      :device-type="machine?.device_type"
       @press="handleKeyPress"
-    />
-    <SwipeDialog
-      ref="swipeDialogRef"
-      v-model:visible="swipeDialogVisible"
-      :screenshot-width="screenshotWidth"
-      :screenshot-height="screenshotHeight"
-      :disabled="isOperating"
-      @swipe="handleSwipe"
     />
   </ElDialog>
 </template>
@@ -579,6 +616,14 @@ function handleDialogOpen() {
 
 .history-status {
   flex-shrink: 0;
+}
+
+.status-success {
+  color: #22c55e;
+}
+
+.status-failed {
+  color: #ef4444;
 }
 
 .history-type {
@@ -668,6 +713,43 @@ function handleDialogOpen() {
   }
 }
 
+/* 拖拽轨迹 */
+.drag-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.drag-point {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.drag-point-start {
+  background: #22c55e;
+}
+
+.drag-point-end {
+  background: #ef4444;
+}
+
+.drag-line-visual {
+  position: absolute;
+  height: 4px;
+  background: linear-gradient(90deg, #22c55e, #ef4444);
+  transform-origin: left center;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
 /* 右侧工具栏 */
 .debug-toolbar {
   width: 200px;
@@ -702,18 +784,6 @@ function handleDialogOpen() {
   font-weight: 500;
   color: #333;
   margin-bottom: 8px;
-}
-
-/* 滑动按钮 */
-.swipe-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.swipe-buttons .el-button {
-  flex: 1;
-  padding: 10px;
-  font-size: 14px;
 }
 
 /* 发送按钮 */

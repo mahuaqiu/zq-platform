@@ -114,7 +114,7 @@ class EnvMachineResponse(BaseModel):
 
 class DebugActionRequest(BaseModel):
     """设备调试操作请求 Schema"""
-    action_type: str = Field(..., description="操作类型：click/swipe/input/press/screenshot")
+    action_type: str = Field(..., description="操作类型：click/swipe/input/press/screenshot/unlock_screen")
     params: Dict[str, Any] = Field(default_factory=dict, description="操作参数")
 
 
