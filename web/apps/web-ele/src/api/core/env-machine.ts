@@ -151,9 +151,11 @@ export interface DebugActionResult {
 export async function debugDeviceActionApi(
   deviceId: string,
   params: DebugActionParams,
+  timeout?: number,
 ) {
   return requestClient.post<DebugActionResult>(
     `/api/core/env/${deviceId}/debug-action`,
     params,
+    timeout ? { timeout } : undefined,
   );
 }

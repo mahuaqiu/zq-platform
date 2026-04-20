@@ -85,7 +85,8 @@ const textInputValue = ref('');
 const unlockPassword = ref('');
 
 // 常量
-const OPERATION_TIMEOUT = 10000;
+const OPERATION_TIMEOUT = 20000;  // 普通操作超时：20秒
+const UNLOCK_TIMEOUT = 30000;     // 解锁屏幕超时：30秒（解锁操作耗时较长）
 const MIN_OPERATION_INTERVAL = 300;
 const SCREENSHOT_COOLDOWN = 1000;
 
@@ -166,15 +167,15 @@ async function executeOperation(
   }
 
   try {
-    // 超时控制
-    const timeoutPromise = new Promise<null>((_, reject) =>
-      setTimeout(() => reject(new Error('操作超时')), OPERATION_TIMEOUT),
-    );
+    // 根据操作类型选择超时时间（解锁操作使用更长超时）
+    const timeout = actionType === 'unlock_screen' ? UNLOCK_TIMEOUT : OPERATION_TIMEOUT;
 
-    const result = await Promise.race([
-      debugDeviceActionApi(props.machine.id, { action_type: actionType as any, params }),
-      timeoutPromise,
-    ]);
+    // 调用API时传递超时配置，避免axios默认10秒超时
+    const result = await debugDeviceActionApi(
+      props.machine.id,
+      { action_type: actionType as any, params },
+      timeout,
+    );
 
     if (result && result.success) {
       // 更新历史记录状态（自动操作不更新）

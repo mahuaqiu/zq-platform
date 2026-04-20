@@ -634,8 +634,11 @@ async def debug_device_action(
         "actions": actions
     }
 
+    # 根据操作类型设置超时时间（解锁操作需要更长时间）
+    request_timeout = 35.0 if action_type == "unlock_screen" else 20.0
+
     try:
-        async with httpx.AsyncClient(timeout=15.0, trust_env=True, verify=False) as client:
+        async with httpx.AsyncClient(timeout=request_timeout, trust_env=True, verify=False) as client:
             resp = await client.post(worker_url, json=worker_request)
             if resp.status_code == 200:
                 worker_result = resp.json()
