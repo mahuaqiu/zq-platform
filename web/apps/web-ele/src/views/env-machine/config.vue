@@ -77,10 +77,13 @@ const selectedMachineIds = ref<string[]>([]);
 const deployDialogVisible = ref(false);
 const deployLoading = ref(false);
 
-// 可选机器列表（synced 或 pending）
+// 可选机器列表（synced 或 pending，且设备类型为 windows/mac）
 const selectableMachines = computed(() => {
   if (!previewData.value) return [];
-  return previewData.value.machines.filter(m => m.config_status === 'synced' || m.config_status === 'pending');
+  return previewData.value.machines.filter(m =>
+    (m.config_status === 'synced' || m.config_status === 'pending') &&
+    (m.device_type === 'windows' || m.device_type === 'mac')
+  );
 });
 
 // 全选状态计算
@@ -302,8 +305,12 @@ function handleCheckboxChange(machineId: string, checked: boolean) {
   }
 }
 
-// 判断是否可选（synced 或 pending）
-function isSelectable(configStatus: string): boolean {
+// 判断是否可选（synced 或 pending，且设备类型为 windows/mac）
+function isSelectable(configStatus: string, deviceType: string): boolean {
+  // 只有 windows 和 mac 设备才能下发配置
+  if (deviceType !== 'windows' && deviceType !== 'mac') {
+    return false;
+  }
   return configStatus === 'synced' || configStatus === 'pending';
 }
 
@@ -539,7 +546,7 @@ onMounted(async () => {
                       type="checkbox"
                       class="native-checkbox"
                       :checked="selectedMachineIds.includes(row.id)"
-                      :disabled="!isSelectable(row.config_status)"
+                      :disabled="!isSelectable(row.config_status, row.device_type)"
                       @change="handleCheckboxChange(row.id, $event.target.checked)"
                     />
                   </template>
@@ -556,7 +563,7 @@ onMounted(async () => {
                 </ElTableColumn>
                 <ElTableColumn prop="device_type" label="设备类型" min-width="80">
                   <template #default="{ row }">
-                    {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
+                    {{ row.device_type === 'windows' ? 'Windows' : row.device_type === 'mac' ? 'Mac' : row.device_type }}
                   </template>
                 </ElTableColumn>
                 <ElTableColumn prop="status" label="机器状态" min-width="100">

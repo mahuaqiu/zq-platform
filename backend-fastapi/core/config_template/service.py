@@ -220,6 +220,10 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         elif device_type:
             # 配置类型：使用前端传入的筛选条件
             conditions.append(EnvMachine.device_type == device_type)
+        else:
+            # 配置类型、未指定设备类型时：默认只查询 windows 和 mac 设备
+            # android/ios 设备不支持配置下发
+            conditions.append(EnvMachine.device_type.in_(['windows', 'mac']))
 
         # 指定机器 ID
         if machine_ids:
