@@ -81,18 +81,8 @@ alembic upgrade head
 python scripts/dumpdata.py -o db_init.json -f
 python scripts/loaddata.py db_init.json
 
-# 初始化菜单脚本
-python scripts/init_env_machine_menu.py    # 设备管理菜单（设备列表+手工使用）
-# 或使用更新脚本合并旧菜单
-python scripts/update_env_machine_menu.py  # 合并4个子菜单为设备列表
-python scripts/init_upgrade_menu.py        # 升级管理菜单（设备管理子菜单）
-python scripts/init_config_template_menu.py # 配置管理菜单（设备管理子菜单）
-python scripts/init_scheduler_menu.py      # 定时任务菜单
-python scripts/init_scheduler_jobs.py      # 定时任务数据初始化
-python scripts/init_overview_menu.py       # 概览菜单
-python scripts/init_feature_analysis_menu.py  # 特性分析菜单
-python scripts/init_test_report_menu.py    # 测试报告菜单
-python scripts/init_ai_assistant_menu.py   # AI助手菜单
+# 初始化菜单脚本（统一脚本）
+python scripts/init_all_menus.py        # 清空菜单表并重新初始化所有菜单
 ```
 
 ## 架构说明
