@@ -24,6 +24,10 @@ export interface EnvMachine {
   is_deleted: boolean;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
+  // 新增字段（用于 WebSocket 连接）
+  udid?: string;
+  worker_host?: string;
+  worker_port?: number;
 }
 
 /**
@@ -158,4 +162,11 @@ export async function debugDeviceActionApi(
     params,
     timeout ? { timeout } : undefined,
   );
+}
+
+/**
+ * 获取单个设备详情
+ */
+export async function getEnvMachineDetailApi(id: string) {
+  return requestClient.get<EnvMachine>(`/api/core/env/${id}`);
 }
