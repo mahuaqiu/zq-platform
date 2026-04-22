@@ -17,7 +17,6 @@ import ScreenDisplay from './components/ScreenDisplay.vue';
 import MobilePanel from './components/MobilePanel.vue';
 import KeyPressDialog from './components/KeyPressDialog.vue';
 import InputTextDialog from './components/InputTextDialog.vue';
-import UnlockDialog from './components/UnlockDialog.vue';
 import InstallAppDialog from './components/InstallAppDialog.vue';
 
 const route = useRoute();
@@ -50,7 +49,7 @@ const {
   handleDragStart,
   handleDragMove,
   handleDragEnd,
-  handleMouseMove,
+  // handleMouseMove - 未使用，保留备用
   handleMouseLeave,
 } = useScreenInteraction(screenSize);
 
@@ -72,7 +71,6 @@ const swipeCount = ref(0);
 // 弹窗状态
 const keyPressDialogVisible = ref(false);
 const inputTextDialogVisible = ref(false);
-const unlockDialogVisible = ref(false);
 const installAppDialogVisible = ref(false);
 
 // 全屏状态
@@ -177,7 +175,7 @@ function handleUnlock(password?: string) {
 }
 
 // 安装 APP
-function handleInstallApp(file: File) {
+function handleInstallApp(_file: File) {
   // TODO: 实现上传安装逻辑（后端 API 待实现）
   ElMessage.info('APP 安装功能待后端支持');
 }
@@ -202,11 +200,6 @@ function handleOpenKeyPressDialog() {
 // 打开输入文本弹窗
 function handleOpenInputDialog() {
   inputTextDialogVisible.value = true;
-}
-
-// 打开解锁弹窗
-function handleOpenUnlockDialog() {
-  unlockDialogVisible.value = true;
 }
 
 // 打开安装弹窗
@@ -313,11 +306,6 @@ onMounted(() => {
     <InputTextDialog
       v-model:visible="inputTextDialogVisible"
       @send="handleInputText"
-    />
-
-    <UnlockDialog
-      v-model:visible="unlockDialogVisible"
-      @confirm="handleUnlock"
     />
 
     <InstallAppDialog

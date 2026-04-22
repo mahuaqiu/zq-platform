@@ -1,5 +1,3 @@
-import type { ScreenSize } from './types';
-
 /**
  * 将屏幕展示区的鼠标坐标转换为设备实际坐标
  */

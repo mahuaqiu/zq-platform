@@ -18,7 +18,7 @@ interface Emits {
   (e: 'screenshot'): void;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const textInputValue = ref('');

@@ -43,14 +43,14 @@ const allowedExtensions = computed(() => {
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
-    selectedFile.value = target.files[0];
+    selectedFile.value = target.files[0] as File;
   }
 }
 
 function handleDrop(event: DragEvent) {
   event.preventDefault();
   if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
-    selectedFile.value = event.dataTransfer.files[0];
+    selectedFile.value = event.dataTransfer.files[0] as File;
   }
 }
 

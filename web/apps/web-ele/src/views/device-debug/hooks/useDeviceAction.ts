@@ -51,7 +51,7 @@ export function useDeviceAction(deviceId: string) {
   async function executeOperation(
     actionType: string,
     params: Record<string, any>,
-    skipRefresh = true, // WebSocket 实时刷新，不需要手动刷新
+    _skipRefresh = true, // WebSocket 实时刷新，不需要手动刷新
     isAuto = false
   ): Promise<boolean> {
     // 检查最小间隔
@@ -85,13 +85,12 @@ export function useDeviceAction(deviceId: string) {
         }
         return true;
       } else {
-        const errorMsg = result?.result?.error || '操作失败';
         if (!isAuto) {
           updateHistoryStatus('failed');
         }
         return false;
       }
-    } catch (error: any) {
+    } catch (_error: any) {
       if (!isAuto) {
         updateHistoryStatus('failed');
       }
