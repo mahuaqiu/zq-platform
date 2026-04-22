@@ -29,15 +29,15 @@ const isDesktop = computed(() => isDesktopDevice(props.deviceType));
 const wsStatusDisplay = computed(() => {
   switch (props.wsStatus) {
     case 'connecting':
-      return { text: '连接中', type: 'warning' };
+      return { text: '连接中', type: 'warning' as const };
     case 'connected':
-      return { text: '已连接', type: 'success' };
+      return { text: '已连接', type: 'success' as const };
     case 'disconnected':
-      return { text: '已断开', type: 'info' };
+      return { text: '已断开', type: 'info' as const };
     case 'error':
-      return { text: '连接错误', type: 'danger' };
+      return { text: '连接错误', type: 'danger' as const };
     default:
-      return { text: '未知', type: 'info' };
+      return { text: '未知', type: 'info' as const };
   }
 });
 

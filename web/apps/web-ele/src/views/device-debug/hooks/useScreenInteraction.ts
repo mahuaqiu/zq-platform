@@ -71,7 +71,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
    */
   function handleDragEnd(event: MouseEvent): {
     type: 'click' | 'swipe';
-    params: { x: number; y: number } | { from_x: number; from_y: number; to_x: number; to_y: number };
+    params: { x: number; y: number } | { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
   } | null {
     if (!isDragging.value || !dragStart.value) return null;
 
@@ -90,7 +90,10 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
         clickIndicator.value.show = false;
       }, 500);
 
-      const result = {
+      const result: {
+        type: 'click';
+        params: { x: number; y: number };
+      } = {
         type: 'click',
         params: { x: dragStart.value.x, y: dragStart.value.y }
       };
@@ -99,7 +102,10 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
       return result;
     } else {
       // 滑动操作
-      const result = {
+      const result: {
+        type: 'swipe';
+        params: { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
+      } = {
         type: 'swipe',
         params: {
           from_x: dragStart.value.x,

@@ -141,14 +141,16 @@ async function handleScreenMouseUp(event: MouseEvent) {
   const result = handleDragEnd(event);
   if (result) {
     if (result.type === 'click') {
-      const success = await click(result.params.x, result.params.y);
+      const clickParams = result.params as { x: number; y: number };
+      const success = await click(clickParams.x, clickParams.y);
       if (success) clickCount.value++;
     } else if (result.type === 'swipe') {
+      const swipeParams = result.params as { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
       const success = await swipe(
-        result.params.from_x,
-        result.params.from_y,
-        result.params.to_x,
-        result.params.to_y
+        swipeParams.from_x,
+        swipeParams.from_y,
+        swipeParams.to_x,
+        swipeParams.to_y
       );
       if (success) swipeCount.value++;
     }
