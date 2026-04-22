@@ -215,10 +215,10 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- 异步机器排查 -->
+          <!-- 异常机器排查 -->
           <div class="stats-card offline-card">
             <div class="card-title">
-              异步机器排查
+              异常机器排查
             </div>
             <div class="card-subtitle">（启用但离线）</div>
             <ElScrollbar class="offline-list" v-if="stats?.offline_machines?.length">
