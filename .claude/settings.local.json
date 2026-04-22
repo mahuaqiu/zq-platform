@@ -113,7 +113,8 @@
       "Bash(node generate_training_ppt.js)",
       "Bash(\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir . \"AI端到端自动化测试培训.pptx\")",
       "Bash(node generate_training_ppt_v2.js)",
-      "Bash(node generate_training_ppt_final.js)"
+      "Bash(node generate_training_ppt_final.js)",
+      "Bash(pnpm install *)"
     ]
   }
 }

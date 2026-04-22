@@ -435,6 +435,18 @@ async def update_env_machine(
     return EnvMachineResponse.model_validate(machine)
 
 
+@router.get("/{machine_id}", response_model=EnvMachineResponse, summary="获取单个设备详情")
+async def get_env_machine_detail(
+    machine_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> EnvMachineResponse:
+    """获取单个设备详情"""
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="执行机不存在")
+    return EnvMachineResponse.model_validate(machine)
+
+
 @router.delete("/{machine_id}", summary="删除执行机")
 async def delete_env_machine(
     machine_id: str,

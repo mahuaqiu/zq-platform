@@ -87,9 +87,13 @@ async function loadDeviceDetail() {
     const result = await getEnvMachineDetailApi(deviceId);
     deviceDetail.value = result;
 
-    // 连接 WebSocket
-    if (result.worker_host && result.worker_port && result.udid) {
-      connect(result.worker_host, result.worker_port, result.udid);
+    // 连接 WebSocket（使用现有字段：ip、port、device_sn）
+    const workerHost = result.ip;
+    const workerPort = parseInt(result.port, 10);
+    const udid = result.device_sn; // 移动设备 udid = device_sn
+
+    if (workerHost && workerPort && udid) {
+      connect(workerHost, workerPort, udid);
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
     }
@@ -113,8 +117,11 @@ function handleDisconnect() {
 
 // 重新连接
 function handleReconnect() {
-  if (deviceDetail.value?.worker_host && deviceDetail.value?.worker_port && deviceDetail.value?.udid) {
-    reconnect(deviceDetail.value.worker_host, deviceDetail.value.worker_port, deviceDetail.value.udid);
+  if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_sn) {
+    const workerHost = deviceDetail.value.ip;
+    const workerPort = parseInt(deviceDetail.value.port, 10);
+    const udid = deviceDetail.value.device_sn;
+    reconnect(workerHost, workerPort, udid);
   }
 }
 
@@ -270,7 +277,7 @@ onMounted(() => {
           <div class="mobile-right">
             <MobilePanel
               :operation-history="operationHistory"
-              :udid="deviceDetail?.udid"
+              :udid="deviceDetail?.device_sn"
               @keypress="handleKeyPress"
               @input="handleInputText"
               @unlock="handleUnlock"

@@ -24,10 +24,6 @@ export interface EnvMachine {
   is_deleted: boolean;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
-  // 新增字段（用于 WebSocket 连接）
-  udid?: string;
-  worker_host?: string;
-  worker_port?: number;
 }
 
 /**
