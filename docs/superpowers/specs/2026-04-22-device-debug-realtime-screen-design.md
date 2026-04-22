@@ -50,12 +50,23 @@ type: project
 
 ### 2.3 WebSocket 接口
 
-**URL**: `ws://{host}:{port}/ws/screen/{device_id}`
+**架构说明**：前端直接连接 Worker 的 WebSocket 端点，不经过后端 Django。屏幕推流由 Worker 直接推送，减少延迟。
+
+**URL**: `ws://{worker_host}:{worker_port}/ws/screen/{udid}`
 
 **Path 参数**:
-- `device_id`: 设备 ID（Android/iOS: udid，Windows: windows_screen）
+- `udid`: 设备唯一标识（Android/iOS: udid，Windows: windows_screen）
 
-**说明**：路由参数 `deviceId` 使用数据库主键 UUID（`row.id`），页面加载时通过 API 查询设备详情获取 `udid` 字段，用于 WebSocket 连接。
+**连接流程**:
+1. 页面加载时，调用 `/api/core/env/{deviceId}` 获取设备详情
+2. 从设备详情中获取 `udid` 字段和 Worker 地址（`worker_host`、`worker_port`）
+3. 使用 Worker 地址和 udid 构建 WebSocket URL 并连接
+
+**配置项**（Worker 端 `worker.yaml`）:
+| 配置 | 默认值 | 说明 |
+|------|--------|------|
+| `max_connections_per_device` | 3 | 单设备最大并发连接数 |
+| `send_timeout_seconds` | 30 | 发送超时秒数，超时自动断开 |
 
 **数据格式**:
 - 发送内容：JPEG 原始字节流（非 base64，非 JSON）
@@ -65,9 +76,19 @@ type: project
 **断连场景**:
 | Close Code | Reason | 场景 |
 |------------|--------|------|
-| 1008 | "Max connections reached" | 连接数超限，拒绝连接 |
+| 1008 | "Max connections reached" | 连接数超限（>3），拒绝连接 |
 | 1001 | "Send timeout" | 发送超时（网络异常） |
 | 1000 | - | 客户端主动断开 |
+
+### 2.4 设备操作通信方式
+
+点击、滑动、按键、文本输入等操作**继续使用现有 HTTP API**，不通过 WebSocket 发送：
+
+- **API**: `/api/core/env/{machine_id}/debug-action`
+- **方式**: POST 请求
+- **参数**: `{ action_type, params }`
+
+WebSocket 仅用于接收实时屏幕画面，职责分离，降低实现复杂度。
 
 ## 3. UI 设计
 
