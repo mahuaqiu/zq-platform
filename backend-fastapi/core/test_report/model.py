@@ -20,7 +20,7 @@ class TestReportDetail(BaseModel):
     case_fail_log = Column(Text, nullable=False, comment="失败日志")
     fail_reason = Column(String(500), nullable=False, comment="失败原因")
     round = Column(Integer, nullable=False, comment="执行轮次")  # 原 case_round
-    testcase_block_id = Column(String(50), nullable=False, comment="用例块ID")  # 新增
+    testcase_block_id = Column(String(200), nullable=False, comment="用例块ID")  # 新增
     log_url = Column(String(500), nullable=True, comment="完整日志地址")
     fail_time = Column(DateTime, nullable=False, comment="失败时间")
 
@@ -59,7 +59,7 @@ class TestReportUploadLog(BaseModel):
 
     task_project_id = Column(String(21), nullable=False, index=True, comment="任务项目ID")
     round = Column(Integer, nullable=False, comment="执行轮次")
-    testcase_block_id = Column(String(50), nullable=False, comment="用例块ID")
+    testcase_block_id = Column(String(200), nullable=False, comment="用例块ID")
     file_name = Column(String(100), nullable=False, comment="文件名")
     file_url = Column(String(500), nullable=False, comment="文件访问URL")
     upload_time = Column(DateTime, nullable=False, server_default=func.now(), comment="上传时间")
