@@ -107,7 +107,13 @@
       "Read(//d/code/autotest//**)",
       "Read(//d/code/autotest/**)",
       "Bash(netstat -ano)",
-      "Bash(cat \"D:\\\\code\\\\zq-platform\\\\.superpowers\\\\brainstorm\"/*/\\\\.server-info)"
+      "Bash(cat \"D:\\\\code\\\\zq-platform\\\\.superpowers\\\\brainstorm\"/*/\\\\.server-info)",
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(node generate_training_ppt.js)",
+      "Bash(\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir . \"AI端到端自动化测试培训.pptx\")",
+      "Bash(node generate_training_ppt_v2.js)",
+      "Bash(node generate_training_ppt_final.js)"
     ]
   }
 }

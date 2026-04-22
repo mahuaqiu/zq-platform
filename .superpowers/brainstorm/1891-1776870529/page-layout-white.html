@@ -1,0 +1,230 @@
+<h2>方案 B - 白色背景风格</h2>
+<p class="subtitle">参考设备监控页面风格，使用白色背景和卡片式布局</p>
+
+<div class="mockup">
+  <div class="mockup-header">Windows/Mac 设备调试页面（白色风格）</div>
+  <div class="mockup-body" style="aspect-ratio: 1920/1080; width: 100%; background: #f0f2f5; display: flex; flex-direction: column;">
+
+    <!-- 顶部导航栏 -->
+    <div style="height: 56px; min-height: 56px; background: #fff; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid #e8e8e8;">
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <button style="background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 8px 16px; border-radius: 6px; font-size: 14px;">← 返回设备列表</button>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">💻</span>
+          <div>
+            <div style="color: #111; font-weight: 600;">Windows-PC-001</div>
+            <div style="color: #666; font-size: 12px;">Windows 11 Pro | 1920×1080</div>
+          </div>
+          <span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; font-size: 12px;">在线</span>
+        </div>
+      </div>
+      <div style="flex: 1;"></div>
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div style="color: #666;"><span style="color: #22c55e;">●</span> WebSocket 已连接</div>
+        <div style="background: #f5f5f5; padding: 8px 16px; border-radius: 6px; color: #333; font-size: 13px;">10 fps</div>
+        <button style="background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 8px 16px; border-radius: 6px;">⛶ 全屏</button>
+        <button style="background: #fee2e2; color: #b91c1c; padding: 8px 20px; border-radius: 6px; border: 1px solid #fecaca;">断开</button>
+      </div>
+    </div>
+
+    <!-- 主屏幕区域 -->
+    <div style="flex: 1; background: #f0f2f5; display: flex; align-items: center; justify-content: center; padding: 24px;">
+      <div style="width: 94%; height: 94%; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); position: relative; overflow: hidden; cursor: crosshair;">
+        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;">
+          <div style="font-size: 48px; color: #fff;">🖥</div>
+          <div style="color: #e8e8e8; font-size: 18px;">实时屏幕推流画面</div>
+        </div>
+        <div style="position: absolute; top: 16px; left: 16px; background: #dcfce7; padding: 6px 14px; border-radius: 4px; font-size: 12px; color: #166534; font-weight: 600;">● LIVE</div>
+        <div style="position: absolute; bottom: 16px; right: 16px; background: rgba(0,0,0,0.8); padding: 10px 16px; border-radius: 6px; color: #fff; font-size: 14px;">
+          坐标: <span style="color: #3b82f6;">(320, 180)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部工具栏 -->
+    <div style="height: 56px; min-height: 56px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; align-items: center; padding: 0 32px; gap: 16px;">
+      <button style="background: #f59e0b; color: #fff; padding: 10px 20px; border-radius: 6px; font-weight: 500;">⌨ 按键操作</button>
+      <button style="background: #6b7280; color: #fff; padding: 10px 20px; border-radius: 6px; font-weight: 500;">📝 输入文本</button>
+      <button style="background: #9b59b6; color: #fff; padding: 10px 20px; border-radius: 6px; font-weight: 500;">📦 安装 APP</button>
+      <div style="width: 1px; height: 32px; background: #e8e8e8;"></div>
+      <button style="background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 10px 20px; border-radius: 6px;">📷 截图保存</button>
+      <div style="flex: 1;"></div>
+      <div style="color: #666; font-size: 13px;">已操作: 12 次点击, 3 次滑动</div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top: 24px;">
+  <div class="mockup-header">移动设备调试页面（白色风格）</div>
+  <div class="mockup-body" style="aspect-ratio: 1920/1080; width: 100%; background: #f0f2f5; display: flex; flex-direction: column;">
+
+    <!-- 顶部导航栏 -->
+    <div style="height: 56px; min-height: 56px; background: #fff; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid #e8e8e8;">
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <button style="background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 8px 16px; border-radius: 6px;">← 返回设备列表</button>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">📱</span>
+          <div>
+            <div style="color: #111; font-weight: 600;">iPhone 15 Pro</div>
+            <div style="color: #666; font-size: 12px;">iOS 17.2 | 1290×2796</div>
+          </div>
+          <span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; font-size: 12px;">在线</span>
+        </div>
+      </div>
+      <div style="flex: 1;"></div>
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div style="color: #666;"><span style="color: #22c55e;">●</span> WebSocket 已连接</div>
+        <div style="background: #f5f5f5; padding: 8px 16px; border-radius: 6px; color: #333; font-size: 13px;">10 fps</div>
+        <button style="background: #fee2e2; color: #b91c1c; padding: 8px 20px; border-radius: 6px; border: 1px solid #fecaca;">断开</button>
+      </div>
+    </div>
+
+    <!-- 主屏幕区域 -->
+    <div style="flex: 1; background: #f0f2f5; display: flex; align-items: center; justify-content: center; gap: 24px; padding: 24px;">
+
+      <!-- 手机屏幕 -->
+      <div style="width: 340px; height: calc(100% - 24px); max-height: 700px; background: #fff; border-radius: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); position: relative; overflow: hidden; flex-shrink: 0; cursor: crosshair;">
+        <div style="width: 100%; height: 100%; background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;">
+          <div style="color: #fff; font-size: 14px;">实时屏幕推流</div>
+        </div>
+        <div style="position: absolute; top: 12px; right: 12px; background: #dcfce7; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #166534; font-weight: 600;">● LIVE</div>
+        <div style="position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.6); padding: 6px 10px; border-radius: 4px; font-size: 11px; color: #fff;">(180, 320)</div>
+      </div>
+
+      <!-- 右侧面板 -->
+      <div style="flex: 1; max-width: 400px; height: calc(100% - 24px); background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+
+        <div style="color: #666; font-size: 13px;">
+          <span style="color: #111; font-weight: 500;">UDID:</span> abc123... | <span style="color: #111; font-weight: 500;">电池:</span> 85%
+        </div>
+
+        <!-- 快捷按键 -->
+        <div style="border-top: 1px solid #e8e8e8; padding-top: 16px;">
+          <div style="color: #111; font-weight: 600; margin-bottom: 12px;">快捷按键</div>
+          <div style="display: flex; gap: 12px;">
+            <button style="flex: 1; background: #f5f5f5; color: #333; padding: 12px; border-radius: 6px; font-size: 14px; border: 1px solid #e8e8e8;">HOME</button>
+            <button style="flex: 1; background: #f5f5f5; color: #333; padding: 12px; border-radius: 6px; font-size: 14px; border: 1px solid #e8e8e8;">BACK</button>
+            <button style="flex: 1; background: #f5f5f5; color: #333; padding: 12px; border-radius: 6px; font-size: 14px; border: 1px solid #e8e8e8;">电源</button>
+          </div>
+        </div>
+
+        <!-- 文本输入 -->
+        <div style="border-top: 1px solid #e8e8e8; padding-top: 16px;">
+          <div style="color: #111; font-weight: 600; margin-bottom: 12px;">文本输入</div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" placeholder="输入文本..." style="flex: 1; background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 10px 12px; border-radius: 6px; font-size: 14px;">
+            <button style="background: #3b82f6; color: #fff; padding: 10px 16px; border-radius: 6px; font-weight: 500;">发送</button>
+          </div>
+        </div>
+
+        <!-- 操作历史 -->
+        <div style="border-top: 1px solid #e8e8e8; padding-top: 16px; flex: 1;">
+          <div style="color: #111; font-weight: 600; margin-bottom: 12px;">操作历史</div>
+          <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; font-size: 12px; color: #666; overflow: auto;">
+            <div>23:08:15 点击 (200, 150)</div>
+            <div>23:08:10 滑动 (100→300)</div>
+            <div>23:08:05 按键 HOME</div>
+            <div>23:08:00 输入 "test"</div>
+          </div>
+        </div>
+
+        <!-- 底部按钮 -->
+        <div style="display: flex; gap: 8px; padding-top: 16px; border-top: 1px solid #e8e8e8;">
+          <button style="flex: 1; background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 12px; border-radius: 6px; font-size: 14px;">📷 截图保存</button>
+          <button style="flex: 1; background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 12px; border-radius: 6px; font-size: 14px;">🔒 解锁屏幕</button>
+          <button style="flex: 1; background: #9b59b6; color: #fff; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: 500;">📦 安装 APP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 弹窗示意 -->
+<div class="split" style="margin-top: 24px;">
+  <div class="mockup">
+    <div class="mockup-header">解锁屏幕弹窗</div>
+    <div class="mockup-body" style="height: 280px; background: #f0f2f5; display: flex; align-items: center; justify-content: center;">
+      <div style="width: 360px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 24px;">
+        <div style="color: #111; font-weight: 600; font-size: 16px; margin-bottom: 20px;">🔒 解锁屏幕</div>
+        <div style="margin-bottom: 20px;">
+          <div style="color: #666; font-size: 13px; margin-bottom: 8px;">输入解锁密码（可选）</div>
+          <input type="password" placeholder="密码（非必填）" style="width: 100%; background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 10px 12px; border-radius: 6px;">
+          <div style="color: #999; font-size: 12px; margin-top: 8px;">如果设备无密码锁，可直接解锁</div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button style="flex: 1; background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 10px; border-radius: 6px;">取消</button>
+          <button style="flex: 1; background: #22c55e; color: #fff; padding: 10px; border-radius: 6px; font-weight: 500;">确认解锁</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">安装 APP 弹窗</div>
+    <div class="mockup-body" style="height: 280px; background: #f0f2f5; display: flex; align-items: center; justify-content: center;">
+      <div style="width: 360px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 24px;">
+        <div style="color: #111; font-weight: 600; font-size: 16px; margin-bottom: 20px;">📦 安装 APP</div>
+        <div style="margin-bottom: 20px;">
+          <div style="color: #666; font-size: 13px; margin-bottom: 8px;">选择安装包文件</div>
+          <div style="background: #f5f5f5; border: 1px dashed #d9d9d9; border-radius: 8px; padding: 24px; text-align: center; color: #666; font-size: 13px;">
+            点击或拖拽上传<br>
+            <span style="color: #999; font-size: 12px;">.apk / .ipa / .exe</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button style="flex: 1; background: #f5f5f5; border: 1px solid #d9d9d9; color: #333; padding: 10px; border-radius: 6px;">取消</button>
+          <button style="flex: 1; background: #9b59b6; color: #fff; padding: 10px; border-radius: 6px; font-weight: 500;">上传并安装</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>风格对比</h3>
+  <table style="width: 100%; color: #666; font-size: 14px; border-collapse: collapse;">
+    <tr style="background: #fff;">
+      <th style="padding: 12px; color: #111; border: 1px solid #e8e8e8;">元素</th>
+      <th style="padding: 12px; color: #111; border: 1px solid #e8e8e8;">新风格</th>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">页面背景</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#f0f2f5 浅灰色</td>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">卡片/面板</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#fff 白色 + 圆角 + 阴影</td>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">主文字</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#111 深色</td>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">次级文字</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#666 灰色</td>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">边框/分割线</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#e8e8e8 浅灰</td>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">在线状态</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#dcfce7 背景 + #166534 文字（绿色系）</td>
+    </tr>
+    <tr>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">断开按钮</td>
+      <td style="padding: 12px; border: 1px solid #e8e8e8;">#fee2e2 背景 + #b91c1c 文字（红色系）</td>
+    </tr>
+  </table>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content"><h3>设计确认，开始写设计文档</h3></div>
+  </div>
+  <div class="option" data-choice="modify" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content"><h3>还有细节要调整</h3></div>
+  </div>
+</div>
