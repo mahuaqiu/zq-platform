@@ -2,6 +2,7 @@
 import type { EnvMachine } from '#/api/core/env-machine';
 
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
@@ -35,10 +36,12 @@ import {
   isMobileDevice,
 } from './types';
 import LogDialog from './LogDialog.vue';
-import DebugDialog from './DebugDialog.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineListPage' });
+
+// 路由
+const router = useRouter();
 
 // 数据
 const tableData = ref<EnvMachine[]>([]);
@@ -84,10 +87,6 @@ const logMachineId = ref('');
 const logMachineIp = ref('');
 const logMachinePort = ref('');
 
-// 调试弹窗
-const debugDialogVisible = ref(false);
-const debugMachine = ref<EnvMachine | null>(null);
-
 // 打开日志弹窗
 function handleViewLogs(row: EnvMachine) {
   logMachineId.value = row.id;
@@ -96,10 +95,9 @@ function handleViewLogs(row: EnvMachine) {
   logDialogVisible.value = true;
 }
 
-// 打开调试弹窗
+// 打开调试页面
 function handleDebug(row: EnvMachine) {
-  debugMachine.value = row;
-  debugDialogVisible.value = true;
+  router.push(`/device-debug/${row.id}`);
 }
 
 // 验证扩展信息是否包含标签对应的账号信息
@@ -596,12 +594,6 @@ onMounted(() => {
       :machine-id="logMachineId"
       :machine-ip="logMachineIp"
       :machine-port="logMachinePort"
-    />
-
-    <!-- 调试弹窗 -->
-    <DebugDialog
-      v-model:visible="debugDialogVisible"
-      :machine="debugMachine"
     />
   </Page>
 </template>
