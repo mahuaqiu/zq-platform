@@ -3,3 +3,4 @@
 /scripts
 *.png
 *.pptx
+.worktrees/
