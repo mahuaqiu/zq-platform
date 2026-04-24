@@ -87,18 +87,27 @@ async def register_env_machine(
                 )
 
                 if existing_machine:
-                    # 存在则更新 sync_time 和 status
+                    # 存在则更新 sync_time
                     old_status = existing_machine.status
                     existing_machine.sync_time = now
-                    existing_machine.status = "online"
                     existing_machine.port = data.port
                     if data.version:
                         existing_machine.version = data.version
                     if data.config_version:
                         existing_machine.config_version = data.config_version
-                    # 标记是否有从 upgrading 变为 online 的机器
-                    if old_status == "upgrading":
-                        has_upgrading_machine = True
+
+                    # 状态更新规则：
+                    # - using: 保持不变，只更新心跳时间（机器正在被使用）
+                    # - upgrading: 变为 online（升级完成）
+                    # - offline/online: 变为 online（正常心跳）
+                    if existing_machine.status != "using":
+                        existing_machine.status = "online"
+                        # 标记是否有从 upgrading 变为 online 的机器
+                        if old_status == "upgrading":
+                            has_upgrading_machine = True
+                    else:
+                        # using 状态保持不变，记录日志
+                        logger.info(f"机器正在使用中，保持状态: id={existing_machine.id}, ip={data.ip}, device_type={device_type}")
                 else:
                     # 不存在则插入
                     new_machine = EnvMachine(
@@ -142,18 +151,27 @@ async def register_env_machine(
                     )
 
                     if existing_machine:
-                        # 存在则更新 sync_time 和 status
+                        # 存在则更新 sync_time
                         old_status = existing_machine.status
                         existing_machine.sync_time = now
-                        existing_machine.status = "online"
                         existing_machine.port = data.port
                         if data.version:
                             existing_machine.version = data.version
                         if data.config_version:
                             existing_machine.config_version = data.config_version
-                        # 标记是否有从 upgrading 变为 online 的机器
-                        if old_status == "upgrading":
-                            has_upgrading_machine = True
+
+                        # 状态更新规则：
+                        # - using: 保持不变，只更新心跳时间（机器正在被使用）
+                        # - upgrading: 变为 online（升级完成）
+                        # - offline/online: 变为 online（正常心跳）
+                        if existing_machine.status != "using":
+                            existing_machine.status = "online"
+                            # 标记是否有从 upgrading 变为 online 的机器
+                            if old_status == "upgrading":
+                                has_upgrading_machine = True
+                        else:
+                            # using 状态保持不变，记录日志
+                            logger.info(f"机器正在使用中，保持状态: id={existing_machine.id}, ip={data.ip}, device_type={device_type}, device_sn={device_sn}")
                     else:
                         # 不存在则插入
                         new_machine = EnvMachine(

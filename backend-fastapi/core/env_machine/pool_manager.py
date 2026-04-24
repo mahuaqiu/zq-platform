@@ -233,9 +233,25 @@ class EnvPoolManager:
         if should_cache:
             # 加入缓存
             await client.hset(pool_key, str(machine.id), cls._machine_to_cache_value(machine))
+            # 缓存变化日志：机器加入池
+            logger.info(
+                f"[CACHE_ADD] 机器加入缓存池 | "
+                f"machine_id={machine.id} | ip={machine.ip} | "
+                f"namespace={machine.namespace} | pool_key={pool_key} | "
+                f"status={machine.status} | available={machine.available} | "
+                f"device_type={machine.device_type} | mark={machine.mark}"
+            )
         else:
             # 从缓存移除
             await client.hdel(pool_key, str(machine.id))
+            # 缓存变化日志：机器移出池
+            logger.info(
+                f"[CACHE_DEL] 机器移出缓存池 | "
+                f"machine_id={machine.id} | ip={machine.ip} | "
+                f"namespace={machine.namespace} | pool_key={pool_key} | "
+                f"status={machine.status} | available={machine.available} | "
+                f"device_type={machine.device_type} | mark={machine.mark}"
+            )
 
     @classmethod
     async def remove_machine_from_cache(cls, machine_id: str, namespace: str) -> None:
@@ -252,6 +268,11 @@ class EnvPoolManager:
         client = await cls._get_redis_client()
         pool_key = cls._get_pool_key(namespace)
         await client.hdel(pool_key, machine_id)
+        # 缓存变化日志：机器移出池（按ID）
+        logger.info(
+            f"[CACHE_DEL_BY_ID] 机器移出缓存池 | "
+            f"machine_id={machine_id} | namespace={namespace} | pool_key={pool_key}"
+        )
 
     @classmethod
     async def get_pool_machines(cls, namespace: str) -> dict[str, dict]:
@@ -577,6 +598,14 @@ class EnvPoolManager:
                     # 从所有涉及的池中移除
                     for pool_ns in pool_hierarchy:
                         await cls.remove_machine_from_cache(machine_id, pool_ns)
+
+                # 申请成功汇总日志
+                logger.info(
+                    f"[ALLOCATE_SUCCESS] 执行机申请成功 | "
+                    f"namespace={namespace} | count={len(allocated_machine_ids)} | "
+                    f"machine_ids={allocated_machine_ids} | pool_hierarchy={pool_hierarchy} | "
+                    f"requests={requests}"
+                )
 
                 # 10. 创建延迟释放任务（使用 APScheduler）
                 for machine_id in allocated_machine_ids:
