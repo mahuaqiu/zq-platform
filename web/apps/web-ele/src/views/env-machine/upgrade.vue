@@ -257,12 +257,18 @@ function getUpgradeStatusStyle(status: string): { bg: string; color: string } {
     '已最新': { bg: '#f6ffed', color: '#52c41a' },
     '待队列': { bg: '#f9f0ff', color: '#722ed1' },
     '离线': { bg: '#fff1f0', color: '#ff4d4f' },
-    '升级中': { bg: '#f9f0ff', color: '#722ed1' },
+    '升级中': { bg: '#e6f7ff', color: '#1890ff' },
+    '下发中': { bg: '#e6f7ff', color: '#1890ff' },
+    '失败': { bg: '#fff1f0', color: '#ff4d4f' },
+    '已完成': { bg: '#f6ffed', color: '#52c41a' },
     'upgradable': { bg: '#fff7e6', color: '#faad14' },
     'latest': { bg: '#f6ffed', color: '#52c41a' },
     'waiting': { bg: '#f9f0ff', color: '#722ed1' },
     'offline': { bg: '#fff1f0', color: '#ff4d4f' },
-    'upgrading': { bg: '#f9f0ff', color: '#722ed1' },
+    'upgrading': { bg: '#e6f7ff', color: '#1890ff' },
+    'processing': { bg: '#e6f7ff', color: '#1890ff' },
+    'failed': { bg: '#fff1f0', color: '#ff4d4f' },
+    'completed': { bg: '#f6ffed', color: '#52c41a' },
   };
   return styleMap[status] || { bg: '#f5f5f5', color: '#666' };
 }
@@ -286,6 +292,17 @@ function getUpgradeStatusText(status: string): string {
     'waiting': '待队列',
     'offline': '离线',
     'upgrading': '升级中',
+  };
+  return textMap[status] || status;
+}
+
+// 获取队列状态文本
+function getQueueStatusText(status: string): string {
+  const textMap: Record<string, string> = {
+    'waiting': '等待中',
+    'processing': '下发中',
+    'completed': '已完成',
+    'failed': '失败',
   };
   return textMap[status] || status;
 }
@@ -517,13 +534,14 @@ onMounted(async () => {
                       color: getUpgradeStatusStyle(row.status).color
                     }"
                   >
-                    {{ row.status }}
+                    {{ getQueueStatusText(row.status) }}
                   </span>
                 </template>
               </ElTableColumn>
               <ElTableColumn label="操作" min-width="80">
                 <template #default="{ row }">
-                  <a class="remove-link" @click="handleRemoveQueue(row)">移除队列</a>
+                  <a class="remove-link" @click="handleRemoveQueue(row)" v-if="row.status === 'waiting'">移除队列</a>
+                  <span v-else class="disabled-link">-</span>
                 </template>
               </ElTableColumn>
             </ElTable>
@@ -883,6 +901,10 @@ onMounted(async () => {
 
 .remove-link:hover {
   text-decoration: underline;
+}
+
+.disabled-link {
+  color: #999;
 }
 
 /* 确认弹窗 - overlay 透明 */

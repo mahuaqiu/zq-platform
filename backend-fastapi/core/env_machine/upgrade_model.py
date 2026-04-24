@@ -27,7 +27,7 @@ class WorkerUpgradeQueue(BaseModel):
 
     machine_id = Column(String(36), nullable=False, index=True, comment="机器ID")
     target_version = Column(String(32), nullable=False, comment="目标版本号")
-    status = Column(String(20), nullable=False, default="waiting", comment="状态: waiting/completed/failed")
+    status = Column(String(20), nullable=False, default="waiting", comment="状态: waiting/processing/completed/failed")
     device_type = Column(String(20), nullable=False, comment="设备类型")
     namespace = Column(String(64), nullable=False, comment="机器分类")
     created_at = Column(DateTime, nullable=False, default=datetime.now, comment="入队时间")

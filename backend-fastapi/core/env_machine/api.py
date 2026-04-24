@@ -68,8 +68,10 @@ async def register_env_machine(
     4. 不存在则插入：状态设为 online，available 设为 False
     5. 存在则更新 sync_time、status=online
     6. 同步更新 Redis 缓存
+    7. 如果从 upgrading 状态变为 online，触发队列中的升级任务
     """
     now = datetime.now()
+    has_upgrading_machine = False  # 标记是否有从 upgrading 变为 online 的机器
 
     try:
         # 遍历 devices 字典
@@ -86,6 +88,7 @@ async def register_env_machine(
 
                 if existing_machine:
                     # 存在则更新 sync_time 和 status
+                    old_status = existing_machine.status
                     existing_machine.sync_time = now
                     existing_machine.status = "online"
                     existing_machine.port = data.port
@@ -93,6 +96,9 @@ async def register_env_machine(
                         existing_machine.version = data.version
                     if data.config_version:
                         existing_machine.config_version = data.config_version
+                    # 标记是否有从 upgrading 变为 online 的机器
+                    if old_status == "upgrading":
+                        has_upgrading_machine = True
                 else:
                     # 不存在则插入
                     new_machine = EnvMachine(
@@ -137,6 +143,7 @@ async def register_env_machine(
 
                     if existing_machine:
                         # 存在则更新 sync_time 和 status
+                        old_status = existing_machine.status
                         existing_machine.sync_time = now
                         existing_machine.status = "online"
                         existing_machine.port = data.port
@@ -144,6 +151,9 @@ async def register_env_machine(
                             existing_machine.version = data.version
                         if data.config_version:
                             existing_machine.config_version = data.config_version
+                        # 标记是否有从 upgrading 变为 online 的机器
+                        if old_status == "upgrading":
+                            has_upgrading_machine = True
                     else:
                         # 不存在则插入
                         new_machine = EnvMachine(
@@ -162,6 +172,13 @@ async def register_env_machine(
 
         # 提交数据库更改
         await db.commit()
+
+        # 如果有从 upgrading 变为 online 的机器，触发队列处理
+        if has_upgrading_machine:
+            from core.env_machine.upgrade_service import UpgradeConcurrencyService
+            processed_count = await UpgradeConcurrencyService.process_queue_batch(db)
+            if processed_count > 0:
+                logger.info(f"注册后触发队列升级: count={processed_count}")
 
         # 同步更新 Redis 缓存（查询所有相关的机器）
         # 注意：注册时 available=False，所以不会加入缓存，但如果之前 available=True，需要从缓存移除

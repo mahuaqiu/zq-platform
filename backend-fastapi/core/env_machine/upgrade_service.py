@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 # Worker 升级接口超时时间（秒）
 WORKER_UPGRADE_TIMEOUT = 10
 
+# 最大并发升级数量（全局限制）
+MAX_CONCURRENT_UPGRADES = 10
+
 
 class WorkerUpgradeConfigService:
     """升级配置服务"""
@@ -181,6 +184,159 @@ class WorkerUpgradeQueueService:
         await db.commit()
         return count
 
+    @staticmethod
+    async def mark_timeout_processing(db: AsyncSession, minutes: int = 30) -> int:
+        """标记超时的 processing 为 failed（下发过程中异常）"""
+        threshold = datetime.now() - timedelta(minutes=minutes)
+        result = await db.execute(
+            select(WorkerUpgradeQueue).where(
+                and_(
+                    WorkerUpgradeQueue.status == "processing",
+                    WorkerUpgradeQueue.is_deleted == False
+                )
+            )
+        )
+        items = result.scalars().all()
+        count = 0
+        for item in items:
+            # 检查 created_at 是否超时（processing 状态没有单独的时间字段，使用 created_at）
+            if item.created_at < threshold:
+                item.status = "failed"
+                item.completed_at = datetime.now()
+                count += 1
+        await db.commit()
+        return count
+
+    @staticmethod
+    async def get_waiting_batch(db: AsyncSession, limit: int) -> List[WorkerUpgradeQueue]:
+        """批量获取 waiting 状态的队列项（FIFO，按入队时间排序）"""
+        result = await db.execute(
+            select(WorkerUpgradeQueue).where(
+                and_(
+                    WorkerUpgradeQueue.status == "waiting",
+                    WorkerUpgradeQueue.is_deleted == False
+                )
+            ).order_by(WorkerUpgradeQueue.created_at.asc()).limit(limit)
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    async def mark_processing(db: AsyncSession, queue_id: str) -> None:
+        """标记为正在处理（不带 commit，由调用者统一 commit）"""
+        result = await db.execute(
+            select(WorkerUpgradeQueue).where(WorkerUpgradeQueue.id == queue_id)
+        )
+        item = result.scalar_one_or_none()
+        if item:
+            item.status = "processing"
+
+    @staticmethod
+    async def mark_failed(db: AsyncSession, queue_id: str) -> None:
+        """标记为失败（不带 commit，由调用者统一 commit）"""
+        result = await db.execute(
+            select(WorkerUpgradeQueue).where(WorkerUpgradeQueue.id == queue_id)
+        )
+        item = result.scalar_one_or_none()
+        if item:
+            item.status = "failed"
+            item.completed_at = datetime.now()
+
+    @staticmethod
+    async def mark_completed_no_commit(db: AsyncSession, queue_id: str) -> None:
+        """标记为完成（不带 commit，由调用者统一 commit）"""
+        result = await db.execute(
+            select(WorkerUpgradeQueue).where(WorkerUpgradeQueue.id == queue_id)
+        )
+        item = result.scalar_one_or_none()
+        if item:
+            item.status = "completed"
+            item.completed_at = datetime.now()
+
+
+class UpgradeConcurrencyService:
+    """升级并发控制服务 - 管理全局并发限制和队列处理"""
+
+    @staticmethod
+    async def get_upgrading_count(db: AsyncSession) -> int:
+        """获取当前 upgrading 状态的机器数量"""
+        result = await db.execute(
+            select(EnvMachine).where(
+                and_(
+                    EnvMachine.status == "upgrading",
+                    EnvMachine.is_deleted == False
+                )
+            )
+        )
+        machines = result.scalars().all()
+        return len(machines)
+
+    @staticmethod
+    async def get_available_slots(db: AsyncSession) -> int:
+        """计算可用升级槽位"""
+        upgrading_count = await UpgradeConcurrencyService.get_upgrading_count(db)
+        return MAX_CONCURRENT_UPGRADES - upgrading_count
+
+    @staticmethod
+    async def process_queue_batch(db: AsyncSession) -> int:
+        """从队列批量下发升级任务（Worker 注册时触发）
+
+        返回：成功下发的数量
+        """
+        # 1. 检查当前 upgrading 数量
+        available_slots = await UpgradeConcurrencyService.get_available_slots(db)
+        if available_slots <= 0:
+            return 0
+
+        # 2. 从队列 FIFO 取出 waiting 状态的记录
+        queue_items = await WorkerUpgradeQueueService.get_waiting_batch(db, limit=available_slots)
+        if not queue_items:
+            return 0
+
+        # 3. 遍历下发升级
+        processed_count = 0
+        for item in queue_items:
+            # 获取机器信息
+            result = await db.execute(
+                select(EnvMachine).where(EnvMachine.id == item.machine_id)
+            )
+            machine = result.scalar_one_or_none()
+
+            if not machine:
+                await WorkerUpgradeQueueService.mark_failed(db, item.id)
+                continue
+
+            # 状态检查：必须为 online 才能下发
+            if machine.status != "online":
+                await WorkerUpgradeQueueService.mark_failed(db, item.id)
+                continue
+
+            # 获取升级配置
+            config = await WorkerUpgradeConfigService.get_by_device_type(db, item.device_type)
+            if not config:
+                await WorkerUpgradeQueueService.mark_failed(db, item.id)
+                continue
+
+            # 标记为 processing，防止重复取出
+            await WorkerUpgradeQueueService.mark_processing(db, item.id)
+
+            # 下发升级指令
+            success, message, machine_id = await send_upgrade_to_worker(
+                machine, config.version, config.download_url
+            )
+
+            if success:
+                machine.status = "upgrading"
+                await WorkerUpgradeQueueService.mark_completed_no_commit(db, item.id)
+                processed_count += 1
+                logger.info(f"队列升级下发成功: machine_id={machine.id}")
+            else:
+                await WorkerUpgradeQueueService.mark_failed(db, item.id)
+                logger.warning(f"队列升级下发失败: machine_id={machine.id}, reason={message}")
+
+        # 4. 统一提交事务
+        await db.commit()
+        return processed_count
+
 
 async def send_upgrade_to_worker(machine: EnvMachine, version: str, download_url: str) -> Tuple[bool, str, str]:
     """调用 Worker 升级接口
@@ -221,7 +377,7 @@ class UpgradeService:
         namespace: Optional[str] = None,
         device_type: Optional[str] = None,
     ) -> BatchUpgradeResponse:
-        """批量升级（并发调用）"""
+        """批量升级（带并发控制，最多同时10台升级）"""
         # 获取版本配置
         configs = await WorkerUpgradeConfigService.get_all(db)
         config_map = {c.device_type: c for c in configs}
@@ -240,8 +396,12 @@ class UpgradeService:
 
         response = BatchUpgradeResponse()
 
-        # 收集需要并发升级的机器信息
-        upgrade_tasks = []  # 存储并发任务
+        # 获取当前 upgrading 数量和可用槽位
+        upgrading_count = await UpgradeConcurrencyService.get_upgrading_count(db)
+        available_slots = MAX_CONCURRENT_UPGRADES - upgrading_count
+
+        # 分类处理：立即下发的机器 vs 入队等待的机器
+        immediate_upgrades = []  # 立即下发的机器（数量 <= available_slots）
         upgrade_machine_map = {}  # machine_id -> (machine, config)
 
         for machine in machines:
@@ -269,21 +429,46 @@ class UpgradeService:
 
             # 状态判断
             if machine.status == "online":
-                # 收集并发任务
-                upgrade_tasks.append(send_upgrade_to_worker(machine, config.version, config.download_url))
-                upgrade_machine_map[machine.id] = (machine, config)
+                # 有可用槽位则立即下发，否则入队等待
+                if len(immediate_upgrades) < available_slots:
+                    immediate_upgrades.append(send_upgrade_to_worker(machine, config.version, config.download_url))
+                    upgrade_machine_map[machine.id] = (machine, config)
+                else:
+                    # 入队等待
+                    queue_item = WorkerUpgradeQueue(
+                        machine_id=machine.id,
+                        target_version=config.version,
+                        device_type=machine.device_type,
+                        namespace=machine.namespace,
+                        status="waiting",
+                        created_at=datetime.now(),
+                    )
+                    db.add(queue_item)
+                    response.waiting_count += 1
+                    response.details.append(UpgradeDetail(
+                        machine_id=machine.id,
+                        ip=machine.ip,
+                        status="waiting",
+                        message="并发槽位已满，已加入升级队列等待"
+                    ))
 
             elif machine.status == "using":
-                # 加入队列
-                await WorkerUpgradeQueueService.add_to_queue(
-                    db, machine.id, config.version, machine.device_type, machine.namespace
+                # 使用中，入队等待
+                queue_item = WorkerUpgradeQueue(
+                    machine_id=machine.id,
+                    target_version=config.version,
+                    device_type=machine.device_type,
+                    namespace=machine.namespace,
+                    status="waiting",
+                    created_at=datetime.now(),
                 )
+                db.add(queue_item)
                 response.waiting_count += 1
                 response.details.append(UpgradeDetail(
                     machine_id=machine.id,
                     ip=machine.ip,
                     status="waiting",
-                    message="机器使用中，已加入升级队列"
+                    message="机器使用中，已加入升级队列等待"
                 ))
 
             else:
@@ -296,20 +481,10 @@ class UpgradeService:
                     message=f"机器状态为 {machine.status}，无法升级"
                 ))
 
-        # 并发调用所有 Worker 升级接口
-        if upgrade_tasks:
-            logger.info(f"并发升级 {len(upgrade_tasks)} 台机器")
-            results = await asyncio.gather(*upgrade_tasks, return_exceptions=True)
-
-            # 处理并发结果
-            for task_result in results:
-                if isinstance(task_result, Exception):
-                    # 异常情况（理论上不应该发生，因为 send_upgrade_to_worker 捕获了所有异常）
-                    logger.error(f"并发任务异常: {task_result}")
-                    response.failed_count += 1
-                    continue
-
-                success, message, machine_id = task_result
+        # 立即下发升级（串行调用，避免并发超出限制）
+        for upgrade_task in immediate_upgrades:
+            try:
+                success, message, machine_id = await upgrade_task
                 machine, config = upgrade_machine_map[machine_id]
 
                 if success:
@@ -329,6 +504,9 @@ class UpgradeService:
                         status="failed",
                         message=message
                     ))
+            except Exception as e:
+                logger.error(f"升级任务异常: {e}")
+                response.failed_count += 1
 
         await db.commit()
         return response

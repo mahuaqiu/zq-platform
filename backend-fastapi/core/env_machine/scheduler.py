@@ -341,15 +341,21 @@ async def cleanup_upgrade_queue(job_code: str = None, **kwargs) -> dict:
         if completed_count > 0:
             logger.info(f"已清理 {completed_count} 条已完成的升级记录")
 
+        # 标记超时 30 分钟的 processing 为 failed（下发过程中异常）
+        processing_timeout_count = await WorkerUpgradeQueueService.mark_timeout_processing(db, minutes=30)
+        if processing_timeout_count > 0:
+            logger.warning(f"已标记 {processing_timeout_count} 条 processing 状态超时的升级记录为失败")
+
         # 标记超时 24 小时的 waiting 为 failed
         timeout_count = await WorkerUpgradeQueueService.mark_timeout_waiting(db, hours=24)
         if timeout_count > 0:
             logger.warning(f"已标记 {timeout_count} 条超时等待的升级记录为失败")
 
-        logger.info(f"队列清理完成，清理 {completed_count} 条完成记录，标记 {timeout_count} 条超时记录")
+        logger.info(f"队列清理完成，清理 {completed_count} 条完成记录，标记 {processing_timeout_count} 条 processing 超时记录，标记 {timeout_count} 条 waiting 超时记录")
         return {
             "completed_cleaned": completed_count,
-            "timeout_marked": timeout_count,
+            "processing_timeout_marked": processing_timeout_count,
+            "waiting_timeout_marked": timeout_count,
         }
 
 
