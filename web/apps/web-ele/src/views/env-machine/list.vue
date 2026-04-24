@@ -35,7 +35,7 @@ import {
   STATUS_OPTIONS,
   isMobileDevice,
 } from './types';
-import LogDialog from './LogDialog.vue';
+import LogDialogV2 from './LogDialogV2.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineListPage' });
@@ -589,7 +589,7 @@ onMounted(() => {
     </ElDialog>
 
     <!-- 日志弹窗 -->
-    <LogDialog
+    <LogDialogV2
       v-model:visible="logDialogVisible"
       :machine-id="logMachineId"
       :machine-ip="logMachineIp"

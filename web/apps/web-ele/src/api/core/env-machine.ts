@@ -109,21 +109,49 @@ export async function deleteEnvMachineApi(id: string) {
 }
 
 /**
+ * 日志查询参数（三选一，互斥）
+ */
+export interface MachineLogQueryParams {
+  /** lines 模式：返回最后 N 行（范围 1-2000，默认 400） */
+  lines?: number;
+  /** request_id 模式：grep 搜索指定 request_id 的日志 */
+  request_id?: string;
+  /** time_range 模式：开始时间 ISO 8601 格式 */
+  start_time?: string;
+  /** time_range 模式：结束时间 ISO 8601 格式（需与 start_time 同时提供） */
+  end_time?: string;
+}
+
+/**
  * 日志响应
  */
 export interface MachineLogResponse {
   content: string;
-  lines: number;
-  truncated: boolean;
+  /** 返回的日志行数（从响应头 X-Log-Count 获取） */
+  log_count: number;
+  /** 扫描的日志文件数（从响应头 X-Files-Scanned 获取） */
+  files_scanned: number;
 }
 
 /**
  * 获取设备日志
+ * 支持三种查询模式（互斥）：
+ * - lines: 返回最后 N 行
+ * - request_id: grep 搜索指定 request_id
+ * - time_range: 按时间区间过滤（最多 5 分钟）
  */
-export async function getMachineLogsApi(machineId: string, lines: number = 400) {
-  return requestClient.get<MachineLogResponse>(`/api/core/env/machine/${machineId}/logs`, {
-    params: { lines },
-  });
+export async function getMachineLogsApi(
+  machineId: string,
+  params: MachineLogQueryParams | number = { lines: 400 },
+) {
+  // 支持旧调用方式：直接传 lines 数值
+  const queryParams: MachineLogQueryParams =
+    typeof params === 'number' ? { lines: params } : params;
+
+  return requestClient.get<MachineLogResponse>(
+    `/api/core/env/machine/${machineId}/logs`,
+    { params: queryParams },
+  );
 }
 
 /**

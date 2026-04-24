@@ -531,17 +531,75 @@ router.include_router(upgrade_router)
 @router.get("/machine/{machine_id}/logs", summary="获取设备日志")
 async def get_machine_logs(
     machine_id: str,
-    lines: int = Query(default=400, ge=1, le=1000),
+    lines: Optional[int] = Query(default=None, ge=1, le=2000),
+    request_id: Optional[str] = Query(default=None),
+    start_time: Optional[str] = Query(default=None),
+    end_time: Optional[str] = Query(default=None),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    从指定 Worker 设备拉取最新 N 行日志
+    从指定 Worker 设备拉取日志
+
+    支持三种查询模式（互斥）：
+    - lines 模式: 返回最后 N 行（默认 400，范围 1-2000）
+    - request_id 模式: grep 搜索指定 request_id 的日志
+    - time_range 模式: 按时间区间过滤（需同时提供 start_time 和 end_time，最多 5 分钟）
 
     流程：
     1. 根据 machine_id 查询数据库获取 IP 和端口
-    2. HTTP GET http://{ip}:{port}/logs?lines=N
+    2. HTTP GET http://{ip}:{port}/worker/logs?参数
     3. 返回 Worker 的日志文本
     """
+    # 参数验证：三选一，互斥
+    has_lines = lines is not None
+    has_request_id = request_id is not None
+    has_time_range = start_time is not None or end_time is not None
+
+    # 计算模式数量
+    mode_count = sum([has_lines, has_request_id, has_time_range])
+
+    # 默认使用 lines=400
+    if mode_count == 0:
+        lines = 400
+        has_lines = True
+        mode_count = 1
+
+    # 验证互斥
+    if mode_count > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="参数冲突：lines/request_id/start_time+end_time 三选一"
+        )
+
+    # 验证 time_range 模式参数完整性
+    if has_time_range:
+        if not start_time or not end_time:
+            raise HTTPException(
+                status_code=400,
+                detail="时间区间模式需同时提供 start_time 和 end_time"
+            )
+        # 验证时间格式和区间
+        try:
+            from datetime import datetime
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            diff_minutes = (end_dt - start_dt).total_seconds() / 60
+            if diff_minutes > 5:
+                raise HTTPException(
+                    status_code=400,
+                    detail="时间区间不能超过 5 分钟"
+                )
+            if diff_minutes <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="end_time 必须大于 start_time"
+                )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"时间格式无效：{str(e)}"
+            )
+
     machine = await EnvMachineService.get_by_id(db, machine_id)
     if not machine:
         raise HTTPException(status_code=404, detail="设备不存在")
@@ -550,15 +608,36 @@ async def get_machine_logs(
         raise HTTPException(status_code=400, detail="设备未配置 IP 或端口")
 
     url = f"http://{machine.ip}:{machine.port}/worker/logs"
+
+    # 构建查询参数
+    params = {}
+    if has_lines:
+        params["lines"] = lines
+    elif has_request_id:
+        params["request_id"] = request_id
+    elif has_time_range:
+        params["start_time"] = start_time
+        params["end_time"] = end_time
+
     try:
-        async with httpx.AsyncClient(timeout=15.0, trust_env=True, verify=False) as client:
-            resp = await client.get(url, params={"lines": lines})
+        async with httpx.AsyncClient(timeout=30.0, trust_env=True, verify=False) as client:
+            resp = await client.get(url, params=params)
             if resp.status_code == 200:
+                # 从响应头获取统计信息
+                log_count = int(resp.headers.get("X-Log-Count", 0))
+                files_scanned = int(resp.headers.get("X-Files-Scanned", 1))
+
                 return {
                     "content": resp.text,
-                    "lines": lines,
-                    "truncated": False,
+                    "log_count": log_count,
+                    "files_scanned": files_scanned,
                 }
+            elif resp.status_code == 400:
+                raise HTTPException(status_code=400, detail=resp.text)
+            elif resp.status_code == 404:
+                raise HTTPException(status_code=404, detail="日志文件不存在")
+            elif resp.status_code == 503:
+                raise HTTPException(status_code=503, detail="Worker 未初始化")
             elif resp.status_code == 502:
                 raise HTTPException(status_code=502, detail="无法连接到设备")
             else:
