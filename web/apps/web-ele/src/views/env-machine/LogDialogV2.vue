@@ -373,6 +373,7 @@ function handleDialogClose() {
     v-model="dialogVisible"
     width="1200px"
     :close-on-click-modal="false"
+    align-center
     class="log-dialog-v2"
     @closed="handleDialogClose"
   >
@@ -640,7 +641,9 @@ function handleDialogClose() {
 
 .log-dialog-v2 :deep(.el-dialog__body) {
   padding: 0;
-  min-height: 450px;
+  min-height: 350px;
+  max-height: 70vh;
+  overflow: hidden;
 }
 
 .log-dialog-v2 :deep(.el-dialog__footer) {
@@ -769,10 +772,10 @@ function handleDialogClose() {
    ═══════════════════════════════════════════════════════════ */
 
 .log-container {
-  min-height: 400px;
-  max-height: 500px;
+  min-height: 300px;
+  max-height: 400px;
   padding: 12px 16px;
-  margin: 16px 20px;
+  margin: 12px 20px;
   overflow-y: auto;
   font-family: Consolas, Monaco, 'Courier New', Menlo, monospace;
   font-size: 13px;
@@ -826,14 +829,14 @@ function handleDialogClose() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 200px;
+  height: 150px;
   color: #999;
 }
 
 .log-loading .spinner {
-  width: 32px;
-  height: 32px;
-  margin-bottom: 12px;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 10px;
   border: 3px solid #333;
   border-top: 3px solid #1890ff;
   border-radius: 50%;
@@ -846,7 +849,7 @@ function handleDialogClose() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 150px;
+  height: 120px;
   color: #ff4d4f;
 }
 
@@ -859,7 +862,7 @@ function handleDialogClose() {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 150px;
+  height: 120px;
   color: #999;
 }
 
