@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import type { WebSocketStatus, ScreenSize } from '../types';
 
-import { computed } from 'vue';
-
 interface Props {
   screenshotUrl: string;
   screenSize: ScreenSize;
@@ -23,8 +21,6 @@ interface Emits {
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
-
-const isConnected = computed(() => props.wsStatus === 'connected');
 
 function handleMouseDown(event: MouseEvent) {
   emit('mousedown', event);
@@ -51,70 +47,65 @@ function getIndicatorPercent(coord: number, size: number): string {
 
 <template>
   <div class="screen-display">
-    <!-- LIVE 标识 -->
-    <div v-if="isConnected" class="live-badge live-active">
-      LIVE
-    </div>
-    <div v-else class="live-badge live-inactive">
-      LIVE
-    </div>
-
-    <!-- 坐标显示 -->
-    <div v-if="mouseCoord" class="coord-display">
-      X: {{ mouseCoord.x }}, Y: {{ mouseCoord.y }}
-    </div>
-
     <!-- 断开提示 -->
     <div v-if="wsStatus === 'disconnected'" class="disconnect-banner">
       连接已断开
     </div>
 
-    <!-- 屏幕区域 -->
-    <div class="screen-wrapper">
-      <img
-        v-if="screenshotUrl"
-        :src="screenshotUrl"
-        class="screen-img"
-        draggable="false"
-        @mousedown="handleMouseDown"
-        @mousemove="handleMouseMove"
-        @mouseup="handleMouseUp"
-        @mouseleave="handleMouseLeave"
-      />
-      <div v-else class="screen-placeholder">
-        <span v-if="wsStatus === 'connecting'">连接中...</span>
-        <span v-else>暂无画面</span>
+    <!-- 屏幕卡片区域 -->
+    <div class="screen-card">
+      <!-- 坐标显示 -->
+      <div v-if="mouseCoord" class="coord-display">
+        坐标: <span class="coord-value">({{ mouseCoord.x }}, {{ mouseCoord.y }})</span>
       </div>
 
-      <!-- 点击指示器 -->
-      <div
-        v-if="clickIndicator.show"
-        class="click-indicator"
-        :style="{
-          left: getIndicatorPercent(clickIndicator.x, screenSize.width),
-          top: getIndicatorPercent(clickIndicator.y, screenSize.height),
-        }"
-      />
+      <!-- 屏幕区域 -->
+      <div class="screen-wrapper">
+        <img
+          v-if="screenshotUrl"
+          :src="screenshotUrl"
+          class="screen-img"
+          draggable="false"
+          @mousedown="handleMouseDown"
+          @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp"
+          @mouseleave="handleMouseLeave"
+        />
+        <div v-else class="screen-placeholder">
+          <div class="placeholder-icon">🖥</div>
+          <div class="placeholder-text">实时屏幕推流画面</div>
+        </div>
 
-      <!-- 拖拽轨迹 -->
-      <div
-        v-if="isDragging && dragStart && dragEnd"
-        class="drag-track"
-      >
+        <!-- 点击指示器 -->
         <div
-          class="drag-point drag-start"
+          v-if="clickIndicator.show"
+          class="click-indicator"
           :style="{
-            left: getIndicatorPercent(dragStart.x, screenSize.width),
-            top: getIndicatorPercent(dragStart.y, screenSize.height),
+            left: getIndicatorPercent(clickIndicator.x, screenSize.width),
+            top: getIndicatorPercent(clickIndicator.y, screenSize.height),
           }"
         />
+
+        <!-- 拖拽轨迹 -->
         <div
-          class="drag-point drag-end"
-          :style="{
-            left: getIndicatorPercent(dragEnd.x, screenSize.width),
-            top: getIndicatorPercent(dragEnd.y, screenSize.height),
-          }"
-        />
+          v-if="isDragging && dragStart && dragEnd"
+          class="drag-track"
+        >
+          <div
+            class="drag-point drag-start"
+            :style="{
+              left: getIndicatorPercent(dragStart.x, screenSize.width),
+              top: getIndicatorPercent(dragStart.y, screenSize.height),
+            }"
+          />
+          <div
+            class="drag-point drag-end"
+            :style="{
+              left: getIndicatorPercent(dragEnd.x, screenSize.width),
+              top: getIndicatorPercent(dragEnd.y, screenSize.height),
+            }"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -125,41 +116,11 @@ function getIndicatorPercent(coord: number, size: number): string {
   position: relative;
   width: 100%;
   height: 100%;
-  background: #1a1a1a;
+  background: #f0f2f5;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.live-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
-}
-
-.live-active {
-  background: #22c55e;
-  color: #fff;
-}
-
-.live-inactive {
-  background: #d4d4d4;
-  color: #666;
-}
-
-.coord-display {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 4px;
+  padding: 24px;
 }
 
 .disconnect-banner {
@@ -172,6 +133,33 @@ function getIndicatorPercent(coord: number, size: number): string {
   padding: 8px 24px;
   font-size: 14px;
   border-radius: 8px;
+  z-index: 10;
+}
+
+.screen-card {
+  width: 94%;
+  height: 94%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.coord-display {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  z-index: 10;
+}
+
+.coord-value {
+  color: #3b82f6;
 }
 
 .screen-wrapper {
@@ -180,17 +168,31 @@ function getIndicatorPercent(coord: number, size: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  cursor: crosshair;
 }
 
 .screen-img {
   max-width: 100%;
   max-height: 100%;
-  cursor: crosshair;
 }
 
 .screen-placeholder {
-  color: #666;
-  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #e8e8e8;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  color: #fff;
+}
+
+.placeholder-text {
+  font-size: 18px;
 }
 
 .click-indicator {

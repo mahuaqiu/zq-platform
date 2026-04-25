@@ -64,7 +64,23 @@ export function formatHistoryDisplay(type: string, params: Record<string, any>):
 
 /**
  * 构建 WebSocket URL
+ * Worker 平台格式：
+ * - iOS: /ws/screen/ios/{udid}
+ * - Android: /ws/screen/android/{udid}
+ * - Windows: /ws/screen/windows/windows_screen
+ * - Mac: /ws/screen/mac/mac_screen
  */
-export function buildWebSocketUrl(host: string, port: number, udid: string): string {
-  return `ws://${host}:${port}/ws/screen/${udid}`;
+export function buildWebSocketUrl(host: string, port: number, udid: string, deviceType: string): string {
+  const platform = deviceType.toLowerCase();
+
+  // 桌面端使用固定标识
+  if (platform === 'windows') {
+    return `ws://${host}:${port}/ws/screen/windows/windows_screen`;
+  }
+  if (platform === 'mac') {
+    return `ws://${host}:${port}/ws/screen/mac/mac_screen`;
+  }
+
+  // 移动端使用 UDID
+  return `ws://${host}:${port}/ws/screen/${platform}/${udid}`;
 }

@@ -23,12 +23,13 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 添加历史记录
    */
-  function addHistory(type: string, params: string, status: 'pending' | 'success' | 'failed'): void {
+  function addHistory(type: string, params: string, status: 'pending' | 'success' | 'failed', error?: string): void {
     operationHistory.value.unshift({
       type,
       params,
       status,
       time: formatTime(),
+      error,
     });
     if (operationHistory.value.length > 20) {
       operationHistory.value = operationHistory.value.slice(0, 20);
@@ -38,10 +39,13 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 更新历史记录状态
    */
-  function updateHistoryStatus(status: 'success' | 'failed'): void {
+  function updateHistoryStatus(status: 'success' | 'failed', error?: string): void {
     const record = operationHistory.value[0];
     if (record) {
       record.status = status;
+      if (error) {
+        record.error = error;
+      }
     }
   }
 
@@ -85,14 +89,16 @@ export function useDeviceAction(deviceId: string) {
         }
         return true;
       } else {
+        const errorMsg = result?.error || '操作失败';
         if (!isAuto) {
-          updateHistoryStatus('failed');
+          updateHistoryStatus('failed', errorMsg);
         }
         return false;
       }
-    } catch (_error: any) {
+    } catch (error: any) {
+      const errorMsg = error?.message || error?.response?.data?.error || '操作失败';
       if (!isAuto) {
-        updateHistoryStatus('failed');
+        updateHistoryStatus('failed', errorMsg);
       }
       return false;
     } finally {

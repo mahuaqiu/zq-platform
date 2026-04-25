@@ -69,6 +69,7 @@ export interface OperationRecord {
   params: string;
   status: 'pending' | 'success' | 'failed';
   time: string;
+  error?: string;
 }
 
 /**

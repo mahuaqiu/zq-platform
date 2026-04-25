@@ -16,14 +16,14 @@ export function useWebSocket() {
 
   let ws: WebSocket | null = null;
   let retryCount = 0;
-  let lastFrameTime = 0;
-  let frameCount = 0;
+  let fpsFrameCount = 0;
+  let fpsLastSecond = 0;
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
 
   /**
    * 连接 WebSocket
    */
-  function connect(host: string, port: number, udid: string): void {
+  function connect(host: string, port: number, udid: string, deviceType: string): void {
     if (ws) {
       ws.close();
     }
@@ -32,13 +32,15 @@ export function useWebSocket() {
     errorMessage.value = '';
     closeInfo.value = null;
 
-    const url = buildWebSocketUrl(host, port, udid);
+    const url = buildWebSocketUrl(host, port, udid, deviceType);
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
       status.value = 'connected';
       retryCount = 0;
+      fpsFrameCount = 0;
+      fpsLastSecond = Date.now();
       startFpsTimer();
     };
 
@@ -56,8 +58,7 @@ export function useWebSocket() {
       screenshotBase64.value = url;
 
       // 更新帧率计数
-      frameCount++;
-      lastFrameTime = Date.now();
+      fpsFrameCount++;
 
       // 解析图片尺寸
       const img = new Image();
@@ -77,7 +78,7 @@ export function useWebSocket() {
         retryCount++;
         setTimeout(() => {
           if (retryCount <= MAX_RETRIES) {
-            connect(host, port, udid);
+            connect(host, port, udid, deviceType);
           }
         }, RETRY_INTERVAL);
       }
@@ -105,9 +106,9 @@ export function useWebSocket() {
   /**
    * 重新连接
    */
-  function reconnect(host: string, port: number, udid: string): void {
+  function reconnect(host: string, port: number, udid: string, deviceType: string): void {
     retryCount = 0;
-    connect(host, port, udid);
+    connect(host, port, udid, deviceType);
   }
 
   /**
@@ -116,11 +117,12 @@ export function useWebSocket() {
   function startFpsTimer(): void {
     fpsTimer = setInterval(() => {
       const now = Date.now();
-      const elapsed = now - lastFrameTime;
-      if (elapsed < 1000) {
-        fps.value = Math.round(frameCount * 1000 / elapsed);
+      const elapsedSeconds = (now - fpsLastSecond) / 1000;
+      if (elapsedSeconds >= 1) {
+        fps.value = Math.round(fpsFrameCount / elapsedSeconds);
+        fpsFrameCount = 0;
+        fpsLastSecond = now;
       }
-      frameCount = 0;
     }, 1000);
   }
 

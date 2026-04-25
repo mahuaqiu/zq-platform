@@ -87,13 +87,14 @@ async function loadDeviceDetail() {
     const result = await getEnvMachineDetailApi(deviceId);
     deviceDetail.value = result;
 
-    // 连接 WebSocket（使用现有字段：ip、port、device_sn）
+    // 连接 WebSocket（使用现有字段：ip、port、device_sn、device_type）
     const workerHost = result.ip;
     const workerPort = parseInt(result.port, 10);
     const udid = result.device_sn; // 移动设备 udid = device_sn
+    const deviceType = result.device_type;
 
-    if (workerHost && workerPort && udid) {
-      connect(workerHost, workerPort, udid);
+    if (workerHost && workerPort && deviceType) {
+      connect(workerHost, workerPort, udid || '', deviceType);
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
     }
@@ -117,11 +118,12 @@ function handleDisconnect() {
 
 // 重新连接
 function handleReconnect() {
-  if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_sn) {
+  if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
     const workerHost = deviceDetail.value.ip;
     const workerPort = parseInt(deviceDetail.value.port, 10);
-    const udid = deviceDetail.value.device_sn;
-    reconnect(workerHost, workerPort, udid);
+    const udid = deviceDetail.value.device_sn || '';
+    const deviceType = deviceDetail.value.device_type;
+    reconnect(workerHost, workerPort, udid, deviceType);
   }
 }
 
@@ -343,29 +345,68 @@ onMounted(() => {
 .debug-content {
   flex: 1;
   display: flex;
-  padding: 16px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 30px 24px 0;
+  background: #f0f2f5;
 }
 
-/* 桌面端布局 */
-.debug-content:not(.mobile-layout) {
-  height: calc(100vh - 112px); /* 56px navbar + 56px toolbar */
-}
-
-/* 移动端布局 */
-.mobile-layout {
-  display: flex;
-  gap: 16px;
+/* 桌面端布局 - ScreenDisplay直接在debug-content内，已居中 */
+.debug-content > :not(.mobile-layout) {
+  width: 100%;
   height: 100%;
 }
 
+/* 移动端布局 - 屏幕+面板整体居中 */
+.mobile-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  height: 100%;
+  width: 100%;
+}
+
 .mobile-screen {
-  flex: 1;
-  max-width: 340px;
-  min-width: 300px;
+  width: 380px;
+  height: 100%;
+  max-height: 720px;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 移动端屏幕内部样式覆盖 - 直角无边框 */
+.mobile-screen :deep(.screen-display) {
+  padding: 0;
+  background: #fff;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mobile-screen :deep(.screen-card) {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mobile-screen :deep(.screen-wrapper) {
+  border-radius: 0;
+}
+
+.mobile-screen :deep(.coord-display) {
+  bottom: 12px;
+  left: 12px;
+  right: auto;
+  font-size: 11px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.6);
 }
 
 .mobile-right {
-  width: 280px;
-  flex-shrink: 0;
+  flex: 1;
+  max-width: 400px;
+  height: 100%;
 }
 </style>

@@ -31,7 +31,7 @@ const wsStatusDisplay = computed(() => {
     case 'connecting':
       return { text: '连接中', type: 'warning' as const };
     case 'connected':
-      return { text: '已连接', type: 'success' as const };
+      return { text: 'WebSocket 已连接', type: 'success' as const };
     case 'disconnected':
       return { text: '已断开', type: 'info' as const };
     case 'error':
@@ -40,6 +40,8 @@ const wsStatusDisplay = computed(() => {
       return { text: '未知', type: 'info' as const };
   }
 });
+
+const wsConnected = computed(() => props.wsStatus === 'connected');
 
 function handleBack() {
   emit('back');
@@ -62,32 +64,35 @@ function handleFullscreen() {
   <div class="top-navbar">
     <!-- 设备信息 -->
     <div class="navbar-left">
-      <ElButton size="small" @click="handleBack">
-        返回
-      </ElButton>
+      <button class="back-btn" @click="handleBack">
+        ← 返回设备列表
+      </button>
       <span class="device-icon">{{ isDesktop ? '💻' : '📱' }}</span>
-      <span class="device-name">{{ assetNumber }}</span>
-      <span v-if="deviceSn" class="device-sn">| {{ deviceSn }}</span>
-      <ElTag type="success" size="small">在线</ElTag>
+      <div class="device-info">
+        <div class="device-name">{{ assetNumber }}</div>
+        <div class="device-meta">{{ deviceSn || '未知设备' }}</div>
+      </div>
+      <ElTag type="success" size="small" class="online-tag">在线</ElTag>
     </div>
 
     <!-- 连接状态和操作 -->
     <div class="navbar-right">
-      <ElTag :type="wsStatusDisplay.type" size="small">
-        {{ wsStatusDisplay.text }}
-      </ElTag>
+      <div class="ws-status">
+        <span v-if="wsConnected" class="ws-dot connected">●</span>
+        <span v-else class="ws-dot disconnected">●</span>
+        <span class="ws-text">{{ wsStatusDisplay.text }}</span>
+      </div>
       <span v-if="fps > 0" class="fps-display">{{ fps }} fps</span>
-      <ElButton v-if="isDesktop" size="small" @click="handleFullscreen">
-        全屏
-      </ElButton>
-      <ElButton
+      <button v-if="isDesktop" class="fullscreen-btn" @click="handleFullscreen">
+        ⛶ 全屏
+      </button>
+      <button
         v-if="wsStatus === 'connected'"
-        size="small"
-        type="danger"
+        class="disconnect-btn"
         @click="handleDisconnect"
       >
         断开
-      </ElButton>
+      </button>
       <ElButton
         v-if="wsStatus === 'disconnected' || wsStatus === 'error'"
         size="small"
@@ -105,20 +110,41 @@ function handleFullscreen() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
+  padding: 0 24px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
   height: 56px;
+  min-height: 56px;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 24px;
+}
+
+.back-btn {
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #333;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: #e8e8e8;
 }
 
 .device-icon {
-  font-size: 18px;
+  font-size: 24px;
+}
+
+.device-info {
+  display: flex;
+  flex-direction: column;
 }
 
 .device-name {
@@ -127,22 +153,78 @@ function handleFullscreen() {
   color: #111;
 }
 
-.device-sn {
-  font-size: 14px;
+.device-meta {
+  font-size: 12px;
   color: #666;
+}
+
+.online-tag {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #dcfce7;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 24px;
+}
+
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  font-size: 14px;
+}
+
+.ws-dot.connected {
+  color: #22c55e;
+}
+
+.ws-dot.disconnected {
+  color: #999;
+}
+
+.ws-text {
+  font-size: 13px;
 }
 
 .fps-display {
-  font-size: 12px;
-  color: #666;
-  padding: 2px 8px;
+  font-size: 13px;
+  color: #333;
+  padding: 8px 16px;
   background: #f5f5f5;
-  border-radius: 4px;
+  border-radius: 6px;
+}
+
+.fullscreen-btn {
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #333;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fullscreen-btn:hover {
+  background: #e8e8e8;
+}
+
+.disconnect-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.disconnect-btn:hover {
+  background: #fecaca;
 }
 </style>
