@@ -17,6 +17,7 @@ interface Emits {
   (e: 'mousemove', event: MouseEvent): void;
   (e: 'mouseup', event: MouseEvent): void;
   (e: 'mouseleave'): void;
+  (e: 'contextmenu', event: MouseEvent): void;
 }
 
 const props = defineProps<Props>();
@@ -38,6 +39,11 @@ function handleMouseLeave() {
   emit('mouseleave');
 }
 
+function handleContextMenu(event: MouseEvent) {
+  event.preventDefault();
+  emit('contextmenu', event);
+}
+
 // 计算指示器位置百分比
 function getIndicatorPercent(coord: number, size: number): string {
   if (size === 0) return '0%';
@@ -56,11 +62,11 @@ function getIndicatorPercent(coord: number, size: number): string {
     <div class="screen-card">
       <!-- 坐标显示 -->
       <div v-if="mouseCoord" class="coord-display">
-        坐标: <span class="coord-value">({{ mouseCoord.x }}, {{ mouseCoord.y }})</span>
+        <span class="coord-value">({{ mouseCoord.x }}, {{ mouseCoord.y }})</span>
       </div>
 
       <!-- 屏幕区域 -->
-      <div class="screen-wrapper">
+      <div class="screen-wrapper" @contextmenu="handleContextMenu">
         <img
           v-if="screenshotUrl"
           :src="screenshotUrl"
@@ -116,11 +122,12 @@ function getIndicatorPercent(coord: number, size: number): string {
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 0;
   background: #f0f2f5;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 0;
 }
 
 .disconnect-banner {
@@ -137,10 +144,10 @@ function getIndicatorPercent(coord: number, size: number): string {
 }
 
 .screen-card {
-  width: 94%;
-  height: 94%;
+  width: 100%;
+  height: 100%;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   position: relative;
   overflow: hidden;
@@ -148,33 +155,37 @@ function getIndicatorPercent(coord: number, size: number): string {
 
 .coord-display {
   position: absolute;
-  bottom: 16px;
-  right: 16px;
+  top: 16px;
+  left: 16px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  padding: 10px 16px;
-  font-size: 14px;
-  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 4px;
   z-index: 10;
 }
 
 .coord-value {
   color: #3b82f6;
+  font-weight: 600;
 }
 
 .screen-wrapper {
   width: 100%;
   height: 100%;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: #fff;
   cursor: crosshair;
+  overflow: hidden;
 }
 
 .screen-img {
   max-width: 100%;
   max-height: 100%;
+  object-fit: contain;
 }
 
 .screen-placeholder {

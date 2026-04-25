@@ -12,7 +12,6 @@ import { useScreenInteraction } from './hooks/useScreenInteraction';
 import { useDeviceAction } from './hooks/useDeviceAction';
 
 import TopNavbar from './components/TopNavbar.vue';
-import BottomToolbar from './components/BottomToolbar.vue';
 import ScreenDisplay from './components/ScreenDisplay.vue';
 import MobilePanel from './components/MobilePanel.vue';
 import KeyPressDialog from './components/KeyPressDialog.vue';
@@ -79,6 +78,24 @@ const isFullscreen = ref(false);
 // 设备类型判断
 const isDesktop = computed(() => deviceDetail.value && isDesktopDevice(deviceDetail.value.device_type));
 const isMobile = computed(() => deviceDetail.value && isMobileDevice(deviceDetail.value.device_type));
+
+// 设备分辨率显示
+const deviceResolution = computed(() => {
+  if (!deviceDetail.value) return '';
+  // 优先使用 WebSocket 获取的屏幕尺寸
+  if (screenSize.value.width && screenSize.value.height) {
+    return `${screenSize.value.width}×${screenSize.value.height}`;
+  }
+  // 其次使用 extra_message 中的分辨率
+  const extra = deviceDetail.value.extra_message;
+  if (extra) {
+    if (extra.resolution) return extra.resolution;
+    if (extra.screen_width && extra.screen_height) {
+      return `${extra.screen_width}×${extra.screen_height}`;
+    }
+  }
+  return '';
+});
 
 // 加载设备详情
 async function loadDeviceDetail() {
@@ -168,6 +185,37 @@ function handleScreenMouseLeave() {
   handleMouseLeave();
 }
 
+// 右键菜单处理：Windows/Mac 透传右键，iOS/Android 忽略
+async function handleScreenContextMenu(event: MouseEvent) {
+  if (isOperating.value || wsStatus.value !== 'connected') return;
+
+  // iOS/Android 不支持右键，忽略
+  if (isMobile.value) return;
+
+  // Windows/Mac 透传右键点击到设备
+  if (isDesktop.value) {
+    const target = event.target as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    // 转换为设备坐标
+    const { convertToDeviceCoords } = await import('./utils');
+    const coords = convertToDeviceCoords(
+      mouseX,
+      mouseY,
+      rect.width,
+      rect.height,
+      screenSize.value.width || rect.width,
+      screenSize.value.height || rect.height
+    );
+
+    // 发送右键点击
+    await click(coords.x, coords.y);
+    clickCount.value++;
+  }
+}
+
 // 按键操作
 function handleKeyPress(key: string) {
   pressKey(key);
@@ -229,12 +277,17 @@ onMounted(() => {
       :device-type="deviceDetail.device_type"
       :asset-number="deviceDetail.asset_number || deviceDetail.ip"
       :device-sn="deviceDetail.device_sn"
+      :resolution="deviceResolution"
       :ws-status="wsStatus"
       :fps="fps"
       @back="handleBack"
       @disconnect="handleDisconnect"
       @reconnect="handleReconnect"
       @fullscreen="handleFullscreen"
+      @keypress="handleOpenKeyPressDialog"
+      @input="handleOpenInputDialog"
+      @install="handleOpenInstallDialog"
+      @screenshot="handleScreenshot"
     />
 
     <!-- 主内容区 -->
@@ -254,6 +307,7 @@ onMounted(() => {
           @mousemove="handleScreenMouseMove"
           @mouseup="handleScreenMouseUp"
           @mouseleave="handleScreenMouseLeave"
+          @contextmenu="handleScreenContextMenu"
         />
       </template>
 
@@ -274,6 +328,7 @@ onMounted(() => {
               @mousemove="handleScreenMouseMove"
               @mouseup="handleScreenMouseUp"
               @mouseleave="handleScreenMouseLeave"
+              @contextmenu="handleScreenContextMenu"
             />
           </div>
           <div class="mobile-right">
@@ -290,19 +345,6 @@ onMounted(() => {
         </div>
       </template>
     </div>
-
-    <!-- 底部工具栏（桌面端） -->
-    <BottomToolbar
-      v-if="isDesktop"
-      :device-type="deviceDetail?.device_type"
-      :operation-history="operationHistory"
-      :click-count="clickCount"
-      :swipe-count="swipeCount"
-      @keypress="handleOpenKeyPressDialog"
-      @input="handleOpenInputDialog"
-      @install="handleOpenInstallDialog"
-      @screenshot="handleScreenshot"
-    />
 
     <!-- 弹窗组件 -->
     <KeyPressDialog
@@ -328,9 +370,10 @@ onMounted(() => {
 <style scoped>
 .device-debug-page {
   background: #f0f2f5;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .device-debug-page.fullscreen {
@@ -345,16 +388,20 @@ onMounted(() => {
 .debug-content {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 30px 24px 0;
+  padding: 0;
   background: #f0f2f5;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* 桌面端布局 - ScreenDisplay直接在debug-content内，已居中 */
 .debug-content > :not(.mobile-layout) {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 移动端布局 - 屏幕+面板整体居中 */
@@ -365,6 +412,7 @@ onMounted(() => {
   gap: 24px;
   height: 100%;
   width: 100%;
+  min-height: 0;
 }
 
 .mobile-screen {
@@ -396,11 +444,12 @@ onMounted(() => {
 }
 
 .mobile-screen :deep(.coord-display) {
-  bottom: 12px;
+  top: 12px;
   left: 12px;
   right: auto;
+  bottom: auto;
   font-size: 11px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: rgba(0, 0, 0, 0.6);
 }
 

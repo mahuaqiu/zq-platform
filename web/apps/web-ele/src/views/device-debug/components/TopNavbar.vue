@@ -10,6 +10,7 @@ interface Props {
   deviceType: string;
   assetNumber: string;
   deviceSn?: string;
+  resolution?: string;
   wsStatus: WebSocketStatus;
   fps: number;
 }
@@ -19,6 +20,10 @@ interface Emits {
   (e: 'disconnect'): void;
   (e: 'reconnect'): void;
   (e: 'fullscreen'): void;
+  (e: 'keypress'): void;
+  (e: 'input'): void;
+  (e: 'install'): void;
+  (e: 'screenshot'): void;
 }
 
 const props = defineProps<Props>();
@@ -58,6 +63,22 @@ function handleReconnect() {
 function handleFullscreen() {
   emit('fullscreen');
 }
+
+function handleKeyPress() {
+  emit('keypress');
+}
+
+function handleInput() {
+  emit('input');
+}
+
+function handleInstall() {
+  emit('install');
+}
+
+function handleScreenshot() {
+  emit('screenshot');
+}
 </script>
 
 <template>
@@ -70,9 +91,25 @@ function handleFullscreen() {
       <span class="device-icon">{{ isDesktop ? '💻' : '📱' }}</span>
       <div class="device-info">
         <div class="device-name">{{ assetNumber }}</div>
-        <div class="device-meta">{{ deviceSn || '未知设备' }}</div>
+        <div class="device-meta">{{ resolution || deviceSn || '未知设备' }}</div>
       </div>
       <ElTag type="success" size="small" class="online-tag">在线</ElTag>
+    </div>
+
+    <!-- 中间操作按钮（桌面端） -->
+    <div v-if="isDesktop" class="navbar-center">
+      <button class="toolbar-btn light" @click="handleKeyPress">
+        ⌨ 按键操作
+      </button>
+      <button class="toolbar-btn light" @click="handleInput">
+        📝 输入文本
+      </button>
+      <button class="toolbar-btn light" @click="handleInstall">
+        📦 安装 APP
+      </button>
+      <button class="toolbar-btn light" @click="handleScreenshot">
+        📷 截图保存
+      </button>
     </div>
 
     <!-- 连接状态和操作 -->
@@ -226,5 +263,51 @@ function handleFullscreen() {
 
 .disconnect-btn:hover {
   background: #fecaca;
+}
+
+.navbar-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+.toolbar-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.toolbar-btn.orange {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.toolbar-btn.orange:hover {
+  background: #d97706;
+}
+
+.toolbar-btn.gray {
+  background: #6b7280;
+  color: #fff;
+}
+
+.toolbar-btn.gray:hover {
+  background: #4b5563;
+}
+
+.toolbar-btn.light {
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #333;
+}
+
+.toolbar-btn.light:hover {
+  background: #e8e8e8;
 }
 </style>

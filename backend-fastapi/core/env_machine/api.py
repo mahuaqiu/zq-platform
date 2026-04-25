@@ -712,9 +712,9 @@ async def debug_device_action(
     if not machine:
         raise HTTPException(status_code=404, detail="设备不存在")
 
-    # 校验设备类型
-    if machine.device_type not in ("ios", "android"):
-        raise HTTPException(status_code=400, detail="仅支持 iOS/Android 设备调试")
+    # 校验设备类型（支持所有设备类型）
+    if machine.device_type not in ("ios", "android", "windows", "mac"):
+        raise HTTPException(status_code=400, detail="仅支持 iOS/Android/Windows/Mac 设备调试")
 
     # 校验设备状态
     if machine.status != "online":
