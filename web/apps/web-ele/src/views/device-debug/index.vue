@@ -3,10 +3,11 @@ import { onMounted, ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ElMessage } from 'element-plus';
+import { useTabs } from '@vben/hooks';
 
 import { getEnvMachineDetailApi } from '#/api/core/env-machine';
 
-import { isDesktopDevice, isMobileDevice } from './utils';
+import { isDesktopDevice, isMobileDevice, formatDeviceDebugTitle } from './utils';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useScreenInteraction } from './hooks/useScreenInteraction';
 import { useDeviceAction } from './hooks/useDeviceAction';
@@ -20,6 +21,7 @@ import InstallAppDialog from './components/InstallAppDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
+const { setTabTitle } = useTabs();
 
 const deviceId = route.params.deviceId as string;
 
@@ -36,6 +38,7 @@ const {
   connect,
   disconnect,
   reconnect,
+  resetActivityTime,
 } = useWebSocket();
 
 // 屏幕交互
@@ -72,8 +75,17 @@ const keyPressDialogVisible = ref(false);
 const inputTextDialogVisible = ref(false);
 const installAppDialogVisible = ref(false);
 
-// 全屏状态
-const isFullscreen = ref(false);
+// 屏幕选择
+const currentScreenIndex = ref(0);
+const screenCount = computed(() => {
+  if (!deviceDetail.value || !isDesktop.value) return 1;
+  const extra = deviceDetail.value.extra_message;
+  // 从设备扩展信息获取屏幕数量
+  if (extra?.screen_count) return extra.screen_count;
+  if (extra?.monitor_count) return extra.monitor_count;
+  // 桌面端设备默认支持多屏幕选择（显示2个选项）
+  return 2;
+});
 
 // 设备类型判断
 const isDesktop = computed(() => deviceDetail.value && isDesktopDevice(deviceDetail.value.device_type));
@@ -104,6 +116,14 @@ async function loadDeviceDetail() {
     const result = await getEnvMachineDetailApi(deviceId);
     deviceDetail.value = result;
 
+    // 设置 Tab 标题
+    const title = formatDeviceDebugTitle(
+      result.ip || '',
+      result.device_sn || '',
+      result.device_type
+    );
+    setTabTitle(title);
+
     // 连接 WebSocket（使用现有字段：ip、port、device_sn、device_type）
     const workerHost = result.ip;
     const workerPort = parseInt(result.port, 10);
@@ -111,7 +131,7 @@ async function loadDeviceDetail() {
     const deviceType = result.device_type;
 
     if (workerHost && workerPort && deviceType) {
-      connect(workerHost, workerPort, udid || '', deviceType);
+      connect(workerHost, workerPort, udid || '', deviceType, currentScreenIndex.value);
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
     }
@@ -140,14 +160,23 @@ function handleReconnect() {
     const workerPort = parseInt(deviceDetail.value.port, 10);
     const udid = deviceDetail.value.device_sn || '';
     const deviceType = deviceDetail.value.device_type;
-    reconnect(workerHost, workerPort, udid, deviceType);
+    reconnect(workerHost, workerPort, udid, deviceType, currentScreenIndex.value);
   }
 }
 
-// 全屏切换
-function handleFullscreen() {
-  isFullscreen.value = !isFullscreen.value;
-  // 实际全屏切换逻辑可通过 document fullscreen API 实现
+// 屏幕切换
+function handleScreenChange(screenIndex: number) {
+  currentScreenIndex.value = screenIndex;
+  // 重连 WebSocket 到新屏幕
+  if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
+    reconnect(
+      deviceDetail.value.ip,
+      parseInt(deviceDetail.value.port, 10),
+      deviceDetail.value.device_sn || '',
+      deviceDetail.value.device_type,
+      screenIndex
+    );
+  }
 }
 
 // 屏幕交互事件处理
@@ -162,6 +191,8 @@ function handleScreenMouseMove(event: MouseEvent) {
 
 async function handleScreenMouseUp(event: MouseEvent) {
   if (isOperating.value) return;
+  // 重置活动时间（用户有操作）
+  resetActivityTime();
   const result = handleDragEnd(event);
   if (result) {
     if (result.type === 'click') {
@@ -218,16 +249,19 @@ async function handleScreenContextMenu(event: MouseEvent) {
 
 // 按键操作
 function handleKeyPress(key: string) {
+  resetActivityTime();
   pressKey(key);
 }
 
 // 输入文本
 function handleInputText(text: string) {
+  resetActivityTime();
   inputText(text);
 }
 
 // 解锁屏幕
 function handleUnlock(password?: string) {
+  resetActivityTime();
   unlockScreen(password);
 }
 
@@ -270,7 +304,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="device-debug-page" :class="{ fullscreen: isFullscreen }">
+  <div class="device-debug-page">
     <!-- 顶部导航栏 -->
     <TopNavbar
       v-if="deviceDetail"
@@ -280,14 +314,16 @@ onMounted(() => {
       :resolution="deviceResolution"
       :ws-status="wsStatus"
       :fps="fps"
+      :screen-count="screenCount"
+      :current-screen="currentScreenIndex"
       @back="handleBack"
       @disconnect="handleDisconnect"
       @reconnect="handleReconnect"
-      @fullscreen="handleFullscreen"
       @keypress="handleOpenKeyPressDialog"
       @input="handleOpenInputDialog"
       @install="handleOpenInstallDialog"
       @screenshot="handleScreenshot"
+      @screen-change="handleScreenChange"
     />
 
     <!-- 主内容区 -->
@@ -374,15 +410,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.device-debug-page.fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 100;
 }
 
 .debug-content {

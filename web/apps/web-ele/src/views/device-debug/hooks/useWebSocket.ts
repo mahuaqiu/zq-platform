@@ -5,6 +5,7 @@ import { buildWebSocketUrl } from '../utils';
 
 const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 2000; // 2秒
+const IDLE_TIMEOUT = 300000; // 5分钟 = 300秒
 
 export function useWebSocket() {
   const status = ref<WebSocketStatus>('disconnected');
@@ -19,20 +20,74 @@ export function useWebSocket() {
   let fpsFrameCount = 0;
   let fpsLastSecond = 0;
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
+  let idleTimer: ReturnType<typeof setInterval> | null = null;
+  let lastActivityTime = Date.now();
+
+  // 保存连接参数用于重连
+  let savedHost = '';
+  let savedPort = 0;
+  let savedUdid = '';
+  let savedDeviceType = '';
+  let savedScreenIndex: number | undefined = undefined;
+
+  /**
+   * 重置活动时间（用户操作时调用）
+   */
+  function resetActivityTime(): void {
+    lastActivityTime = Date.now();
+  }
+
+  /**
+   * 开始超时检测（每分钟检查一次）
+   */
+  function startIdleTimer(): void {
+    if (idleTimer) {
+      clearInterval(idleTimer);
+    }
+    lastActivityTime = Date.now();
+    idleTimer = setInterval(() => {
+      const elapsed = Date.now() - lastActivityTime;
+      if (elapsed >= IDLE_TIMEOUT && ws && status.value === 'connected') {
+        // 超时断开
+        disconnect();
+        console.log('WebSocket 因 5 分钟无操作已自动断开');
+      }
+    }, 60000); // 每分钟检查一次
+  }
+
+  /**
+   * 停止超时检测
+   */
+  function stopIdleTimer(): void {
+    if (idleTimer) {
+      clearInterval(idleTimer);
+      idleTimer = null;
+    }
+  }
 
   /**
    * 连接 WebSocket
    */
-  function connect(host: string, port: number, udid: string, deviceType: string): void {
+  function connect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number): void {
+    // 保存参数用于重连
+    savedHost = host;
+    savedPort = port;
+    savedUdid = udid;
+    savedDeviceType = deviceType;
+    savedScreenIndex = screenIndex;
+
+    // 关闭旧连接（使用 code=1000 表示正常关闭，不触发自动重连）
     if (ws) {
-      ws.close();
+      retryCount = MAX_RETRIES; // 阻止旧连接的 onclose 触发重连
+      ws.close(1000);
+      ws = null;
     }
 
     status.value = 'connecting';
     errorMessage.value = '';
     closeInfo.value = null;
 
-    const url = buildWebSocketUrl(host, port, udid, deviceType);
+    const url = buildWebSocketUrl(host, port, udid, deviceType, screenIndex);
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
@@ -42,6 +97,7 @@ export function useWebSocket() {
       fpsFrameCount = 0;
       fpsLastSecond = Date.now();
       startFpsTimer();
+      startIdleTimer(); // 启动超时检测
     };
 
     ws.onmessage = (event) => {
@@ -70,6 +126,7 @@ export function useWebSocket() {
 
     ws.onclose = (event) => {
       stopFpsTimer();
+      stopIdleTimer(); // 停止超时检测
       status.value = 'disconnected';
       closeInfo.value = { code: event.code, reason: event.reason };
 
@@ -78,7 +135,7 @@ export function useWebSocket() {
         retryCount++;
         setTimeout(() => {
           if (retryCount <= MAX_RETRIES) {
-            connect(host, port, udid, deviceType);
+            connect(savedHost, savedPort, savedUdid, savedDeviceType, savedScreenIndex);
           }
         }, RETRY_INTERVAL);
       }
@@ -100,15 +157,16 @@ export function useWebSocket() {
       ws = null;
     }
     stopFpsTimer();
+    stopIdleTimer();
     status.value = 'disconnected';
   }
 
   /**
    * 重新连接
    */
-  function reconnect(host: string, port: number, udid: string, deviceType: string): void {
+  function reconnect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number): void {
     retryCount = 0;
-    connect(host, port, udid, deviceType);
+    connect(host, port, udid, deviceType, screenIndex);
   }
 
   /**
@@ -156,5 +214,6 @@ export function useWebSocket() {
     connect,
     disconnect,
     reconnect,
+    resetActivityTime,
   };
 }

@@ -4,7 +4,7 @@ import { isDesktopDevice } from '../utils';
 
 import { computed } from 'vue';
 
-import { ElButton, ElTag } from 'element-plus';
+import { ElButton, ElTag, ElSelect, ElOption } from 'element-plus';
 
 interface Props {
   deviceType: string;
@@ -13,23 +13,40 @@ interface Props {
   resolution?: string;
   wsStatus: WebSocketStatus;
   fps: number;
+  screenCount?: number;  // 新增：屏幕数量
+  currentScreen?: number; // 新增：当前选中屏幕
 }
 
 interface Emits {
   (e: 'back'): void;
   (e: 'disconnect'): void;
   (e: 'reconnect'): void;
-  (e: 'fullscreen'): void;
   (e: 'keypress'): void;
   (e: 'input'): void;
   (e: 'install'): void;
   (e: 'screenshot'): void;
+  (e: 'screenChange', screenIndex: number): void;  // 新增：屏幕切换
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const isDesktop = computed(() => isDesktopDevice(props.deviceType));
+
+// 屏幕选项
+const screenOptions = computed(() => {
+  const count = props.screenCount || 1;
+  return Array.from({ length: count }, (_, i) => ({
+    value: i,
+    label: i === 0 ? '主屏幕' : `副屏幕 ${i}`
+  }));
+});
+
+// 当前选中的屏幕索引
+const selectedScreen = computed({
+  get: () => props.currentScreen || 0,
+  set: (val) => emit('screenChange', val)
+});
 
 const wsStatusDisplay = computed(() => {
   switch (props.wsStatus) {
@@ -58,10 +75,6 @@ function handleDisconnect() {
 
 function handleReconnect() {
   emit('reconnect');
-}
-
-function handleFullscreen() {
-  emit('fullscreen');
 }
 
 function handleKeyPress() {
@@ -114,15 +127,27 @@ function handleScreenshot() {
 
     <!-- 连接状态和操作 -->
     <div class="navbar-right">
+      <!-- 屏幕选择（仅桌面端且多屏时显示） -->
+      <ElSelect
+        v-if="isDesktop && screenOptions.length > 1"
+        v-model="selectedScreen"
+        size="small"
+        class="screen-select"
+        popper-class="screen-dropdown"
+      >
+        <ElOption
+          v-for="opt in screenOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
+      </ElSelect>
       <div class="ws-status">
         <span v-if="wsConnected" class="ws-dot connected">●</span>
         <span v-else class="ws-dot disconnected">●</span>
         <span class="ws-text">{{ wsStatusDisplay.text }}</span>
       </div>
       <span v-if="fps > 0" class="fps-display">{{ fps }} fps</span>
-      <button v-if="isDesktop" class="fullscreen-btn" @click="handleFullscreen">
-        ⛶ 全屏
-      </button>
       <button
         v-if="wsStatus === 'connected'"
         class="disconnect-btn"
@@ -235,19 +260,34 @@ function handleScreenshot() {
   border-radius: 6px;
 }
 
-.fullscreen-btn {
-  background: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  color: #333;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
+.screen-select {
+  font-size: 13px;
+  width: 100px;
 }
 
-.fullscreen-btn:hover {
-  background: #e8e8e8;
+.screen-select :deep(.el-input__wrapper) {
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  box-shadow: none;
+  padding: 0 12px;
+  min-height: 34px;
+}
+
+.screen-select :deep(.el-input__wrapper:hover),
+.screen-select :deep(.el-input__wrapper.is-focus) {
+  background: #f5f5f5;
+  border-color: #1890ff;
+  box-shadow: none;
+}
+
+.screen-select :deep(.el-input__inner) {
+  color: #333;
+  font-size: 13px;
+}
+
+.screen-select :deep(.el-select__caret) {
+  color: #666;
 }
 
 .disconnect-btn {
@@ -309,5 +349,31 @@ function handleScreenshot() {
 
 .toolbar-btn.light:hover {
   background: #e8e8e8;
+}
+</style>
+
+<style>
+/* 屏幕选择下拉菜单样式（非 scoped，用于 popper-class） */
+.screen-dropdown {
+  border-radius: 6px !important;
+}
+
+.screen-dropdown .el-select-dropdown__item {
+  font-size: 13px;
+  color: #333;
+  padding: 0 16px;
+  height: 34px;
+  line-height: 34px;
+  display: flex;
+  align-items: center;
+}
+
+.screen-dropdown .el-select-dropdown__item:hover {
+  background: #f5f5f5;
+}
+
+.screen-dropdown .el-select-dropdown__item.selected {
+  color: #1890ff;
+  font-weight: 500;
 }
 </style>

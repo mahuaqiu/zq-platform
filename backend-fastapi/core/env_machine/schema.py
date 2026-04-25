@@ -116,6 +116,7 @@ class DebugActionRequest(BaseModel):
     """设备调试操作请求 Schema"""
     action_type: str = Field(..., description="操作类型：click/swipe/input/press/screenshot/unlock_screen")
     params: Dict[str, Any] = Field(default_factory=dict, description="操作参数")
+    screen_index: Optional[int] = Field(default=0, description="屏幕索引，0=主屏幕，1+=副屏幕")
 
 
 class DebugActionResponse(BaseModel):

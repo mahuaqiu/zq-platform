@@ -63,22 +63,48 @@ export function formatHistoryDisplay(type: string, params: Record<string, any>):
 }
 
 /**
+ * 格式化设备调试页 Tab 标题
+ * - Windows/Mac: 显示完整 IP（如 192.168.0.102）
+ * - iOS/Android: 显示 IP 后两位 + SN 后 4 位（如 0.102-5554）
+ */
+export function formatDeviceDebugTitle(ip: string, deviceSn: string, deviceType: string): string {
+  if (!ip) return '设备调试';
+
+  if (isDesktopDevice(deviceType)) {
+    // Windows/Mac 显示完整 IP
+    return ip;
+  }
+
+  // iOS/Android: IP 后两位 + SN 后 4 位
+  const ipParts = ip.split('.');
+  const ipSuffix = ipParts.length >= 2
+    ? `${ipParts[ipParts.length - 2]}.${ipParts[ipParts.length - 1]}`
+    : ip;
+  const snSuffix = deviceSn ? deviceSn.slice(-4) : '----';
+  return `${ipSuffix}-${snSuffix}`;
+}
+
+/**
  * 构建 WebSocket URL
  * Worker 平台格式：
  * - iOS: /ws/screen/ios/{udid}
  * - Android: /ws/screen/android/{udid}
- * - Windows: /ws/screen/windows/windows_screen
- * - Mac: /ws/screen/mac/mac_screen
+ * - Windows: /ws/screen/windows/windows_screen?monitor={screenIndex+1}
+ * - Mac: /ws/screen/mac/mac_screen?monitor={screenIndex+1}
  */
-export function buildWebSocketUrl(host: string, port: number, udid: string, deviceType: string): string {
+export function buildWebSocketUrl(
+  host: string,
+  port: number,
+  udid: string,
+  deviceType: string,
+  screenIndex?: number
+): string {
   const platform = deviceType.toLowerCase();
 
-  // 桌面端使用固定标识
-  if (platform === 'windows') {
-    return `ws://${host}:${port}/ws/screen/windows/windows_screen`;
-  }
-  if (platform === 'mac') {
-    return `ws://${host}:${port}/ws/screen/mac/mac_screen`;
+  // 桌面端传递 monitor 参数（mss索引：1=主屏，2=副屏）
+  if (platform === 'windows' || platform === 'mac') {
+    const monitor = screenIndex !== undefined ? screenIndex + 1 : 1;
+    return `ws://${host}:${port}/ws/screen/${platform}/${platform}_screen?monitor=${monitor}`;
   }
 
   // 移动端使用 UDID
