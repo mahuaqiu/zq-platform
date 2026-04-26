@@ -59,10 +59,6 @@ const miniFunctionKeys: KeyDefinition[] = [
   { value: 'delete', label: 'Del', type: 'normal', width: 36 },
   { value: 'pageup', label: 'PgUp', type: 'normal', width: 40 },
   { value: 'pagedown', label: 'PgDn', type: 'normal', width: 40 },
-];
-
-// 运算符号
-const mathKeys: KeyDefinition[] = [
   { value: '+', label: '+', type: 'normal', width: 32 },
   { value: '-', label: '-', type: 'normal', width: 32 },
   { value: '*', label: '*', type: 'normal', width: 32 },
@@ -178,25 +174,10 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 
         <!-- 简化键盘主体 -->
         <div class="keyboard-body">
-          <!-- Esc + Ins/Del + PgUp/PgDn -->
+          <!-- Esc + Ins/Del + PgUp/PgDn + +-*/ -->
           <div class="key-row">
             <ElButton
               v-for="key in miniFunctionKeys"
-              :key="key.value"
-              :style="getKeyStyle(key)"
-              class="key-btn"
-              :disabled="disabled"
-              size="small"
-              @click="handleKeyClick(key.value, key.type)"
-            >
-              {{ key.label }}
-            </ElButton>
-          </div>
-
-          <!-- 运算符号 + - * / -->
-          <div class="key-row">
-            <ElButton
-              v-for="key in mathKeys"
               :key="key.value"
               :style="getKeyStyle(key)"
               class="key-btn"
