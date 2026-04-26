@@ -7,12 +7,10 @@ import type { DeviceType } from '../types';
 import {
   CAPS_ROW,
   combineKeys,
-  MAC_BOTTOM_ROW,
   MAC_SHORTCUTS,
   NUMBER_ROW,
   SHIFT_ROW,
   TAB_ROW,
-  WINDOWS_BOTTOM_ROW,
   WINDOWS_SHORTCUTS,
   type KeyDefinition,
 } from '../keyboard-data';
@@ -47,23 +45,50 @@ const shortcuts = computed(() =>
   isMac.value ? MAC_SHORTCUTS.slice(0, 6) : WINDOWS_SHORTCUTS.slice(0, 6)
 );
 
-// 根据平台选择底行修饰键
-const bottomRow = computed(() =>
-  isMac.value ? MAC_BOTTOM_ROW : WINDOWS_BOTTOM_ROW
-);
-
-// 精简的功能键行（Esc + Ins/Del + PgUp/PgDn + 运算符号）
+// 精简的功能键行（Esc + 运算符号）
 const miniFunctionKeys: KeyDefinition[] = [
   { value: 'escape', label: 'Esc', type: 'normal', width: 44 },
-  { value: 'insert', label: 'Ins', type: 'normal', width: 36 },
-  { value: 'delete', label: 'Del', type: 'normal', width: 36 },
-  { value: 'pageup', label: 'PgUp', type: 'normal', width: 40 },
-  { value: 'pagedown', label: 'PgDn', type: 'normal', width: 40 },
   { value: '+', label: '+', type: 'normal', width: 32 },
   { value: '-', label: '-', type: 'normal', width: 32 },
   { value: '*', label: '*', type: 'normal', width: 32 },
   { value: '/', label: '/', type: 'normal', width: 32 },
 ];
+
+// 精简的数字行（去掉减号，避免重复）
+const filteredNumberRow = computed(() =>
+  NUMBER_ROW.filter(key => key.value !== '-')
+);
+
+// 精简的 Shift 行（只保留左边 Shift）
+const filteredShiftRow = computed(() =>
+  SHIFT_ROW.slice(0, -1) // 去掉最后一个 Shift
+);
+
+// 精简的底行修饰键（去掉右侧重复，添加编辑键）
+const customBottomRow = computed(() => {
+  if (isMac.value) {
+    return [
+      { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
+      { value: 'opt', label: 'Opt', type: 'modifier', width: 44, color: '#e6a23c' },
+      { value: 'cmd', label: 'Cmd', type: 'modifier', width: 44, color: '#e6a23c' },
+      { value: 'space', label: 'Space', type: 'normal', width: 120 },
+      { value: 'insert', label: 'Ins', type: 'normal', width: 36 },
+      { value: 'delete', label: 'Del', type: 'normal', width: 36 },
+      { value: 'pageup', label: 'PgUp', type: 'normal', width: 40 },
+      { value: 'pagedown', label: 'PgDn', type: 'normal', width: 40 },
+    ];
+  }
+  return [
+    { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
+    { value: 'win', label: 'Win', type: 'modifier', width: 44, color: '#e6a23c' },
+    { value: 'alt', label: 'Alt', type: 'modifier', width: 44, color: '#e6a23c' },
+    { value: 'space', label: 'Space', type: 'normal', width: 120 },
+    { value: 'insert', label: 'Ins', type: 'normal', width: 36 },
+    { value: 'delete', label: 'Del', type: 'normal', width: 36 },
+    { value: 'pageup', label: 'PgUp', type: 'normal', width: 40 },
+    { value: 'pagedown', label: 'PgDn', type: 'normal', width: 40 },
+  ];
+});
 
 // 按键是否激活
 function isKeyActive(key: string): boolean {
@@ -147,34 +172,9 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
     <!-- 只有桌面端设备才显示完整键盘 -->
     <template v-if="isDesktop">
       <div class="mini-keyboard">
-        <!-- 常用快捷键区 -->
-        <div class="shortcuts-row">
-          <ElButton
-            v-for="shortcut in shortcuts"
-            :key="shortcut.value"
-            :style="getKeyStyle(shortcut)"
-            :class="getKeyClass(shortcut)"
-            :disabled="disabled"
-            size="small"
-            @click="handleShortcutClick(shortcut.value)"
-          >
-            {{ shortcut.label }}
-          </ElButton>
-          <!-- Ctrl+Alt+Del -->
-          <ElButton
-            style="background: #f56c6c; color: #fff;"
-            class="key-btn"
-            :disabled="disabled"
-            size="small"
-            @click="handleShortcutClick('ctrl+alt+delete')"
-          >
-            Ctrl+Alt+Del
-          </ElButton>
-        </div>
-
         <!-- 简化键盘主体 -->
         <div class="keyboard-body">
-          <!-- Esc + Ins/Del + PgUp/PgDn + +-*/ -->
+          <!-- 第一排：Esc + 运算符号 + 快捷键（右侧） -->
           <div class="key-row">
             <ElButton
               v-for="key in miniFunctionKeys"
@@ -187,12 +187,35 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             >
               {{ key.label }}
             </ElButton>
+            <!-- 快捷键按钮（靠右放） -->
+            <div class="key-row-gap" />
+            <ElButton
+              v-for="shortcut in shortcuts"
+              :key="shortcut.value"
+              :style="getKeyStyle(shortcut)"
+              :class="getKeyClass(shortcut)"
+              :disabled="disabled"
+              size="small"
+              @click="handleShortcutClick(shortcut.value)"
+            >
+              {{ shortcut.label }}
+            </ElButton>
+            <!-- Ctrl+Alt+Del -->
+            <ElButton
+              style="background: #f56c6c; color: #fff;"
+              class="key-btn"
+              :disabled="disabled"
+              size="small"
+              @click="handleShortcutClick('ctrl+alt+delete')"
+            >
+              Ctrl+Alt+Del
+            </ElButton>
           </div>
 
-          <!-- 数字行 -->
+          <!-- 数字行（去掉减号） -->
           <div class="key-row">
             <ElButton
-              v-for="key in NUMBER_ROW"
+              v-for="key in filteredNumberRow"
               :key="key.value"
               style="width: 32px;"
               :class="getKeyClass(key)"
@@ -234,10 +257,10 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             </ElButton>
           </div>
 
-          <!-- Shift 行 -->
+          <!-- Shift 行（去掉右边 Shift） -->
           <div class="key-row">
             <ElButton
-              v-for="key in SHIFT_ROW"
+              v-for="key in filteredShiftRow"
               :key="key.value + '-shift'"
               :style="getKeyStyle(key)"
               :class="getKeyClass(key)"
@@ -249,10 +272,10 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             </ElButton>
           </div>
 
-          <!-- 底行修饰键 -->
+          <!-- 底行：修饰键 + Space + 编辑键 -->
           <div class="key-row">
             <ElButton
-              v-for="key in bottomRow"
+              v-for="key in customBottomRow"
               :key="key.value + '-bottom'"
               :style="getKeyStyle(key)"
               :class="getKeyClass(key)"
@@ -326,14 +349,6 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
   background: #f5f7fa;
 }
 
-/* 快捷键行 */
-.shortcuts-row {
-  display: flex;
-  gap: 4px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
 /* 键盘主体 */
 .keyboard-body {
   display: flex;
@@ -349,6 +364,11 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 .key-row {
   display: flex;
   gap: 2px;
+}
+
+.key-row-gap {
+  flex: 1;
+  min-width: 16px;
 }
 
 .key-gap {
