@@ -120,7 +120,8 @@
       "Bash(dir backend-fastapi\\\\core\\\\websocket)",
       "Bash(tail -100 logs/*.log)",
       "Bash(cat env/machine/*.log)",
-      "Bash(ls -la logs/)"
+      "Bash(ls -la logs/)",
+      "Bash(pnpm vue-tsc *)"
     ]
   }
 }
