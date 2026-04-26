@@ -109,7 +109,11 @@ function getKeyStyle(key: KeyDefinition): Record<string, string> {
     style.width = `${key.width}px`;
   }
   if (key.height) {
-    style.height = `${key.height * 38 + (key.height - 1) * 4}px`;
+    style.height = `${key.height * 38 + (key.height - 1) * 6}px`;
+  }
+  if (key.color) {
+    style.background = key.color;
+    style.color = '#fff';
   }
   return style;
 }
@@ -119,7 +123,6 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
   return {
     'key-btn': true,
     'key-modifier': key.type === 'modifier',
-    'key-shortcut': key.type === 'shortcut',
     'key-active': key.type === 'modifier' && isKeyActive(key.value),
   };
 }
@@ -128,253 +131,245 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 <template>
   <ElDialog
     :model-value="visible"
-    title="虚拟键盘"
+    title="按键操作"
     width="auto"
     :close-on-click-modal="false"
     @update:model-value="emit('update:visible', $event)"
   >
     <!-- 只有桌面端设备才显示完整键盘 -->
     <template v-if="isDesktop">
-      <div class="keyboard-container">
-        <!-- 常用快捷键区 -->
-        <div class="shortcuts-section">
-          <div class="section-title">常用快捷键</div>
-          <div class="shortcuts-grid">
-            <ElButton
-              v-for="shortcut in shortcuts"
-              :key="shortcut.value"
-              :style="{ backgroundColor: shortcut.color, borderColor: shortcut.color }"
-              :class="getKeyClass(shortcut)"
-              :disabled="disabled"
-              size="small"
-              @click="handleShortcutClick(shortcut.value)"
-            >
-              {{ shortcut.label }}
-            </ElButton>
-          </div>
-        </div>
-
-        <!-- 键盘主体区域 -->
-        <div class="keyboard-main">
-          <!-- 左侧：主键盘区 -->
-          <div class="main-keyboard">
-            <!-- 功能键行 -->
-            <div class="key-row">
+      <div class="keyboard-wrapper">
+        <!-- 左侧：键盘主体 -->
+        <div class="keyboard-left">
+          <!-- 常用快捷键区 -->
+          <div class="shortcuts-section">
+            <div class="section-label">常用快捷键（一键发送）</div>
+            <div class="shortcuts-grid">
               <ElButton
-                v-for="key in FUNCTION_KEYS_ROW"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
+                v-for="shortcut in shortcuts"
+                :key="shortcut.value"
+                :style="getKeyStyle(shortcut)"
+                :class="getKeyClass(shortcut)"
                 :disabled="disabled"
                 size="small"
-                @click="handleKeyClick(key.value, key.type)"
+                @click="handleShortcutClick(shortcut.value)"
               >
-                {{ key.label }}
-              </ElButton>
-            </div>
-
-            <!-- 数字行 -->
-            <div class="key-row">
-              <ElButton
-                v-for="key in NUMBER_ROW"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
-            </div>
-
-            <!-- Tab 行 -->
-            <div class="key-row">
-              <ElButton
-                v-for="key in TAB_ROW"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
-            </div>
-
-            <!-- Caps 行 -->
-            <div class="key-row">
-              <ElButton
-                v-for="key in CAPS_ROW"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
-            </div>
-
-            <!-- Shift 行 -->
-            <div class="key-row">
-              <ElButton
-                v-for="key in SHIFT_ROW"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
-            </div>
-
-            <!-- 底行修饰键 -->
-            <div class="key-row">
-              <ElButton
-                v-for="key in bottomRow"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
+                {{ shortcut.label }}
               </ElButton>
             </div>
           </div>
 
-          <!-- 中间：编辑键区 + 方向键 -->
-          <div class="edit-keyboard">
-            <!-- 编辑键区 -->
-            <div class="key-row">
-              <ElButton
-                v-for="(key, index) in EDIT_KEYS.slice(0, 3)"
-                :key="key.value + index"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
-            </div>
-            <div class="key-row">
-              <ElButton
-                v-for="(key, index) in EDIT_KEYS.slice(3, 6)"
-                :key="key.value + index"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
+          <!-- 108键键盘布局 -->
+          <div class="keyboard-body">
+            <!-- 左侧主键盘区 -->
+            <div class="main-keyboard">
+              <!-- 功能键行 -->
+              <div class="key-row">
+                <ElButton
+                  v-for="key in FUNCTION_KEYS_ROW"
+                  :key="key.value"
+                  :style="getKeyStyle(key)"
+                  :class="getKeyClass(key)"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+
+              <!-- 数字行 -->
+              <div class="key-row">
+                <ElButton
+                  v-for="key in NUMBER_ROW"
+                  :key="key.value"
+                  :style="getKeyStyle(key)"
+                  :class="getKeyClass(key)"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+
+              <!-- Tab 行 -->
+              <div class="key-row">
+                <ElButton
+                  v-for="key in TAB_ROW"
+                  :key="key.value + '-tab'"
+                  :style="getKeyStyle(key)"
+                  :class="getKeyClass(key)"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+
+              <!-- Caps 行 -->
+              <div class="key-row">
+                <ElButton
+                  v-for="key in CAPS_ROW"
+                  :key="key.value + '-caps'"
+                  :style="getKeyStyle(key)"
+                  :class="getKeyClass(key)"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+
+              <!-- Shift 行 -->
+              <div class="key-row">
+                <ElButton
+                  v-for="key in SHIFT_ROW"
+                  :key="key.value + '-shift'"
+                  :style="getKeyStyle(key)"
+                  :class="getKeyClass(key)"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+
+              <!-- 底行修饰键 -->
+              <div class="key-row">
+                <ElButton
+                  v-for="key in bottomRow"
+                  :key="key.value + '-bottom'"
+                  :style="getKeyStyle(key)"
+                  :class="getKeyClass(key)"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
             </div>
 
-            <!-- 空行分隔 -->
-            <div class="key-row" style="height: 42px"></div>
-
-            <!-- 方向键 -->
-            <div class="key-row arrow-keys">
-              <div class="arrow-placeholder"></div>
-              <ElButton
-                v-if="ARROW_KEYS[0]"
-                :style="getKeyStyle(ARROW_KEYS[0])"
-                class="key-btn"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(ARROW_KEYS[0].value, ARROW_KEYS[0].type)"
-              >
-                {{ ARROW_KEYS[0].label }}
-              </ElButton>
-              <div class="arrow-placeholder"></div>
+            <!-- 中间编辑键区 -->
+            <div class="edit-keyboard">
+              <div class="key-row">
+                <ElButton
+                  v-for="key in EDIT_KEYS.slice(0, 3)"
+                  :key="key.value"
+                  :style="getKeyStyle(key)"
+                  class="key-btn"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+              <div class="key-row">
+                <ElButton
+                  v-for="key in EDIT_KEYS.slice(3, 6)"
+                  :key="key.value"
+                  :style="getKeyStyle(key)"
+                  class="key-btn"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
+              <div class="spacer"></div>
+              <!-- 方向键 -->
+              <div class="arrow-keys">
+                <ElButton
+                  v-if="ARROW_KEYS[0]"
+                  :style="getKeyStyle(ARROW_KEYS[0])"
+                  class="key-btn"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(ARROW_KEYS[0].value, ARROW_KEYS[0].type)"
+                >
+                  {{ ARROW_KEYS[0].label }}
+                </ElButton>
+                <div class="arrow-row">
+                  <ElButton
+                    v-for="key in ARROW_KEYS.slice(1)"
+                    :key="key.value"
+                    :style="getKeyStyle(key)"
+                    class="key-btn"
+                    :disabled="disabled"
+                    size="small"
+                    @click="handleKeyClick(key.value, key.type)"
+                  >
+                    {{ key.label }}
+                  </ElButton>
+                </div>
+              </div>
             </div>
-            <div class="key-row arrow-keys">
-              <ElButton
-                v-for="key in ARROW_KEYS.slice(1)"
-                :key="key.value"
-                :style="getKeyStyle(key)"
-                class="key-btn"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
+
+            <!-- 右侧数字小键盘 -->
+            <div class="numpad-keyboard">
+              <div
+                v-for="(row, rowIndex) in NUMPAD_KEYS"
+                :key="'numpad-row-' + rowIndex"
+                class="key-row"
               >
-                {{ key.label }}
-              </ElButton>
+                <ElButton
+                  v-for="key in row"
+                  :key="key.value"
+                  :style="getKeyStyle(key)"
+                  class="key-btn"
+                  :disabled="disabled"
+                  size="small"
+                  @click="handleKeyClick(key.value, key.type)"
+                >
+                  {{ key.label }}
+                </ElButton>
+              </div>
             </div>
           </div>
 
-          <!-- 右侧：数字小键盘 -->
-          <div class="numpad-keyboard">
-            <div
-              v-for="(row, rowIndex) in NUMPAD_KEYS"
-              :key="rowIndex"
-              class="key-row"
-            >
-              <ElButton
-                v-for="key in row"
-                :key="key.value + key.label"
-                :style="getKeyStyle(key)"
-                :class="getKeyClass(key)"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick(key.value, key.type)"
-              >
-                {{ key.label }}
-              </ElButton>
-            </div>
-          </div>
-        </div>
-
-        <!-- 底部操作区 -->
-        <div class="keyboard-actions">
-          <div class="modifier-status">
-            <span v-if="activeModifiers.length > 0" class="active-modifiers">
-              当前修饰键: <strong>{{ activeModifiers.join(' + ') }}</strong>
-            </span>
-            <span v-else class="no-modifiers">当前无修饰键</span>
-          </div>
-          <div class="action-buttons">
+          <!-- 底部操作按钮 -->
+          <div class="keyboard-footer">
             <ElButton :disabled="disabled" @click="clearModifiers">
               清空修饰键
             </ElButton>
-            <ElButton type="primary" :disabled="disabled" @click="handleClose">
+            <ElButton type="danger" :disabled="disabled" @click="handleClose">
               关闭
             </ElButton>
           </div>
         </div>
 
-        <!-- 右侧使用说明 -->
+        <!-- 右侧：使用说明 -->
         <div class="usage-guide">
-          <div class="guide-title">使用说明</div>
-          <div class="guide-content">
-            <div class="guide-item">
-              <span class="guide-label">修饰键:</span>
-              <span class="guide-desc">点击高亮，再次点击取消</span>
-            </div>
-            <div class="guide-item">
-              <span class="guide-label">组合键:</span>
-              <span class="guide-desc">先点修饰键，再点普通键</span>
-            </div>
-            <div class="guide-item">
-              <span class="guide-label">快捷键:</span>
-              <span class="guide-desc">直接点击发送组合键</span>
-            </div>
-            <div class="guide-divider"></div>
-            <div class="guide-item">
-              <span class="guide-label">示例:</span>
-            </div>
-            <div class="guide-example">Ctrl + C 复制</div>
-            <div class="guide-example">Alt + Tab 切换窗口</div>
-            <div class="guide-example">Shift + Delete 永久删除</div>
+          <h4>使用说明</h4>
+
+          <div class="guide-item">
+            <p class="guide-title">🔵 常用快捷键</p>
+            <p class="guide-desc">点击按钮直接发送组合键，无需其他操作</p>
+          </div>
+
+          <div class="guide-item">
+            <p class="guide-title-orange">🟠 修饰键 (Ctrl/Alt/Win)</p>
+            <p class="guide-desc">用于组合键累加操作：</p>
+            <ul class="guide-list">
+              <li>点击修饰键 → 高亮显示</li>
+              <li>再点击其他键 → 发送组合</li>
+              <li>例：点Ctrl，再点C → 发送Ctrl+C</li>
+            </ul>
+          </div>
+
+          <div class="guide-item">
+            <p class="guide-title-gray">⚪ 普通按键</p>
+            <p class="guide-desc">点击直接发送单个按键</p>
+          </div>
+
+          <div class="guide-tip">
+            💡 发送组合键后，修饰键状态自动清空。<br>需手动清空请点"清空修饰键"
           </div>
         </div>
       </div>
@@ -414,48 +409,76 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 </template>
 
 <style scoped>
-.keyboard-container {
+/* 整体布局：键盘和使用说明在同一行 */
+.keyboard-wrapper {
+  display: flex;
+  gap: 20px;
+  padding: 16px;
+  background: #f5f7fa;
+}
+
+/* 左侧键盘主体 */
+.keyboard-left {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 8px;
 }
 
-/* 快捷键区域 */
+/* 常用快捷键区 */
 .shortcuts-section {
-  margin-bottom: 8px;
+  text-align: center;
 }
 
-.section-title {
+.section-label {
   font-size: 12px;
-  color: #909399;
-  margin-bottom: 8px;
-  font-weight: 500;
+  color: #666;
+  margin-bottom: 6px;
 }
 
 .shortcuts-grid {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-/* 键盘主体 */
-.keyboard-main {
+/* 108键键盘布局 */
+.keyboard-body {
   display: flex;
   gap: 12px;
+  background: #fff;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
 }
 
 /* 主键盘区 */
 .main-keyboard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* 编辑键区 */
 .edit-keyboard {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+.spacer {
+  height: 20px;
+}
+
+.arrow-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.arrow-row {
+  display: flex;
   gap: 4px;
 }
 
@@ -463,7 +486,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 .numpad-keyboard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* 按键行 */
@@ -475,9 +498,9 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 /* 按键基础样式 */
 .key-btn {
   min-width: 38px;
-  height: 38px;
+  height: 32px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   border-radius: 4px;
   background-color: #f5f7fa;
@@ -489,10 +512,6 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 .key-btn:hover:not(:disabled) {
   background-color: #e9ecf0;
   border-color: #c0c4cc;
-}
-
-.key-btn:active:not(:disabled) {
-  background-color: #d3d7db;
 }
 
 /* 修饰键样式 */
@@ -513,100 +532,75 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
   color: #fff;
 }
 
-/* 快捷键样式 */
-.key-shortcut {
-  color: #fff;
-}
-
-.key-shortcut:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-/* 方向键占位 */
-.arrow-placeholder {
-  width: 44px;
-}
-
-.arrow-keys {
-  justify-content: flex-start;
-}
-
-/* 底部操作区 */
-.keyboard-actions {
+/* 底部操作按钮 */
+.keyboard-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid #ebeef5;
-  margin-top: 8px;
-}
-
-.modifier-status {
-  font-size: 13px;
-  color: #606266;
-}
-
-.active-modifiers strong {
-  color: #e6a23c;
-}
-
-.no-modifiers {
-  color: #909399;
-}
-
-.action-buttons {
-  display: flex;
+  justify-content: center;
   gap: 8px;
 }
 
 /* 右侧使用说明 */
 .usage-guide {
-  margin-left: 16px;
+  width: 200px;
+  background: #e6f7ff;
   padding: 12px;
-  background-color: #f5f7fa;
-  border-radius: 6px;
-  min-width: 160px;
-  max-width: 180px;
+  border-radius: 8px;
+  border: 1px solid #91d5ff;
 }
 
-.guide-title {
+.usage-guide h4 {
+  margin: 0 0 10px 0;
   font-size: 13px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 12px;
-}
-
-.guide-content {
-  font-size: 12px;
-  color: #606266;
-  line-height: 1.6;
+  color: #0050b3;
 }
 
 .guide-item {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
-.guide-label {
-  font-weight: 500;
-  color: #303133;
+.guide-title {
+  font-size: 11px;
+  color: #1890ff;
+  margin: 0 0 4px 0;
+  font-weight: bold;
+}
+
+.guide-title-orange {
+  font-size: 11px;
+  color: #e6a23c;
+  margin: 0 0 4px 0;
+  font-weight: bold;
+}
+
+.guide-title-gray {
+  font-size: 11px;
+  color: #909399;
+  margin: 0 0 4px 0;
+  font-weight: bold;
 }
 
 .guide-desc {
-  color: #909399;
-  font-size: 11px;
+  font-size: 10px;
+  color: #0050b3;
+  margin: 0;
+  line-height: 1.5;
 }
 
-.guide-divider {
-  height: 1px;
-  background-color: #dcdfe6;
-  margin: 10px 0;
+.guide-list {
+  font-size: 10px;
+  color: #0050b3;
+  margin: 4px 0;
+  padding-left: 14px;
+  line-height: 1.6;
 }
 
-.guide-example {
-  font-size: 11px;
-  color: #909399;
-  margin-bottom: 4px;
-  padding-left: 8px;
+.guide-tip {
+  font-size: 10px;
+  color: #1890ff;
+  border-top: 1px solid #91d5ff;
+  padding-top: 10px;
+  margin-top: 10px;
+  line-height: 1.5;
 }
 
 /* 移动端键盘样式 */
