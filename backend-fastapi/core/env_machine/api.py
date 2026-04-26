@@ -740,6 +740,11 @@ async def debug_device_action(
         if monitor:
             action["monitor"] = monitor
         actions.append(action)
+    elif action_type == "right_click":
+        action = {"action_type": "right_click", "x": params.get("x"), "y": params.get("y")}
+        if monitor:
+            action["monitor"] = monitor
+        actions.append(action)
     elif action_type == "swipe":
         action = {
             "action_type": "swipe",

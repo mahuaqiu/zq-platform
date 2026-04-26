@@ -118,6 +118,17 @@ export function useDeviceAction(deviceId: string) {
   }
 
   /**
+   * 右键点击操作
+   */
+  async function rightClick(x: number, y: number, monitor?: number): Promise<boolean> {
+    const params: Record<string, any> = { x, y };
+    if (monitor !== undefined) {
+      params.monitor = monitor;
+    }
+    return executeOperation('right_click', params);
+  }
+
+  /**
    * 滑动操作
    */
   async function swipe(fromX: number, fromY: number, toX: number, toY: number, duration = 500, monitor?: number): Promise<boolean> {
@@ -154,6 +165,7 @@ export function useDeviceAction(deviceId: string) {
     operationHistory,
     executeOperation,
     click,
+    rightClick,
     swipe,
     inputText,
     pressKey,

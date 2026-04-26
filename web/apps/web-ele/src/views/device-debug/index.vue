@@ -64,6 +64,7 @@ const {
   isOperating,
   operationHistory,
   click,
+  rightClick,
   swipe,
   inputText,
   pressKey,
@@ -277,7 +278,7 @@ async function handleScreenContextMenu(event: MouseEvent) {
 
     // 发送右键点击（桌面端传递 monitor 参数）
     const monitor = currentScreenIndex.value + 1;
-    await click(coords.x, coords.y, monitor);
+    await rightClick(coords.x, coords.y, monitor);
     clickCount.value++;
   }
 }
