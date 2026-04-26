@@ -47,6 +47,7 @@ const {
 // 屏幕交互
 const {
   mouseCoord,
+  isInScreen,
   clickIndicator,
   isDragging,
   dragStart,
@@ -185,7 +186,11 @@ function handleScreenChange(screenIndex: number) {
 // 屏幕交互事件处理
 function handleScreenMouseDown(event: MouseEvent) {
   if (isOperating.value || wsStatus.value !== 'connected') return;
-  handleDragStart(event);
+  // 如果点击在屏幕之外，返回 null，不开始操作
+  const coords = handleDragStart(event);
+  if (coords === null) {
+    // 点击在屏幕之外，不做任何操作
+  }
 }
 
 function handleScreenMouseMove(event: MouseEvent) {
@@ -220,6 +225,7 @@ function handleScreenMouseLeave() {
 }
 
 // 右键菜单处理：Windows/Mac 透传右键，iOS/Android 忽略
+// 同样需要检查点击是否在屏幕区域内
 async function handleScreenContextMenu(event: MouseEvent) {
   if (isOperating.value || wsStatus.value !== 'connected') return;
 
@@ -228,20 +234,41 @@ async function handleScreenContextMenu(event: MouseEvent) {
 
   // Windows/Mac 透传右键点击到设备
   if (isDesktop.value) {
-    const target = event.target as HTMLElement;
-    const rect = target.getBoundingClientRect();
+    const img = event.target as HTMLImageElement;
+    const rect = img.getBoundingClientRect();
+
+    // 防止图片尚未加载完成
+    if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+      return;
+    }
+
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    // 转换为设备坐标
-    const { convertToDeviceCoords } = await import('./utils');
-    const coords = convertToDeviceCoords(
-      mouseX,
-      mouseY,
+    // 计算 object-fit: contain 的实际渲染区域
+    const { convertToDeviceCoords, calculateContainRenderArea } = await import('./utils');
+    const renderInfo = calculateContainRenderArea(
       rect.width,
       rect.height,
-      screenSize.value.width || rect.width,
-      screenSize.value.height || rect.height
+      img.naturalWidth,
+      img.naturalHeight,
+      mouseX,
+      mouseY
+    );
+
+    // 如果点击不在屏幕区域内，不发送操作
+    if (!renderInfo.isValidClick) {
+      return;
+    }
+
+    // 转换为设备坐标（使用实际渲染尺寸）
+    const coords = convertToDeviceCoords(
+      renderInfo.adjustedX,
+      renderInfo.adjustedY,
+      renderInfo.renderedWidth,
+      renderInfo.renderedHeight,
+      screenSize.value.width || img.naturalWidth,
+      screenSize.value.height || img.naturalHeight
     );
 
     // 发送右键点击
@@ -350,6 +377,7 @@ onUnmounted(() => {
           :screen-size="screenSize"
           :ws-status="wsStatus"
           :mouse-coord="mouseCoord"
+          :is-in-screen="isInScreen"
           :click-indicator="clickIndicator"
           :is-dragging="isDragging"
           :drag-start="dragStart"
@@ -371,6 +399,7 @@ onUnmounted(() => {
               :screen-size="screenSize"
               :ws-status="wsStatus"
               :mouse-coord="mouseCoord"
+              :is-in-screen="isInScreen"
               :click-indicator="clickIndicator"
               :is-dragging="isDragging"
               :drag-start="dragStart"

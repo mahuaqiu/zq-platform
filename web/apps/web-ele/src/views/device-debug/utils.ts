@@ -1,5 +1,8 @@
 /**
  * 将屏幕展示区的鼠标坐标转换为设备实际坐标
+ *
+ * 注意：由于 CSS object-fit: contain，图片可能不填满容器，
+ * 需要结合 useScreenInteraction 中的实际渲染区域计算
  */
 export function convertToDeviceCoords(
   mouseX: number,
@@ -9,11 +12,101 @@ export function convertToDeviceCoords(
   deviceWidth: number,
   deviceHeight: number
 ): { x: number; y: number } {
+  // 边界保护：确保 displayWidth/displayHeight 有效
+  if (displayWidth <= 0 || displayHeight <= 0 || deviceWidth <= 0 || deviceHeight <= 0) {
+    return { x: 0, y: 0 };
+  }
+
   const scaleX = deviceWidth / displayWidth;
   const scaleY = deviceHeight / displayHeight;
+
+  // 计算坐标并限制在设备屏幕范围内
+  const rawX = Math.round(mouseX * scaleX);
+  const rawY = Math.round(mouseY * scaleY);
+
   return {
-    x: Math.round(mouseX * scaleX),
-    y: Math.round(mouseY * scaleY)
+    x: clamp(rawX, 0, deviceWidth - 1),
+    y: clamp(rawY, 0, deviceHeight - 1)
+  };
+}
+
+/**
+ * 边界限制函数（clamp）
+ * 将值限制在 [min, max] 范围内
+ */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * 计算 object-fit: contain 下图片的实际渲染区域
+ *
+ * 返回值：
+ * - renderedWidth/Height: 图片实际渲染尺寸
+ * - offsetX/Y: 图片相对于元素的偏移（居中）
+ * - isValidClick: 点击是否在图片渲染区域内
+ */
+export function calculateContainRenderArea(
+  elementWidth: number,
+  elementHeight: number,
+  imageNaturalWidth: number,
+  imageNaturalHeight: number,
+  mouseX: number,
+  mouseY: number
+): {
+  renderedWidth: number;
+  renderedHeight: number;
+  offsetX: number;
+  offsetY: number;
+  isValidClick: boolean;
+  adjustedX: number;
+  adjustedY: number;
+} {
+  // 边界保护
+  if (elementWidth <= 0 || elementHeight <= 0 || imageNaturalWidth <= 0 || imageNaturalHeight <= 0) {
+    return {
+      renderedWidth: elementWidth,
+      renderedHeight: elementHeight,
+      offsetX: 0,
+      offsetY: 0,
+      isValidClick: false,
+      adjustedX: 0,
+      adjustedY: 0
+    };
+  }
+
+  // object-fit: contain 的缩放逻辑：使用较小的缩放比例
+  const scaleX = elementWidth / imageNaturalWidth;
+  const scaleY = elementHeight / imageNaturalHeight;
+  const scale = Math.min(scaleX, scaleY);
+
+  // 实际渲染尺寸
+  const renderedWidth = imageNaturalWidth * scale;
+  const renderedHeight = imageNaturalHeight * scale;
+
+  // 偏移量（图片居中显示）
+  const offsetX = (elementWidth - renderedWidth) / 2;
+  const offsetY = (elementHeight - renderedHeight) / 2;
+
+  // 调整后的鼠标坐标（相对于渲染图片）
+  const adjustedX = mouseX - offsetX;
+  const adjustedY = mouseY - offsetY;
+
+  // 检查点击是否在渲染区域内
+  const isValidClick =
+    adjustedX >= 0 &&
+    adjustedX <= renderedWidth &&
+    adjustedY >= 0 &&
+    adjustedY <= renderedHeight;
+
+  return {
+    renderedWidth,
+    renderedHeight,
+    offsetX,
+    offsetY,
+    isValidClick,
+    adjustedX,
+    adjustedY
   };
 }
 

@@ -6,6 +6,7 @@ interface Props {
   screenSize: ScreenSize;
   wsStatus: WebSocketStatus;
   mouseCoord: { x: number; y: number } | null;
+  isInScreen: boolean;
   clickIndicator: { x: number; y: number; show: boolean };
   isDragging: boolean;
   dragStart: { x: number; y: number } | null;
@@ -61,7 +62,11 @@ function getIndicatorPercent(coord: number, size: number): string {
     <!-- 屏幕卡片区域 -->
     <div class="screen-card">
       <!-- 屏幕区域 -->
-      <div class="screen-wrapper" @contextmenu="handleContextMenu">
+      <div
+        class="screen-wrapper"
+        :class="{ 'cursor-crosshair': props.isInScreen }"
+        @contextmenu="handleContextMenu"
+      >
         <img
           v-if="screenshotUrl"
           :src="screenshotUrl"
@@ -156,8 +161,12 @@ function getIndicatorPercent(coord: number, size: number): string {
   align-items: center;
   justify-content: center;
   background: #fff;
-  cursor: crosshair;
+  cursor: default; /* 默认为普通鼠标 */
   overflow: hidden;
+}
+
+.screen-wrapper.cursor-crosshair {
+  cursor: crosshair; /* 在屏幕区域内时为十字鼠标 */
 }
 
 .screen-img {
