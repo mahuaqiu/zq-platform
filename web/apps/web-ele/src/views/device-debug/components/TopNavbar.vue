@@ -16,6 +16,7 @@ interface Props {
   screenCount?: number;  // 新增：屏幕数量
   currentScreen?: number; // 新增：当前选中屏幕
   mouseCoord?: { x: number; y: number } | null; // 新增：鼠标坐标
+  navbarFixed?: boolean; // 新增：导航栏是否固定
 }
 
 interface Emits {
@@ -96,7 +97,7 @@ function handleScreenshot() {
 </script>
 
 <template>
-  <div class="top-navbar">
+  <div class="top-navbar" :class="{ 'navbar-fixed': navbarFixed }">
     <!-- 设备信息 -->
     <div class="navbar-left">
       <button class="back-btn" @click="handleBack">
@@ -182,6 +183,14 @@ function handleScreenshot() {
   border-bottom: 1px solid #e8e8e8;
   height: 56px;
   min-height: 56px;
+}
+
+.top-navbar.navbar-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
 }
 
 .navbar-left {

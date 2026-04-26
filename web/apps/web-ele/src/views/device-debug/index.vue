@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ElMessage } from 'element-plus';
@@ -28,6 +28,9 @@ const deviceId = route.params.deviceId as string;
 // 设备详情
 const deviceDetail = ref<any>(null);
 const loading = ref(true);
+
+// 导航栏固定状态
+const navbarFixed = ref(false);
 
 // WebSocket
 const {
@@ -298,8 +301,18 @@ function handleOpenInstallDialog() {
   installAppDialogVisible.value = true;
 }
 
+// 监听页面滚动
+function handlePageScroll() {
+  navbarFixed.value = window.scrollY > 56;
+}
+
 onMounted(() => {
   loadDeviceDetail();
+  window.addEventListener('scroll', handlePageScroll, { passive: true });
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handlePageScroll);
 });
 </script>
 
@@ -317,6 +330,7 @@ onMounted(() => {
       :screen-count="screenCount"
       :current-screen="currentScreenIndex"
       :mouse-coord="mouseCoord"
+      :navbar-fixed="navbarFixed"
       @back="handleBack"
       @disconnect="handleDisconnect"
       @reconnect="handleReconnect"
@@ -328,7 +342,7 @@ onMounted(() => {
     />
 
     <!-- 主内容区 -->
-    <div class="debug-content">
+    <div class="debug-content" :class="{ 'content-padded': navbarFixed }">
       <!-- 桌面端布局：单屏幕展示 -->
       <template v-if="isDesktop">
         <ScreenDisplay
@@ -410,7 +424,7 @@ onMounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .debug-content {
@@ -420,8 +434,12 @@ onMounted(() => {
   justify-content: center;
   padding: 0;
   background: #f0f2f5;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
+}
+
+.debug-content.content-padded {
+  padding-top: 56px;
 }
 
 /* 桌面端布局 - ScreenDisplay直接在debug-content内，已居中 */
