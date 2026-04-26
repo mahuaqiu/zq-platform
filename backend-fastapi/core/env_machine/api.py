@@ -727,24 +727,39 @@ async def debug_device_action(
     # 构建 actions 列表
     actions = []
 
+    # 获取 monitor 参数（桌面端设备多屏幕支持）
+    monitor = params.get("monitor")
+
     if action_type == "screenshot":
-        actions.append({"action_type": "screenshot", "value": "debug"})
+        action = {"action_type": "screenshot", "value": "debug"}
+        if monitor:
+            action["monitor"] = monitor
+        actions.append(action)
     elif action_type == "click":
-        actions.append({"action_type": "click", "x": params.get("x"), "y": params.get("y")})
+        action = {"action_type": "click", "x": params.get("x"), "y": params.get("y")}
+        if monitor:
+            action["monitor"] = monitor
+        actions.append(action)
     elif action_type == "swipe":
-        actions.append({
+        action = {
             "action_type": "swipe",
             "from": {"x": params.get("from_x"), "y": params.get("from_y")},
             "to": {"x": params.get("to_x"), "y": params.get("to_y")},
             "duration": params.get("duration", 500)
-        })
+        }
+        if monitor:
+            action["monitor"] = monitor
+        actions.append(action)
     elif action_type == "input":
-        actions.append({
+        action = {
             "action_type": "input",
             "x": params.get("x"),
             "y": params.get("y"),
             "text": params.get("text")
-        })
+        }
+        if monitor:
+            action["monitor"] = monitor
+        actions.append(action)
     elif action_type == "press":
         actions.append({"action_type": "press", "key": params.get("key")})
     elif action_type == "unlock_screen":

@@ -203,9 +203,11 @@ async function handleScreenMouseUp(event: MouseEvent) {
   resetActivityTime();
   const result = handleDragEnd(event);
   if (result) {
+    // 桌面端设备传递 monitor 参数（从 1 开始：1=主屏幕，2=副屏幕）
+    const monitor = isDesktop.value ? currentScreenIndex.value + 1 : undefined;
     if (result.type === 'click') {
       const clickParams = result.params as { x: number; y: number };
-      const success = await click(clickParams.x, clickParams.y);
+      const success = await click(clickParams.x, clickParams.y, monitor);
       if (success) clickCount.value++;
     } else if (result.type === 'swipe') {
       const swipeParams = result.params as { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
@@ -213,7 +215,9 @@ async function handleScreenMouseUp(event: MouseEvent) {
         swipeParams.from_x,
         swipeParams.from_y,
         swipeParams.to_x,
-        swipeParams.to_y
+        swipeParams.to_y,
+        swipeParams.duration,
+        monitor
       );
       if (success) swipeCount.value++;
     }
@@ -271,8 +275,9 @@ async function handleScreenContextMenu(event: MouseEvent) {
       screenSize.value.height || img.naturalHeight
     );
 
-    // 发送右键点击
-    await click(coords.x, coords.y);
+    // 发送右键点击（桌面端传递 monitor 参数）
+    const monitor = currentScreenIndex.value + 1;
+    await click(coords.x, coords.y, monitor);
     clickCount.value++;
   }
 }

@@ -109,15 +109,23 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 点击操作
    */
-  async function click(x: number, y: number): Promise<boolean> {
-    return executeOperation('click', { x, y });
+  async function click(x: number, y: number, monitor?: number): Promise<boolean> {
+    const params: Record<string, any> = { x, y };
+    if (monitor !== undefined) {
+      params.monitor = monitor;
+    }
+    return executeOperation('click', params);
   }
 
   /**
    * 滑动操作
    */
-  async function swipe(fromX: number, fromY: number, toX: number, toY: number, duration = 500): Promise<boolean> {
-    return executeOperation('swipe', { from_x: fromX, from_y: fromY, to_x: toX, to_y: toY, duration });
+  async function swipe(fromX: number, fromY: number, toX: number, toY: number, duration = 500, monitor?: number): Promise<boolean> {
+    const params: Record<string, any> = { from_x: fromX, from_y: fromY, to_x: toX, to_y: toY, duration };
+    if (monitor !== undefined) {
+      params.monitor = monitor;
+    }
+    return executeOperation('swipe', params);
   }
 
   /**
