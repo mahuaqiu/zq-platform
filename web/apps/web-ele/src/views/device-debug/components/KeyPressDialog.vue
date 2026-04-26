@@ -286,6 +286,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             <div class="key-row arrow-keys">
               <div class="arrow-placeholder"></div>
               <ElButton
+                v-if="ARROW_KEYS[0]"
                 :style="getKeyStyle(ARROW_KEYS[0])"
                 class="key-btn"
                 :disabled="disabled"
