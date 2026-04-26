@@ -186,6 +186,9 @@ function handleScreenChange(screenIndex: number) {
 
 // 屏幕交互事件处理
 function handleScreenMouseDown(event: MouseEvent) {
+  // 右键点击由 contextmenu 事件处理，这里忽略
+  if (event.button === 2) return;
+
   if (isOperating.value || wsStatus.value !== 'connected') return;
   // 如果点击在屏幕之外，返回 null，不开始操作
   const coords = handleDragStart(event);
@@ -199,6 +202,9 @@ function handleScreenMouseMove(event: MouseEvent) {
 }
 
 async function handleScreenMouseUp(event: MouseEvent) {
+  // 右键点击由 contextmenu 事件处理，这里忽略
+  if (event.button === 2) return;
+
   if (isOperating.value) return;
   // 重置活动时间（用户有操作）
   resetActivityTime();
