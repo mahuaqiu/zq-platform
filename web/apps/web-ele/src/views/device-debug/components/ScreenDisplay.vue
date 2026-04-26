@@ -60,11 +60,6 @@ function getIndicatorPercent(coord: number, size: number): string {
 
     <!-- 屏幕卡片区域 -->
     <div class="screen-card">
-      <!-- 坐标显示 -->
-      <div v-if="mouseCoord" class="coord-display">
-        <span class="coord-value">({{ mouseCoord.x }}, {{ mouseCoord.y }})</span>
-      </div>
-
       <!-- 屏幕区域 -->
       <div class="screen-wrapper" @contextmenu="handleContextMenu">
         <img
@@ -151,23 +146,6 @@ function getIndicatorPercent(coord: number, size: number): string {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   position: relative;
   overflow: hidden;
-}
-
-.coord-display {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  padding: 6px 14px;
-  font-size: 12px;
-  border-radius: 4px;
-  z-index: 10;
-}
-
-.coord-value {
-  color: #3b82f6;
-  font-weight: 600;
 }
 
 .screen-wrapper {

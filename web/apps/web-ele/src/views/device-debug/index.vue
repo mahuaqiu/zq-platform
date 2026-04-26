@@ -316,6 +316,7 @@ onMounted(() => {
       :fps="fps"
       :screen-count="screenCount"
       :current-screen="currentScreenIndex"
+      :mouse-coord="mouseCoord"
       @back="handleBack"
       @disconnect="handleDisconnect"
       @reconnect="handleReconnect"

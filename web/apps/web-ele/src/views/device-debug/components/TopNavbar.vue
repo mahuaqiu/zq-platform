@@ -15,6 +15,7 @@ interface Props {
   fps: number;
   screenCount?: number;  // 新增：屏幕数量
   currentScreen?: number; // 新增：当前选中屏幕
+  mouseCoord?: { x: number; y: number } | null; // 新增：鼠标坐标
 }
 
 interface Emits {
@@ -107,6 +108,10 @@ function handleScreenshot() {
         <div class="device-meta">{{ resolution || deviceSn || '未知设备' }}</div>
       </div>
       <ElTag type="success" size="small" class="online-tag">在线</ElTag>
+      <!-- 坐标显示占位容器 -->
+      <div v-if="mouseCoord" class="coord-display">
+        <span class="coord-value">({{ mouseCoord.x }}, {{ mouseCoord.y }})</span>
+      </div>
     </div>
 
     <!-- 中间操作按钮（桌面端） -->
@@ -183,6 +188,7 @@ function handleScreenshot() {
   display: flex;
   align-items: center;
   gap: 24px;
+  position: relative;
 }
 
 .back-btn {
@@ -349,6 +355,21 @@ function handleScreenshot() {
 
 .toolbar-btn.light:hover {
   background: #e8e8e8;
+}
+
+.coord-display {
+  position: absolute;
+  right: -100px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.coord-value {
+  color: #3b82f6;
+  font-weight: 600;
 }
 </style>
 
