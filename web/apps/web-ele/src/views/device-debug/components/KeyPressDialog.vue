@@ -5,7 +5,6 @@ import { ElButton, ElDialog } from 'element-plus';
 
 import type { DeviceType } from '../types';
 import {
-  ARROW_KEYS,
   CAPS_ROW,
   combineKeys,
   MAC_BOTTOM_ROW,
@@ -53,15 +52,21 @@ const bottomRow = computed(() =>
   isMac.value ? MAC_BOTTOM_ROW : WINDOWS_BOTTOM_ROW
 );
 
-// 精简的功能键行（只保留 Esc）
+// 精简的功能键行（Esc + Ins/Del + PgUp/PgDn + 运算符号）
 const miniFunctionKeys: KeyDefinition[] = [
-  { value: 'escape', label: 'Esc', type: 'normal', width: 50 },
-];
-
-// 精简的编辑键区（只保留 Ins/Del 和方向键）
-const miniEditKeys: KeyDefinition[] = [
+  { value: 'escape', label: 'Esc', type: 'normal', width: 44 },
   { value: 'insert', label: 'Ins', type: 'normal', width: 36 },
   { value: 'delete', label: 'Del', type: 'normal', width: 36 },
+  { value: 'pageup', label: 'PgUp', type: 'normal', width: 40 },
+  { value: 'pagedown', label: 'PgDn', type: 'normal', width: 40 },
+];
+
+// 运算符号
+const mathKeys: KeyDefinition[] = [
+  { value: '+', label: '+', type: 'normal', width: 32 },
+  { value: '-', label: '-', type: 'normal', width: 32 },
+  { value: '*', label: '*', type: 'normal', width: 32 },
+  { value: '/', label: '/', type: 'normal', width: 32 },
 ];
 
 // 按键是否激活
@@ -173,7 +178,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 
         <!-- 简化键盘主体 -->
         <div class="keyboard-body">
-          <!-- Esc + Ins/Del -->
+          <!-- Esc + Ins/Del + PgUp/PgDn -->
           <div class="key-row">
             <ElButton
               v-for="key in miniFunctionKeys"
@@ -186,9 +191,12 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             >
               {{ key.label }}
             </ElButton>
-            <div class="key-gap"></div>
+          </div>
+
+          <!-- 运算符号 + - * / -->
+          <div class="key-row">
             <ElButton
-              v-for="key in miniEditKeys"
+              v-for="key in mathKeys"
               :key="key.value"
               :style="getKeyStyle(key)"
               class="key-btn"
@@ -197,18 +205,6 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
               @click="handleKeyClick(key.value, key.type)"
             >
               {{ key.label }}
-            </ElButton>
-            <div class="key-gap"></div>
-            <!-- 方向键 -->
-            <ElButton
-              v-if="ARROW_KEYS[0]"
-              :style="{ width: '36px' }"
-              class="key-btn"
-              :disabled="disabled"
-              size="small"
-              @click="handleKeyClick('up', 'normal')"
-            >
-              ↑
             </ElButton>
           </div>
 
@@ -225,36 +221,6 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             >
               {{ key.label }}
             </ElButton>
-            <!-- 方向键左下右 -->
-            <div style="display: flex; gap: 2px;">
-              <ElButton
-                style="width: 32px;"
-                class="key-btn"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick('left', 'normal')"
-              >
-                ←
-              </ElButton>
-              <ElButton
-                style="width: 32px;"
-                class="key-btn"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick('down', 'normal')"
-              >
-                ↓
-              </ElButton>
-              <ElButton
-                style="width: 32px;"
-                class="key-btn"
-                :disabled="disabled"
-                size="small"
-                @click="handleKeyClick('right', 'normal')"
-              >
-                →
-              </ElButton>
-            </div>
           </div>
 
           <!-- Tab 行 -->
