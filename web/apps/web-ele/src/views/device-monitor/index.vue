@@ -92,6 +92,18 @@ const deviceTypeNames: Record<string, string> = {
   ios: 'iOS',
 };
 
+// 判断是否为移动设备
+function isMobileDevice(deviceType: string): boolean {
+  return deviceType === 'android' || deviceType === 'ios';
+}
+
+// 获取设备显示名称（主位置）- 优先显示name，其次IP
+function getDeviceDisplayName(item: { name?: string; ip?: string }): string {
+  if (item.name) return item.name;
+  if (item.ip) return item.ip;
+  return '未命名';
+}
+
 // 加载数据
 async function loadStats() {
   loading.value = true;
@@ -228,8 +240,9 @@ onUnmounted(() => {
                 class="offline-item"
               >
                 <span class="offline-dot"></span>
-                <span class="offline-name">{{ item.name || item.ip || item.device_sn }}</span>
-                <span class="offline-ip">{{ item.ip || item.device_sn }}</span>
+                <span class="offline-type">{{ deviceTypeNames[item.device_type] || item.device_type }}</span>
+                <span class="offline-name">{{ getDeviceDisplayName(item) }}</span>
+                <span v-if="item.device_sn" class="offline-sn" :title="item.device_sn">{{ item.device_sn }}</span>
                 <span class="offline-duration">离线 {{ item.offline_duration }}</span>
               </div>
             </ElScrollbar>
@@ -275,7 +288,7 @@ onUnmounted(() => {
                   :key="index"
                   class="top-item"
                 >
-                  <span class="top-tag">{{ item.tag }}</span>
+                  <span class="top-tag" :title="item.tag">{{ item.tag }}</span>
                   <div class="top-bar-bg">
                     <div
                       class="top-bar"
@@ -300,7 +313,7 @@ onUnmounted(() => {
                   :key="index"
                   class="top-item"
                 >
-                  <span class="top-tag">{{ item.tag }}</span>
+                  <span class="top-tag" :title="item.tag">{{ item.tag }}</span>
                   <div class="top-bar-bg">
                     <div
                       class="top-bar red"
@@ -549,10 +562,29 @@ onUnmounted(() => {
   border-radius: 50%;
 }
 
+.offline-type {
+  min-width: 60px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #1e40af;
+  background: #dbeafe;
+  border-radius: 4px;
+  text-align: center;
+}
+
 .offline-name {
   flex: 1;
   font-size: 14px;
   color: #111;
+}
+
+.offline-sn {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
 }
 
 .offline-ip {
@@ -656,7 +688,9 @@ onUnmounted(() => {
 }
 
 .top-tag {
-  width: 60px;
+  min-width: 80px;
+  max-width: 120px;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 12px;
