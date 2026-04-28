@@ -1,5 +1,7 @@
 import { onUnmounted, ref } from 'vue';
 
+import { ElMessage } from 'element-plus';
+
 import type { WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
 import { buildWebSocketUrl } from '../utils';
 
@@ -138,6 +140,9 @@ export function useWebSocket() {
             connect(savedHost, savedPort, savedUdid, savedDeviceType, savedScreenIndex);
           }
         }, RETRY_INTERVAL);
+      } else if (event.code !== 1000 && retryCount >= MAX_RETRIES) {
+        // 达到最大重试次数后显示错误
+        ElMessage.error('WebSocket 连接失败，已尝试重连 3 次，请检查设备状态');
       }
     };
 

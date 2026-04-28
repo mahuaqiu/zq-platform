@@ -1,5 +1,7 @@
 import { ref } from 'vue';
 
+import { ElMessage } from 'element-plus';
+
 import { debugDeviceActionApi } from '#/api/core/env-machine';
 import type { OperationRecord } from '../types';
 import { formatTime, formatHistoryDisplay } from '../utils';
@@ -89,9 +91,10 @@ export function useDeviceAction(deviceId: string) {
         }
         return true;
       } else {
-        const errorMsg = result?.error || '操作失败';
+        const errorMsg = result?.result?.error || result?.error || '操作失败';
         if (!isAuto) {
           updateHistoryStatus('failed', errorMsg);
+          ElMessage.error(errorMsg);
         }
         return false;
       }
@@ -99,6 +102,7 @@ export function useDeviceAction(deviceId: string) {
       const errorMsg = error?.message || error?.response?.data?.error || '操作失败';
       if (!isAuto) {
         updateHistoryStatus('failed', errorMsg);
+        ElMessage.error(errorMsg);
       }
       return false;
     } finally {
