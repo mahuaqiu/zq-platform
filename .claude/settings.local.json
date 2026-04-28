@@ -125,7 +125,9 @@
       "Bash(rm -rf node_modules/.vite)",
       "Bash(pnpm dev *)",
       "Bash(scripts/start-server.sh --project-dir D:/code/zq-platform)",
-      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")"
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
+      "Bash(pnpm eslint *)",
+      "Bash(pnpm lint:eslint src/views/device-debug --fix)"
     ]
   }
 }
