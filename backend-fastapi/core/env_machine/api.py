@@ -789,6 +789,15 @@ async def debug_device_action(
             if resp.status_code == 200:
                 worker_result = resp.json()
 
+                # 首先检查 worker 顶层状态（如设备未找到等情况）
+                worker_status = worker_result.get("status", "")
+                worker_error = worker_result.get("error", "")
+                if worker_status == "failed":
+                    return DebugActionResponse(
+                        success=False,
+                        result={"error": worker_error or "设备操作失败"}
+                    )
+
                 # 检查 action 执行状态
                 actions_result = worker_result.get("actions", [])
                 if actions_result:
