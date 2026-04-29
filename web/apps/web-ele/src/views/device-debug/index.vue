@@ -491,15 +491,16 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 移动端布局 - 屏幕+面板整体居中 */
+/* 移动端布局 - 屏幕+面板靠上对齐 */
 .mobile-layout {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 24px;
   height: 100%;
   width: 100%;
   min-height: 0;
+  padding-top: 16px;
 }
 
 .mobile-screen {
@@ -544,5 +545,6 @@ onUnmounted(() => {
   flex: 1;
   max-width: 400px;
   height: 100%;
+  max-height: 720px;
 }
 </style>

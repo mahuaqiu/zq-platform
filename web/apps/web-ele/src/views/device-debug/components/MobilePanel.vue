@@ -247,6 +247,7 @@ function handleScreenshot() {
   flex: 1;
   overflow: hidden;
   border-top: 1px solid #e8e8e8;
+  min-height: 0;
 }
 
 .history-list {

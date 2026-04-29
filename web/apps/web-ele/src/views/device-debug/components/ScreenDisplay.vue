@@ -25,6 +25,8 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 function handleMouseDown(event: MouseEvent) {
+  // 阻止图片默认拖拽行为
+  event.preventDefault();
   emit('mousedown', event);
 }
 
@@ -43,6 +45,48 @@ function handleMouseLeave() {
 function handleContextMenu(event: MouseEvent) {
   event.preventDefault();
   emit('contextmenu', event);
+}
+
+// 触摸事件处理（移动端浏览器）
+function handleTouchStart(event: TouchEvent) {
+  // 阻止默认行为（如缩放、滚动）
+  event.preventDefault();
+  // 将触摸事件转换为鼠标事件
+  if (event.touches.length === 1) {
+    const touch = event.touches[0]!;
+    const mouseEvent = new MouseEvent('mousedown', {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      button: 0,
+      bubbles: true
+    });
+    emit('mousedown', mouseEvent);
+  }
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (event.touches.length === 1) {
+    const touch = event.touches[0]!;
+    const mouseEvent = new MouseEvent('mousemove', {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      bubbles: true
+    });
+    emit('mousemove', mouseEvent);
+  }
+}
+
+function handleTouchEnd(event: TouchEvent) {
+  if (event.changedTouches.length === 1) {
+    const touch = event.changedTouches[0]!;
+    const mouseEvent = new MouseEvent('mouseup', {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      button: 0,
+      bubbles: true
+    });
+    emit('mouseup', mouseEvent);
+  }
 }
 
 // 计算指示器位置百分比
@@ -76,6 +120,9 @@ function getIndicatorPercent(coord: number, size: number): string {
           @mousemove="handleMouseMove"
           @mouseup="handleMouseUp"
           @mouseleave="handleMouseLeave"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
         />
         <div v-else class="screen-placeholder">
           <div class="placeholder-icon">🖥</div>
@@ -173,6 +220,10 @@ function getIndicatorPercent(coord: number, size: number): string {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  /* 阻止触摸设备上的默认行为 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .screen-placeholder {

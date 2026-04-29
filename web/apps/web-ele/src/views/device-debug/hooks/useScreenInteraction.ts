@@ -4,6 +4,14 @@ import type { Ref } from 'vue';
 import type { ScreenSize } from '../types';
 import { convertToDeviceCoords, calculateContainRenderArea } from '../utils';
 
+// 滑动判断阈值配置
+const SWIPE_THRESHOLD_NORMAL = 50;  // 普通区域的滑动阈值（像素）
+const SWIPE_THRESHOLD_EDGE = 30;    // 边缘区域的滑动阈值（像素）
+const EDGE_ZONE_RATIO = 0.15;       // 边缘区域比例（屏幕底部 15%）
+
+// 滑动方向类型
+type SwipeDirection = 'vertical' | 'horizontal' | 'diagonal';
+
 export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
   const mouseCoord = ref<{ x: number; y: number } | null>(null);
   const isInScreen = ref(false); // 鼠标是否在屏幕渲染区域内
@@ -126,6 +134,48 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
   }
 
   /**
+   * 判断滑动方向
+   */
+  function detectSwipeDirection(dx: number, dy: number): SwipeDirection {
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    // 垂直滑动：Y 方向位移显著大于 X 方向
+    if (absDy > absDx * 1.5) {
+      return 'vertical';
+    }
+    // 水平滑动：X 方向位移显著大于 Y 方向
+    if (absDx > absDy * 1.5) {
+      return 'horizontal';
+    }
+    // 斜向滑动
+    return 'diagonal';
+  }
+
+  /**
+   * 检查是否在边缘区域（屏幕底部）
+   */
+  function isInEdgeZone(y: number): boolean {
+    const screenHeight = screenSize.value.height;
+    if (screenHeight === 0) return false;
+    // 底部边缘区域：y 坐标在屏幕底部 15% 范围内
+    return y >= screenHeight * (1 - EDGE_ZONE_RATIO);
+  }
+
+  /**
+   * 获取适合的滑动阈值
+   * 边缘区域使用较小的阈值，让向上滑动更容易触发
+   */
+  function getSwipeThreshold(startY: number, direction: SwipeDirection): number {
+    // 如果在底部边缘区域且是向上滑动，使用更小的阈值
+    if (isInEdgeZone(startY) && direction === 'vertical') {
+      return SWIPE_THRESHOLD_EDGE;
+    }
+    // 其他情况使用标准阈值
+    return SWIPE_THRESHOLD_NORMAL;
+  }
+
+  /**
    * 拖拽结束，判断是点击还是滑动
    * 如果拖拽结束点在屏幕之外，使用最后一个有效坐标
    */
@@ -149,11 +199,18 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
     }
 
     // 计算滑动距离
-    const dx = Math.abs(endCoords.x - dragStart.value.x);
-    const dy = Math.abs(endCoords.y - dragStart.value.y);
+    const dx = endCoords.x - dragStart.value.x;
+    const dy = endCoords.y - dragStart.value.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // 距离小于 20 像素视为点击
-    if (dx < 20 && dy < 20) {
+    // 检测滑动方向
+    const direction = detectSwipeDirection(dx, dy);
+
+    // 获取适合的阈值（边缘区域使用更小的阈值）
+    const threshold = getSwipeThreshold(dragStart.value.y, direction);
+
+    // 距离小于阈值视为点击
+    if (distance < threshold) {
       // 点击操作
       clickIndicator.value = { x: dragStart.value.x, y: dragStart.value.y, show: true };
       setTimeout(() => {
@@ -171,7 +228,10 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
       dragEnd.value = null;
       return result;
     } else {
-      // 滑动操作
+      // 滑动操作 - 根据方向调整持续时间
+      // 垂直滑动（如解锁）使用较长的持续时间，让滑动更流畅
+      const duration = direction === 'vertical' ? 600 : 500;
+
       const result: {
         type: 'swipe';
         params: { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
@@ -182,7 +242,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
           from_y: dragStart.value.y,
           to_x: endCoords.x,
           to_y: endCoords.y,
-          duration: 500
+          duration
         }
       };
       dragStart.value = null;
@@ -226,5 +286,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
     handleDragEnd,
     handleMouseMove,
     handleMouseLeave,
+    detectSwipeDirection,
+    isInEdgeZone,
   };
 }
