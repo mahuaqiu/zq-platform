@@ -114,6 +114,46 @@ const deviceResolution = computed(() => {
   return '';
 });
 
+// 设备型号显示：根据设备类型生成默认名称
+const deviceModel = computed(() => {
+  if (!deviceDetail.value) return '';
+
+  // 优先使用 extra_message 中的设备型号
+  const extra = deviceDetail.value.extra_message;
+  if (extra?.device_model) {
+    return extra.device_model;
+  }
+
+  // 根据设备类型生成默认名称
+  const deviceType = deviceDetail.value.device_type;
+  switch (deviceType) {
+    case 'windows':
+      return 'Windows';
+    case 'mac':
+      return 'Mac';
+    case 'ios':
+      return 'iPhone';
+    case 'android':
+      return 'Android';
+    default:
+      // 降级显示资产编号或IP
+      return deviceDetail.value.asset_number || deviceDetail.value.ip || '';
+  }
+});
+
+// 系统版本显示
+const osVersion = computed(() => {
+  if (!deviceDetail.value) return '';
+  const extra = deviceDetail.value.extra_message;
+  if (extra?.os_version) {
+    return extra.os_version;
+  }
+  if (extra?.os_name) {
+    return extra.os_name;
+  }
+  return '';
+});
+
 // 加载设备详情
 async function loadDeviceDetail() {
   try {
@@ -370,6 +410,8 @@ onUnmounted(() => {
       :current-screen="currentScreenIndex"
       :mouse-coord="mouseCoord"
       :navbar-fixed="navbarFixed"
+      :device-model="deviceModel"
+      :os-version="osVersion"
       @back="handleBack"
       @disconnect="handleDisconnect"
       @reconnect="handleReconnect"

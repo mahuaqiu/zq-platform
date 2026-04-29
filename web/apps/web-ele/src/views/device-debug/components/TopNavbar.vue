@@ -17,6 +17,8 @@ interface Props {
   currentScreen?: number; // 新增：当前选中屏幕
   mouseCoord?: { x: number; y: number } | null; // 新增：鼠标坐标
   navbarFixed?: boolean; // 新增：导航栏是否固定
+  deviceModel?: string; // 设备型号（如 iPhone 15 Pro）
+  osVersion?: string;   // 系统版本（如 iOS 17.2、Windows 11 Pro）
 }
 
 interface Emits {
@@ -67,6 +69,26 @@ const wsStatusDisplay = computed(() => {
 
 const wsConnected = computed(() => props.wsStatus === 'connected');
 
+// 设备型号显示：优先使用 deviceModel，否则使用 assetNumber
+const deviceDisplayName = computed(() => {
+  if (props.deviceModel) {
+    return props.deviceModel;
+  }
+  return props.assetNumber;
+});
+
+// 设备详情显示：系统版本 + 分辨率
+const deviceDetailDisplay = computed(() => {
+  const parts: string[] = [];
+  if (props.osVersion) {
+    parts.push(props.osVersion);
+  }
+  if (props.resolution) {
+    parts.push(props.resolution);
+  }
+  return parts.join(' | ') || props.deviceSn || '未知设备';
+});
+
 function handleBack() {
   emit('back');
 }
@@ -105,8 +127,8 @@ function handleScreenshot() {
       </button>
       <span class="device-icon">{{ isDesktop ? '💻' : '📱' }}</span>
       <div class="device-info">
-        <div class="device-name">{{ assetNumber }}</div>
-        <div class="device-meta">{{ resolution || deviceSn || '未知设备' }}</div>
+        <div class="device-name">{{ deviceDisplayName }}</div>
+        <div class="device-meta">{{ deviceDetailDisplay }}</div>
       </div>
       <ElTag type="success" size="small" class="online-tag">在线</ElTag>
       <!-- 坐标显示占位容器 -->
