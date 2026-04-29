@@ -32,14 +32,23 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/core/auth/login/oauth2", aut
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    # 判断是否为主 worker（只有主 worker 启动调度器）
+    # gunicorn 多 worker 模式下，通过环境变量判断
+    # - 单进程模式 (uvicorn/python main.py)：无 GUNICORN_WORKER_ID，启动调度器
+    # - gunicorn 多 worker 模式：只有 worker_id=0 启动调度器
+    import os
+    worker_id = os.environ.get("GUNICORN_WORKER_ID", None)
+    is_main_worker = worker_id is None or worker_id == "0"
+
     # 启动时
     # ========== 日志系统初始化 ==========
     setup_logging()
     # ========== 日志系统初始化结束 ==========
 
-    # ========== 调度器初始化 ==========
-    from core.scheduler.service import scheduler_service
-    await scheduler_service.init_scheduler()
+    # ========== 调度器初始化（仅主 worker） ==========
+    if is_main_worker:
+        from core.scheduler.service import scheduler_service
+        await scheduler_service.init_scheduler()
     # ========== 调度器初始化结束 ==========
 
     # ========== 执行机管理模块启动初始化 ==========
@@ -66,8 +75,10 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # 关闭时
-    await scheduler_service.shutdown()
+    # 关闭时（仅主 worker 关闭调度器）
+    if is_main_worker:
+        from core.scheduler.service import scheduler_service
+        await scheduler_service.shutdown()
     await RedisClient.close()
 
 app = FastAPI(

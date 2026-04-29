@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# 数据和日志
+*.log
+*.sqlite
+*.db
+media/
+
+# 本地环境配置（生产环境用环境变量注入）
+env/dev.env
+
+# 其他
+.DS_Store
+*.md
+!README.md
+db_init.json
+alembic.ini
+alembic/
+scripts/
+docs/
+.claude/

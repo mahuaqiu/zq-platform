@@ -1,0 +1,47 @@
+services:
+  frontend:
+    build:
+      context: ./web
+      dockerfile: scripts/deploy/Dockerfile
+    ports:
+      - "80:8080"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend-fastapi
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # 环境标识
+      - ENV=prod
+      # Worker 数量（只有主 worker 启动调度器）
+      - WORKERS=${WORKERS:-1}
+      # 数据库配置
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      # Redis配置
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_DB=${REDIS_DB}
+      # JWT密钥
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      # 其他配置
+      - TEST_REPORT_EXTERNAL_BASE_URL=${TEST_REPORT_EXTERNAL_BASE_URL:-http://localhost:8000}
+      - HOST_IP=${HOST_IP}
+    volumes:
+      # 代码外挂：更新代码后只需重启容器，无需重新构建
+      - ./backend-fastapi:/app
+      # 数据持久化
+      - test_reports_data:/data/test_reports
+    restart: unless-stopped
+
+volumes:
+  test_reports_data:
