@@ -3,10 +3,7 @@
 """
 性能监控数据模型
 """
-from datetime import datetime
-from typing import Optional
-
-from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, JSON, ForeignKey, Index
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, JSON, ForeignKey
 
 from app.base_model import BaseModel
 
@@ -60,7 +57,7 @@ class PerformanceCollect(BaseModel):
 
     def get_status_display(self) -> str:
         """返回状态的中文显示名称"""
-        return self.STATUS_DISPLAY.get(self.status, self.status)
+        return self.STATUS_DISPLAY.get(self.status, "") or self.status or ""
 
 
 class PerformanceData(BaseModel):
@@ -176,7 +173,7 @@ class PerformanceTag(BaseModel):
 
     def get_type_display(self) -> str:
         """返回类型的中文显示名称"""
-        return self.TYPE_DISPLAY.get(self.type, self.type)
+        return self.TYPE_DISPLAY.get(self.type, "") or self.type or ""
 
 
 class PerformanceVersion(BaseModel):
