@@ -9,6 +9,16 @@ export interface ChartSeries {
   name: string;
   data: ChartDataPoint[];
   color: string;
+  unit?: string; // 单位：'%'、'GB'、'MB' 等
+}
+
+// 图表标签（用于 ChartPanel）
+export interface ChartTag {
+  name: string;
+  start: number; // 起始相对时间
+  duration: number; // 时间长度
+  type: 'peak' | 'mean';
+  color: string;
 }
 
 // 次要指标卡片数据
@@ -69,4 +79,23 @@ export interface SummaryRow {
   mean_gpu?: number;
   mean_commit_memory?: number;
   mean_memory_usage?: number;
+}
+
+// 时间轴标记点
+export interface TimelineMarker {
+  type: 'version' | 'collect' | 'current';
+  id: string;
+  time: Date;
+  name?: string;
+  color?: string;
+}
+
+// 区间摘要
+export interface TagSummary {
+  tagId: string;
+  tagName: string;
+  tagType: 'peak' | 'mean';
+  start: number;
+  duration: number;
+  metrics: Record<string, number>;
 }

@@ -109,8 +109,9 @@ function getBgColor(index: number): string {
 .other-item {
   background: transparent;
   border-top: 1px dashed #eee;
-  padding: 4px 6px;
+  padding: 4px 0;
   font-size: 10px;
   color: #666;
+  justify-content: space-between;
 }
 </style>
