@@ -5,27 +5,21 @@
 <div style="background: #f5f5f5; border-radius: 8px; padding: 12px;">
   <!-- 顶部控制栏 -->
   <div style="background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-    <div style="flex: 1;">
-      <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;">版本选择</div>
+    <div style="flex: 1; display: flex; gap: 12px; align-items: center;">
+      <span style="font-size: 13px; font-weight: 600;">版本选择</span>
       <!-- 版本下拉多选 -->
-      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
-        <select style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 200px;">
-          <option>选择采集记录...</option>
-          <option>采集1 - Windows-001 (14:20-14:30)</option>
-          <option>采集2 - Windows-001 (14:45-14:55)</option>
-          <option>采集3 - Windows-001 (15:10-15:20)</option>
-          <option>采集4 - Windows-001 (16:00-16:10)</option>
-          <option>采集5 - Windows-001 (17:30-17:40)</option>
-        </select>
-        <button style="padding: 6px 12px; background: #409eff; color: #fff; border-radius: 4px; font-size: 11px; border: none;">添加版本</button>
-      </div>
+      <select style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 280px;">
+        <option>采集1 - Windows-001 (14:20-14:30)</option>
+        <option>采集2 - Windows-001 (14:45-14:55)</option>
+        <option>采集3 - Windows-001 (15:10-15:20)</option>
+        <option>采集4 - Windows-001 (16:00-16:10)</option>
+        <option>采集5 - Windows-001 (17:30-17:40)</option>
+      </select>
       <!-- 已选版本标签 -->
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <span style="padding: 4px 10px; background: #67c23a; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本1 ✕</span>
-        <span style="padding: 4px 10px; background: #f56c6c; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本2 ✕</span>
-        <span style="padding: 4px 10px; background: #e6a23c; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本3 ✕</span>
-        <span style="font-size: 11px; color: #999;">最多可选 6 个版本</span>
-      </div>
+      <span style="padding: 4px 10px; background: #67c23a; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本1 ✕</span>
+      <span style="padding: 4px 10px; background: #f56c6c; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本2 ✕</span>
+      <span style="padding: 4px 10px; background: #e6a23c; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本3 ✕</span>
+      <span style="font-size: 11px; color: #999;">最多可选 6 个版本</span>
     </div>
     <!-- 右上角下载按钮 -->
     <div style="display: flex; gap: 8px;">
@@ -292,7 +286,7 @@
 <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
   <strong style="font-size: 12px;">版本对比页面要点：</strong>
   <ul style="font-size: 11px; color: #666; margin: 4px 0; padding-left: 16px;">
-    <li><b>版本选择</b>：下拉多选，最多6个，已选版本显示为彩色标签</li>
+    <li><b>版本选择</b>：下拉框直接多选，最多6个，已选版本显示为彩色标签（同一行）</li>
     <li><b>时间轴</b>：相对时间（从0秒），多版本曲线对齐显示</li>
     <li><b>标签系统</b>：峰值区间（绿色框）、均值区间（红色框），点击曲线添加</li>
     <li><b>曲线图</b>：4个独立图表，每个版本不同颜色，高度200px，铺满整行</li>
