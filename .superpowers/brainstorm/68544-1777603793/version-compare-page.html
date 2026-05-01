@@ -1,0 +1,244 @@
+<h2>版本对比页面布局</h2>
+<p class="subtitle">多版本性能对比 + 标签区间 + 数据摘要</p>
+
+<!-- 整体布局 -->
+<div style="background: #f5f5f5; border-radius: 8px; padding: 12px;">
+  <!-- 顶部控制栏 -->
+  <div style="background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+    <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;">版本选择</div>
+
+    <!-- 版本下拉多选 -->
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+      <select style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 200px;">
+        <option>选择采集记录...</option>
+        <option>采集1 - Windows-001 (14:20-14:30)</option>
+        <option>采集2 - Windows-001 (14:45-14:55)</option>
+        <option>采集3 - Windows-001 (15:10-15:20)</option>
+        <option>采集4 - Windows-001 (16:00-16:10)</option>
+        <option>采集5 - Windows-001 (17:30-17:40)</option>
+      </select>
+      <button style="padding: 6px 12px; background: #409eff; color: #fff; border-radius: 4px; font-size: 11px; border: none;">添加版本</button>
+    </div>
+
+    <!-- 已选版本标签 -->
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <span style="padding: 4px 10px; background: #67c23a; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本1 ✕</span>
+      <span style="padding: 4px 10px; background: #f56c6c; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本2 ✕</span>
+      <span style="padding: 4px 10px; background: #e6a23c; color: #fff; border-radius: 4px; font-size: 11px; cursor: pointer;">版本3 ✕</span>
+      <span style="font-size: 11px; color: #999;">最多可选 6 个版本</span>
+    </div>
+  </div>
+
+  <!-- 曲线图区域 -->
+  <div style="background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+    <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;">性能对比曲线（相对时间轴）</div>
+
+    <!-- CPU 使用率对比 -->
+    <div style="background: #f8f9fa; border-radius: 4px; padding: 12px; margin-bottom: 12px;">
+      <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">CPU 使用率</div>
+      <div style="height: 150px; position: relative;">
+        <svg style="width: 100%; height: 100%;">
+          <!-- 时间轴 -->
+          <line x1="40" y1="130" x2="450" y2="130" stroke="#ddd" stroke-width="1"/>
+          <text x="40" y="145" style="font-size: 10px; fill: #999;">0s</text>
+          <text x="150" y="145" style="font-size: 10px; fill: #999;">30s</text>
+          <text x="260" y="145" style="font-size: 10px; fill: #999;">60s</text>
+          <text x="370" y="145" style="font-size: 10px; fill: #999;">90s</text>
+          <text x="450" y="145" style="font-size: 10px; fill: #999;">120s</text>
+
+          <!-- 版本1曲线（绿色） -->
+          <path d="M 40,60 Q 90,45 150,55 T 260,50 T 370,48 T 450,52" stroke="#67c23a" stroke-width="2" fill="none"/>
+          <!-- 版本2曲线（红色） -->
+          <path d="M 40,70 Q 90,60 150,65 T 260,62 T 370,60 T 450,65" stroke="#f56c6c" stroke-width="2" fill="none"/>
+          <!-- 版本3曲线（橙色） -->
+          <path d="M 40,80 Q 90,75 150,78 T 260,76 T 370,75 T 450,78" stroke="#e6a23c" stroke-width="2" fill="none"/>
+
+          <!-- 峰值区间标签 -->
+          <rect x="90" y="30" width="70" height="90" fill="rgba(103,194,126,0.15)" stroke="#67c23a" stroke-width="1.5" rx="4"/>
+          <text x="92" y="125" style="font-size: 9px; fill: #67c23a; font-weight: 600;">发起共享</text>
+
+          <!-- 均值区间标签 -->
+          <rect x="260" y="30" width="100" height="90" fill="rgba(245,108,108,0.15)" stroke="#f56c6c" stroke-width="1.5" rx="4"/>
+          <text x="262" y="125" style="font-size: 9px; fill: #f56c6c; font-weight: 600;">稳定运行</text>
+
+          <!-- 删除按钮示意 -->
+          <circle cx="155" cy="35" r="6" fill="#fff" stroke="#67c23a"/>
+          <text x="153" y="38" style="font-size: 8px; fill: #67c23a;">×</text>
+          <circle cx="355" cy="35" r="6" fill="#fff" stroke="#f56c6c"/>
+          <text x="353" y="38" style="font-size: 8px; fill: #f56c6c;">×</text>
+        </svg>
+      </div>
+      <div style="font-size: 10px; color: #666; margin-top: 4px;">
+        <span style="color: #67c23a;">■ 版本1</span>
+        <span style="color: #f56c6c;">■ 版本2</span>
+        <span style="color: #e6a23c;">■ 版本3</span>
+        <span style="margin-left: 12px; color: #999;">点击曲线添加标签</span>
+      </div>
+    </div>
+
+    <!-- GPU 使用率对比 -->
+    <div style="background: #f8f9fa; border-radius: 4px; padding: 12px; margin-bottom: 12px;">
+      <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">GPU 使用率</div>
+      <div style="height: 120px; position: relative;">
+        <svg style="width: 100%; height: 100%;">
+          <line x1="40" y1="100" x2="450" y2="100" stroke="#ddd" stroke-width="1"/>
+          <path d="M 40,40 Q 90,35 150,42 T 260,38 T 370,36 T 450,40" stroke="#67c23a" stroke-width="2" fill="none"/>
+          <path d="M 40,50 Q 90,45 150,48 T 260,46 T 370,45 T 450,48" stroke="#f56c6c" stroke-width="2" fill="none"/>
+          <path d="M 40,60 Q 90,58 150,62 T 260,60 T 370,58 T 450,62" stroke="#e6a23c" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+      <div style="font-size: 10px; color: #666;">
+        <span style="color: #67c23a;">■ 版本1</span>
+        <span style="color: #f56c6c;">■ 版本2</span>
+        <span style="color: #e6a23c;">■ 版本3</span>
+      </div>
+    </div>
+
+    <!-- 提交内存对比 -->
+    <div style="background: #f8f9fa; border-radius: 4px; padding: 12px; margin-bottom: 12px;">
+      <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">提交内存</div>
+      <div style="height: 120px; position: relative;">
+        <svg style="width: 100%; height: 100%;">
+          <line x1="40" y1="100" x2="450" y2="100" stroke="#ddd" stroke-width="1"/>
+          <path d="M 40,50 Q 90,45 150,52 T 260,48 T 370,46 T 450,48" stroke="#67c23a" stroke-width="2" fill="none"/>
+          <path d="M 40,60 Q 90,58 150,62 T 260,60 T 370,58 T 450,60" stroke="#f56c6c" stroke-width="2" fill="none"/>
+          <path d="M 40,70 Q 90,68 150,72 T 260,70 T 370,68 T 450,70" stroke="#e6a23c" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+      <div style="font-size: 10px; color: #666;">
+        <span style="color: #67c23a;">■ 版本1</span>
+        <span style="color: #f56c6c;">■ 版本2</span>
+        <span style="color: #e6a23c;">■ 版本3</span>
+      </div>
+    </div>
+
+    <!-- 内存使用对比 -->
+    <div style="background: #f8f9fa; border-radius: 4px; padding: 12px;">
+      <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">内存使用</div>
+      <div style="height: 120px; position: relative;">
+        <svg style="width: 100%; height: 100%;">
+          <line x1="40" y1="100" x2="450" y2="100" stroke="#ddd" stroke-width="1"/>
+          <path d="M 40,45 Q 90,42 150,48 T 260,44 T 370,43 T 450,45" stroke="#67c23a" stroke-width="2" fill="none"/>
+          <path d="M 40,55 Q 90,52 150,58 T 260,54 T 370,52 T 450,55" stroke="#f56c6c" stroke-width="2" fill="none"/>
+          <path d="M 40,65 Q 90,62 150,68 T 260,64 T 370,62 T 450,65" stroke="#e6a23c" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+      <div style="font-size: 10px; color: #666;">
+        <span style="color: #67c23a;">■ 版本1</span>
+        <span style="color: #f56c6c;">■ 版本2</span>
+        <span style="color: #e6a23c;">■ 版本3</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据摘要对比表 -->
+  <div style="background: #fff; border-radius: 6px; padding: 12px;">
+    <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px;">数据摘要对比（峰值区间）</div>
+    <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+      <thead>
+        <tr style="background: #f8f9fa;">
+          <th style="padding: 10px; border-bottom: 2px solid #ddd; width: 80px;">版本</th>
+          <th style="padding: 10px; border-bottom: 2px solid #ddd;">系统CPU</th>
+          <th style="padding: 10px; border-bottom: 2px solid #ddd;">进程CPU</th>
+          <th style="padding: 10px; border-bottom: 2px solid #ddd;">GPU</th>
+          <th style="padding: 10px; border-bottom: 2px solid #ddd;">提交内存</th>
+          <th style="padding: 10px; border-bottom: 2px solid #ddd;">内存使用</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; color: #67c23a; font-weight: 600;">版本1</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">78.5% ✗</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">45.2% ✗</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">68% ✗</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">5.8 GB ✗</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">6.2 GB ✗</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; color: #f56c6c; font-weight: 600;">版本2</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">62.3%</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">35.8%</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">52%</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">4.5 GB</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">5.8 GB</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; color: #e6a23c; font-weight: 600;">版本3</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">55.8%</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">30.5%</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">48%</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">4.2 GB</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">5.5 GB</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size: 11px; color: #999; margin-top: 8px;">
+      <span style="color: #67c23a;">✓ 最优</span> | <span style="color: #f56c6c;">✗ 最差</span> | 区间：相对时间 20秒-100秒
+    </div>
+
+    <!-- 导出按钮 -->
+    <div style="display: flex; gap: 8px; margin-top: 12px;">
+      <button style="padding: 8px 16px; background: #409eff; color: #fff; border-radius: 4px; font-size: 11px; border: none;">导出 HTML 报告</button>
+      <button style="padding: 8px 16px; background: #67c23a; color: #fff; border-radius: 4px; font-size: 11px; border: none;">下载 Excel 数据</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip 示例 -->
+<h3 style="margin-top: 24px; font-size: 14px;">Tooltip 完整效果</h3>
+<p class="subtitle" style="font-size: 11px; color: #666;">悬停相对时间30秒位置</p>
+
+<div style="background: #fff; border-radius: 8px; padding: 16px; max-width: 600px;">
+  <div style="display: flex; gap: 8px;">
+    <!-- 版本1 Tooltip -->
+    <div style="border: 2px solid #67c23a; border-radius: 6px; padding: 10px; width: 180px;">
+      <div style="font-size: 11px; color: #67c23a; font-weight: 600; border-bottom: 1px solid #67c23a; padding-bottom: 4px; margin-bottom: 6px;">版本1</div>
+      <div style="font-size: 10px;"><span style="color: #666;">相对时间:</span> <b>30秒</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">实际时间:</span> <b style="color: #409eff;">2026-05-01 14:20:30</b></div>
+      <div style="font-size: 10px; margin-top: 4px;"><span style="color: #666;">系统CPU:</span> <b style="color: #67c23a;">45.2%</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">进程CPU:</span> <b>26.9%</b></div>
+      <div style="font-size: 9px; color: #999; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px;">进程明细:</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">chrome.exe</span> 12.5%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">node.exe</span> 8.3%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">python.exe</span> 6.1%</div>
+    </div>
+    <!-- 版本2 Tooltip -->
+    <div style="border: 2px solid #f56c6c; border-radius: 6px; padding: 10px; width: 180px;">
+      <div style="font-size: 11px; color: #f56c6c; font-weight: 600; border-bottom: 1px solid #f56c6c; padding-bottom: 4px; margin-bottom: 6px;">版本2</div>
+      <div style="font-size: 10px;"><span style="color: #666;">相对时间:</span> <b>30秒</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">实际时间:</span> <b style="color: #409eff;">2026-05-01 14:45:30</b></div>
+      <div style="font-size: 10px; margin-top: 4px;"><span style="color: #666;">系统CPU:</span> <b style="color: #f56c6c;">38.5%</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">进程CPU:</span> <b>21.1%</b></div>
+      <div style="font-size: 9px; color: #999; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px;">进程明细:</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">chrome.exe</span> 10.2%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">node.exe</span> 6.1%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">python.exe</span> 4.8%</div>
+    </div>
+    <!-- 版本3 Tooltip -->
+    <div style="border: 2px solid #e6a23c; border-radius: 6px; padding: 10px; width: 180px;">
+      <div style="font-size: 11px; color: #e6a23c; font-weight: 600; border-bottom: 1px solid #e6a23c; padding-bottom: 4px; margin-bottom: 6px;">版本3</div>
+      <div style="font-size: 10px;"><span style="color: #666;">相对时间:</span> <b>30秒</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">实际时间:</span> <b style="color: #409eff;">2026-05-01 15:10:30</b></div>
+      <div style="font-size: 10px; margin-top: 4px;"><span style="color: #666;">系统CPU:</span> <b style="color: #e6a23c;">32.1%</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">进程CPU:</span> <b>17.5%</b></div>
+      <div style="font-size: 9px; color: #999; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px;">进程明细:</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">chrome.exe</span> 8.5%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">node.exe</span> 5.2%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">python.exe</span> 3.8%</div>
+    </div>
+  </div>
+</div>
+
+<!-- 设计要点 -->
+<div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+  <strong style="font-size: 12px;">版本对比页面要点：</strong>
+  <ul style="font-size: 11px; color: #666; margin: 4px 0; padding-left: 16px;">
+    <li><b>版本选择</b>：下拉多选，最多6个，已选版本显示为彩色标签</li>
+    <li><b>时间轴</b>：相对时间（从0秒），多版本曲线对齐显示</li>
+    <li><b>标签系统</b>：峰值区间（绿色框）、均值区间（红色框），点击曲线添加</li>
+    <li><b>曲线图</b>：4个独立图表，每个版本不同颜色</li>
+    <li><b>数据摘要表</b>：行=版本，列=指标，最优值绿色✓，最差值红色✗</li>
+    <li><b>导出功能</b>：HTML报告 + Excel数据明细</li>
+    <li><b>Tooltip</b>：相对时间 + 各版本实际时间 + 进程明细</li>
+  </ul>
+</div>
