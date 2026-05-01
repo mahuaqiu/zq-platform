@@ -45,6 +45,7 @@ zq-platform/
 │   │   ├── env_machine/    # 执行机管理
 │   │   ├── feature_analysis/ # 特性分析
 │   │   ├── issues_analysis/  # 问题分析
+│   │   ├── performance_monitor/ # 性能监控
 │   │   └── websocket/      # WebSocket 支持
 │   ├── scripts/            # 工具脚本
 │   │   ├── dumpdata.py     # 数据导出
@@ -127,14 +128,24 @@ python scripts/init_test_report_menu.py    # 测试报告菜单
 python scripts/init_scheduler_jobs.py
 ```
 
-7. **启动服务**
+7. **性能监控模块部署（首次）**
+```bash
+# 创建数据库表
+alembic revision --autogenerate -m "add performance_monitor tables"
+alembic upgrade head
+
+# 初始化菜单（性能监控菜单已包含在统一脚本中）
+python scripts/init_all_menus.py
+```
+
+8. **启动服务**
 ```bash
 python main.py
 # 或
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-8. **访问 API 文档**
+9. **访问 API 文档**
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
@@ -192,6 +203,11 @@ pnpm build:ele
 ### 分析功能
 - **特性分析**: 特性跟踪与分析
 - **问题分析**: 问题跟踪与分析
+
+### 性能监控
+- **实时监控**: Windows 设备 CPU/GPU/内存实时曲线图
+- **进程跟踪**: 目标进程性能采集、TOP10 排行
+- **版本对比**: 多版本性能数据对比、区间标签、数据摘要
 
 ### 系统日志
 - **登录日志**: 用户登录记录、IP 地理位置
