@@ -3,20 +3,25 @@ import { ref, onMounted, watch, computed } from 'vue';
 import * as echarts from 'echarts';
 import type { ChartSeries } from '../types';
 
-const props = defineProps<{
+// 定义 Props 类型
+interface ChartTag {
+  name: string;
+  start: number;
+  duration: number;
+  type: string;
+  color: string;
+}
+
+interface Props {
   title: string;
   series: ChartSeries[];
   showTop10?: boolean;
   height?: number;
   timeRange?: [number, number];
-  tags?: Array<{
-    name: string;
-    start: number;
-    duration: number;
-    type: string;
-    color: string;
-  }>();
-}>();
+  tags?: ChartTag[];
+}
+
+const props = defineProps<Props>();
 
 const chartRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;

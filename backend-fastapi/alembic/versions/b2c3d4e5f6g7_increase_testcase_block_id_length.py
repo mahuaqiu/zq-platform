@@ -1,7 +1,7 @@
 """increase testcase_block_id length to 200
 
-Revision ID: a1b2c3d4e5f6
-Revises: cb76b93485bf
+Revision ID: b2c3d4e5f6g7
+Revises: 0e253d677dee
 Create Date: 2026-04-22
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = 'a1b2c3d4e5f6'
-down_revision: Union[str, None] = 'cb76b93485bf'
+revision: str = 'b2c3d4e5f6g7'
+down_revision: Union[str, None] = '0e253d677dee'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

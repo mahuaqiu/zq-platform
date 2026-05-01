@@ -22,7 +22,7 @@ class Menu(BaseModel):
     __tablename__ = "core_menu"
 
     # 基础信息（字段名使用驼峰，与前端保持一致）
-    parent_id = Column("parent_id", String(21), nullable=True, index=True, comment="父菜单ID")
+    parent_id = Column("parent_id", String(50), nullable=True, index=True, comment="父菜单ID")
     name = Column(String(100), nullable=False, comment="菜单名称（路由名称）")
     title = Column(String(100), nullable=True, comment="菜单标题（显示名称）")
     authCode = Column(String(100), nullable=True, comment="后端权限标识")
