@@ -1,0 +1,130 @@
+<h2>最终调整：数据摘要表简化 + Tooltip完整信息</h2>
+<p class="subtitle">数据摘要表不显示实际时间 | Tooltip含进程明细 + 年月日时间</p>
+
+<!-- Tooltip完整信息 -->
+<div style="background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+  <span style="font-size: 13px; font-weight: 600; margin-bottom: 12px; display: block;">Tooltip完整效果（含进程明细 + 年月日时间）</span>
+  <div style="display: flex; gap: 8px;">
+    <!-- 版本1 Tooltip -->
+    <div style="border: 2px solid #67c23a; border-radius: 6px; padding: 10px; width: 160px;">
+      <div style="font-size: 11px; color: #67c23a; font-weight: 600; border-bottom: 1px solid #67c23a; padding-bottom: 4px; margin-bottom: 6px;">版本1</div>
+      <div style="font-size: 10px;"><span style="color: #666;">相对时间:</span> <b>30秒</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">实际时间:</span> <b style="color: #409eff;">2026-05-01 14:20:30</b></div>
+      <div style="font-size: 10px; margin-top: 4px;"><span style="color: #666;">系统CPU:</span> <b style="color: #67c23a;">45.2%</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">进程CPU:</span> <b>26.9%</b></div>
+      <div style="font-size: 9px; color: #999; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px;">进程明细:</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">chrome.exe</span> 12.5%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">node.exe</span> 8.3%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">python.exe</span> 6.1%</div>
+    </div>
+    <!-- 版本2 Tooltip -->
+    <div style="border: 2px solid #f56c6c; border-radius: 6px; padding: 10px; width: 160px;">
+      <div style="font-size: 11px; color: #f56c6c; font-weight: 600; border-bottom: 1px solid #f56c6c; padding-bottom: 4px; margin-bottom: 6px;">版本2</div>
+      <div style="font-size: 10px;"><span style="color: #666;">相对时间:</span> <b>30秒</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">实际时间:</span> <b style="color: #409eff;">2026-05-01 14:45:30</b></div>
+      <div style="font-size: 10px; margin-top: 4px;"><span style="color: #666;">系统CPU:</span> <b style="color: #f56c6c;">38.5%</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">进程CPU:</span> <b>21.1%</b></div>
+      <div style="font-size: 9px; color: #999; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px;">进程明细:</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">chrome.exe</span> 10.2%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">node.exe</span> 6.1%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">python.exe</span> 4.8%</div>
+    </div>
+    <!-- 版本3 Tooltip -->
+    <div style="border: 2px solid #e6a23c; border-radius: 6px; padding: 10px; width: 160px;">
+      <div style="font-size: 11px; color: #e6a23c; font-weight: 600; border-bottom: 1px solid #e6a23c; padding-bottom: 4px; margin-bottom: 6px;">版本3</div>
+      <div style="font-size: 10px;"><span style="color: #666;">相对时间:</span> <b>30秒</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">实际时间:</span> <b style="color: #409eff;">2026-05-01 15:10:30</b></div>
+      <div style="font-size: 10px; margin-top: 4px;"><span style="color: #666;">系统CPU:</span> <b style="color: #e6a23c;">32.1%</b></div>
+      <div style="font-size: 10px;"><span style="color: #666;">进程CPU:</span> <b>17.5%</b></div>
+      <div style="font-size: 9px; color: #999; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px;">进程明细:</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">chrome.exe</span> 8.5%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">node.exe</span> 5.2%</div>
+      <div style="font-size: 9px; color: #333;"><span style="color: #999;">python.exe</span> 3.8%</div>
+    </div>
+  </div>
+  <div style="font-size: 11px; color: #999; margin-top: 8px;">鼠标悬停相对时间30秒位置，Tooltip显示各版本的完整日期时间 + 系统CPU + 进程CPU总和 + 进程明细</div>
+</div>
+
+<!-- 区间合并规则（保留） -->
+<div style="background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+  <span style="font-size: 12px; font-weight: 600; margin-bottom: 8px; display: block;">区间智能合并规则</span>
+  <div style="display: flex; flex-direction: column; gap: 8px; font-size: 11px;">
+    <div style="padding: 8px 12px; background: #f0f9eb; border-radius: 4px;">
+      <b style="color: #67c23a;">所有版本都设置了标签</b> → 合并最大区间（取所有标签的最大范围）
+    </div>
+    <div style="padding: 8px 12px; background: #fef0f0; border-radius: 4px;">
+      <b style="color: #f56c6c;">某版本没设置标签</b> → 使用其他版本的区间（该版本自动应用）
+    </div>
+    <div style="padding: 8px 12px; background: #f5f5f5; border-radius: 4px;">
+      <b style="color: #909399;">都没设置标签</b> → 使用全部数据区间（0秒-结束秒）
+    </div>
+  </div>
+</div>
+
+<!-- 数据摘要表（简化版，不显示实际时间） -->
+<div style="background: #fff; border-radius: 8px; padding: 16px;">
+  <span style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: block;">数据摘要对比（峰值区间）</span>
+  <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+    <thead>
+      <tr style="background: #f8f9fa;">
+        <th style="padding: 10px; border-bottom: 2px solid #ddd; width: 80px;">版本</th>
+        <th style="padding: 10px; border-bottom: 2px solid #ddd;">系统CPU</th>
+        <th style="padding: 10px; border-bottom: 2px solid #ddd;">进程CPU</th>
+        <th style="padding: 10px; border-bottom: 2px solid #ddd;">GPU</th>
+        <th style="padding: 10px; border-bottom: 2px solid #ddd;">提交内存</th>
+        <th style="padding: 10px; border-bottom: 2px solid #ddd;">内存使用</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; color: #67c23a; font-weight: 600;">版本1</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">78.5% ✗</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">45.2% ✗</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">68% ✗</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">5.8 GB ✗</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; color: #f56c6c; font-weight: 600;">6.2 GB ✗</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; color: #f56c6c; font-weight: 600;">版本2</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">62.3%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">35.8%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">52%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">4.5 GB</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">5.8 GB</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; color: #e6a23c; font-weight: 600;">版本3</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">55.8%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">30.5%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">48%</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">4.2 GB</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">5.5 GB</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; color: #909399; font-weight: 600;">版本5</td>
+        <td style="padding: 10px; text-align: center; color: #67c23a; font-weight: 600;">42.5% ✓</td>
+        <td style="padding: 10px; text-align: center; color: #67c23a; font-weight: 600;">22.3% ✓</td>
+        <td style="padding: 10px; text-align: center; color: #67c23a; font-weight: 600;">35% ✓</td>
+        <td style="padding: 10px; text-align: center; color: #67c23a; font-weight: 600;">3.5 GB ✓</td>
+        <td style="padding: 10px; text-align: center; color: #67c23a; font-weight: 600;">4.8 GB ✓</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="font-size: 11px; color: #999; margin-top: 8px;">
+    <span style="color: #67c23a;">✓ 最优</span> | <span style="color: #f56c6c;">✗ 最差</span> | 区间：相对时间 20秒-100秒
+  </div>
+</div>
+
+<div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+  <h4 style="font-size: 12px; margin-bottom: 4px;">最终设计要点</h4>
+  <ul style="font-size: 11px; color: #666; margin: 0; padding-left: 16px;">
+    <li>时间轴：相对时间（从0秒），曲线对齐显示</li>
+    <li>Tooltip：相对时间 + 完整实际时间（年月日时分秒） + 系统CPU + 进程CPU + 进程明细</li>
+    <li>标签：保存相对时间点，按版本保存</li>
+    <li>区间合并：所有版本有标签取最大区间，某版本无标签用其他版本区间</li>
+    <li>数据摘要表：只显示相对时间区间，不显示各版本实际时间</li>
+    <li>最优值绿色✓，最差值红色✗</li>
+  </ul>
+</div>
+
+<p style="margin-top: 8px; color: #666; font-size: 11px;">设计已完成，确认后我将更新完整设计文档。</p>
