@@ -20,12 +20,12 @@
 | 指标 | 位置 | Tooltip TOP10 |
 |------|------|---------------|
 | CPU 使用率 | 主页面左侧曲线图 | ✓ 有 |
-| 提交内存 | 主页面左侧曲线图 | ✗ 无 |
 | GPU 使用率 | 主页面左侧曲线图 | ✓ 有 |
-| 内存使用 | 主页面右侧次要指标 | ✗ 无 |
-| CPU 温度 | 主页面右侧次要指标 | ✗ 无 |
-| CPU 速度 | 主页面右侧次要指标 | ✗ 无 |
+| 提交内存 | 主页面左侧曲线图 | ✗ 无 |
+| 内存使用 | 主页面左侧曲线图 | ✗ 无 |
 | 功耗 | 主页面右侧次要指标 | ✗ 无 |
+| CPU 速度 | 主页面右侧次要指标 | ✗ 无 |
+| CPU 温度 | 主页面右侧次要指标 | ✗ 无 |
 | 进程句柄 | 主页面右侧次要指标 | ✗ 无 |
 | 上传速度 | 主页面右侧次要指标 | ✗ 无 |
 | 下载速度 | 主页面右侧次要指标 | ✗ 无 |
@@ -52,9 +52,10 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │ 左侧曲线图区 (65%)          │ 右侧栏 (35%)                           │
 │ ├─ CPU 使用率曲线图          │ ├─ 次要指标卡片                        │
-│ ├─ 提交内存曲线图            │ │   内存使用 / CPU温度 / CPU速度       │
-│ ├─ GPU 使用率曲线图          │ │   功耗 / 进程句柄                     │
-│                              │ │   上传速度 / 下载速度                 │
+│ ├─ GPU 使用率曲线图          │ │   功耗 / CPU速度 / CPU温度           │
+│ ├─ 提交内存曲线图            │ │   进程句柄 / 上传速度 / 下载速度      │
+│ ├─ 内存使用曲线图            │ ├─ CPU TOP10 迷你趋势线                │
+│                              │ ├─ GPU TOP10 迷你趋势线                │
 │                              │ ├─ CPU TOP10 迷你趋势线                │
 │                              │ ├─ GPU TOP10 迷你趋势线                │
 └─────────────────────────────────────────────────────────────────────┘
@@ -129,20 +130,24 @@
 - 系统 CPU 曲线 + 目标进程曲线叠加
 - Tooltip：时间点 + 系统 CPU + 进程 CPU（总和） + 各子进程明细 + TOP10排行
 
+#### GPU 使用率曲线图
+- 系统曲线
+- Tooltip：时间点 + 系统 GPU + TOP10排行
+
 #### 提交内存曲线图
 - 系统曲线 + 目标进程曲线叠加
 - Tooltip：只显示数值，无 TOP10
 
-#### GPU 使用率曲线图
+#### 内存使用曲线图
 - 系统曲线
-- Tooltip：时间点 + 系统 GPU + TOP10排行
+- Tooltip：只显示数值，无 TOP10
 
 ### 2.6 右侧栏
 
 #### 次要指标卡片
 每个指标：当前数值 + 迷你历史曲线
-- 内存使用（占两列宽度）
-- CPU 温度、功耗、上传速度、下载速度
+- 功耗、CPU速度、CPU温度
+- 进程句柄、上传速度、下载速度
 
 #### TOP10 概览区（迷你趋势线样式）
 - TOP3：迷你趋势线 + 进程名 + 占用率
@@ -335,9 +340,9 @@ POST /api/performance-monitor/report
     "gpu_usage": 35.5,         // %
     "commit_memory": 4.2,      // GB
     "memory_usage": 6.2,       // GB
-    "cpu_temp": 65,            // °C
-    "cpu_speed": 3.2,          // GHz（CPU当前频率）
     "power": 120,              // W
+    "cpu_speed": 3.2,          // GHz（CPU当前频率）
+    "cpu_temp": 65,            // °C
     "process_handles": 15000,  // 进程句柄数
     "upload_speed": 2.5,       // MB/s
     "download_speed": 8.2      // MB/s
@@ -509,9 +514,9 @@ class PerformanceData(BaseModel):
     gpu_usage: float
     commit_memory: float
     memory_usage: float
-    cpu_temp: float
-    cpu_speed: float              # CPU频率 GHz
     power: float
+    cpu_speed: float              # CPU频率 GHz
+    cpu_temp: float
     process_handles: int          # 进程句柄数
     upload_speed: float
     download_speed: float
