@@ -184,6 +184,39 @@ ALL_MENUS = [
         "parent_id": "scheduler-root",
         "order": 2,
     },
+
+    # ==================== 性能监控（一级菜单）====================
+    {
+        "id": "performance-monitor-root",
+        "name": "PerformanceMonitor",
+        "title": "性能监控",
+        "path": "/performance-monitor",
+        "type": "catalog",
+        "icon": "ep:data-line",
+        "order": 5,
+        "parent_id": None,
+    },
+    # 性能监控子菜单
+    {
+        "id": "performance-monitor-main",
+        "name": "PerformanceMonitorMain",
+        "title": "性能监控",
+        "path": "/performance-monitor",
+        "type": "menu",
+        "component": "/views/performance-monitor/index",
+        "parent_id": "performance-monitor-root",
+        "order": 1,
+    },
+    {
+        "id": "performance-monitor-compare",
+        "name": "PerformanceMonitorCompare",
+        "title": "版本对比",
+        "path": "/performance-monitor/compare",
+        "type": "menu",
+        "component": "/views/performance-monitor/compare",
+        "parent_id": "performance-monitor-root",
+        "order": 2,
+    },
 ]
 
 
@@ -264,6 +297,9 @@ async def clear_and_init_menus():
         print("  定时任务 (order=4)")
         print("    - 任务列表")
         print("    - 执行日志")
+        print("  性能监控 (order=5)")
+        print("    - 性能监控")
+        print("    - 版本对比")
         print("请刷新前端页面查看。")
         print("=" * 50)
 
