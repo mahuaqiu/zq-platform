@@ -288,8 +288,16 @@
     <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">目标进程 <span style="color: #999; font-weight: normal;">（可多选）</span></div>
 
     <!-- 搜索框 -->
-    <div style="margin-bottom: 8px;">
+    <div style="margin-bottom: 6px;">
       <input style="width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;" placeholder="搜索进程名称..." />
+    </div>
+
+    <!-- 预置进程名标签 -->
+    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+      <span style="padding: 3px 8px; background: #e6f7ff; color: #409eff; border-radius: 3px; font-size: 10px; cursor: pointer; border: 1px solid #91d5ff;">chrome.exe</span>
+      <span style="padding: 3px 8px; background: #e6f7ff; color: #409eff; border-radius: 3px; font-size: 10px; cursor: pointer; border: 1px solid #91d5ff;">node.exe</span>
+      <span style="padding: 3px 8px; background: #e6f7ff; color: #409eff; border-radius: 3px; font-size: 10px; cursor: pointer; border: 1px solid #91d5ff;">python.exe</span>
+      <span style="padding: 3px 8px; background: #e6f7ff; color: #409eff; border-radius: 3px; font-size: 10px; cursor: pointer; border: 1px solid #91d5ff;">vscode.exe</span>
     </div>
 
     <!-- 进程列表（带复选框） -->
@@ -299,38 +307,32 @@
         <input type="checkbox" checked style="width: 14px; height: 14px;"/>
         <span style="font-size: 11px; flex: 1;">chrome.exe</span>
         <span style="font-size: 10px; color: #999;">PID: 1234, 5678</span>
-        <span style="font-size: 10px; color: #67c23a;">CPU: 5.2%</span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #f0f9eb; border-radius: 3px; margin-bottom: 4px;">
         <input type="checkbox" checked style="width: 14px; height: 14px;"/>
         <span style="font-size: 11px; flex: 1;">node.exe</span>
         <span style="font-size: 10px; color: #999;">PID: 4567</span>
-        <span style="font-size: 10px; color: #67c23a;">CPU: 6.1%</span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #f0f9eb; border-radius: 3px; margin-bottom: 4px;">
         <input type="checkbox" checked style="width: 14px; height: 14px;"/>
         <span style="font-size: 11px; flex: 1;">python.exe</span>
         <span style="font-size: 10px; color: #999;">PID: 6789</span>
-        <span style="font-size: 10px; color: #67c23a;">CPU: 3.2%</span>
       </div>
       <!-- 未选进程 -->
       <div style="display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 3px; margin-bottom: 4px;">
         <input type="checkbox" style="width: 14px; height: 14px;"/>
         <span style="font-size: 11px; flex: 1;">vscode.exe</span>
         <span style="font-size: 10px; color: #999;">PID: 8901</span>
-        <span style="font-size: 10px; color: #909399;">CPU: 2.5%</span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 3px; margin-bottom: 4px;">
         <input type="checkbox" style="width: 14px; height: 14px;"/>
         <span style="font-size: 11px; flex: 1;">explorer.exe</span>
         <span style="font-size: 10px; color: #999;">PID: 1024</span>
-        <span style="font-size: 10px; color: #909399;">CPU: 1.8%</span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 3px;">
         <input type="checkbox" style="width: 14px; height: 14px;"/>
         <span style="font-size: 11px; flex: 1;">dwm.exe</span>
         <span style="font-size: 10px; color: #999;">PID: 2048</span>
-        <span style="font-size: 10px; color: #909399;">CPU: 1.2%</span>
       </div>
     </div>
 
@@ -347,30 +349,18 @@
   <div style="margin-bottom: 16px;">
     <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">采集配置</div>
 
-    <div style="display: flex; gap: 12px; margin-bottom: 8px;">
-      <div style="flex: 1;">
-        <div style="font-size: 11px; color: #666; margin-bottom: 4px;">采集间隔</div>
-        <select style="width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">
-          <option>1秒</option>
-          <option selected>5秒</option>
-          <option>10秒</option>
-          <option>30秒</option>
-        </select>
-      </div>
-      <div style="flex: 1;">
-        <div style="font-size: 11px; color: #666; margin-bottom: 4px;">预计时长</div>
-        <select style="width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">
-          <option>手动停止</option>
-          <option>5分钟</option>
-          <option selected>10分钟</option>
-          <option>30分钟</option>
-          <option>60分钟</option>
-        </select>
-      </div>
+    <div style="margin-bottom: 8px;">
+      <div style="font-size: 11px; color: #666; margin-bottom: 4px;">采集间隔</div>
+      <select style="width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">
+        <option>1秒</option>
+        <option selected>5秒</option>
+        <option>10秒</option>
+        <option>30秒</option>
+      </select>
     </div>
 
     <div style="font-size: 10px; color: #999; padding: 6px 10px; background: #f8f9fa; border-radius: 4px;">
-      <b>说明：</b>采集间隔越小，数据越精细，但占用更多存储空间。
+      <b>说明：</b>采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
     </div>
   </div>
 
@@ -386,10 +376,11 @@
   <b style="font-size: 12px; color: #1890ff;">弹窗设计要点：</b>
   <ul style="font-size: 11px; color: #666; margin: 4px 0; padding-left: 16px;">
     <li>设备信息：显示当前选中的设备名称和IP</li>
-    <li>进程列表：带搜索、复选框、PID和当前CPU占用</li>
+    <li>预置进程名：chrome/node/python/vscode 标签，点击自动搜索</li>
+    <li>进程列表：带搜索、复选框，显示进程名和PID</li>
     <li>已选进程：绿色背景高亮显示</li>
     <li>快捷操作：全选、清空、仅选TOP5</li>
-    <li>采集配置：间隔和时长下拉选择</li>
+    <li>采集配置：仅采集间隔，手动停止结束</li>
     <li>弹窗尺寸：max-width: 500px，进程列表最大高度180px</li>
   </ul>
 </div>
