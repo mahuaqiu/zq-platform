@@ -388,6 +388,7 @@ from sqlalchemy import select, and_, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
+from app.base_model import generate_nanoid
 from core.performance_monitor.model import PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest, PerformanceReportRequest,
@@ -404,7 +405,6 @@ class PerformanceCollectService(BaseService[PerformanceCollect]):
     async def start_collect(cls, db: AsyncSession, request: CollectStartRequest) -> str:
         """开始采集"""
         collect = PerformanceCollect(
-            id=generate_nanoid(),
             device_id=request.device_id,
             start_time=datetime.utcnow(),
             interval=request.interval,
@@ -488,7 +488,6 @@ class PerformanceDataService(BaseService[PerformanceData]):
     async def report_data(cls, db: AsyncSession, request: PerformanceReportRequest) -> bool:
         """接收 Worker 上报数据"""
         data = PerformanceData(
-            id=generate_nanoid(),
             collect_id=request.collect_id,
             timestamp=request.timestamp,
             relative_time=request.relative_time,
@@ -548,7 +547,6 @@ class PerformanceTagService(BaseService[PerformanceTag]):
     async def create_tag(cls, db: AsyncSession, request: TagCreateRequest) -> str:
         """创建标签"""
         tag = PerformanceTag(
-            id=generate_nanoid(),
             collect_id=request.collect_id,
             name=request.name,
             start_relative_time=request.start_relative_time,
@@ -603,7 +601,6 @@ class PerformanceVersionService(BaseService[PerformanceVersion]):
             raise ValueError("采集记录不存在")
         
         version = PerformanceVersion(
-            id=generate_nanoid(),
             device_id=first_collect.device_id,
             name=request.name,
             collect_ids=request.collect_ids,  # 直接使用字符串列表
@@ -1903,10 +1900,6 @@ git commit -m "feat(performance-monitor): 添加性能监控菜单配置"
 ## 附录 B: 版本对比页面完整代码
 
 见设计文档 `docs/superpowers/specs/2026-05-01-performance-monitor-design.md` 的版本对比页面设计部分。
-
-## 附录 B: 版本对比页面完整代码
-
-见文档附录部分。
 
 ---
 
