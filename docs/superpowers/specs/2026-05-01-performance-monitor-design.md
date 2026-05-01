@@ -776,3 +776,107 @@ GET /api/performance-monitor/version/export/excel?version_ids={uuid1},{uuid2}
 POST /api/performance-monitor/report
 （见 Section 5.4 详细定义）
 ```
+
+---
+
+## 九、部署操作说明
+
+### 9.1 后端部署
+
+**1. 数据库迁移**
+
+```bash
+cd backend-fastapi
+
+# 创建迁移文件
+alembic revision --autogenerate -m "add performance_monitor tables"
+
+# 执行迁移
+alembic upgrade head
+```
+
+**2. 初始化菜单**
+
+```bash
+python scripts/init_all_menus.py
+```
+
+**3. 启动后端服务**
+
+```bash
+python main.py
+# 或
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 9.2 前端部署
+
+**1. 安装依赖**
+
+```bash
+cd web
+pnpm install
+```
+
+**2. 启动开发服务器**
+
+```bash
+pnpm dev
+```
+
+**3. 构建生产版本**
+
+```bash
+pnpm build:ele
+```
+
+### 9.3 Worker 接口对接
+
+Worker 需要实现以下接口，详见 `docs/superpowers/specs/2026-05-01-performance-monitor-worker-api.md`：
+
+- `GET /api/worker/{device_id}/processes` - 进程列表查询
+- `POST /api/worker/{device_id}/collect/start` - 开始采集
+- `POST /api/worker/{device_id}/collect/stop` - 停止采集
+- `GET /api/worker/{device_id}/collect/status` - 获取采集状态
+
+Worker 需要调用后端接口：
+
+- `POST /api/core/performance-monitor/report` - 性能数据上报（每隔采集频率调用）
+
+### 9.4 功能验证
+
+1. 访问前端页面，确认菜单显示"性能监控"
+2. 选择设备，点击"开始采集"，配置进程和频率
+3. 观察曲线图实时更新
+4. 点击"停止采集"，数据保存
+5. 进入"版本对比"页面，选择多个版本对比
+
+---
+
+## 十、文件清单
+
+### 后端文件
+
+| 文件 | 说明 |
+|------|------|
+| `core/performance_monitor/model.py` | 数据模型定义 |
+| `core/performance_monitor/schema.py` | Schema 定义 |
+| `core/performance_monitor/service.py` | 业务逻辑层 |
+| `core/performance_monitor/api.py` | API 路由 |
+| `core/router.py` | 路由注册（已修改） |
+| `scripts/init_all_menus.py` | 菜单初始化（已修改） |
+
+### 前端文件
+
+| 文件 | 说明 |
+|------|------|
+| `src/api/core/performance-monitor.ts` | API 定义 |
+| `src/views/performance-monitor/types.ts` | 类型定义 |
+| `src/views/performance-monitor/index.vue` | 主页面 |
+| `src/views/performance-monitor/compare.vue` | 版本对比页面 |
+| `src/views/performance-monitor/components/ChartPanel.vue` | 曲线图组件 |
+| `src/views/performance-monitor/components/MetricCard.vue` | 次要指标卡片 |
+| `src/views/performance-monitor/components/Top10List.vue` | TOP10 概览组件 |
+| `src/views/performance-monitor/components/CollectDialog.vue` | 开始采集弹窗 |
+| `src/router/routes/modules/performance-monitor.ts` | 主页面路由 |
+| `src/router/routes/modules/performance-monitor-compare.ts` | 对比页面路由 |
