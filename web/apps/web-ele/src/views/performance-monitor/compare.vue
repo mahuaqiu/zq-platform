@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElButton, ElSelect, ElOption, ElTag, ElTable, ElTableColumn, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElEmpty, ElRadioGroup, ElRadio } from 'element-plus';
 import { useRoute } from 'vue-router';
 import ChartPanel from './components/ChartPanel.vue';
 import {
