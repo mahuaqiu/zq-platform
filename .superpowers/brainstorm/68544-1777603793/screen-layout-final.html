@@ -1,150 +1,309 @@
-<h2>屏幕布局最终版</h2>
+<h2>屏幕布局设计（最终版）</h2>
 <p class="subtitle">顶部控制栏 + 时间轴选择器 + 左右分栏布局</p>
 
 <!-- 整体布局示意图 -->
-<div style="background: #f5f5f5; border-radius: 8px; padding: 16px;">
-  <h3 style="font-size: 14px; margin-bottom: 12px;">页面整体结构</h3>
-
-  <!-- 布局框图 -->
-  <div style="border: 2px solid #409eff; border-radius: 8px; padding: 4px; background: #fff;">
-    <!-- 顶部控制栏 -->
-    <div style="background: #e6f7ff; border-radius: 6px; padding: 8px; margin: 4px; text-align: center; font-size: 12px; color: #1890ff;">
-      【顶部控制栏】设备选择 | 开始/停止采集 | 状态提示 | 标记版本 | 历史采集
+<div style="background: #f5f5f5; border-radius: 8px; padding: 12px;">
+  <!-- 顶部控制栏 -->
+  <div style="background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <select style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 160px;">
+        <option>Windows-001 (192.168.1.100)</option>
+        <option>Windows-002 (192.168.1.101)</option>
+      </select>
+      <button style="padding: 6px 16px; background: #67c23a; color: #fff; border-radius: 4px; font-size: 12px; border: none;">开始采集</button>
+      <button style="padding: 6px 16px; background: #f56c6c; color: #fff; border-radius: 4px; font-size: 12px; border: none;">停止采集</button>
+      <span style="padding: 4px 8px; background: #f0f9eb; border-radius: 4px; font-size: 11px; color: #67c23a;">● 采集中 5秒/3进程</span>
     </div>
-
-    <!-- 时间轴选择器 -->
-    <div style="background: #f6ffed; border-radius: 6px; padding: 8px; margin: 4px; text-align: center; font-size: 12px; color: #52c41a;">
-      【时间轴选择器】30分钟 | 60分钟 | 全部 | 时间滑块 | 已标记版本列表
+    <div style="display: flex; gap: 8px;">
+      <button style="padding: 6px 12px; background: #409eff; color: #fff; border-radius: 4px; font-size: 11px; border: none;">标记版本</button>
+      <button style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">历史采集</button>
     </div>
+  </div>
 
-    <!-- 主内容区 -->
-    <div style="display: flex; gap: 4px; margin: 4px;">
-      <!-- 左侧曲线图 -->
-      <div style="flex: 65%; background: #fffbe6; border-radius: 6px; padding: 8px;">
-        <div style="font-size: 12px; color: #faad14; text-align: center; margin-bottom: 8px;">【左侧曲线图区 65%】</div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">CPU 使用率曲线图</div>
-          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">GPU 使用率曲线图</div>
-          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">提交内存曲线图</div>
-          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">内存使用曲线图</div>
+  <!-- 时间轴选择器 -->
+  <div style="background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <button style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">30分钟</button>
+      <button style="padding: 6px 12px; background: #409eff; color: #fff; border-radius: 4px; font-size: 11px; border: none;">60分钟</button>
+      <button style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">全部</button>
+      <div style="flex: 1; height: 8px; background: #e4e7ed; border-radius: 4px; position: relative; margin-left: 12px;">
+        <div style="position: absolute; left: 15%; width: 50%; height: 100%; background: linear-gradient(90deg, #409eff, #67c23a); border-radius: 4px;"></div>
+        <!-- 版本标记点 -->
+        <div style="position: absolute; left: 20%; top: -4px; width: 12px; height: 12px; background: #67c23a; border-radius: 50%; border: 2px solid #fff;"></div>
+        <div style="position: absolute; left: 45%; top: -4px; width: 12px; height: 12px; background: #f56c6c; border-radius: 50%; border: 2px solid #fff;"></div>
+        <div style="position: absolute; left: 70%; top: -4px; width: 12px; height: 12px; background: #e6a23c; border-radius: 50%; border: 2px solid #fff;"></div>
+      </div>
+    </div>
+    <div style="font-size: 10px; color: #999; margin-top: 8px;">
+      已标记版本：<span style="color: #67c23a;">●版本1</span>(14:20-14:25) | <span style="color: #f56c6c;">●版本2</span>(14:45-14:50) | <span style="color: #e6a23c;">●版本3</span>(15:10-15:15) 点击跳转
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <div style="display: flex; gap: 12px;">
+    <!-- 左侧曲线图区 (65%) -->
+    <div style="flex: 65%; display: flex; flex-direction: column; gap: 12px;">
+      <!-- 区域标注 -->
+      <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9eb 100%); border-radius: 6px; padding: 8px 12px; border: 1px dashed #409eff;">
+        <div style="font-size: 12px; color: #409eff; font-weight: 600;">📊 左侧曲线图区 (65%)</div>
+        <div style="font-size: 10px; color: #666; margin-top: 4px;">4个主要指标曲线图，垂直排列</div>
+      </div>
+
+      <!-- CPU 使用率 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">CPU 使用率</div>
+        <div style="height: 140px; background: #f8f9fa; border-radius: 4px; position: relative;">
+          <svg style="width: 100%; height: 100%;">
+            <path d="M 0,70 Q 30,50 60,65 T 120,55 T 180,60 T 240,50 T 300,65" stroke="#409eff" stroke-width="2" fill="none"/>
+            <path d="M 0,90 Q 30,75 60,85 T 120,80 T 180,82 T 240,78 T 300,85" stroke="#67c23a" stroke-width="2" fill="none"/>
+            <!-- 峰值区间标注 -->
+            <rect x="60" y="30" width="60" height="90" fill="rgba(103,194,126,0.15)" stroke="#67c23a" stroke-width="1" rx="4"/>
+          </svg>
+          <div style="position: absolute; top: 4px; right: 8px; font-size: 10px; color: #409eff;">系统: 45.2%</div>
+          <div style="position: absolute; top: 18px; right: 8px; font-size: 10px; color: #67c23a;">进程: 26.9%</div>
+          <div style="position: absolute; top: 55px; left: 65px; font-size: 9px; color: #67c23a; background: rgba(255,255,255,0.9); padding: 2px 4px; border-radius: 2px;">发起共享</div>
         </div>
       </div>
 
-      <!-- 右侧栏 -->
-      <div style="flex: 35%; background: #f9f0ff; border-radius: 6px; padding: 8px;">
-        <div style="font-size: 12px; color: #722ed1; text-align: center; margin-bottom: 8px;">【右侧栏 35%】</div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <div style="background: #fff; border-radius: 4px; padding: 6px;">
-            <div style="font-size: 10px; text-align: center; margin-bottom: 4px;">次要指标卡片（2列网格）</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">功耗</div>
-              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">CPU速度</div>
-              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">CPU温度</div>
-              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">进程句柄</div>
-              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">上传速度</div>
-              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">下载速度</div>
+      <!-- GPU 使用率 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">GPU 使用率</div>
+        <div style="height: 100px; background: #f8f9fa; border-radius: 4px; position: relative;">
+          <svg style="width: 100%; height: 100%;">
+            <path d="M 0,40 Q 30,30 60,42 T 120,35 T 180,38 T 240,32 T 300,40" stroke="#e6a23c" stroke-width="2" fill="none"/>
+          </svg>
+          <div style="position: absolute; top: 4px; right: 8px; font-size: 10px; color: #e6a23c;">系统: 35.5%</div>
+        </div>
+      </div>
+
+      <!-- 提交内存 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">提交内存</div>
+        <div style="height: 100px; background: #f8f9fa; border-radius: 4px; position: relative;">
+          <svg style="width: 100%; height: 100%;">
+            <path d="M 0,50 Q 30,45 60,52 T 120,48 T 180,50 T 240,46 T 300,48" stroke="#f56c6c" stroke-width="2" fill="none"/>
+            <path d="M 0,70 Q 30,68 60,72 T 120,70 T 180,71 T 240,69 T 300,70" stroke="#909399" stroke-width="2" fill="none"/>
+          </svg>
+          <div style="position: absolute; top: 4px; right: 8px; font-size: 10px; color: #f56c6c;">系统: 4.2 GB</div>
+          <div style="position: absolute; top: 18px; right: 8px; font-size: 10px; color: #909399;">进程: 215 MB</div>
+        </div>
+      </div>
+
+      <!-- 内存使用 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">内存使用</div>
+        <div style="height: 100px; background: #f8f9fa; border-radius: 4px; position: relative;">
+          <svg style="width: 100%; height: 100%;">
+            <path d="M 0,45 Q 30,42 60,48 T 120,44 T 180,46 T 240,43 T 300,45" stroke="#909399" stroke-width="2" fill="none"/>
+          </svg>
+          <div style="position: absolute; top: 4px; right: 8px; font-size: 10px; color: #909399;">系统: 6.2 GB</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧栏 (35%) -->
+    <div style="flex: 35%; display: flex; flex-direction: column; gap: 12px;">
+      <!-- 区域标注 -->
+      <div style="background: linear-gradient(135deg, #f9f0ff 0%, #fffbe6 100%); border-radius: 6px; padding: 8px 12px; border: 1px dashed #722ed1;">
+        <div style="font-size: 12px; color: #722ed1; font-weight: 600;">📈 右侧信息栏 (35%)</div>
+        <div style="font-size: 10px; color: #666; margin-top: 4px;">次要指标 + TOP10概览</div>
+      </div>
+
+      <!-- 次要指标卡片 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 10px;">次要指标（6个）</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <!-- 功耗 -->
+          <div style="background: #f8f9fa; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; color: #999;">功耗</div>
+            <div style="font-size: 14px; font-weight: 600; color: #409eff;">120 W</div>
+            <div style="height: 20px; margin-top: 4px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,10 Q 15,8 30,10 T 60,9" stroke="#409eff" stroke-width="1.5" fill="none"/>
+              </svg>
             </div>
           </div>
-          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">CPU TOP10 概览</div>
-          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">GPU TOP10 概览</div>
+          <!-- CPU速度 -->
+          <div style="background: #f8f9fa; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; color: #999;">CPU速度</div>
+            <div style="font-size: 14px; font-weight: 600; color: #67c23a;">3.2 GHz</div>
+            <div style="height: 20px; margin-top: 4px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,8 Q 15,12 30,8 T 60,10" stroke="#67c23a" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+          </div>
+          <!-- CPU温度 -->
+          <div style="background: #f8f9fa; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; color: #999;">CPU温度</div>
+            <div style="font-size: 14px; font-weight: 600; color: #e6a23c;">65 °C</div>
+            <div style="height: 20px; margin-top: 4px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,12 Q 15,10 30,12 T 60,11" stroke="#e6a23c" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+          </div>
+          <!-- 进程句柄 -->
+          <div style="background: #f8f9fa; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; color: #999;">进程句柄</div>
+            <div style="font-size: 14px; font-weight: 600; color: #909399;">15000</div>
+            <div style="height: 20px; margin-top: 4px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,10 Q 15,10 30,10 T 60,10" stroke="#909399" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+          </div>
+          <!-- 上传速度 -->
+          <div style="background: #f8f9fa; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; color: #999;">上传速度</div>
+            <div style="font-size: 14px; font-weight: 600; color: #67c23a;">2.5 MB/s</div>
+            <div style="height: 20px; margin-top: 4px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,14 Q 15,10 30,12 T 60,8" stroke="#67c23a" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+          </div>
+          <!-- 下载速度 -->
+          <div style="background: #f8f9fa; border-radius: 4px; padding: 8px;">
+            <div style="font-size: 10px; color: #999;">下载速度</div>
+            <div style="font-size: 14px; font-weight: 600; color: #409eff;">8.2 MB/s</div>
+            <div style="height: 20px; margin-top: 4px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,16 Q 15,8 30,12 T 60,6" stroke="#409eff" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CPU TOP10 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">CPU TOP10</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #f0f9eb; border-radius: 4px;">
+            <div style="width: 40px; height: 16px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,8 Q 10,4 20,8 T 40,6" stroke="#67c23a" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span style="font-size: 11px; flex: 1;">chrome.exe</span>
+            <span style="font-size: 12px; font-weight: 600; color: #67c23a;">10.0%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #fef0f0; border-radius: 4px;">
+            <div style="width: 40px; height: 16px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,10 Q 10,8 20,10 T 40,8" stroke="#f56c6c" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span style="font-size: 11px; flex: 1;">node.exe</span>
+            <span style="font-size: 12px; font-weight: 600; color: #f56c6c;">6.1%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #fdf6ec; border-radius: 4px;">
+            <div style="width: 40px; height: 16px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,12 Q 10,10 20,12 T 40,10" stroke="#e6a23c" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span style="font-size: 11px; flex: 1;">python.exe</span>
+            <span style="font-size: 12px; font-weight: 600; color: #e6a23c;">3.2%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; padding: 4px 0; border-top: 1px dashed #eee;">
+            <span>vscode.exe</span><span>2.5%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; padding: 4px 0;">
+            <span>...</span><span>...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GPU TOP10 -->
+      <div style="background: #fff; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">GPU TOP10</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #f0f9eb; border-radius: 4px;">
+            <div style="width: 40px; height: 16px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,6 Q 10,4 20,6 T 40,5" stroke="#67c23a" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span style="font-size: 11px; flex: 1;">chrome.exe</span>
+            <span style="font-size: 12px; font-weight: 600; color: #67c23a;">13.7%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #fef0f0; border-radius: 4px;">
+            <div style="width: 40px; height: 16px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,10 Q 10,8 20,10 T 40,8" stroke="#f56c6c" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span style="font-size: 11px; flex: 1;">vscode.exe</span>
+            <span style="font-size: 12px; font-weight: 600; color: #f56c6c;">5.2%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #fdf6ec; border-radius: 4px;">
+            <div style="width: 40px; height: 16px;">
+              <svg style="width: 100%; height: 100%;">
+                <path d="M 0,12 Q 10,10 20,12 T 40,10" stroke="#e6a23c" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span style="font-size: 11px; flex: 1;">dwm.exe</span>
+            <span style="font-size: 12px; font-weight: 600; color: #e6a23c;">3.1%</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 响应式设计 -->
-<div style="background: #fff; border-radius: 8px; padding: 16px; margin-top: 12px;">
-  <h3 style="font-size: 14px; margin-bottom: 12px;">响应式设计</h3>
+<!-- 响应式设计说明 -->
+<div style="margin-top: 12px; background: #fff; border-radius: 8px; padding: 16px;">
+  <h3 style="font-size: 14px; margin-bottom: 12px; color: #333;">响应式设计</h3>
 
   <div style="display: flex; gap: 16px;">
     <!-- 大屏 -->
-    <div style="flex: 1;">
-      <div style="font-size: 12px; color: #67c23a; font-weight: 600; margin-bottom: 8px;">大屏（≥1200px）</div>
-      <div style="background: #f8f9fa; border-radius: 4px; padding: 8px; font-size: 10px;">
-        - 左侧曲线图：65%<br>
-        - 右侧栏：35%<br>
-        - 次要指标：2列网格<br>
-        - 曲线图高度：CPU 160px，其他 120px
+    <div style="flex: 1; background: #f0f9eb; border-radius: 6px; padding: 12px; border: 2px solid #67c23a;">
+      <div style="font-size: 12px; color: #67c23a; font-weight: 600; margin-bottom: 8px;">🖥️ 大屏（≥1200px）</div>
+      <div style="font-size: 11px; color: #666;">
+        • 左侧：65%<br>
+        • 右侧：35%<br>
+        • 曲线图高度：CPU 140px，其他 100px<br>
+        • 次要指标：2列网格<br>
+        • TOP10：完整显示
       </div>
     </div>
 
     <!-- 中屏 -->
-    <div style="flex: 1;">
-      <div style="font-size: 12px; color: #e6a23c; font-weight: 600; margin-bottom: 8px;">中屏（768-1199px）</div>
-      <div style="background: #f8f9fa; border-radius: 4px; padding: 8px; font-size: 10px;">
-        - 左侧曲线图：60%<br>
-        - 右侧栏：40%<br>
-        - 次要指标：2列网格<br>
-        - 曲线图高度：统一 100px
+    <div style="flex: 1; background: #fdf6ec; border-radius: 6px; padding: 12px; border: 2px solid #e6a23c;">
+      <div style="font-size: 12px; color: #e6a23c; font-weight: 600; margin-bottom: 8px;">💻 中屏（768-1199px）</div>
+      <div style="font-size: 11px; color: #666;">
+        • 左侧：60%<br>
+        • 右侧：40%<br>
+        • 曲线图高度：统一 80px<br>
+        • 次要指标：2列网格<br>
+        • TOP10：TOP3 + 折叠
       </div>
     </div>
 
     <!-- 小屏 -->
-    <div style="flex: 1;">
-      <div style="font-size: 12px; color: #f56c6c; font-weight: 600; margin-bottom: 8px;">小屏（<768px）</div>
-      <div style="background: #f8f9fa; border-radius: 4px; padding: 8px; font-size: 10px;">
-        - 单列布局<br>
-        - 曲线图在上，次要指标在下<br>
-        - 次要指标：1列<br>
-        - TOP10 可折叠
+    <div style="flex: 1; background: #fef0f0; border-radius: 6px; padding: 12px; border: 2px solid #f56c6c;">
+      <div style="font-size: 12px; color: #f56c6c; font-weight: 600; margin-bottom: 8px;">📱 小屏（<768px）</div>
+      <div style="font-size: 11px; color: #666;">
+        • 单列布局<br>
+        • 曲线图在上<br>
+        • 次要指标在下（1列）<br>
+        • TOP10：可折叠<br>
+        • 时间轴：简化
       </div>
     </div>
   </div>
 </div>
 
-<!-- 组件层次结构 -->
-<div style="background: #fff; border-radius: 8px; padding: 16px; margin-top: 12px;">
-  <h3 style="font-size: 14px; margin-bottom: 12px;">组件层次结构</h3>
-
-  <div style="font-size: 11px; line-height: 1.8;">
-    <pre style="background: #f8f9fa; padding: 12px; border-radius: 4px;">
-index.vue（主页面）
-├── 控制栏（ControlBar）
-│   ├── 设备选择（Select）
-│   ├── 开始/停止按钮
-│   └── 状态提示（Badge）
-├── 时间轴选择器（TimeSelector）
-│   ├── 快捷按钮（ButtonGroup）
-│   └── 时间滑块（Slider）
-├── 左侧曲线图区
-│   ├── ChartPanel.vue（CPU使用率）
-│   ├── ChartPanel.vue（GPU使用率）
-│   ├── ChartPanel.vue（提交内存）
-│   └── ChartPanel.vue（内存使用）
-├── 右侧栏
-│   ├── 次要指标网格
-│   │   ├── MetricCard.vue × 6
-│   ├── Top10List.vue（CPU TOP10）
-│   └── Top10List.vue（GPU TOP10）
-└── CollectDialog.vue（开始采集弹窗）
-    </pre>
-  </div>
-</div>
-
-<!-- 数据流 -->
-<div style="background: #fff; border-radius: 8px; padding: 16px; margin-top: 12px;">
-  <h3 style="font-size: 14px; margin-bottom: 12px;">数据流向</h3>
-
-  <div style="background: #f8f9fa; border-radius: 4px; padding: 12px; font-size: 11px;">
-    <b>实时采集：</b><br>
-    Worker → POST /report → 后端存储 → 前端轮询 GET /latest → 更新曲线图<br><br>
-
-    <b>历史查看：</b><br>
-    用户选择时间窗口 → GET /data → 后端返回历史数据 → 曲线图渲染<br><br>
-
-    <b>版本对比：</b><br>
-    用户选择版本 → GET /compare → 后端返回多版本数据 → 曲线叠加显示
-  </div>
-</div>
-
-<div style="margin-top: 12px; padding: 12px; background: #f0f9eb; border-radius: 6px; border: 1px solid #b7eb8f;">
-  <b style="font-size: 12px; color: #52c41a;">布局要点：</b>
+<!-- 布局要点 -->
+<div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+  <strong style="font-size: 12px;">布局要点：</strong>
   <ul style="font-size: 11px; color: #666; margin: 4px 0; padding-left: 16px;">
-    <li>顶部固定控制栏，便于快速操作</li>
-    <li>时间轴选择器独立一行，突出时间控制</li>
-    <li>左侧曲线图占主体，右侧补充次要信息</li>
-    <li>次要指标紧凑排列，不占用过多空间</li>
-    <li>TOP10 概览提供快速参考，详情可在 Tooltip 查看</li>
+    <li><b>顶部控制栏</b>：设备选择 + 开始/停止按钮 + 状态提示 + 标记版本</li>
+    <li><b>时间轴选择器</b>：快捷按钮 + 时间滑块 + 已标记版本列表</li>
+    <li><b>左侧曲线图</b>（65%）：CPU → GPU → 提交内存 → 内存使用，垂直排列</li>
+    <li><b>右侧信息栏</b>（35%）：次要指标（2列）+ CPU TOP10 + GPU TOP10</li>
+    <li><b>次要指标顺序</b>：功耗 → CPU速度 → CPU温度 → 进程句柄 → 上传速度 → 下载速度</li>
   </ul>
 </div>
