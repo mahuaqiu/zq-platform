@@ -22,7 +22,8 @@ class CollectStartRequest(BaseModel):
 
 class CollectStopRequest(BaseModel):
     """停止采集请求 Schema"""
-    collect_id: str = Field(..., description="采集记录ID")
+    collect_id: Optional[str] = Field(None, description="采集记录ID（可选，不传则停止该设备所有采集）")
+    device_id: str = Field(..., description="设备ID")
 
 
 class CollectListRequest(BaseModel):
