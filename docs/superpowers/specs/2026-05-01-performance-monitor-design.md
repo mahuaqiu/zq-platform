@@ -109,7 +109,7 @@
 ### 2.4 时间轴选择器
 
 #### 快速按钮
-- 30分钟 / 60分钟 / 全全
+- 30分钟 / 60分钟 / 全部
 
 #### 时间轴滑块
 - 可拖动窗口选择时间段
@@ -137,7 +137,7 @@
 ### 2.6 右侧栏
 
 #### 次要指标卡片
-每个指标：当前数值 + 迷尼历史曲线
+每个指标：当前数值 + 迷你历史曲线
 - 内存使用（占两列宽度）
 - CPU 温度、功耗、上传速度、下载速度
 
@@ -235,6 +235,9 @@
 ---
 
 ## 五、Worker API 定义
+
+> **说明**：以下 API 为「后端 → Worker」的内部接口，由后端服务调用 Worker 代理。
+> 前端调用的 API 见「八、后端 API 路由」。
 
 ### 5.1 进程列表查询
 
@@ -452,9 +455,9 @@ GET /api/worker/{device_id}/collect/status
 - 后端按 `collect_id` 分组存储
 
 **相对时间计算**：
-- 后端记录采集开始时间 `start_time`
-- Worker 上报时携带 `timestamp`（实际时间）
-- 后端自动计算 `relative_time = timestamp - start_time`
+- Worker 在开始采集时记录本地 `start_time`
+- Worker 上报时携带 `timestamp`（实际时间）和 `relative_time`（相对时间）
+- 后端直接使用 Worker 上报的 `relative_time`，避免时间不同步问题
 
 **数据完整性**：
 - 后端检测采集停止后，标记采集记录为"已完成"
@@ -541,25 +544,222 @@ class PerformanceVersion(BaseModel):
 
 ## 八、后端 API 路由
 
+### 8.1 采集管理
+
 ```
-/api/performance-monitor/collect/start       # 开始采集（前端调用）
-/api/performance-monitor/collect/stop        # 停止采集（前端调用）
-/api/performance-monitor/collect/status      # 获取采集状态
-/api/performance-monitor/collect/list        # 历史采集列表
-/api/performance-monitor/collect/{id}        # 采集详情
-/api/performance-monitor/collect/{id}/data   # 获取采集数据（分页）
-/api/performance-monitor/collect/{id}/latest # 获取最新数据（实时更新）
+POST /api/performance-monitor/collect/start
+请求体：
+{
+  "device_id": "uuid",
+  "interval": 5,
+  "target_processes": [
+    {"name": "chrome.exe", "pids": [1234, 2345]},
+    {"name": "node.exe", "pids": [4567]}
+  ]
+}
+响应：
+{
+  "collect_id": "uuid",
+  "status": "started"
+}
 
-/api/performance-monitor/report              # Worker 上报数据
+POST /api/performance-monitor/collect/stop
+请求体：
+{
+  "collect_id": "uuid"  // 可选，不传则停止当前所有采集
+}
+响应：
+{
+  "status": "stopped"
+}
 
-/api/performance-monitor/tag/create          # 创建标签
-/api/performance-monitor/tag/list            # 标签列表（按采集ID）
-/api/performance-monitor/tag/update          # 更新标签
-/api/performance-monitor/tag/delete          # 删除标签
+GET /api/performance-monitor/collect/status?device_id={uuid}
+响应：
+{
+  "is_collecting": true,
+  "collect_id": "uuid",
+  "interval": 5,
+  "target_processes": ["chrome.exe", "node.exe"],
+  "start_time": "2026-05-01T14:20:00Z",
+  "elapsed_seconds": 120
+}
 
-/api/performance-monitor/version/create      # 创建对比版本
-/api/performance-monitor/version/list        # 版本列表
-/api/performance-monitor/version/compare     # 版本对比数据
-/api/performance-monitor/version/export/html # 导出HTML报告
-/api/performance-monitor/version/export/excel # 下载Excel
+GET /api/performance-monitor/collect/list?device_id={uuid}&page=1&page_size=20
+响应：
+{
+  "total": 100,
+  "items": [
+    {
+      "id": "uuid",
+      "device_id": "uuid",
+      "name": "采集1",
+      "start_time": "2026-05-01T14:20:00Z",
+      "end_time": "2026-05-01T14:30:00Z",
+      "interval": 5,
+      "status": "stopped",
+      "is_protected": false
+    }
+  ]
+}
+
+GET /api/performance-monitor/collect/{id}
+响应：同上 items 中的单个对象
+
+GET /api/performance-monitor/collect/{id}/data?page=1&page_size=100
+请求参数：
+- page: int (默认1)
+- page_size: int (默认100，最大500)
+响应：
+{
+  "total": 1200,
+  "items": [
+    {
+      "id": "uuid",
+      "timestamp": "2026-05-01T14:20:30Z",
+      "relative_time": 30,
+      "cpu_usage": 45.2,
+      ...
+    }
+  ]
+}
+
+GET /api/performance-monitor/collect/{id}/latest?limit=10
+响应：
+{
+  "items": [最近10条数据]
+}
+```
+
+### 8.2 标签管理
+
+```
+POST /api/performance-monitor/tag/create
+请求体：
+{
+  "collect_id": "uuid",
+  "name": "发起共享",
+  "start_relative_time": 30,
+  "duration": 60,
+  "type": "peak"  // peak 或 mean
+}
+响应：
+{
+  "tag_id": "uuid",
+  "status": "created"
+}
+
+GET /api/performance-monitor/tag/list?collect_id={uuid}
+响应：
+{
+  "items": [
+    {
+      "id": "uuid",
+      "collect_id": "uuid",
+      "name": "发起共享",
+      "start_relative_time": 30,
+      "duration": 60,
+      "type": "peak",
+      "created_at": "2026-05-01T14:25:00Z"
+    }
+  ]
+}
+
+PUT /api/performance-monitor/tag/update
+请求体：
+{
+  "tag_id": "uuid",
+  "name": "新名称",
+  "start_relative_time": 40,
+  "duration": 80,
+  "type": "mean"
+}
+响应：
+{
+  "status": "updated"
+}
+
+DELETE /api/performance-monitor/tag/delete?tag_id={uuid}
+响应：
+{
+  "status": "deleted"
+}
+```
+
+### 8.3 版本对比
+
+```
+POST /api/performance-monitor/version/create
+请求体：
+{
+  "name": "版本对比1",
+  "collect_ids": ["uuid1", "uuid2", "uuid3"]
+}
+响应：
+{
+  "version_id": "uuid",
+  "status": "created"
+}
+
+GET /api/performance-monitor/version/list?device_id={uuid}
+响应：
+{
+  "items": [
+    {
+      "id": "uuid",
+      "name": "版本对比1",
+      "collect_ids": ["uuid1", "uuid2"],
+      "is_protected": false,
+      "created_at": "2026-05-01T15:00:00Z"
+    }
+  ]
+}
+
+GET /api/performance-monitor/version/compare?version_ids={uuid1},{uuid2}
+请求参数：
+- version_ids: string (逗号分隔的版本ID，最多6个)
+响应：
+{
+  "versions": [
+    {
+      "id": "uuid",
+      "name": "版本1",
+      "color": "#67c23a",
+      "collect_ids": ["uuid1"],
+      "tags": [
+        {"name": "发起共享", "start_relative_time": 30, "duration": 60, "type": "peak"}
+      ],
+      "data": {
+        "cpu": [...],
+        "gpu": [...],
+        "commit_memory": [...],
+        "memory_usage": [...]
+      }
+    }
+  ],
+  "merged_intervals": {
+    "peak": {"start": 20, "end": 100},
+    "mean": {"start": 150, "end": 200}
+  },
+  "summary_table": [
+    {
+      "version_name": "版本1",
+      "peak_cpu": 78.5,
+      "peak_process_cpu": 45.2,
+      ...
+    }
+  ]
+}
+
+GET /api/performance-monitor/version/export/html?version_ids={uuid1},{uuid2}
+响应：HTML 文件下载
+
+GET /api/performance-monitor/version/export/excel?version_ids={uuid1},{uuid2}
+响应：Excel 文件下载
+```
+
+### 8.4 数据上报（Worker 调用）
+
+```
+POST /api/performance-monitor/report
+（见 Section 5.4 详细定义）
 ```
