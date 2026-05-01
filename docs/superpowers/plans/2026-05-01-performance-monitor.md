@@ -388,13 +388,11 @@ from sqlalchemy import select, and_, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
-from app.base_model import generate_nanoid
 from core.performance_monitor.model import PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest, PerformanceReportRequest,
     TagCreateRequest, TagUpdateRequest, VersionCreateRequest
 )
-from app.utils.nanoid import generate_nanoid
 
 
 class PerformanceCollectService(BaseService[PerformanceCollect]):
