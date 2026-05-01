@@ -50,6 +50,8 @@ zq-platform/
 │   ├── scripts/            # 工具脚本
 │   │   ├── dumpdata.py     # 数据导出
 │   │   ├── loaddata.py     # 数据导入
+│   │   ├── init_all_menus.py  # 统一菜单初始化（清空并重建所有菜单）
+│   │   ├── init_performance_monitor_menus.py  # 性能监控菜单初始化
 │   │   ├── init_env_machine_menu.py  # 初始化设备管理菜单
 │   │   ├── init_scheduler_menu.py    # 初始化定时任务菜单
 │   │   ├── init_overview_menu.py     # 初始化概览菜单
@@ -117,12 +119,16 @@ python scripts/loaddata.py db_init.json
 
 6. **初始化菜单和定时任务数据（可选）**
 ```bash
-# 初始化菜单
+# 方式一：统一初始化所有菜单（清空并重建）
+python scripts/init_all_menus.py
+
+# 方式二：单独初始化各模块菜单
 python scripts/init_env_machine_menu.py    # 设备管理菜单
 python scripts/init_scheduler_menu.py      # 定时任务菜单
 python scripts/init_overview_menu.py       # 概览菜单
 python scripts/init_feature_analysis_menu.py  # 特性分析菜单
 python scripts/init_test_report_menu.py    # 测试报告菜单
+python scripts/init_performance_monitor_menus.py  # 性能监控菜单
 
 # 初始化定时任务数据（设备离线检测、报告分析清理、日志清理等）
 python scripts/init_scheduler_jobs.py
@@ -134,8 +140,12 @@ python scripts/init_scheduler_jobs.py
 alembic revision --autogenerate -m "add performance_monitor tables"
 alembic upgrade head
 
-# 初始化菜单（性能监控菜单已包含在统一脚本中）
+# 初始化菜单（两种方式）
+# 方式一：统一初始化所有菜单（清空并重建）
 python scripts/init_all_menus.py
+
+# 方式二：仅初始化性能监控菜单（不影响其他菜单）
+python scripts/init_performance_monitor_menus.py
 ```
 
 8. **启动服务**

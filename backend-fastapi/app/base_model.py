@@ -28,10 +28,10 @@ class BaseModel(Base):
     """
     __abstract__ = True
 
-    id = Column(String(21), primary_key=True, default=generate_nanoid, comment="主键ID(NanoId)")
+    id = Column(String(50), primary_key=True, default=generate_nanoid, comment="主键ID(NanoId)")
     sort = Column(Integer, default=0, comment="排序")
     is_deleted = Column(Boolean, default=False, index=True, comment="是否删除")
     sys_create_datetime = Column(DateTime, server_default=func.now(), comment="创建时间")
     sys_update_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间")
-    sys_creator_id = Column(String(21), nullable=True, comment="创建人ID（逻辑外键关联core_user）")
-    sys_modifier_id = Column(String(21), nullable=True, comment="修改人ID（逻辑外键关联core_user）")
+    sys_creator_id = Column(String(50), nullable=True, comment="创建人ID（逻辑外键关联core_user）")
+    sys_modifier_id = Column(String(50), nullable=True, comment="修改人ID（逻辑外键关联core_user）")
