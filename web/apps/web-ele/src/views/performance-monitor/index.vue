@@ -562,13 +562,13 @@ function handleTimelineCollectClick(collectId: string) {
       <!-- 左侧曲线图 -->
       <div class="charts-area">
         <ChartPanel
-          title="CPU 使用率"
+          title="CPU"
           :series="cpuChartSeries"
           :height="120"
           :raw-data="performanceData"
         />
         <ChartPanel
-          title="GPU 使用率"
+          title="GPU"
           :series="gpuChartSeries"
           :height="100"
           :raw-data="performanceData"
@@ -580,7 +580,7 @@ function handleTimelineCollectClick(collectId: string) {
           :raw-data="performanceData"
         />
         <ChartPanel
-          title="内存使用"
+          title="内存"
           :series="memoryChartSeries"
           :height="100"
           :raw-data="performanceData"
@@ -589,9 +589,9 @@ function handleTimelineCollectClick(collectId: string) {
 
       <!-- 右侧栏 -->
       <div class="sidebar">
-        <!-- 次要指标卡片 -->
+        <!-- 其它指标卡片 -->
         <div class="metrics-grid">
-          <div class="metrics-title">次要指标</div>
+          <div class="metrics-title">其它指标</div>
           <div class="metrics-cards">
             <MetricCard v-for="(card, i) in metricCards" :key="i" :data="card" />
           </div>
@@ -785,8 +785,9 @@ function handleTimelineCollectClick(collectId: string) {
   padding: 12px;
 }
 .metrics-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
   margin-bottom: 10px;
 }
 .metrics-cards {
@@ -807,7 +808,7 @@ function handleTimelineCollectClick(collectId: string) {
 }
 .time-btn-group {
   display: flex;
-  gap: 0;
+  gap: 8px;
 }
 .time-btn {
   padding: 6px 12px;

@@ -287,8 +287,9 @@ onUnmounted(() => {
   padding: 12px;
 }
 .chart-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
   margin-bottom: 8px;
 }
 .chart-container {

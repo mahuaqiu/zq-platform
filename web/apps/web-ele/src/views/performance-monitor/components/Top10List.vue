@@ -70,8 +70,9 @@ function getBgColor(index: number): string {
   padding: 12px;
 }
 .top10-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
   margin-bottom: 8px;
 }
 .top10-content {
