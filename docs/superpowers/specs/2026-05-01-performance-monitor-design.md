@@ -24,7 +24,9 @@
 | GPU 使用率 | 主页面左侧曲线图 | ✓ 有 |
 | 内存使用 | 主页面右侧次要指标 | ✗ 无 |
 | CPU 温度 | 主页面右侧次要指标 | ✗ 无 |
+| CPU 速度 | 主页面右侧次要指标 | ✗ 无 |
 | 功耗 | 主页面右侧次要指标 | ✗ 无 |
+| 进程句柄 | 主页面右侧次要指标 | ✗ 无 |
 | 上传速度 | 主页面右侧次要指标 | ✗ 无 |
 | 下载速度 | 主页面右侧次要指标 | ✗ 无 |
 
@@ -50,8 +52,9 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │ 左侧曲线图区 (65%)          │ 右侧栏 (35%)                           │
 │ ├─ CPU 使用率曲线图          │ ├─ 次要指标卡片                        │
-│ ├─ 提交内存曲线图            │ │   内存使用 / CPU温度 / 功耗          │
-│ ├─ GPU 使用率曲线图          │ │   上传速度 / 下载速度                 │
+│ ├─ 提交内存曲线图            │ │   内存使用 / CPU温度 / CPU速度       │
+│ ├─ GPU 使用率曲线图          │ │   功耗 / 进程句柄                     │
+│                              │ │   上传速度 / 下载速度                 │
 │                              │ ├─ CPU TOP10 迷你趋势线                │
 │                              │ ├─ GPU TOP10 迷你趋势线                │
 └─────────────────────────────────────────────────────────────────────┘
@@ -333,7 +336,9 @@ POST /api/performance-monitor/report
     "commit_memory": 4.2,      // GB
     "memory_usage": 6.2,       // GB
     "cpu_temp": 65,            // °C
+    "cpu_speed": 3.2,          // GHz（CPU当前频率）
     "power": 120,              // W
+    "process_handles": 15000,  // 进程句柄数
     "upload_speed": 2.5,       // MB/s
     "download_speed": 8.2      // MB/s
   },
@@ -505,7 +510,9 @@ class PerformanceData(BaseModel):
     commit_memory: float
     memory_usage: float
     cpu_temp: float
+    cpu_speed: float              # CPU频率 GHz
     power: float
+    process_handles: int          # 进程句柄数
     upload_speed: float
     download_speed: float
 
