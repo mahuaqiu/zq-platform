@@ -1,0 +1,150 @@
+<h2>屏幕布局最终版</h2>
+<p class="subtitle">顶部控制栏 + 时间轴选择器 + 左右分栏布局</p>
+
+<!-- 整体布局示意图 -->
+<div style="background: #f5f5f5; border-radius: 8px; padding: 16px;">
+  <h3 style="font-size: 14px; margin-bottom: 12px;">页面整体结构</h3>
+
+  <!-- 布局框图 -->
+  <div style="border: 2px solid #409eff; border-radius: 8px; padding: 4px; background: #fff;">
+    <!-- 顶部控制栏 -->
+    <div style="background: #e6f7ff; border-radius: 6px; padding: 8px; margin: 4px; text-align: center; font-size: 12px; color: #1890ff;">
+      【顶部控制栏】设备选择 | 开始/停止采集 | 状态提示 | 标记版本 | 历史采集
+    </div>
+
+    <!-- 时间轴选择器 -->
+    <div style="background: #f6ffed; border-radius: 6px; padding: 8px; margin: 4px; text-align: center; font-size: 12px; color: #52c41a;">
+      【时间轴选择器】30分钟 | 60分钟 | 全部 | 时间滑块 | 已标记版本列表
+    </div>
+
+    <!-- 主内容区 -->
+    <div style="display: flex; gap: 4px; margin: 4px;">
+      <!-- 左侧曲线图 -->
+      <div style="flex: 65%; background: #fffbe6; border-radius: 6px; padding: 8px;">
+        <div style="font-size: 12px; color: #faad14; text-align: center; margin-bottom: 8px;">【左侧曲线图区 65%】</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">CPU 使用率曲线图</div>
+          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">GPU 使用率曲线图</div>
+          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">提交内存曲线图</div>
+          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">内存使用曲线图</div>
+        </div>
+      </div>
+
+      <!-- 右侧栏 -->
+      <div style="flex: 35%; background: #f9f0ff; border-radius: 6px; padding: 8px;">
+        <div style="font-size: 12px; color: #722ed1; text-align: center; margin-bottom: 8px;">【右侧栏 35%】</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="background: #fff; border-radius: 4px; padding: 6px;">
+            <div style="font-size: 10px; text-align: center; margin-bottom: 4px;">次要指标卡片（2列网格）</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">功耗</div>
+              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">CPU速度</div>
+              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">CPU温度</div>
+              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">进程句柄</div>
+              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">上传速度</div>
+              <div style="background: #f5f5f5; border-radius: 2px; padding: 4px; font-size: 9px;">下载速度</div>
+            </div>
+          </div>
+          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">CPU TOP10 概览</div>
+          <div style="background: #fff; border-radius: 4px; padding: 6px; text-align: center; font-size: 10px;">GPU TOP10 概览</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 响应式设计 -->
+<div style="background: #fff; border-radius: 8px; padding: 16px; margin-top: 12px;">
+  <h3 style="font-size: 14px; margin-bottom: 12px;">响应式设计</h3>
+
+  <div style="display: flex; gap: 16px;">
+    <!-- 大屏 -->
+    <div style="flex: 1;">
+      <div style="font-size: 12px; color: #67c23a; font-weight: 600; margin-bottom: 8px;">大屏（≥1200px）</div>
+      <div style="background: #f8f9fa; border-radius: 4px; padding: 8px; font-size: 10px;">
+        - 左侧曲线图：65%<br>
+        - 右侧栏：35%<br>
+        - 次要指标：2列网格<br>
+        - 曲线图高度：CPU 160px，其他 120px
+      </div>
+    </div>
+
+    <!-- 中屏 -->
+    <div style="flex: 1;">
+      <div style="font-size: 12px; color: #e6a23c; font-weight: 600; margin-bottom: 8px;">中屏（768-1199px）</div>
+      <div style="background: #f8f9fa; border-radius: 4px; padding: 8px; font-size: 10px;">
+        - 左侧曲线图：60%<br>
+        - 右侧栏：40%<br>
+        - 次要指标：2列网格<br>
+        - 曲线图高度：统一 100px
+      </div>
+    </div>
+
+    <!-- 小屏 -->
+    <div style="flex: 1;">
+      <div style="font-size: 12px; color: #f56c6c; font-weight: 600; margin-bottom: 8px;">小屏（<768px）</div>
+      <div style="background: #f8f9fa; border-radius: 4px; padding: 8px; font-size: 10px;">
+        - 单列布局<br>
+        - 曲线图在上，次要指标在下<br>
+        - 次要指标：1列<br>
+        - TOP10 可折叠
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 组件层次结构 -->
+<div style="background: #fff; border-radius: 8px; padding: 16px; margin-top: 12px;">
+  <h3 style="font-size: 14px; margin-bottom: 12px;">组件层次结构</h3>
+
+  <div style="font-size: 11px; line-height: 1.8;">
+    <pre style="background: #f8f9fa; padding: 12px; border-radius: 4px;">
+index.vue（主页面）
+├── 控制栏（ControlBar）
+│   ├── 设备选择（Select）
+│   ├── 开始/停止按钮
+│   └── 状态提示（Badge）
+├── 时间轴选择器（TimeSelector）
+│   ├── 快捷按钮（ButtonGroup）
+│   └── 时间滑块（Slider）
+├── 左侧曲线图区
+│   ├── ChartPanel.vue（CPU使用率）
+│   ├── ChartPanel.vue（GPU使用率）
+│   ├── ChartPanel.vue（提交内存）
+│   └── ChartPanel.vue（内存使用）
+├── 右侧栏
+│   ├── 次要指标网格
+│   │   ├── MetricCard.vue × 6
+│   ├── Top10List.vue（CPU TOP10）
+│   └── Top10List.vue（GPU TOP10）
+└── CollectDialog.vue（开始采集弹窗）
+    </pre>
+  </div>
+</div>
+
+<!-- 数据流 -->
+<div style="background: #fff; border-radius: 8px; padding: 16px; margin-top: 12px;">
+  <h3 style="font-size: 14px; margin-bottom: 12px;">数据流向</h3>
+
+  <div style="background: #f8f9fa; border-radius: 4px; padding: 12px; font-size: 11px;">
+    <b>实时采集：</b><br>
+    Worker → POST /report → 后端存储 → 前端轮询 GET /latest → 更新曲线图<br><br>
+
+    <b>历史查看：</b><br>
+    用户选择时间窗口 → GET /data → 后端返回历史数据 → 曲线图渲染<br><br>
+
+    <b>版本对比：</b><br>
+    用户选择版本 → GET /compare → 后端返回多版本数据 → 曲线叠加显示
+  </div>
+</div>
+
+<div style="margin-top: 12px; padding: 12px; background: #f0f9eb; border-radius: 6px; border: 1px solid #b7eb8f;">
+  <b style="font-size: 12px; color: #52c41a;">布局要点：</b>
+  <ul style="font-size: 11px; color: #666; margin: 4px 0; padding-left: 16px;">
+    <li>顶部固定控制栏，便于快速操作</li>
+    <li>时间轴选择器独立一行，突出时间控制</li>
+    <li>左侧曲线图占主体，右侧补充次要信息</li>
+    <li>次要指标紧凑排列，不占用过多空间</li>
+    <li>TOP10 概览提供快速参考，详情可在 Tooltip 查看</li>
+  </ul>
+</div>
