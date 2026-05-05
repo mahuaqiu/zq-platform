@@ -655,7 +655,7 @@ async def get_machine_logs(
         params["end_time"] = end_time
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, trust_env=True, verify=False) as client:
+        async with httpx.AsyncClient(timeout=30.0, trust_env=False, verify=False) as client:
             resp = await client.get(url, params=params)
             if resp.status_code == 200:
                 # 从响应头获取统计信息
@@ -784,7 +784,7 @@ async def debug_device_action(
     request_timeout = 35.0 if action_type == "unlock_screen" else 20.0
 
     try:
-        async with httpx.AsyncClient(timeout=request_timeout, trust_env=True, verify=False) as client:
+        async with httpx.AsyncClient(timeout=request_timeout, trust_env=False, verify=False) as client:
             resp = await client.post(worker_url, json=worker_request)
             if resp.status_code == 200:
                 worker_result = resp.json()

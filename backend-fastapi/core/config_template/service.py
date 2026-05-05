@@ -469,7 +469,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         try:
             async with httpx.AsyncClient(
                 timeout=WORKER_CONFIG_TIMEOUT,
-                trust_env=True,
+                trust_env=False,
                 verify=False
             ) as client:
                 response = await client.post(url, json=payload)
@@ -514,7 +514,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         try:
             async with httpx.AsyncClient(
                 timeout=WORKER_CONFIG_TIMEOUT,
-                trust_env=True,
+                trust_env=False,
                 verify=False
             ) as client:
                 response = await client.post(url, json=payload)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { ElMessage, ElDialog, ElInput, ElCheckbox, ElSelect, ElOption } from 'element-plus';
+import { ElMessage, ElDialog, ElInput, ElCheckbox, ElSelect, ElOption, ElRadioGroup, ElRadioButton } from 'element-plus';
 import { startCollect, getProcesses } from '#/api/core/performance-monitor';
 import type { TargetProcessConfig, ProcessInfo } from '#/api/core/performance-monitor';
 import { getDisplayProcesses, saveProcessesToHistory } from '../config';
@@ -27,20 +27,68 @@ const deviceDisplay = computed(() => {
 const interval = ref(5);
 const intervalOptions = [1, 5, 10, 30];
 
+// 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
+const collectMode = ref<'pid' | 'name'>('pid');
+
 // 进程列表
 const processList = ref<Array<{ name: string; pid: number; cpu: number }>>([]);
 const searchQuery = ref('');
+// 进程名模式下：存储选中的进程名列表；PID模式下：存储 TargetProcessConfig
+const selectedProcessNames = ref<string[]>([]);
 const selectedProcesses = ref<TargetProcessConfig[]>([]);
 const loading = ref(false);
 
 // 动态获取进程推荐列表（优先历史记录，其次预设配置）
 const presetProcesses = ref<string[]>(getDisplayProcesses());
 
+// 根据采集模式计算选中状态
+const selectedCount = computed(() => {
+  if (collectMode.value === 'name') {
+    return selectedProcessNames.value.length;
+  }
+  return selectedProcesses.value.length;
+});
+
 const filteredProcesses = computed(() => {
   if (!searchQuery.value) return processList.value;
   return processList.value.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
   );
+});
+
+// 进程名模式下的唯一进程名列表（带实例数统计）
+const uniqueProcessNames = computed(() => {
+  // 先过滤搜索结果
+  const filtered = searchQuery.value
+    ? processList.value.filter((p) =>
+        p.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
+      )
+    : processList.value;
+
+  // 统计每个进程名的实例数
+  const nameCountMap = new Map<string, number>();
+  for (const p of filtered) {
+    nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
+  }
+
+  // 返回唯一进程名列表
+  return Array.from(nameCountMap.entries()).map(([name, count]) => ({
+    name,
+    instanceCount: count,
+  }));
+});
+
+// 根据采集模式获取最终的目标进程配置
+const finalTargetProcesses = computed<TargetProcessConfig[]>(() => {
+  if (collectMode.value === 'name') {
+    // 进程名模式：每个进程名下采集所有实例（pids 为 undefined）
+    return selectedProcessNames.value.map((name) => ({
+      name,
+      pids: undefined,
+    }));
+  }
+  // PID模式：采集指定PID
+  return selectedProcesses.value;
 });
 
 async function fetchProcesses() {
@@ -60,7 +108,8 @@ async function fetchProcesses() {
   }
 }
 
-function toggleProcess(name: string, pid: number) {
+// PID模式：选中/取消选中进程
+function toggleProcessPid(name: string, pid: number) {
   const existing = selectedProcesses.value.find((p) => p.name === name);
   if (existing) {
     if (existing.pids?.includes(pid)) {
@@ -78,13 +127,27 @@ function toggleProcess(name: string, pid: number) {
   }
 }
 
+// 进程名模式：选中/取消选中进程名
+function toggleProcessName(name: string) {
+  const idx = selectedProcessNames.value.indexOf(name);
+  if (idx >= 0) {
+    selectedProcessNames.value.splice(idx, 1);
+  } else {
+    selectedProcessNames.value.push(name);
+  }
+}
+
+// 判断是否选中（根据采集模式）
 function isProcessSelected(name: string, pid: number): boolean {
+  if (collectMode.value === 'name') {
+    return selectedProcessNames.value.includes(name);
+  }
   const existing = selectedProcesses.value.find((p) => p.name === name);
   return existing?.pids?.includes(pid) || false;
 }
 
 async function handleStart() {
-  if (selectedProcesses.value.length === 0) {
+  if (selectedCount.value === 0) {
     ElMessage.warning('请选择目标进程');
     return;
   }
@@ -94,10 +157,13 @@ async function handleStart() {
     const result = await startCollect({
       device_id: props.deviceId,
       interval: interval.value,
-      target_processes: selectedProcesses.value,
+      target_processes: finalTargetProcesses.value,
     });
     // 保存到历史记录，下次优先显示
-    saveProcessesToHistory(selectedProcesses.value.map((p) => p.name));
+    const names = collectMode.value === 'name'
+      ? selectedProcessNames.value
+      : selectedProcesses.value.map((p) => p.name);
+    saveProcessesToHistory(names);
     // 更新推荐列表
     presetProcesses.value = getDisplayProcesses();
     ElMessage.success('采集已开始');
@@ -111,19 +177,34 @@ async function handleStart() {
 }
 
 function selectAll() {
-  selectedProcesses.value = processList.value.map((p) => ({
-    name: p.name,
-    pids: [p.pid],
-  }));
+  // 全选时使用过滤后的列表（搜索结果），而不是完整列表
+  if (collectMode.value === 'name') {
+    // 进程名模式：选中过滤后的所有唯一进程名
+    selectedProcessNames.value = uniqueProcessNames.value.map((item) => item.name);
+  } else {
+    // PID模式：选中过滤后的所有进程的具体PID
+    selectedProcesses.value = filteredProcesses.value.map((p) => ({
+      name: p.name,
+      pids: [p.pid],
+    }));
+  }
 }
 
 function clearAll() {
+  selectedProcessNames.value = [];
   selectedProcesses.value = [];
 }
+
+// 采集模式切换时清空选择
+watch(collectMode, () => {
+  selectedProcessNames.value = [];
+  selectedProcesses.value = [];
+});
 
 watch(() => props.visible, (v) => {
   if (v) {
     fetchProcesses();
+    selectedProcessNames.value = [];
     selectedProcesses.value = [];
   }
 });
@@ -153,6 +234,17 @@ watch(() => props.visible, (v) => {
     <div class="process-section">
       <div class="section-title">目标进程 <span class="subtitle">（可多选）</span></div>
 
+      <!-- 采集模式选择 -->
+      <div class="mode-selector">
+        <el-radio-group v-model="collectMode" size="small">
+          <el-radio-button value="pid">按PID采集</el-radio-button>
+          <el-radio-button value="name">按进程名采集</el-radio-button>
+        </el-radio-group>
+        <div class="mode-tip">
+          {{ collectMode === 'pid' ? '采集指定PID的进程' : '采集该进程名下所有实例（含未来启动的新实例）' }}
+        </div>
+      </div>
+
       <!-- 搜索框 -->
       <div class="search-wrapper">
         <el-input
@@ -177,25 +269,47 @@ watch(() => props.visible, (v) => {
 
       <!-- 进程列表 -->
       <div class="process-list" v-loading="loading">
-        <div
-          v-for="proc in filteredProcesses"
-          :key="`${proc.name}-${proc.pid}`"
-          :class="['process-item', isProcessSelected(proc.name, proc.pid) ? 'selected' : '']"
-        >
-          <el-checkbox
-            :model-value="isProcessSelected(proc.name, proc.pid)"
-            @change="toggleProcess(proc.name, proc.pid)"
-          />
-          <span class="process-name">{{ proc.name }}</span>
-          <span class="process-pid">PID: {{ proc.pid }}</span>
-        </div>
+        <!-- PID模式：显示每个PID实例 -->
+        <template v-if="collectMode === 'pid'">
+          <div
+            v-for="proc in filteredProcesses"
+            :key="`${proc.name}-${proc.pid}`"
+            :class="['process-item', isProcessSelected(proc.name, proc.pid) ? 'selected' : '']"
+          >
+            <el-checkbox
+              :model-value="isProcessSelected(proc.name, proc.pid)"
+              @change="toggleProcessPid(proc.name, proc.pid)"
+            />
+            <span class="process-name">{{ proc.name }}</span>
+            <span class="process-pid">PID: {{ proc.pid }}</span>
+          </div>
+        </template>
+        <!-- 进程名模式：显示去重后的进程名 -->
+        <template v-else>
+          <div
+            v-for="item in uniqueProcessNames"
+            :key="item.name"
+            :class="['process-item', selectedProcessNames.includes(item.name) ? 'selected' : 'name-mode']"
+          >
+            <el-checkbox
+              :model-value="selectedProcessNames.includes(item.name)"
+              @change="toggleProcessName(item.name)"
+            />
+            <span class="process-name">{{ item.name }}</span>
+            <span class="process-badge" v-if="item.instanceCount > 1">
+              {{ item.instanceCount }}实例
+            </span>
+          </div>
+        </template>
       </div>
 
       <!-- 快捷操作 -->
       <div class="quick-actions">
         <button class="quick-btn" @click="selectAll">全选</button>
         <button class="quick-btn" @click="clearAll">清空</button>
-        <span class="selected-count">已选 {{ selectedProcesses.length }} 个进程</span>
+        <span class="selected-count">
+          已选 {{ selectedCount }} 个{{ collectMode === 'name' ? '进程名' : '进程' }}
+        </span>
       </div>
     </div>
 
@@ -266,6 +380,14 @@ watch(() => props.visible, (v) => {
 .search-wrapper {
   margin-bottom: 6px;
 }
+.mode-selector {
+  margin-bottom: 10px;
+}
+.mode-tip {
+  font-size: 10px;
+  color: #999;
+  margin-top: 4px;
+}
 .preset-tags {
   display: flex;
   gap: 6px;
@@ -311,6 +433,16 @@ watch(() => props.visible, (v) => {
 .process-pid {
   font-size: 10px;
   color: #999;
+}
+.process-badge {
+  font-size: 10px;
+  color: #409eff;
+  background: #e6f7ff;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.process-item.name-mode.selected {
+  background: #e6f7ff;
 }
 .quick-actions {
   display: flex;

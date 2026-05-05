@@ -550,7 +550,7 @@ async def reload_machine_status_after_restart() -> Dict:
         logger.info(f"准备重载 {total_machines} 台机器，涉及 {len(worker_groups)} 个 Worker")
 
         # 并发访问所有 Worker
-        async with httpx.AsyncClient(timeout=5.0, trust_env=True, verify=False) as client:
+        async with httpx.AsyncClient(timeout=5.0, trust_env=False, verify=False) as client:
             # 创建并发任务
             tasks = [
                 _check_single_worker(client, worker_key, worker_machines)
