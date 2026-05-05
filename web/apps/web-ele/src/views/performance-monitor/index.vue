@@ -12,6 +12,7 @@ import {
   getCollectStatus,
   stopCollect,
   getLatestData,
+  getCollectData,
   getCollectList,
   getVersions,
   createVersion,
@@ -36,13 +37,7 @@ const loadingDevices = ref(true);
 
 // 在线设备列表
 const onlineDevices = computed(() =>
-  devices.value.filter((d) => d.status === 'online' || d.status === 'using')
-);
-
-const deviceOptions = computed(() =>
-  devices.value
-    .filter((d) => d.status === 'online' || d.status === 'using')
-    .map((d) => ({ label: `${d.ip} (${d.status === 'online' ? '在线' : '使用中'})`, value: d.id })),
+  devices.value.filter((d) => d.status === 'online' || d.status === 'using'),
 );
 
 // 当前选中设备信息
@@ -90,19 +85,18 @@ const processNamesDisplay = computed(() => {
   return `${names.slice(0, 3).join(', ')}...+${names.length - 3}`;
 });
 
-// 进程 Tooltip 内容（采集中状态）
+// 进程 Tooltip 内容（采集中状态）- 使用进程名列表
 const processTooltipContent = computed(() => {
   const processes = collectStatus.value.target_processes || [];
   if (processes.length === 0) return '';
+  // 显示进程名和PID
   return processes
     .map((p) => {
-      const instances = p.instances || [];
-      if (instances.length > 0) {
-        return instances
-          .map((inst) => `${p.name} PID:${inst.pid} CPU:${inst.cpu?.toFixed(1) || 0}%`)
-          .join('\n');
+      const pids = p.pids || [];
+      if (pids.length > 0) {
+        return `${p.name} PID:${pids.join(',')}`;
       }
-      return `${p.name} CPU:${p.total_cpu?.toFixed(1) || 0}%`;
+      return p.name;
     })
     .join('\n');
 });
@@ -112,6 +106,25 @@ const currentMetrics = computed(() => {
   const latest = performanceData.value[performanceData.value.length - 1];
   if (!latest) return null;
   return latest;
+});
+
+// 计算实际采集的时间范围
+const actualTimeRange = computed(() => {
+  if (performanceData.value.length === 0) {
+    return undefined;
+  }
+
+  const firstData = performanceData.value[0];
+  const lastData = performanceData.value[performanceData.value.length - 1];
+
+  if (!firstData || !lastData) {
+    return undefined;
+  }
+
+  return {
+    startTime: new Date(firstData.timestamp),
+    endTime: new Date(lastData.timestamp),
+  };
 });
 
 // 曲线图数据
@@ -147,43 +160,30 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
+// 提交内存图表 - 只显示进程内存总和
 const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
   if (!performanceData.value.length) return [];
+  // 进程内存总和（MB）
+  const processData = performanceData.value.map((d) => {
+    const totalMemMB =
+      d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
+    return { time: d.relative_time, value: totalMemMB };
+  });
   return [
-    {
-      name: '系统',
-      data: performanceData.value.map((d) => ({
-        time: d.relative_time,
-        value: d.commit_memory || 0,
-      })),
-      color: '#f56c6c',
-      unit: 'GB',
-    },
-    {
-      name: '进程',
-      data: performanceData.value.map((d) => {
-        const totalMem =
-          d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
-        return { time: d.relative_time, value: totalMem }; // 保持 MB 单位
-      }),
-      color: '#909399',
-      unit: 'MB',
-    },
+    { name: '进程内存', data: processData, color: '#f56c6c', unit: 'MB' },
   ];
 });
 
 const memoryChartSeries = computed<ChartSeries[]>(() => {
   if (!performanceData.value.length) return [];
+  // 显示进程内存总和（MB单位）
+  const processData = performanceData.value.map((d) => {
+    const totalMemMB =
+      d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
+    return { time: d.relative_time, value: totalMemMB };
+  });
   return [
-    {
-      name: '系统',
-      data: performanceData.value.map((d) => ({
-        time: d.relative_time,
-        value: d.memory_usage || 0,
-      })),
-      color: '#909399',
-      unit: 'GB',
-    },
+    { name: '进程内存', data: processData, color: '#909399', unit: 'MB' },
   ];
 });
 
@@ -279,13 +279,14 @@ async function fetchOnlineDevices() {
       page: 1,
       page_size: 100,
     });
-    devices.value = result.items;
+    devices.value = result?.items || [];
     // 默认选择第一个在线设备
-    const onlineDevices = result.items.filter(
+    const onlineDevs = devices.value.filter(
       (d) => d.status === 'online' || d.status === 'using',
     );
-    if (onlineDevices.length > 0) {
-      deviceId.value = onlineDevices[0].id;
+    const firstDevice = onlineDevs[0];
+    if (firstDevice) {
+      deviceId.value = firstDevice.id;
     }
   } catch (error) {
     console.error('获取设备列表失败', error);
@@ -302,6 +303,15 @@ onMounted(async () => {
   await refreshStatus();
   await fetchCollectHistory();
   await fetchVersions();
+
+  // 如果没有正在采集，加载最近的采集数据
+  if (!collectStatus.value.is_collecting && collectHistory.value.length > 0) {
+    const latestCollect = collectHistory.value[0];
+    if (latestCollect?.id) {
+      currentCollectId.value = latestCollect.id;
+      await loadCollectData(latestCollect.id);
+    }
+  }
 });
 
 onUnmounted(() => {
@@ -329,9 +339,22 @@ async function fetchCollectHistory() {
       page: 1,
       page_size: 20,
     });
-    collectHistory.value = result.items;
+    collectHistory.value = result?.items || [];
   } catch (error) {
     console.error('获取采集历史失败', error);
+  }
+}
+
+// 加载采集的全部数据（用于历史采集查看）
+async function loadCollectData(collectId: string) {
+  try {
+    const result = await getCollectData(collectId, { page: 1, page_size: 500 });
+    if (result?.items?.length) {
+      performanceData.value = result.items;
+      historyData.value = result.items.slice(-50);
+    }
+  } catch (error) {
+    console.error('获取采集数据失败', error);
   }
 }
 
@@ -346,15 +369,39 @@ async function fetchVersions() {
 
 function startPolling(collectId: string) {
   if (pollingTimer) clearInterval(pollingTimer);
+
+  // 立即获取最新数据显示
+  loadLatestData(collectId);
+
+  // 定时轮询获取最新数据
   pollingTimer = window.setInterval(async () => {
-    try {
-      const result = await getLatestData(collectId, 10);
-      performanceData.value = result.items;
-      historyData.value = [...historyData.value, ...result.items].slice(-100);
-    } catch (error) {
-      console.error('获取最新数据失败', error);
-    }
+    await loadLatestData(collectId);
   }, (collectStatus.value.interval ?? 5) * 1000);
+}
+
+// 加载最新数据
+async function loadLatestData(collectId: string) {
+  try {
+    const result = await getLatestData(collectId, 50);
+    if (result?.items?.length) {
+      // 合并数据，避免重复
+      const existingIds = new Set(performanceData.value.map(d => d.id));
+      const newData = result.items.filter(d => !existingIds.has(d.id));
+
+      if (performanceData.value.length === 0) {
+        // 如果之前没有数据，直接设置返回的数据
+        performanceData.value = result.items;
+      } else if (newData.length > 0) {
+        // 有新数据，追加到末尾
+        performanceData.value = [...performanceData.value, ...newData];
+      }
+
+      // 更新历史数据用于迷你趋势线
+      historyData.value = performanceData.value.slice(-50);
+    }
+  } catch (error) {
+    console.error('获取最新数据失败', error);
+  }
 }
 
 function stopPolling() {
@@ -401,6 +448,15 @@ async function handleDeviceChange() {
   await refreshStatus();
   await fetchCollectHistory();
   await fetchVersions();
+
+  // 如果没有正在采集，加载最近的采集数据
+  if (!collectStatus.value.is_collecting && collectHistory.value.length > 0) {
+    const latestCollect = collectHistory.value[0];
+    if (latestCollect?.id) {
+      currentCollectId.value = latestCollect.id;
+      await loadCollectData(latestCollect.id);
+    }
+  }
 }
 
 // 版本操作
@@ -502,7 +558,7 @@ function handleTimelineCollectClick(collectId: string) {
           :title="processTooltipContent"
         >
           <span class="status-dot"></span>
-          采集中 {{ collectStatus.interval }}秒 |
+          采集中 (频率{{ collectStatus.interval }}秒) |
           <span v-if="processNamesDisplay" class="process-names">
             {{ processNamesDisplay }}
           </span>
@@ -536,6 +592,8 @@ function handleTimelineCollectClick(collectId: string) {
           :versions="versions"
           :current-collect-id="currentCollectId"
           :total-duration="timeWindow === -1 ? 120 : timeWindow"
+          :actual-start-time="actualTimeRange?.startTime"
+          :actual-end-time="actualTimeRange?.endTime"
           @window-change="handleTimelineWindowChange"
           @version-click="handleTimelineVersionClick"
           @collect-click="handleTimelineCollectClick"
@@ -562,28 +620,32 @@ function handleTimelineCollectClick(collectId: string) {
       <!-- 左侧曲线图 -->
       <div class="charts-area">
         <ChartPanel
-          title="CPU"
+          title="CPU（%）"
           :series="cpuChartSeries"
-          :height="120"
+          :height="180"
           :raw-data="performanceData"
+          chart-type="cpu"
         />
         <ChartPanel
-          title="GPU"
+          title="GPU（%）"
           :series="gpuChartSeries"
-          :height="100"
+          :height="150"
           :raw-data="performanceData"
+          chart-type="gpu"
         />
         <ChartPanel
-          title="提交内存"
+          title="提交内存（MB）"
           :series="commitMemoryChartSeries"
-          :height="100"
+          :height="150"
           :raw-data="performanceData"
+          chart-type="commitMemory"
         />
         <ChartPanel
-          title="内存"
+          title="内存（MB）"
           :series="memoryChartSeries"
-          :height="100"
+          :height="150"
           :raw-data="performanceData"
+          chart-type="memory"
         />
       </div>
 

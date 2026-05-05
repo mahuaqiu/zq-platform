@@ -70,8 +70,8 @@ class SystemMetrics(BaseModel):
     cpu_speed: Optional[float] = Field(None, ge=0, description="CPU速度 GHz")
     cpu_temp: Optional[float] = Field(None, description="CPU温度 °C")
     process_handles: Optional[int] = Field(None, ge=0, description="进程句柄数")
-    upload_speed: Optional[float] = Field(None, ge=0, description="上传速度 MB/s")
-    download_speed: Optional[float] = Field(None, ge=0, description="下载速度 MB/s")
+    upload_speed: Optional[float] = Field(None, ge=0, description="上传速度 KB/s")
+    download_speed: Optional[float] = Field(None, ge=0, description="下载速度 KB/s")
 
 
 class Top10Process(BaseModel):
@@ -110,8 +110,8 @@ class SystemMetricsReport(BaseModel):
     cpu_speed: float = Field(..., ge=0, description="CPU速度 GHz")
     cpu_temp: float = Field(..., description="CPU温度 °C")
     process_handles: int = Field(..., ge=0, description="进程句柄数")
-    upload_speed: float = Field(..., ge=0, description="上传速度 MB/s")
-    download_speed: float = Field(..., ge=0, description="下载速度 MB/s")
+    upload_speed: float = Field(..., ge=0, description="上传速度 KB/s")
+    download_speed: float = Field(..., ge=0, description="下载速度 KB/s")
 
 
 class Top10ProcessReport(BaseModel):
@@ -122,16 +122,21 @@ class Top10ProcessReport(BaseModel):
     gpu: Optional[float] = Field(None, description="GPU使用率 %")
 
 
-class WorkerReportRequest(BaseModel):
-    """Worker 上报数据请求 Schema"""
-    collect_id: str = Field(..., description="采集记录ID")
-    device_id: str = Field(..., description="设备ID")
+class PerformanceSampleReport(BaseModel):
+    """单个性能样本上报 Schema"""
     timestamp: datetime = Field(..., description="实际时间")
     relative_time: int = Field(..., ge=0, description="相对时间（秒）")
     system: SystemMetricsReport = Field(..., description="系统指标")
     target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程")
     top10_cpu: List[Top10ProcessReport] = Field(default_factory=list, description="CPU TOP10")
     top10_gpu: List[Top10ProcessReport] = Field(default_factory=list, description="GPU TOP10")
+
+
+class WorkerReportRequest(BaseModel):
+    """Worker 上报数据请求 Schema（批量上报）"""
+    collect_id: str = Field(..., description="采集记录ID")
+    device_id: str = Field(..., description="设备ID")
+    samples: List[PerformanceSampleReport] = Field(default_factory=list, description="性能样本列表")
 
 
 class PerformanceReportRequest(BaseModel):

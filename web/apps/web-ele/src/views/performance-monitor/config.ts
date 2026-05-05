@@ -46,7 +46,7 @@ export function getRecommendedProcesses(): string[] {
   try {
     const history = JSON.parse(
       localStorage.getItem(STORAGE_KEY_PROCESS_HISTORY) || '{}',
-    );
+    ) as Record<string, number>;
     return Object.entries(history)
       .sort((a, b) => b[1] - a[1])
       .slice(0, MAX_RECOMMEND_COUNT)

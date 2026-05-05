@@ -9,6 +9,9 @@ interface Props {
   currentCollectId?: string;
   selectedWindow?: [Date, Date];
   totalDuration?: number; // 总时间范围（分钟）
+  // 新增：实际时间范围
+  actualStartTime?: Date; // 实际采集开始时间
+  actualEndTime?: Date; // 实际采集结束时间
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -24,16 +27,58 @@ const emit = defineEmits<{
 const timelineRef = ref<HTMLDivElement>();
 const isDragging = ref(false);
 const dragType = ref<'window' | 'left' | 'right'>('window');
-const windowStart = ref(0.2); // 左侧位置百分比
-const windowWidth = ref(0.4); // 窗口宽度百分比
+const windowStart = ref(0); // 左侧位置百分比（默认从0开始显示全部数据）
+const windowWidth = ref(1); // 窗口宽度百分比（默认100%）
 
-// 时间刻度
+// 计算时间范围基准 - 基于当前查看的采集
+const timeRange = computed(() => {
+  // 优先使用传入的实际时间范围（当前采集数据的实际时间）
+  if (props.actualStartTime && props.actualEndTime) {
+    return {
+      start: props.actualStartTime.getTime(),
+      end: props.actualEndTime.getTime(),
+    };
+  }
+
+  // 如果有当前采集ID，找对应的采集记录时间
+  if (props.currentCollectId) {
+    const currentCollect = props.collects.find(c => c.id === props.currentCollectId);
+    if (currentCollect?.start_time) {
+      const startTime = new Date(currentCollect.start_time).getTime();
+      const endTime = currentCollect.end_time
+        ? new Date(currentCollect.end_time).getTime()
+        : new Date().getTime();
+      return { start: startTime, end: endTime };
+    }
+  }
+
+  // 如果没有正在采集，使用最近一个采集的时间范围
+  if (props.collects.length > 0) {
+    const latestCollect = props.collects[0];
+    if (latestCollect?.start_time) {
+      const startTime = new Date(latestCollect.start_time).getTime();
+      const endTime = latestCollect.end_time
+        ? new Date(latestCollect.end_time).getTime()
+        : new Date().getTime();
+      return { start: startTime, end: endTime };
+    }
+  }
+
+  // 最后使用默认范围（5分钟）
+  const now = new Date();
+  const totalMs = 5 * 60 * 1000;
+  return {
+    start: now.getTime() - totalMs,
+    end: now.getTime(),
+  };
+});
+
+// 时间刻度 - 基于实际时间范围
 const timeLabels = computed(() => {
   const labels: string[] = [];
-  const now = new Date();
-  const step = props.totalDuration / 5;
+  const totalMs = timeRange.value.end - timeRange.value.start;
   for (let i = 0; i <= 5; i++) {
-    const time = new Date(now.getTime() - (5 - i) * step * 60 * 1000);
+    const time = new Date(timeRange.value.start + i * totalMs / 5);
     labels.push(
       time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     );
@@ -41,7 +86,7 @@ const timeLabels = computed(() => {
   return labels;
 });
 
-// 版本标记点位置
+// 版本标记点位置 - 基于实际时间范围
 const versionMarkers = computed(() => {
   return props.versions.map((v, i) => {
     // 根据版本的采集时间计算位置
@@ -50,11 +95,9 @@ const versionMarkers = computed(() => {
     );
     if (!collect?.start_time) return null;
 
-    const startTime = new Date(collect.start_time);
-    const now = new Date();
-    const totalMs = props.totalDuration * 60 * 1000;
-    const startMs = now.getTime() - totalMs;
-    const position = (startTime.getTime() - startMs) / totalMs;
+    const startTime = new Date(collect.start_time).getTime();
+    const totalMs = timeRange.value.end - timeRange.value.start;
+    const position = (startTime - timeRange.value.start) / totalMs;
 
     return {
       id: v.id,
@@ -65,18 +108,16 @@ const versionMarkers = computed(() => {
   }).filter(Boolean);
 });
 
-// 采集标记点位置
+// 采集标记点位置 - 基于实际时间范围
 const collectMarkers = computed(() => {
   return props.collects.map((c) => {
     // 已在版本中的采集不显示
     const inVersion = props.versions.some((v) => v.collect_ids.includes(c.id));
     if (inVersion) return null;
 
-    const startTime = new Date(c.start_time);
-    const now = new Date();
-    const totalMs = props.totalDuration * 60 * 1000;
-    const startMs = now.getTime() - totalMs;
-    const position = (startTime.getTime() - startMs) / totalMs;
+    const startTime = new Date(c.start_time).getTime();
+    const totalMs = timeRange.value.end - timeRange.value.start;
+    const position = (startTime - timeRange.value.start) / totalMs;
 
     return {
       id: c.id,
@@ -135,12 +176,9 @@ function handleMouseUp() {
 }
 
 function emitWindowChange() {
-  const now = new Date();
-  const totalMs = props.totalDuration * 60 * 1000;
-  const startMs = now.getTime() - totalMs;
-
-  const startDate = new Date(startMs + windowStart.value * totalMs);
-  const endDate = new Date(startMs + (windowStart.value + windowWidth.value) * totalMs);
+  const totalMs = timeRange.value.end - timeRange.value.start;
+  const startDate = new Date(timeRange.value.start + windowStart.value * totalMs);
+  const endDate = new Date(timeRange.value.start + (windowStart.value + windowWidth.value) * totalMs);
 
   emit('window-change', [startDate, endDate]);
 }

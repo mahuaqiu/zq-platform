@@ -106,26 +106,31 @@ class PerformanceDataService(BaseService):
 
     @classmethod
     async def report_data(cls, db: AsyncSession, request: WorkerReportRequest) -> bool:
-        """接收 Worker 上报数据"""
-        data = PerformanceData(
-            collect_id=request.collect_id,
-            timestamp=request.timestamp,
-            relative_time=request.relative_time,
-            cpu_usage=request.system.cpu_usage,
-            gpu_usage=request.system.gpu_usage,
-            commit_memory=request.system.commit_memory,
-            memory_usage=request.system.memory_usage,
-            power=request.system.power,
-            cpu_speed=request.system.cpu_speed,
-            cpu_temp=request.system.cpu_temp,
-            process_handles=request.system.process_handles,
-            upload_speed=request.system.upload_speed,
-            download_speed=request.system.download_speed,
-            target_processes=[p.model_dump() for p in request.target_processes],
-            top10_cpu=[p.model_dump() for p in request.top10_cpu],
-            top10_gpu=[p.model_dump() for p in request.top10_gpu]
-        )
-        db.add(data)
+        """接收 Worker 上报数据（批量）"""
+        for sample in request.samples:
+            # 将 timezone-aware datetime 转换为 timezone-naive datetime
+            # Worker 上报的 timestamp 带有 UTC timezone，需要转换为 naive datetime
+            timestamp_naive = sample.timestamp.replace(tzinfo=None) if sample.timestamp.tzinfo else sample.timestamp
+
+            data = PerformanceData(
+                collect_id=request.collect_id,
+                timestamp=timestamp_naive,
+                relative_time=sample.relative_time,
+                cpu_usage=sample.system.cpu_usage,
+                gpu_usage=sample.system.gpu_usage,
+                commit_memory=sample.system.commit_memory,
+                memory_usage=sample.system.memory_usage,
+                power=sample.system.power,
+                cpu_speed=sample.system.cpu_speed,
+                cpu_temp=sample.system.cpu_temp,
+                process_handles=sample.system.process_handles,
+                upload_speed=sample.system.upload_speed,
+                download_speed=sample.system.download_speed,
+                target_processes=[p.model_dump() for p in sample.target_processes],
+                top10_cpu=[p.model_dump() for p in sample.top10_cpu],
+                top10_gpu=[p.model_dump() for p in sample.top10_gpu]
+            )
+            db.add(data)
         await db.commit()
         return True
 
