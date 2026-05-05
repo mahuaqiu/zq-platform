@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { ElMessage, ElDialog, ElInput, ElCheckbox, ElSelect, ElOption } from 'element-plus';
-import { startCollect } from '#/api/core/performance-monitor';
-import type { TargetProcessConfig } from '#/api/core/performance-monitor';
+import { startCollect, getProcesses } from '#/api/core/performance-monitor';
+import type { TargetProcessConfig, ProcessInfo } from '#/api/core/performance-monitor';
+import { getDisplayProcesses, saveProcessesToHistory } from '../config';
 
 const props = defineProps<{
   visible: boolean;
@@ -26,14 +27,14 @@ const deviceDisplay = computed(() => {
 const interval = ref(5);
 const intervalOptions = [1, 5, 10, 30];
 
-// 进程列表（模拟数据）
+// 进程列表
 const processList = ref<Array<{ name: string; pid: number; cpu: number }>>([]);
 const searchQuery = ref('');
 const selectedProcesses = ref<TargetProcessConfig[]>([]);
 const loading = ref(false);
 
-// 预设常用进程
-const presetProcesses = ['chrome.exe', 'node.exe', 'python.exe', 'vscode.exe'];
+// 动态获取进程推荐列表（优先历史记录，其次预设配置）
+const presetProcesses = ref<string[]>(getDisplayProcesses());
 
 const filteredProcesses = computed(() => {
   if (!searchQuery.value) return processList.value;
@@ -44,14 +45,19 @@ const filteredProcesses = computed(() => {
 
 async function fetchProcesses() {
   loading.value = true;
-  processList.value = [
-    { name: 'chrome.exe', pid: 1234, cpu: 5.2 },
-    { name: 'chrome.exe', pid: 2345, cpu: 4.8 },
-    { name: 'node.exe', pid: 4567, cpu: 6.1 },
-    { name: 'python.exe', pid: 6789, cpu: 3.2 },
-    { name: 'vscode.exe', pid: 8901, cpu: 2.5 },
-  ];
-  loading.value = false;
+  try {
+    const result = await getProcesses(props.deviceId, searchQuery.value);
+    processList.value = result.processes.map((p: ProcessInfo) => ({
+      name: p.name,
+      pid: p.pid,
+      cpu: p.cpu_usage,
+    }));
+  } catch (error) {
+    ElMessage.error('获取进程列表失败');
+    processList.value = [];
+  } finally {
+    loading.value = false;
+  }
 }
 
 function toggleProcess(name: string, pid: number) {
@@ -90,6 +96,10 @@ async function handleStart() {
       interval: interval.value,
       target_processes: selectedProcesses.value,
     });
+    // 保存到历史记录，下次优先显示
+    saveProcessesToHistory(selectedProcesses.value.map((p) => p.name));
+    // 更新推荐列表
+    presetProcesses.value = getDisplayProcesses();
     ElMessage.success('采集已开始');
     emit('started', result.collect_id);
     emit('update:visible', false);
@@ -276,17 +286,20 @@ watch(() => props.visible, (v) => {
 .process-list {
   border: 1px solid #eee;
   border-radius: 4px;
-  max-height: 180px;
+  max-height: 240px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 4px;
 }
 .process-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
+  gap: 6px;
+  padding: 4px 6px;
   border-radius: 3px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+}
+.process-item:last-child {
+  margin-bottom: 0;
 }
 .process-item.selected {
   background: #f0f9eb;

@@ -2,6 +2,14 @@ import { requestClient } from '#/api/request';
 
 // ===== 类型定义 =====
 
+export interface ProcessInfo {
+  name: string;
+  pid: number;
+  cpu_usage: number;
+  memory_usage: number;
+  gpu_usage: number;
+}
+
 export interface PerformanceCollect {
   id: string;
   device_id: string;
@@ -90,6 +98,14 @@ export interface CollectStatus {
 }
 
 // ===== API 函数 =====
+
+// 进程列表
+export async function getProcesses(deviceId: string, search?: string) {
+  return requestClient.get<{ processes: ProcessInfo[] }>(
+    '/api/core/performance-monitor/processes',
+    { params: { device_id: deviceId, search } },
+  );
+}
 
 // 采集管理
 export async function startCollect(params: {

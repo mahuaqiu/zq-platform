@@ -3,13 +3,16 @@
 """
 性能监控 API 路由
 """
+import httpx
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.database import get_db
 from core.performance_monitor.model import PerformanceCollect
+from core.env_machine.model import EnvMachine
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
     WorkerReportRequest, TagCreateRequest, TagUpdateRequest,
@@ -21,6 +24,43 @@ from core.performance_monitor.service import (
 )
 
 router = APIRouter(prefix="/performance-monitor", tags=["性能监控"])
+
+
+# ===== 进程列表 =====
+
+@router.get("/processes")
+async def get_processes(
+    device_id: str,
+    search: Optional[str] = Query(None, description="模糊搜索进程名"),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取设备进程列表（代理 worker API）"""
+    # 从数据库获取设备信息
+    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted == False)
+    result = await db.execute(stmt)
+    device = result.scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    # 构建 worker URL
+    worker_url = f"http://{device.ip}:{device.port}/api/worker/{device_id}/processes"
+
+    # 调用 worker API
+    try:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=True, verify=False) as client:
+            params = {}
+            if search:
+                params["search"] = search
+            resp = await client.get(worker_url, params=params)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Worker 响应超时")
 
 
 # ===== 采集管理 =====
