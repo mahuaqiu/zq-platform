@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus';
 import { useRouter } from 'vue-router';
@@ -73,8 +73,77 @@ const versionForm = ref({
 // 定时轮询
 let pollingTimer: number | null = null;
 
-// 时间窗口选择
-const timeWindow = ref(30); // 默认30分钟
+// 时间窗口选择（分钟）
+const timeWindow = ref(-1); // 默认全部
+
+// 用户选择的时间窗口范围（相对时间，秒）
+const selectedRelativeTimeRange = ref<[number, number] | null>(null);
+
+// 根据时间按钮设置时间范围
+function setTimeWindow(minutes: number) {
+  timeWindow.value = minutes;
+
+  const data = performanceData.value;
+  if (!data.length) {
+    selectedRelativeTimeRange.value = null;
+    return;
+  }
+
+  if (minutes === -1) {
+    // 全部：显示所有数据
+    selectedRelativeTimeRange.value = null;
+  } else {
+    // 从终点时间向前计算
+    const lastData = data[data.length - 1];
+    if (!lastData) {
+      selectedRelativeTimeRange.value = null;
+      return;
+    }
+    const endTime = lastData.relative_time;
+    const startTime = Math.max(0, endTime - minutes * 60);
+    selectedRelativeTimeRange.value = [startTime, endTime];
+  }
+}
+
+// 监听 timeWindow 变化
+watch(timeWindow, (newVal) => {
+  setTimeWindow(newVal);
+});
+
+// 根据时间窗口过滤后的数据
+const filteredPerformanceData = computed(() => {
+  const data = performanceData.value;
+  if (!data.length) return data;
+
+  // 如果用户没有选择时间窗口，显示全部数据
+  if (!selectedRelativeTimeRange.value) return data;
+
+  const [startTime, endTime] = selectedRelativeTimeRange.value;
+  return data.filter((d) => d.relative_time >= startTime && d.relative_time <= endTime);
+});
+
+// 迷你趋势线数据（基于时间窗口过滤后的数据，取最后10条）
+const historyTrendData = computed(() => {
+  return filteredPerformanceData.value.slice(-10);
+});
+
+// 转换为 Date 格式的选中时间窗口（传给 TimelineSelector）
+const selectedWindowDates = computed<[Date, Date] | undefined>(() => {
+  if (!selectedRelativeTimeRange.value || !actualTimeRange.value) {
+    return undefined;
+  }
+
+  const [startRelative, endRelative] = selectedRelativeTimeRange.value;
+  // 使用第一条数据的时间戳作为基准
+  const firstData = performanceData.value[0];
+  if (!firstData) return undefined;
+
+  const baseTimestamp = new Date(firstData.timestamp).getTime();
+  const startDate = new Date(baseTimestamp + startRelative * 1000);
+  const endDate = new Date(baseTimestamp + endRelative * 1000);
+
+  return [startDate, endDate];
+});
 
 // 进程名显示（采集中状态）
 const processNamesDisplay = computed(() => {
@@ -101,9 +170,10 @@ const processTooltipContent = computed(() => {
     .join('\n');
 });
 
-// 当前数值显示
+// 当前数值显示（基于过滤后的数据）
 const currentMetrics = computed(() => {
-  const latest = performanceData.value[performanceData.value.length - 1];
+  const data = filteredPerformanceData.value;
+  const latest = data[data.length - 1];
   if (!latest) return null;
   return latest;
 });
@@ -129,12 +199,13 @@ const actualTimeRange = computed(() => {
 
 // 曲线图数据
 const cpuChartSeries = computed<ChartSeries[]>(() => {
-  if (!performanceData.value.length) return [];
-  const systemData = performanceData.value.map((d) => ({
+  const data = filteredPerformanceData.value;
+  if (!data.length) return [];
+  const systemData = data.map((d) => ({
     time: d.relative_time,
     value: d.cpu_usage || 0,
   }));
-  const processData = performanceData.value.map((d) => {
+  const processData = data.map((d) => {
     const totalCpu =
       d.target_processes?.reduce((sum, p) => sum + p.total_cpu, 0) || 0;
     return { time: d.relative_time, value: totalCpu };
@@ -146,11 +217,12 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
 });
 
 const gpuChartSeries = computed<ChartSeries[]>(() => {
-  if (!performanceData.value.length) return [];
+  const data = filteredPerformanceData.value;
+  if (!data.length) return [];
   return [
     {
       name: '系统',
-      data: performanceData.value.map((d) => ({
+      data: data.map((d) => ({
         time: d.relative_time,
         value: d.gpu_usage || 0,
       })),
@@ -162,9 +234,10 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
 
 // 提交内存图表 - 只显示进程内存总和
 const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
-  if (!performanceData.value.length) return [];
+  const data = filteredPerformanceData.value;
+  if (!data.length) return [];
   // 进程内存总和（MB）
-  const processData = performanceData.value.map((d) => {
+  const processData = data.map((d) => {
     const totalMemMB =
       d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
     return { time: d.relative_time, value: totalMemMB };
@@ -175,9 +248,10 @@ const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
 });
 
 const memoryChartSeries = computed<ChartSeries[]>(() => {
-  if (!performanceData.value.length) return [];
+  const data = filteredPerformanceData.value;
+  if (!data.length) return [];
   // 显示进程内存总和（MB单位）
-  const processData = performanceData.value.map((d) => {
+  const processData = data.map((d) => {
     const totalMemMB =
       d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
     return { time: d.relative_time, value: totalMemMB };
@@ -192,8 +266,8 @@ const metricCards = computed<MetricCardData[]>(() => {
   const latest = currentMetrics.value;
   if (!latest) return [];
 
-  // 获取历史数据用于迷你趋势线
-  const history = historyData.value.slice(-10);
+  // 获取历史数据用于迷你趋势线（基于时间窗口过滤后的数据）
+  const history = historyTrendData.value;
 
   return [
     {
@@ -248,7 +322,7 @@ const top10Cpu = computed<Top10Item[]>(() => {
   return latest.top10_cpu.map((p, i) => ({
     name: p.name,
     value: p.cpu || 0,
-    trendData: historyData.value.slice(-10).map((d) => {
+    trendData: historyTrendData.value.map((d) => {
       const proc = d.top10_cpu?.find((t) => t.name === p.name);
       return proc?.cpu || 0;
     }),
@@ -262,7 +336,7 @@ const top10Gpu = computed<Top10Item[]>(() => {
   return latest.top10_gpu.map((p, i) => ({
     name: p.name,
     value: p.gpu || 0,
-    trendData: historyData.value.slice(-10).map((d) => {
+    trendData: historyTrendData.value.map((d) => {
       const proc = d.top10_gpu?.find((t) => t.name === p.name);
       return proc?.gpu || 0;
     }),
@@ -352,6 +426,8 @@ async function loadCollectData(collectId: string) {
     if (result?.items?.length) {
       performanceData.value = result.items;
       historyData.value = result.items.slice(-50);
+      // 数据加载后重新应用时间窗口设置
+      setTimeWindow(timeWindow.value);
     }
   } catch (error) {
     console.error('获取采集数据失败', error);
@@ -500,7 +576,20 @@ function handleVersionClick(versionId: string) {
 }
 
 function handleTimelineWindowChange(range: [Date, Date]) {
-  console.log('时间窗口变化', range);
+  // 将 Date 转换为 relative_time（相对秒数）
+  const data = performanceData.value;
+  if (!data.length || !data[0]) {
+    selectedRelativeTimeRange.value = null;
+    return;
+  }
+
+  // 找到第一条数据的时间戳作为基准
+  const baseTimestamp = new Date(data[0].timestamp).getTime();
+  const startRelativeTime = Math.floor((range[0].getTime() - baseTimestamp) / 1000);
+  const endRelativeTime = Math.floor((range[1].getTime() - baseTimestamp) / 1000);
+
+  // 更新选择的时间范围
+  selectedRelativeTimeRange.value = [startRelativeTime, endRelativeTime];
 }
 
 function handleTimelineVersionClick(versionId: string) {
@@ -581,7 +670,7 @@ function handleTimelineCollectClick(collectId: string) {
             v-for="opt in [30, 60, -1]"
             :key="opt"
             :class="timeWindow === opt ? 'time-btn active' : 'time-btn'"
-            @click="timeWindow = opt"
+            @click="setTimeWindow(opt)"
           >
             {{ opt === -1 ? '全部' : `${opt}分钟` }}
           </button>
@@ -594,6 +683,7 @@ function handleTimelineCollectClick(collectId: string) {
           :total-duration="timeWindow === -1 ? 120 : timeWindow"
           :actual-start-time="actualTimeRange?.startTime"
           :actual-end-time="actualTimeRange?.endTime"
+          :selected-window="selectedWindowDates"
           @window-change="handleTimelineWindowChange"
           @version-click="handleTimelineVersionClick"
           @collect-click="handleTimelineCollectClick"
@@ -623,28 +713,28 @@ function handleTimelineCollectClick(collectId: string) {
           title="CPU（%）"
           :series="cpuChartSeries"
           :height="180"
-          :raw-data="performanceData"
+          :raw-data="filteredPerformanceData"
           chart-type="cpu"
         />
         <ChartPanel
           title="GPU（%）"
           :series="gpuChartSeries"
           :height="150"
-          :raw-data="performanceData"
+          :raw-data="filteredPerformanceData"
           chart-type="gpu"
         />
         <ChartPanel
           title="提交内存（MB）"
           :series="commitMemoryChartSeries"
           :height="150"
-          :raw-data="performanceData"
+          :raw-data="filteredPerformanceData"
           chart-type="commitMemory"
         />
         <ChartPanel
           title="内存（MB）"
           :series="memoryChartSeries"
           :height="150"
-          :raw-data="performanceData"
+          :raw-data="filteredPerformanceData"
           chart-type="memory"
         />
       </div>
@@ -692,7 +782,7 @@ function handleTimelineCollectClick(collectId: string) {
             <el-option
               v-for="c in collectHistory"
               :key="c.id"
-              :label="c.name || `${c.start_time} (${c.interval}s)`"
+              :label="c.name || `${new Date(c.start_time).toLocaleString('zh-CN')} (${c.interval}s)`"
               :value="c.id"
             />
           </el-select>

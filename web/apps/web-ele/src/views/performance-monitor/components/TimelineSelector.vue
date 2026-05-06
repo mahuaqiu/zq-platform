@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import type { PerformanceCollect, PerformanceVersion } from '#/api/core/performance-monitor';
 import { VERSION_COLORS } from '../types';
 
@@ -73,6 +73,28 @@ const timeRange = computed(() => {
   };
 });
 
+// 监听外部传入的时间窗口，更新导航栏显示
+watch(() => props.selectedWindow, (newWindow) => {
+  if (!timeRange.value) return;
+
+  // 如果没有传入时间窗口，显示全部
+  if (!newWindow) {
+    windowStart.value = 0;
+    windowWidth.value = 1;
+    return;
+  }
+
+  const [startDate, endDate] = newWindow;
+  const totalMs = timeRange.value.end - timeRange.value.start;
+
+  // 计算百分比位置
+  const startPercent = (startDate.getTime() - timeRange.value.start) / totalMs;
+  const endPercent = (endDate.getTime() - timeRange.value.start) / totalMs;
+
+  windowStart.value = Math.max(0, Math.min(1, startPercent));
+  windowWidth.value = Math.max(0.05, Math.min(1 - windowStart.value, endPercent - startPercent));
+}, { immediate: true });
+
 // 时间刻度 - 基于实际时间范围
 const timeLabels = computed(() => {
   const labels: string[] = [];
@@ -108,39 +130,8 @@ const versionMarkers = computed(() => {
   }).filter(Boolean);
 });
 
-// 采集标记点位置 - 基于实际时间范围
-const collectMarkers = computed(() => {
-  return props.collects.map((c) => {
-    // 已在版本中的采集不显示
-    const inVersion = props.versions.some((v) => v.collect_ids.includes(c.id));
-    if (inVersion) return null;
-
-    const startTime = new Date(c.start_time).getTime();
-    const totalMs = timeRange.value.end - timeRange.value.start;
-    const position = (startTime - timeRange.value.start) / totalMs;
-
-    return {
-      id: c.id,
-      name: c.name,
-      position: Math.max(0, Math.min(1, position)),
-      color: '#909399',
-    };
-  }).filter(Boolean);
-});
-
-// 当前采集位置
-const currentMarker = computed(() => {
-  if (!props.currentCollectId) return null;
-  // 当前采集显示在最右侧
-  return {
-    id: props.currentCollectId,
-    position: 1,
-    color: '#67c23a',
-    isCurrent: true,
-  };
-});
-
 function handleMouseDown(e: MouseEvent, type: 'window' | 'left' | 'right') {
+  if (!timelineRef.value) return;
   e.preventDefault();
   isDragging.value = true;
   dragType.value = type;
@@ -153,17 +144,17 @@ function handleMouseMove(e: MouseEvent) {
   const x = (e.clientX - rect.left) / rect.width;
 
   if (dragType.value === 'window') {
-    // 移动窗口
+    // 移动整个窗口
     const newStart = Math.max(0, Math.min(1 - windowWidth.value, x - windowWidth.value / 2));
     windowStart.value = newStart;
   } else if (dragType.value === 'left') {
-    // 调整左侧
-    const newStart = Math.max(0, Math.min(windowStart.value + windowWidth.value - 0.1, x));
+    // 调整左侧边界
+    const newStart = Math.max(0, Math.min(windowStart.value + windowWidth.value - 0.05, x));
     windowWidth.value = windowStart.value + windowWidth.value - newStart;
     windowStart.value = newStart;
   } else if (dragType.value === 'right') {
-    // 调整右侧
-    const newWidth = Math.max(0.1, Math.min(1 - windowStart.value, x - windowStart.value));
+    // 调整右侧边界
+    const newWidth = Math.max(0.05, Math.min(1 - windowStart.value, x - windowStart.value));
     windowWidth.value = newWidth;
   }
 
@@ -187,10 +178,6 @@ function handleVersionClick(versionId: string) {
   emit('version-click', versionId);
 }
 
-function handleCollectClick(collectId: string) {
-  emit('collect-click', collectId);
-}
-
 onMounted(() => {
   document.addEventListener('mousemove', handleMouseMove);
   document.addEventListener('mouseup', handleMouseUp);
@@ -206,7 +193,7 @@ onUnmounted(() => {
   <div class="timeline-selector">
     <!-- 时间轴主体 -->
     <div ref="timelineRef" class="timeline-track">
-      <!-- 可选择窗口区域 -->
+      <!-- 选中区域（可拖动移动） -->
       <div
         class="time-window"
         :style="{
@@ -234,24 +221,7 @@ onUnmounted(() => {
         class="marker version-marker"
         :style="{ left: `${marker!.position * 100}%`, background: marker!.color }"
         :title="marker!.name"
-        @click="handleVersionClick(marker!.id)"
-      ></div>
-
-      <!-- 采集标记点 -->
-      <div
-        v-for="marker in collectMarkers"
-        :key="marker!.id"
-        class="marker collect-marker"
-        :style="{ left: `${marker!.position * 100}%` }"
-        :title="marker!.name"
-        @click="handleCollectClick(marker!.id)"
-      ></div>
-
-      <!-- 当前采集点 -->
-      <div
-        v-if="currentMarker"
-        class="marker current-marker"
-        :style="{ left: `${currentMarker.position * 100}%`, background: currentMarker.color }"
+        @click.stop="handleVersionClick(marker!.id)"
       ></div>
 
       <!-- 时间刻度（在底部） -->
@@ -271,75 +241,65 @@ onUnmounted(() => {
 .timeline-track {
   position: relative;
   height: 40px;
-  background: #f0f0f0;
+  background: #e8e8e8;
   border-radius: 4px;
-  cursor: pointer;
+  user-select: none;
 }
 .time-window {
   position: absolute;
-  top: 5px;
-  height: 10px;
-  background: rgba(64, 158, 255, 0.3);
-  border: 2px solid #409eff;
-  border-radius: 2px;
+  top: 0;
+  height: 100%;
+  background: rgba(64, 158, 255, 0.1);
+  border: 2px solid rgba(64, 158, 255, 0.4);
+  border-radius: 4px;
   cursor: move;
 }
 .window-handle {
   position: absolute;
   top: 0;
-  width: 8px;
+  width: 12px;
   height: 100%;
-  background: #409eff;
+  background: rgba(64, 158, 255, 0.3);
   cursor: ew-resize;
   border-radius: 2px;
 }
 .window-handle.left {
-  left: -4px;
+  left: -6px;
 }
 .window-handle.right {
-  right: -4px;
+  right: -6px;
+}
+.window-handle:hover {
+  background: rgba(64, 158, 255, 0.5);
 }
 .marker {
   position: absolute;
-  top: 2px;
+  top: 50%;
+  transform: translateY(-50%);
   border-radius: 50%;
   border: 1px solid #fff;
   cursor: pointer;
   transition: transform 0.2s;
+  z-index: 10;
 }
 .marker:hover {
-  transform: scale(1.2);
+  transform: translateY(-50%) scale(1.3);
 }
 .version-marker {
-  width: 8px;
-  height: 8px;
-}
-.collect-marker {
-  width: 8px;
-  height: 8px;
-  background: #909399;
-}
-.current-marker {
-  width: 8px;
-  height: 8px;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  width: 10px;
+  height: 10px;
 }
 .time-labels {
   position: absolute;
-  bottom: 0;
+  bottom: 2px;
   left: 0;
   right: 0;
-  height: 20px;
   display: flex;
   justify-content: space-between;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 .time-label {
   font-size: 10px;
-  color: #999;
+  color: #666;
 }
 </style>

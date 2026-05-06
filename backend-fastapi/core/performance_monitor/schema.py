@@ -3,10 +3,10 @@
 """
 性能监控 Schema - 请求和响应数据验证模式
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 # ===== 请求 Schema =====
@@ -195,6 +195,17 @@ class CollectResponse(BaseModel):
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
 
+    @field_serializer('start_time', 'end_time', 'sys_create_datetime', 'sys_update_datetime')
+    def serialize_datetime_as_utc(self, value: Optional[datetime]) -> Optional[str]:
+        """将 naive datetime 序列化为带 Z 后缀的 UTC 格式"""
+        if value is None:
+            return None
+        # 如果是 naive datetime，视为 UTC，添加 Z 后缀
+        if value.tzinfo is None:
+            return value.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+        # 如果是 aware datetime，转换为 UTC 后序列化
+        return value.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -221,6 +232,17 @@ class DataResponse(BaseModel):
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
+
+    @field_serializer('timestamp', 'sys_create_datetime', 'sys_update_datetime')
+    def serialize_datetime_as_utc(self, value: Optional[datetime]) -> Optional[str]:
+        """将 naive datetime 序列化为带 Z 后缀的 UTC 格式"""
+        if value is None:
+            return None
+        # 如果是 naive datetime，视为 UTC，添加 Z 后缀
+        if value.tzinfo is None:
+            return value.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+        # 如果是 aware datetime，转换为 UTC 后序列化
+        return value.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
 
     model_config = ConfigDict(from_attributes=True)
 

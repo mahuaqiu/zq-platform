@@ -16,7 +16,9 @@ from core.env_machine.model import EnvMachine
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
     WorkerReportRequest, TagCreateRequest, TagUpdateRequest,
-    VersionCreateRequest
+    VersionCreateRequest,
+    # Response Schema（用于正确序列化 datetime）
+    CollectResponse, DataResponse, PaginatedResponse
 )
 from core.performance_monitor.service import (
     PerformanceCollectService, PerformanceDataService,
@@ -147,14 +149,18 @@ async def get_collect_list(
 ):
     """获取采集列表"""
     result = await PerformanceCollectService.get_collect_list(db, device_id, page, page_size)
-    return result
+    # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
+    items = [CollectResponse.model_validate(item) for item in result["items"]]
+    return {"total": result["total"], "items": items}
 
 
 @router.get("/collect/{collect_id}")
 async def get_collect_detail(collect_id: str, db: AsyncSession = Depends(get_db)):
     """获取采集详情"""
     collect = await db.get(PerformanceCollect, collect_id)
-    return collect
+    if collect:
+        return CollectResponse.model_validate(collect)
+    return None
 
 
 @router.get("/collect/{collect_id}/data")
@@ -166,14 +172,18 @@ async def get_collect_data(
 ):
     """获取采集数据"""
     result = await PerformanceDataService.get_collect_data(db, collect_id, page, page_size)
-    return result
+    # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
+    items = [DataResponse.model_validate(item) for item in result["items"]]
+    return {"total": result["total"], "items": items}
 
 
 @router.get("/collect/{collect_id}/latest")
 async def get_latest_data(collect_id: str, limit: int = Query(10, ge=1, le=100), db: AsyncSession = Depends(get_db)):
     """获取最新数据"""
     items = await PerformanceDataService.get_latest_data(db, collect_id, limit)
-    return {"items": items}
+    # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
+    validated_items = [DataResponse.model_validate(item) for item in items]
+    return {"items": validated_items}
 
 
 # ===== 数据上报 =====

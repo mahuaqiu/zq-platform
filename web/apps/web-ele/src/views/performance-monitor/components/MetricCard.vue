@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import type { MetricCardData } from '../types';
 
@@ -46,21 +46,24 @@ function formatValue(value: number, name: string): string {
   return value.toFixed(1);
 }
 
-// 格式化图表数据（直接使用原始值）
-function formatChartData(data: number[]): number[] {
-  return data;
-}
-
 function initMiniChart() {
   if (!miniChartRef.value) return;
   miniChart = echarts.init(miniChartRef.value);
-  const chartData = formatChartData(props.data.historyData);
+  updateChart();
+}
+
+function updateChart() {
+  if (!miniChart) return;
+
+  const chartData = props.data.historyData || [];
+  if (chartData.length === 0) return;
+
   miniChart.setOption({
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: {
       type: 'category',
       show: false,
-      data: chartData.map((_, i) => i),
+      data: chartData.map((_, i) => i), // 根据数据长度动态生成X轴
     },
     yAxis: { type: 'value', show: false },
     series: [
@@ -78,23 +81,20 @@ function initMiniChart() {
 watch(
   () => props.data,
   () => {
-    if (miniChart) {
-      const chartData = formatChartData(props.data.historyData);
-      miniChart.setOption({
-        series: [
-          {
-            data: chartData,
-            lineStyle: { color: props.data.color || '#409eff', width: 1.5 },
-          },
-        ],
-      });
-    }
+    updateChart();
   },
   { deep: true },
 );
 
 onMounted(() => {
   initMiniChart();
+});
+
+onUnmounted(() => {
+  if (miniChart) {
+    miniChart.dispose();
+    miniChart = null;
+  }
 });
 </script>
 

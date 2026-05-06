@@ -69,12 +69,14 @@ class PerformanceCollectService(BaseService):
         result = await db.execute(stmt)
         collect = result.scalar_one_or_none()
         if collect:
+            # 将 datetime 转换为带 Z 后缀的 UTC 格式字符串
+            start_time_str = collect.start_time.strftime('%Y-%m-%dT%H:%M:%S') + 'Z' if collect.start_time else None
             return {
                 "is_collecting": True,
                 "collect_id": collect.id,
                 "interval": collect.interval,
                 "target_processes": collect.target_processes,
-                "start_time": collect.start_time,
+                "start_time": start_time_str,
                 "elapsed_seconds": int((datetime.utcnow() - collect.start_time).total_seconds())
             }
         return {"is_collecting": False}
