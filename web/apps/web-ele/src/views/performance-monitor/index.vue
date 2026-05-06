@@ -257,16 +257,18 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
 const gpuChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
   if (!data.length) return [];
+  const systemData = data.map((d) => ({
+    time: d.relative_time,
+    value: d.gpu_usage || 0,
+  }));
+  const processData = data.map((d) => {
+    const totalGpu =
+      d.target_processes?.reduce((sum, p) => sum + (p.total_gpu || 0), 0) || 0;
+    return { time: d.relative_time, value: totalGpu };
+  });
   return [
-    {
-      name: '系统',
-      data: data.map((d) => ({
-        time: d.relative_time,
-        value: d.gpu_usage || 0,
-      })),
-      color: '#e6a23c',
-      unit: '%',
-    },
+    { name: '系统', data: systemData, color: '#e6a23c', unit: '%' },
+    { name: '进程', data: processData, color: '#f56c6c', unit: '%' },
   ];
 });
 
