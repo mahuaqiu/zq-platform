@@ -287,14 +287,24 @@ function updateChart() {
           html += `<div><span style="color:${p.color}">${p.seriesName}:</span> <b>${displayValue}</b></div>`;
         });
 
-        // 进程明细 - 只在 CPU 图表显示，最多显示5个进程
-        if (props.chartType === 'cpu' && rawDataPoint?.target_processes?.length) {
+        // 进程明细 - CPU 和 GPU 图表都显示，最多显示5个进程
+        if (rawDataPoint?.target_processes?.length) {
           html += `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #eee">`;
           html += `<div style="color:#999;font-size:11px">进程明细:</div>`;
           // 限制最多显示5个进程
           const processesToShow = rawDataPoint.target_processes.slice(0, 5);
           processesToShow.forEach((p) => {
-            html += `<div style="font-size:11px"><span style="color:#999">${p.name}</span> ${p.total_cpu.toFixed(1)}%</div>`;
+            let valueStr = '';
+            if (props.chartType === 'cpu') {
+              valueStr = `${p.total_cpu.toFixed(1)}%`;
+            } else if (props.chartType === 'gpu') {
+              valueStr = `${(p.total_gpu || 0).toFixed(1)}%`;
+            } else if (props.chartType === 'commitMemory') {
+              valueStr = `${Math.round(p.total_committed_memory || 0)} MB`;
+            } else if (props.chartType === 'memory') {
+              valueStr = `${Math.round(p.total_memory || 0)} MB`;
+            }
+            html += `<div style="font-size:11px"><span style="color:#999">${p.name}</span> ${valueStr}</div>`;
           });
           if (rawDataPoint.target_processes.length > 5) {
             html += `<div style="font-size:10px;color:#666">...还有${rawDataPoint.target_processes.length - 5}个进程</div>`;
