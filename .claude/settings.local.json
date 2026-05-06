@@ -130,7 +130,9 @@
       "Bash(pnpm lint:eslint src/views/device-debug --fix)",
       "Bash(find:*)",
       "Bash(rm:*)",
-      "Bash(dir \"D:\\\\code\\\\zq-platform\\\\*.png\")"
+      "Bash(dir \"D:\\\\code\\\\zq-platform\\\\*.png\")",
+      "Bash(pnpm check:type --filter web-ele)",
+      "Bash(npm run *)"
     ]
   }
 }
