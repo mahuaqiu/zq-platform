@@ -89,6 +89,7 @@ class ProcessInstanceReport(BaseModel):
     cpu: float = Field(..., ge=0, le=100, description="CPU使用率 %")
     memory: float = Field(..., ge=0, description="内存使用 MB")
     gpu: float = Field(default=0, ge=0, le=100, description="GPU使用率 %")
+    committed_memory: float = Field(default=0, ge=0, description="提交内存 MB")
 
 
 class TargetProcessReport(BaseModel):
@@ -96,6 +97,7 @@ class TargetProcessReport(BaseModel):
     name: str = Field(..., description="进程名称")
     total_cpu: float = Field(..., ge=0, le=100, description="总CPU使用率 %")
     total_memory: float = Field(..., ge=0, description="总内存使用 MB")
+    total_committed_memory: float = Field(default=0, ge=0, description="总提交内存 MB")
     total_gpu: float = Field(default=0, ge=0, le=100, description="总GPU使用率 %")
     instances: List[ProcessInstanceReport] = Field(default_factory=list, description="实例列表")
 

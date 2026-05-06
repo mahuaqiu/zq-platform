@@ -52,6 +52,7 @@ export interface ProcessData {
   name: string;
   total_cpu: number;
   total_memory: number;
+  total_committed_memory?: number;
   total_gpu: number;
   instances: ProcessInstance[];
 }
@@ -60,6 +61,7 @@ export interface ProcessInstance {
   pid: number;
   cpu: number;
   memory: number;
+  committed_memory?: number;
   gpu: number;
 }
 

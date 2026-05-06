@@ -270,17 +270,18 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
-// 提交内存图表 - 显示系统提交内存（GB转MB显示）
+// 提交内存图表 - 显示进程提交内存总和（MB）
 const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
   if (!data.length) return [];
-  // commit_memory 字段单位是 GB，转换为 MB 显示
-  const systemData = data.map((d) => ({
-    time: d.relative_time,
-    value: (d.commit_memory || 0) * 1024, // GB -> MB
-  }));
+  // 进程提交内存总和（MB）
+  const processData = data.map((d) => {
+    const totalCommittedMB =
+      d.target_processes?.reduce((sum, p) => sum + (p.total_committed_memory || 0), 0) || 0;
+    return { time: d.relative_time, value: totalCommittedMB };
+  });
   return [
-    { name: '提交内存', data: systemData, color: '#f56c6c', unit: 'MB' },
+    { name: '提交内存', data: processData, color: '#f56c6c', unit: 'MB' },
   ];
 });
 
