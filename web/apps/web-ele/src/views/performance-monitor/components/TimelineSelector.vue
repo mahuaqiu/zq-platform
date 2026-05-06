@@ -95,14 +95,30 @@ watch(() => props.selectedWindow, (newWindow) => {
   windowWidth.value = Math.max(0.05, Math.min(1 - windowStart.value, endPercent - startPercent));
 }, { immediate: true });
 
-// 时间刻度 - 基于实际时间范围
+// 时间刻度 - 基于实际时间范围，根据时长动态调整刻度数量
 const timeLabels = computed(() => {
   const labels: string[] = [];
   const totalMs = timeRange.value.end - timeRange.value.start;
-  for (let i = 0; i <= 5; i++) {
-    const time = new Date(timeRange.value.start + i * totalMs / 5);
+  const totalSeconds = totalMs / 1000;
+
+  // 根据时长决定刻度数量
+  let tickCount = 5;
+  if (totalSeconds < 60) {
+    // 小于1分钟：只显示起点和终点（2个刻度）
+    tickCount = 2;
+  } else if (totalSeconds < 180) {
+    // 小于3分钟：显示3个刻度
+    tickCount = 3;
+  } else if (totalSeconds < 300) {
+    // 小于5分钟：显示4个刻度
+    tickCount = 4;
+  }
+
+  for (let i = 0; i <= tickCount; i++) {
+    const time = new Date(timeRange.value.start + i * totalMs / tickCount);
+    // 统一显示完整的时分秒格式
     labels.push(
-      time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     );
   }
   return labels;

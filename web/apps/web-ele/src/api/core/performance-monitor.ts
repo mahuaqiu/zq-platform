@@ -169,6 +169,21 @@ export async function getLatestData(collectId: string, limit: number = 10) {
   );
 }
 
+// 删除采集记录
+export async function deleteCollect(collectId: string) {
+  return requestClient.delete<{ status: string }>(
+    `/api/core/performance-monitor/collect/${collectId}`,
+  );
+}
+
+// 设置采集记录保护状态
+export async function setCollectProtected(collectId: string, isProtected: boolean) {
+  return requestClient.put<{ status: string }>(
+    `/api/core/performance-monitor/collect/${collectId}/protected`,
+    { is_protected: isProtected },
+  );
+}
+
 // 标签管理
 export async function createTag(params: {
   collect_id: string;

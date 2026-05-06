@@ -101,6 +101,42 @@ class PerformanceCollectService(BaseService):
 
         return {"total": total, "items": items}
 
+    @classmethod
+    async def delete_collect(cls, db: AsyncSession, collect_id: str) -> bool:
+        """删除采集记录及其所有数据"""
+        collect = await db.get(PerformanceCollect, collect_id)
+        if not collect:
+            return False
+
+        # 先删除关联的性能数据
+        data_stmt = select(PerformanceData).where(PerformanceData.collect_id == collect_id)
+        data_result = await db.execute(data_stmt)
+        data_items = data_result.scalars().all()
+        for data_item in data_items:
+            await db.delete(data_item)
+
+        # 再删除关联的标签
+        tag_stmt = select(PerformanceTag).where(PerformanceTag.collect_id == collect_id)
+        tag_result = await db.execute(tag_stmt)
+        tag_items = tag_result.scalars().all()
+        for tag_item in tag_items:
+            await db.delete(tag_item)
+
+        # 最后删除采集记录
+        await db.delete(collect)
+        await db.commit()
+        return True
+
+    @classmethod
+    async def set_protected(cls, db: AsyncSession, collect_id: str, is_protected: bool) -> bool:
+        """设置采集记录保护状态"""
+        collect = await db.get(PerformanceCollect, collect_id)
+        if not collect:
+            return False
+        collect.is_protected = is_protected
+        await db.commit()
+        return True
+
 
 class PerformanceDataService(BaseService):
     """性能数据服务"""

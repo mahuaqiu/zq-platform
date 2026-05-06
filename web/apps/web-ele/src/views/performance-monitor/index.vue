@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElDatePicker, ElPopconfirm } from 'element-plus';
 import { useRouter } from 'vue-router';
 import ChartPanel from './components/ChartPanel.vue';
 import MetricCard from './components/MetricCard.vue';
@@ -16,6 +16,8 @@ import {
   getCollectList,
   getVersions,
   createVersion,
+  deleteCollect,
+  setCollectProtected,
 } from '#/api/core/performance-monitor';
 import { getEnvMachineListApi } from '#/api/core/env-machine';
 import type {
@@ -68,6 +70,42 @@ const showVersionDialog = ref(false);
 const versionForm = ref({
   name: '',
   selectedCollects: [] as string[],
+});
+
+// 历史采集弹窗
+const showHistoryDialog = ref(false);
+const historySearchDate = ref<[Date, Date] | null>(null);
+const historySearchProcess = ref('');
+const historyLoading = ref(false);
+const historyDeleting = ref<string | null>(null);
+
+// 过滤后的历史采集列表
+const filteredCollectHistory = computed(() => {
+  const list = collectHistory.value;
+  if (!list.length) return list;
+
+  let filtered = list;
+
+  // 按日期过滤
+  if (historySearchDate.value && historySearchDate.value[0] && historySearchDate.value[1]) {
+    const startDate = historySearchDate.value[0];
+    const endDate = historySearchDate.value[1];
+    filtered = filtered.filter((c) => {
+      const collectDate = new Date(c.start_time);
+      return collectDate >= startDate && collectDate <= endDate;
+    });
+  }
+
+  // 按进程名模糊搜索
+  if (historySearchProcess.value.trim()) {
+    const keyword = historySearchProcess.value.trim().toLowerCase();
+    filtered = filtered.filter((c) => {
+      const processes = c.target_processes || [];
+      return processes.some((p) => p.name.toLowerCase().includes(keyword));
+    });
+  }
+
+  return filtered;
 });
 
 // 定时轮询
@@ -232,18 +270,17 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
-// 提交内存图表 - 只显示进程内存总和
+// 提交内存图表 - 显示系统提交内存（GB转MB显示）
 const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
   if (!data.length) return [];
-  // 进程内存总和（MB）
-  const processData = data.map((d) => {
-    const totalMemMB =
-      d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
-    return { time: d.relative_time, value: totalMemMB };
-  });
+  // commit_memory 字段单位是 GB，转换为 MB 显示
+  const systemData = data.map((d) => ({
+    time: d.relative_time,
+    value: (d.commit_memory || 0) * 1024, // GB -> MB
+  }));
   return [
-    { name: '进程内存', data: processData, color: '#f56c6c', unit: 'MB' },
+    { name: '提交内存', data: systemData, color: '#f56c6c', unit: 'MB' },
   ];
 });
 
@@ -496,6 +533,13 @@ function handleStartClick() {
 }
 
 function handleCollectStarted(collectId: string) {
+  // 开始新采集前，先停止旧轮询并清空旧数据
+  stopPolling();
+  performanceData.value = [];
+  historyData.value = [];
+  // 重置时间窗口为"全部"
+  timeWindow.value = -1;
+  selectedRelativeTimeRange.value = null;
   currentCollectId.value = collectId;
   refreshStatus();
 }
@@ -599,6 +643,69 @@ function handleTimelineVersionClick(versionId: string) {
 function handleTimelineCollectClick(collectId: string) {
   console.log('点击采集', collectId);
 }
+
+// 打开历史采集弹窗
+function handleHistoryClick() {
+  historySearchDate.value = null;
+  historySearchProcess.value = '';
+  fetchCollectHistory();
+  showHistoryDialog.value = true;
+}
+
+// 选择历史采集记录并加载
+async function handleSelectHistoryCollect(collectId: string) {
+  currentCollectId.value = collectId;
+  await loadCollectData(collectId);
+  showHistoryDialog.value = false;
+}
+
+// 删除历史采集记录
+async function handleDeleteCollect(collectId: string) {
+  historyDeleting.value = collectId;
+  try {
+    await deleteCollect(collectId);
+    ElMessage.success('删除成功');
+    // 刷新历史列表
+    await fetchCollectHistory();
+    // 如果删除的是当前显示的采集，清空数据
+    if (currentCollectId.value === collectId) {
+      performanceData.value = [];
+      historyData.value = [];
+      currentCollectId.value = '';
+    }
+  } catch (error) {
+    ElMessage.error('删除失败');
+  } finally {
+    historyDeleting.value = null;
+  }
+}
+
+// 设置保护状态
+async function handleToggleProtected(collect: PerformanceCollect) {
+  try {
+    const newStatus = !collect.is_protected;
+    await setCollectProtected(collect.id, newStatus);
+    // 更新本地状态
+    collect.is_protected = newStatus;
+    ElMessage.success(newStatus ? '已设置为永久保留' : '已取消永久保留');
+  } catch (error) {
+    ElMessage.error('操作失败');
+  }
+}
+
+// 计算采集时长（秒转换为可读格式）
+function formatDuration(startTime: string, endTime?: string): string {
+  const start = new Date(startTime);
+  const end = endTime ? new Date(endTime) : new Date();
+  const diffMs = end.getTime() - start.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 60) return `${diffSec}秒`;
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}分钟`;
+  const hours = Math.floor(diffSec / 3600);
+  const mins = Math.floor((diffSec % 3600) / 60);
+  return `${hours}小时${mins}分钟`;
+}
 </script>
 
 <template>
@@ -658,7 +765,7 @@ function handleTimelineCollectClick(collectId: string) {
         <button class="mark-version-btn" @click="handleMarkVersionClick">
           标记版本
         </button>
-        <button class="history-btn">历史采集</button>
+        <button class="history-btn" @click="handleHistoryClick">历史采集</button>
       </div>
     </div>
 
@@ -792,6 +899,139 @@ function handleTimelineCollectClick(collectId: string) {
         <el-button @click="showVersionDialog = false">取消</el-button>
         <el-button type="success" @click="handleCreateVersion">确认标记</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 历史采集弹窗 -->
+    <el-dialog v-model="showHistoryDialog" title="历史采集记录" width="700px" class="history-dialog">
+      <!-- 搜索过滤区域 -->
+      <div class="history-search-bar">
+        <div class="search-row">
+          <el-date-picker
+            v-model="historySearchDate"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            style="width: 280px"
+            :shortcuts="[
+              { text: '最近一周', value: () => { const end = new Date(); const start = new Date(); start.setTime(start.getTime() - 7 * 24 * 3600 * 1000); return [start, end]; } },
+              { text: '最近一个月', value: () => { const end = new Date(); const start = new Date(); start.setTime(start.getTime() - 30 * 24 * 3600 * 1000); return [start, end]; } },
+            ]"
+          />
+          <el-input
+            v-model="historySearchProcess"
+            placeholder="搜索进程名..."
+            clearable
+            style="width: 200px"
+          >
+            <template #prefix>
+              <span style="color: #999">🔍</span>
+            </template>
+          </el-input>
+          <el-button @click="historySearchDate = null; historySearchProcess = ''">清空筛选</el-button>
+        </div>
+        <div class="search-result-count">
+          共 {{ filteredCollectHistory.length }} 条记录
+          <span v-if="filteredCollectHistory.length !== collectHistory.length" style="color: #409eff">
+            (筛选出 {{ filteredCollectHistory.length }} 条)
+          </span>
+        </div>
+      </div>
+
+      <!-- 历史采集列表 -->
+      <div class="history-list" v-loading="historyLoading">
+        <div
+          v-for="c in filteredCollectHistory"
+          :key="c.id"
+          :class="['history-card', currentCollectId === c.id ? 'active' : '', c.is_protected ? 'protected' : '', c.status === 'running' ? 'running' : '']"
+        >
+          <!-- 卡片头部 -->
+          <div class="card-header">
+            <div class="card-status">
+              <span v-if="c.status === 'running'" class="status-running">
+                <span class="running-dot"></span> 采集中
+              </span>
+              <span v-else class="status-stopped">已完成</span>
+              <span v-if="c.is_protected" class="protected-badge" title="永久保留">🔒</span>
+            </div>
+            <div class="card-actions">
+              <button
+                class="action-btn protect-btn"
+                :class="{ 'is-protected': c.is_protected }"
+                @click.stop="handleToggleProtected(c)"
+                :title="c.is_protected ? '取消永久保留' : '设置永久保留'"
+              >
+                {{ c.is_protected ? '🔒 已保留' : '🔓 保留' }}
+              </button>
+              <el-popconfirm
+                title="确定删除该采集记录吗？删除后数据无法恢复。"
+                confirm-button-text="删除"
+                cancel-button-text="取消"
+                confirm-button-type="danger"
+                @confirm="handleDeleteCollect(c.id)"
+                :disabled="c.status === 'running' || c.is_protected"
+              >
+                <template #reference>
+                  <button
+                    class="action-btn delete-btn"
+                    :disabled="c.status === 'running' || c.is_protected || historyDeleting === c.id"
+                    @click.stop
+                  >
+                    <span v-if="historyDeleting === c.id">删除中...</span>
+                    <span v-else>🗑️ 删除</span>
+                  </button>
+                </template>
+              </el-popconfirm>
+            </div>
+          </div>
+
+          <!-- 卡片内容 -->
+          <div class="card-body" @click="handleSelectHistoryCollect(c.id)">
+            <div class="card-info-row">
+              <div class="info-item">
+                <span class="info-label">采集时间</span>
+                <span class="info-value">{{ new Date(c.start_time).toLocaleString('zh-CN') }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">采集时长</span>
+                <span class="info-value">{{ formatDuration(c.start_time, c.end_time) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">采集频率</span>
+                <span class="info-value">{{ c.interval }}秒/次</span>
+              </div>
+            </div>
+            <div class="card-processes">
+              <span class="processes-label">目标进程：</span>
+              <div class="processes-tags">
+                <span
+                  v-for="p in c.target_processes?.slice(0, 4)"
+                  :key="p.name"
+                  class="process-tag"
+                >
+                  {{ p.name.replace('.exe', '').replace('.EXE', '') }}
+                </span>
+                <span v-if="c.target_processes?.length > 4" class="process-more">
+                  +{{ c.target_processes.length - 4 }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-if="filteredCollectHistory.length === 0" class="history-empty">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">
+            {{ collectHistory.length === 0 ? '暂无采集记录' : '没有匹配的记录' }}
+          </div>
+          <div v-if="collectHistory.length > 0" class="empty-hint">
+            尝试调整筛选条件
+          </div>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -1002,5 +1242,236 @@ function handleTimelineCollectClick(collectId: string) {
 }
 .click-hint {
   color: #999;
+}
+
+/* 历史采集弹窗样式 - 重新设计 */
+.history-dialog .el-dialog__body {
+  padding-top: 0;
+}
+
+.history-search-bar {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-result-count {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.history-list {
+  max-height: 450px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.history-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.history-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: #d0d0d0;
+}
+
+.history-card.active {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+.history-card.protected {
+  border-left: 3px solid #67c23a;
+}
+
+.history-card.running {
+  border-left: 3px solid #e6a23c;
+  background: #fdf6ec;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+
+.card-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-running {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #e6a23c;
+  font-weight: 500;
+}
+
+.running-dot {
+  width: 8px;
+  height: 8px;
+  background: #e6a23c;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.status-stopped {
+  font-size: 12px;
+  color: #67c23a;
+}
+
+.protected-badge {
+  font-size: 12px;
+  color: #67c23a;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  background: #f5f5f5;
+  color: #666;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #eee;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.protect-btn.is-protected {
+  background: #f0f9eb;
+  border-color: #67c23a;
+  color: #67c23a;
+}
+
+.protect-btn:not(.is-protected):hover {
+  background: #f0f9eb;
+  border-color: #c2e7b0;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #fef0f0;
+  border-color: #fbc4c4;
+  color: #f56c6c;
+}
+
+.card-body {
+  padding: 16px;
+  cursor: pointer;
+}
+
+.card-info-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 11px;
+  color: #999;
+}
+
+.info-value {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+.card-processes {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.processes-label {
+  font-size: 11px;
+  color: #999;
+  white-space: nowrap;
+}
+
+.processes-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.process-tag {
+  padding: 2px 8px;
+  background: #e6f7ff;
+  color: #409eff;
+  border-radius: 3px;
+  font-size: 11px;
+  border: 1px solid #91d5ff;
+}
+
+.process-more {
+  padding: 2px 6px;
+  background: #f5f5f5;
+  color: #999;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #ccc;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #999;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: #ccc;
+  margin-top: 8px;
 }
 </style>

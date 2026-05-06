@@ -186,6 +186,25 @@ async def get_latest_data(collect_id: str, limit: int = Query(10, ge=1, le=100),
     return {"items": validated_items}
 
 
+@router.delete("/collect/{collect_id}")
+async def delete_collect(collect_id: str, db: AsyncSession = Depends(get_db)):
+    """删除采集记录及其所有数据"""
+    success = await PerformanceCollectService.delete_collect(db, collect_id)
+    return {"status": "deleted" if success else "not_found"}
+
+
+@router.put("/collect/{collect_id}/protected")
+async def set_collect_protected(
+    collect_id: str,
+    request: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """设置采集记录保护状态"""
+    is_protected = request.get("is_protected", False)
+    success = await PerformanceCollectService.set_protected(db, collect_id, is_protected)
+    return {"status": "updated" if success else "not_found"}
+
+
 # ===== 数据上报 =====
 
 @router.post("/report")
