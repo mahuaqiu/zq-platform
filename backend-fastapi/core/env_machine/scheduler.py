@@ -514,6 +514,8 @@ async def reload_machine_status_after_restart() -> Dict:
     - 访问成功：更新设备状态为 online，刷新缓存
     - 访问失败：更新设备状态为 offline，从缓存移除
 
+    限流策略：每次最多请求10个 Worker，成功后才继续请求下一批。
+
     Returns:
         Dict: 重载结果统计 {"online_count": N, "offline_count": M, "total": T}
     """
@@ -549,72 +551,86 @@ async def reload_machine_status_after_restart() -> Dict:
 
         logger.info(f"准备重载 {total_machines} 台机器，涉及 {len(worker_groups)} 个 Worker")
 
-        # 并发访问所有 Worker
-        async with httpx.AsyncClient(timeout=5.0, trust_env=True, verify=False) as client:
-            # 创建并发任务
-            tasks = [
-                _check_single_worker(client, worker_key, worker_machines)
-                for worker_key, worker_machines in worker_groups.items()
-            ]
-            results = await asyncio.gather(*tasks)
+        # 限流策略：每次最多请求10个 Worker
+        BATCH_SIZE = 10
+        worker_items = list(worker_groups.items())
+        total_batches = (len(worker_items) + BATCH_SIZE - 1) // BATCH_SIZE
 
-        # 处理结果
-        now = datetime.now()
-        for worker_key, worker_machines, success, data in results:
-            if success and data:
-                devices = data.get("devices", {})
-                namespace = data.get("namespace", "")
-                version = data.get("version")
-                config_version = data.get("config_version")
+        async with httpx.AsyncClient(timeout=5.0, trust_env=False, verify=False) as client:
+            for batch_idx in range(total_batches):
+                start_idx = batch_idx * BATCH_SIZE
+                end_idx = min(start_idx + BATCH_SIZE, len(worker_items))
+                batch_items = worker_items[start_idx:end_idx]
 
-                for machine in worker_machines:
-                    device_type = machine.device_type
-                    if device_type in ("windows", "mac"):
-                        # Windows/Mac 不需要检查 device_sn
-                        machine.status = "online"
-                        machine.sync_time = now
-                        machine.namespace = namespace or machine.namespace
-                        if version:
-                            machine.version = version
-                        if config_version:
-                            machine.config_version = config_version
-                        online_count += 1
-                        machine_ids_to_update.append(str(machine.id))
-                    elif device_type in ("android", "ios"):
-                        # 移动端需要检查 device_sn 是否在列表中
-                        # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
-                        device_items = devices.get(device_type, [])
-                        device_sns = []
-                        for item in device_items:
-                            if isinstance(item, dict):
-                                device_sns.append(item.get("udid"))
-                            elif isinstance(item, str):
-                                device_sns.append(item)
+                logger.info(f"正在处理第 {batch_idx + 1}/{total_batches} 批 Worker，共 {len(batch_items)} 个")
 
-                        if machine.device_sn in device_sns:
-                            machine.status = "online"
-                            machine.sync_time = now
-                            machine.namespace = namespace or machine.namespace
-                            if version:
-                                machine.version = version
-                            if config_version:
-                                machine.config_version = config_version
-                            online_count += 1
-                            machine_ids_to_update.append(str(machine.id))
-                        else:
-                            # 设备不在列表中，标记为 offline
+                # 创建当前批次的并发任务
+                tasks = [
+                    _check_single_worker(client, worker_key, worker_machines)
+                    for worker_key, worker_machines in batch_items
+                ]
+                results = await asyncio.gather(*tasks)
+
+                # 处理当前批次结果
+                now = datetime.now()
+                for worker_key, worker_machines, success, data in results:
+                    if success and data:
+                        devices = data.get("devices", {})
+                        namespace = data.get("namespace", "")
+                        version = data.get("version")
+                        config_version = data.get("config_version")
+
+                        for machine in worker_machines:
+                            device_type = machine.device_type
+                            if device_type in ("windows", "mac"):
+                                # Windows/Mac 不需要检查 device_sn
+                                machine.status = "online"
+                                machine.sync_time = now
+                                machine.namespace = namespace or machine.namespace
+                                if version:
+                                    machine.version = version
+                                if config_version:
+                                    machine.config_version = config_version
+                                online_count += 1
+                                machine_ids_to_update.append(str(machine.id))
+                            elif device_type in ("android", "ios"):
+                                # 移动端需要检查 device_sn 是否在列表中
+                                # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
+                                device_items = devices.get(device_type, [])
+                                device_sns = []
+                                for item in device_items:
+                                    if isinstance(item, dict):
+                                        device_sns.append(item.get("udid"))
+                                    elif isinstance(item, str):
+                                        device_sns.append(item)
+
+                                if machine.device_sn in device_sns:
+                                    machine.status = "online"
+                                    machine.sync_time = now
+                                    machine.namespace = namespace or machine.namespace
+                                    if version:
+                                        machine.version = version
+                                    if config_version:
+                                        machine.config_version = config_version
+                                    online_count += 1
+                                    machine_ids_to_update.append(str(machine.id))
+                                else:
+                                    # 设备不在列表中，标记为 offline
+                                    machine.status = "offline"
+                                    offline_count += 1
+                                    machine_ids_to_update.append(str(machine.id))
+
+                        logger.info(f"Worker {worker_key} 访问成功，更新 {len(worker_machines)} 台机器")
+
+                    else:
+                        # 访问失败，标记为 offline
+                        for machine in worker_machines:
                             machine.status = "offline"
                             offline_count += 1
                             machine_ids_to_update.append(str(machine.id))
 
-                logger.info(f"Worker {worker_key} 访问成功，更新 {len(worker_machines)} 台机器")
-
-            else:
-                # 访问失败，标记为 offline
-                for machine in worker_machines:
-                    machine.status = "offline"
-                    offline_count += 1
-                    machine_ids_to_update.append(str(machine.id))
+                # 当前批次处理完成后，继续下一批
+                logger.info(f"第 {batch_idx + 1}/{total_batches} 批处理完成")
 
         # 提交数据库更改
         await db.commit()

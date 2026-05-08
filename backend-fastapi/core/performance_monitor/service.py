@@ -69,12 +69,14 @@ class PerformanceCollectService(BaseService):
         result = await db.execute(stmt)
         collect = result.scalar_one_or_none()
         if collect:
+            # 将 datetime 转换为带 Z 后缀的 UTC 格式字符串
+            start_time_str = collect.start_time.strftime('%Y-%m-%dT%H:%M:%S') + 'Z' if collect.start_time else None
             return {
                 "is_collecting": True,
                 "collect_id": collect.id,
                 "interval": collect.interval,
                 "target_processes": collect.target_processes,
-                "start_time": collect.start_time,
+                "start_time": start_time_str,
                 "elapsed_seconds": int((datetime.utcnow() - collect.start_time).total_seconds())
             }
         return {"is_collecting": False}
@@ -99,6 +101,42 @@ class PerformanceCollectService(BaseService):
 
         return {"total": total, "items": items}
 
+    @classmethod
+    async def delete_collect(cls, db: AsyncSession, collect_id: str) -> bool:
+        """删除采集记录及其所有数据"""
+        collect = await db.get(PerformanceCollect, collect_id)
+        if not collect:
+            return False
+
+        # 先删除关联的性能数据
+        data_stmt = select(PerformanceData).where(PerformanceData.collect_id == collect_id)
+        data_result = await db.execute(data_stmt)
+        data_items = data_result.scalars().all()
+        for data_item in data_items:
+            await db.delete(data_item)
+
+        # 再删除关联的标签
+        tag_stmt = select(PerformanceTag).where(PerformanceTag.collect_id == collect_id)
+        tag_result = await db.execute(tag_stmt)
+        tag_items = tag_result.scalars().all()
+        for tag_item in tag_items:
+            await db.delete(tag_item)
+
+        # 最后删除采集记录
+        await db.delete(collect)
+        await db.commit()
+        return True
+
+    @classmethod
+    async def set_protected(cls, db: AsyncSession, collect_id: str, is_protected: bool) -> bool:
+        """设置采集记录保护状态"""
+        collect = await db.get(PerformanceCollect, collect_id)
+        if not collect:
+            return False
+        collect.is_protected = is_protected
+        await db.commit()
+        return True
+
 
 class PerformanceDataService(BaseService):
     """性能数据服务"""
@@ -106,26 +144,31 @@ class PerformanceDataService(BaseService):
 
     @classmethod
     async def report_data(cls, db: AsyncSession, request: WorkerReportRequest) -> bool:
-        """接收 Worker 上报数据"""
-        data = PerformanceData(
-            collect_id=request.collect_id,
-            timestamp=request.timestamp,
-            relative_time=request.relative_time,
-            cpu_usage=request.system.cpu_usage,
-            gpu_usage=request.system.gpu_usage,
-            commit_memory=request.system.commit_memory,
-            memory_usage=request.system.memory_usage,
-            power=request.system.power,
-            cpu_speed=request.system.cpu_speed,
-            cpu_temp=request.system.cpu_temp,
-            process_handles=request.system.process_handles,
-            upload_speed=request.system.upload_speed,
-            download_speed=request.system.download_speed,
-            target_processes=[p.model_dump() for p in request.target_processes],
-            top10_cpu=[p.model_dump() for p in request.top10_cpu],
-            top10_gpu=[p.model_dump() for p in request.top10_gpu]
-        )
-        db.add(data)
+        """接收 Worker 上报数据（批量）"""
+        for sample in request.samples:
+            # 将 timezone-aware datetime 转换为 timezone-naive datetime
+            # Worker 上报的 timestamp 带有 UTC timezone，需要转换为 naive datetime
+            timestamp_naive = sample.timestamp.replace(tzinfo=None) if sample.timestamp.tzinfo else sample.timestamp
+
+            data = PerformanceData(
+                collect_id=request.collect_id,
+                timestamp=timestamp_naive,
+                relative_time=sample.relative_time,
+                cpu_usage=sample.system.cpu_usage,
+                gpu_usage=sample.system.gpu_usage,
+                commit_memory=sample.system.commit_memory,
+                memory_usage=sample.system.memory_usage,
+                power=sample.system.power,
+                cpu_speed=sample.system.cpu_speed,
+                cpu_temp=sample.system.cpu_temp,
+                process_handles=sample.system.process_handles,
+                upload_speed=sample.system.upload_speed,
+                download_speed=sample.system.download_speed,
+                target_processes=[p.model_dump() for p in sample.target_processes],
+                top10_cpu=[p.model_dump() for p in sample.top10_cpu],
+                top10_gpu=[p.model_dump() for p in sample.top10_gpu]
+            )
+            db.add(data)
         await db.commit()
         return True
 

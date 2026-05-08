@@ -70,8 +70,9 @@ function getBgColor(index: number): string {
   padding: 12px;
 }
 .top10-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
   margin-bottom: 8px;
 }
 .top10-content {
@@ -109,8 +110,9 @@ function getBgColor(index: number): string {
 .other-item {
   background: transparent;
   border-top: 1px dashed #eee;
-  padding: 4px 6px;
+  padding: 4px 0;
   font-size: 10px;
   color: #666;
+  justify-content: space-between;
 }
 </style>

@@ -2,6 +2,14 @@ import { requestClient } from '#/api/request';
 
 // ===== 类型定义 =====
 
+export interface ProcessInfo {
+  name: string;
+  pid: number;
+  cpu_usage: number;
+  memory_usage: number;
+  gpu_usage: number;
+}
+
 export interface PerformanceCollect {
   id: string;
   device_id: string;
@@ -44,6 +52,7 @@ export interface ProcessData {
   name: string;
   total_cpu: number;
   total_memory: number;
+  total_committed_memory?: number;
   total_gpu: number;
   instances: ProcessInstance[];
 }
@@ -52,6 +61,7 @@ export interface ProcessInstance {
   pid: number;
   cpu: number;
   memory: number;
+  committed_memory?: number;
   gpu: number;
 }
 
@@ -90,6 +100,14 @@ export interface CollectStatus {
 }
 
 // ===== API 函数 =====
+
+// 进程列表
+export async function getProcesses(deviceId: string, search?: string) {
+  return requestClient.get<{ processes: ProcessInfo[] }>(
+    '/api/core/performance-monitor/processes',
+    { params: { device_id: deviceId, search } },
+  );
+}
 
 // 采集管理
 export async function startCollect(params: {
@@ -150,6 +168,21 @@ export async function getCollectData(
 export async function getLatestData(collectId: string, limit: number = 10) {
   return requestClient.get<{ items: PerformanceData[] }>(
     `/api/core/performance-monitor/collect/${collectId}/latest?limit=${limit}`,
+  );
+}
+
+// 删除采集记录
+export async function deleteCollect(collectId: string) {
+  return requestClient.delete<{ status: string }>(
+    `/api/core/performance-monitor/collect/${collectId}`,
+  );
+}
+
+// 设置采集记录保护状态
+export async function setCollectProtected(collectId: string, isProtected: boolean) {
+  return requestClient.put<{ status: string }>(
+    `/api/core/performance-monitor/collect/${collectId}/protected`,
+    { is_protected: isProtected },
   );
 }
 

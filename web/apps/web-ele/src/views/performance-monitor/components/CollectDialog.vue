@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { startCollect, getCollectStatus } from '#/api/core/performance-monitor';
-import type { TargetProcessConfig } from '#/api/core/performance-monitor';
+import { ElMessage, ElDialog, ElInput, ElCheckbox, ElSelect, ElOption, ElRadioGroup, ElRadioButton } from 'element-plus';
+import { startCollect, getProcesses } from '#/api/core/performance-monitor';
+import type { TargetProcessConfig, ProcessInfo } from '#/api/core/performance-monitor';
+import { getDisplayProcesses, saveProcessesToHistory } from '../config';
 
 const props = defineProps<{
   visible: boolean;
   deviceId: string;
+  deviceInfo?: { ip: string; status: string; device_type?: string };
 }>();
 
 const emit = defineEmits<{
@@ -14,23 +16,38 @@ const emit = defineEmits<{
   (e: 'started', collectId: string): void;
 }>();
 
-const dialogVisible = computed({
-  get: () => props.visible,
-  set: (v) => emit('update:visible', v),
+// 设备显示信息
+const deviceDisplay = computed(() => {
+  if (props.deviceInfo) {
+    const deviceType = props.deviceInfo.device_type || 'windows';
+    return `${deviceType}-${props.deviceInfo.ip}`;
+  }
+  return '未选择设备';
 });
-
-// 采集频率
 const interval = ref(5);
 const intervalOptions = [1, 5, 10, 30];
 
-// 进程列表（模拟数据，实际应从 Worker 获取）
+// 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
+const collectMode = ref<'pid' | 'name'>('pid');
+
+// 进程列表
 const processList = ref<Array<{ name: string; pid: number; cpu: number }>>([]);
 const searchQuery = ref('');
+// 进程名模式下：存储选中的进程名列表；PID模式下：存储 TargetProcessConfig
+const selectedProcessNames = ref<string[]>([]);
 const selectedProcesses = ref<TargetProcessConfig[]>([]);
 const loading = ref(false);
 
-// 预设常用进程
-const presetProcesses = ['chrome.exe', 'node.exe', 'python.exe', 'vscode.exe'];
+// 动态获取进程推荐列表（优先历史记录，其次预设配置）
+const presetProcesses = ref<string[]>(getDisplayProcesses());
+
+// 根据采集模式计算选中状态
+const selectedCount = computed(() => {
+  if (collectMode.value === 'name') {
+    return selectedProcessNames.value.length;
+  }
+  return selectedProcesses.value.length;
+});
 
 const filteredProcesses = computed(() => {
   if (!searchQuery.value) return processList.value;
@@ -39,21 +56,60 @@ const filteredProcesses = computed(() => {
   );
 });
 
+// 进程名模式下的唯一进程名列表（带实例数统计）
+const uniqueProcessNames = computed(() => {
+  // 先过滤搜索结果
+  const filtered = searchQuery.value
+    ? processList.value.filter((p) =>
+        p.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
+      )
+    : processList.value;
+
+  // 统计每个进程名的实例数
+  const nameCountMap = new Map<string, number>();
+  for (const p of filtered) {
+    nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
+  }
+
+  // 返回唯一进程名列表
+  return Array.from(nameCountMap.entries()).map(([name, count]) => ({
+    name,
+    instanceCount: count,
+  }));
+});
+
+// 根据采集模式获取最终的目标进程配置
+const finalTargetProcesses = computed<TargetProcessConfig[]>(() => {
+  if (collectMode.value === 'name') {
+    // 进程名模式：每个进程名下采集所有实例（pids 为 undefined）
+    return selectedProcessNames.value.map((name) => ({
+      name,
+      pids: undefined,
+    }));
+  }
+  // PID模式：采集指定PID
+  return selectedProcesses.value;
+});
+
 async function fetchProcesses() {
   loading.value = true;
-  // 实际应调用 Worker API 获取进程列表
-  // 这里模拟一些数据
-  processList.value = [
-    { name: 'chrome.exe', pid: 1234, cpu: 5.2 },
-    { name: 'chrome.exe', pid: 2345, cpu: 4.8 },
-    { name: 'node.exe', pid: 4567, cpu: 6.1 },
-    { name: 'python.exe', pid: 6789, cpu: 3.2 },
-    { name: 'vscode.exe', pid: 8901, cpu: 2.5 },
-  ];
-  loading.value = false;
+  try {
+    const result = await getProcesses(props.deviceId, searchQuery.value);
+    processList.value = result.processes.map((p: ProcessInfo) => ({
+      name: p.name,
+      pid: p.pid,
+      cpu: p.cpu_usage,
+    }));
+  } catch (error) {
+    ElMessage.error('获取进程列表失败');
+    processList.value = [];
+  } finally {
+    loading.value = false;
+  }
 }
 
-function toggleProcess(name: string, pid: number) {
+// PID模式：选中/取消选中进程
+function toggleProcessPid(name: string, pid: number) {
   const existing = selectedProcesses.value.find((p) => p.name === name);
   if (existing) {
     if (existing.pids?.includes(pid)) {
@@ -71,13 +127,27 @@ function toggleProcess(name: string, pid: number) {
   }
 }
 
+// 进程名模式：选中/取消选中进程名
+function toggleProcessName(name: string) {
+  const idx = selectedProcessNames.value.indexOf(name);
+  if (idx >= 0) {
+    selectedProcessNames.value.splice(idx, 1);
+  } else {
+    selectedProcessNames.value.push(name);
+  }
+}
+
+// 判断是否选中（根据采集模式）
 function isProcessSelected(name: string, pid: number): boolean {
+  if (collectMode.value === 'name') {
+    return selectedProcessNames.value.includes(name);
+  }
   const existing = selectedProcesses.value.find((p) => p.name === name);
   return existing?.pids?.includes(pid) || false;
 }
 
 async function handleStart() {
-  if (selectedProcesses.value.length === 0) {
+  if (selectedCount.value === 0) {
     ElMessage.warning('请选择目标进程');
     return;
   }
@@ -87,11 +157,18 @@ async function handleStart() {
     const result = await startCollect({
       device_id: props.deviceId,
       interval: interval.value,
-      target_processes: selectedProcesses.value,
+      target_processes: finalTargetProcesses.value,
     });
+    // 保存到历史记录，下次优先显示
+    const names = collectMode.value === 'name'
+      ? selectedProcessNames.value
+      : selectedProcesses.value.map((p) => p.name);
+    saveProcessesToHistory(names);
+    // 更新推荐列表
+    presetProcesses.value = getDisplayProcesses();
     ElMessage.success('采集已开始');
     emit('started', result.collect_id);
-    dialogVisible.value = false;
+    emit('update:visible', false);
   } catch (error) {
     ElMessage.error('开始采集失败');
   } finally {
@@ -99,9 +176,35 @@ async function handleStart() {
   }
 }
 
-watch(dialogVisible, (v) => {
+function selectAll() {
+  // 全选时使用过滤后的列表（搜索结果），而不是完整列表
+  if (collectMode.value === 'name') {
+    // 进程名模式：选中过滤后的所有唯一进程名
+    selectedProcessNames.value = uniqueProcessNames.value.map((item) => item.name);
+  } else {
+    // PID模式：选中过滤后的所有进程的具体PID
+    selectedProcesses.value = filteredProcesses.value.map((p) => ({
+      name: p.name,
+      pids: [p.pid],
+    }));
+  }
+}
+
+function clearAll() {
+  selectedProcessNames.value = [];
+  selectedProcesses.value = [];
+}
+
+// 采集模式切换时清空选择
+watch(collectMode, () => {
+  selectedProcessNames.value = [];
+  selectedProcesses.value = [];
+});
+
+watch(() => props.visible, (v) => {
   if (v) {
     fetchProcesses();
+    selectedProcessNames.value = [];
     selectedProcesses.value = [];
   }
 });
@@ -109,150 +212,308 @@ watch(dialogVisible, (v) => {
 
 <template>
   <el-dialog
-    v-model="dialogVisible"
-    title="采集配置"
+    :model-value="props.visible"
+    @update:model-value="(v: boolean) => emit('update:visible', v)"
     width="500px"
+    destroy-on-close
+    align-center
     :close-on-click-modal="false"
+    class="collect-dialog"
   >
-    <div class="collect-dialog">
-      <!-- 采集频率 -->
-      <div class="config-section">
-        <div class="section-label">采集频率</div>
-        <div class="interval-config">
-          <el-input-number
-            v-model="interval"
-            :min="1"
-            :max="60"
-            size="small"
-          />
-          <span class="interval-unit">秒</span>
-          <div class="interval-buttons">
-            <el-button
-              v-for="opt in intervalOptions"
-              :key="opt"
-              size="small"
-              :type="interval === opt ? 'primary' : 'default'"
-              @click="interval = opt"
-            >
-              {{ opt }}秒
-            </el-button>
-          </div>
+    <!-- 弹窗标题 -->
+    <template #header>
+      <div class="dialog-title">开始性能采集</div>
+    </template>
+    <!-- 设备信息 -->
+    <div class="device-info">
+      <div class="device-label">目标设备</div>
+      <div class="device-name">{{ deviceDisplay }}</div>
+    </div>
+
+    <!-- 目标进程选择 -->
+    <div class="process-section">
+      <div class="section-title">目标进程 <span class="subtitle">（可多选）</span></div>
+
+      <!-- 采集模式选择 -->
+      <div class="mode-selector">
+        <el-radio-group v-model="collectMode" size="small">
+          <el-radio-button value="pid">按PID采集</el-radio-button>
+          <el-radio-button value="name">按进程名采集</el-radio-button>
+        </el-radio-group>
+        <div class="mode-tip">
+          {{ collectMode === 'pid' ? '采集指定PID的进程' : '采集该进程名下所有实例（含未来启动的新实例）' }}
         </div>
       </div>
 
-      <!-- 目标进程 -->
-      <div class="config-section">
-        <div class="section-label">目标进程</div>
-        <div class="preset-buttons">
-          <el-button
-            v-for="name in presetProcesses"
-            :key="name"
-            size="small"
-            @click="searchQuery = name"
-          >
-            {{ name }}
-          </el-button>
-        </div>
+      <!-- 搜索框 -->
+      <div class="search-wrapper">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索进程名"
+          placeholder="搜索进程名称..."
           size="small"
           clearable
-          style="margin-bottom: 12px"
         />
-        <div class="process-list" v-loading="loading">
+      </div>
+
+      <!-- 预置进程名标签 -->
+      <div class="preset-tags">
+        <span
+          v-for="name in presetProcesses"
+          :key="name"
+          class="preset-tag"
+          @click="searchQuery = name"
+        >
+          {{ name }}
+        </span>
+      </div>
+
+      <!-- 进程列表 -->
+      <div class="process-list" v-loading="loading">
+        <!-- PID模式：显示每个PID实例 -->
+        <template v-if="collectMode === 'pid'">
           <div
             v-for="proc in filteredProcesses"
             :key="`${proc.name}-${proc.pid}`"
-            class="process-item"
+            :class="['process-item', isProcessSelected(proc.name, proc.pid) ? 'selected' : '']"
           >
             <el-checkbox
               :model-value="isProcessSelected(proc.name, proc.pid)"
-              @change="toggleProcess(proc.name, proc.pid)"
+              @change="toggleProcessPid(proc.name, proc.pid)"
             />
             <span class="process-name">{{ proc.name }}</span>
             <span class="process-pid">PID: {{ proc.pid }}</span>
-            <span class="process-cpu">{{ proc.cpu.toFixed(1) }}%</span>
           </div>
-        </div>
-        <div class="selected-summary">
-          已选择:
-          <span v-for="(p, i) in selectedProcesses" :key="i">
-            {{ p.name }}({{ p.pids?.length || 0 }})
-          </span>
-        </div>
+        </template>
+        <!-- 进程名模式：显示去重后的进程名 -->
+        <template v-else>
+          <div
+            v-for="item in uniqueProcessNames"
+            :key="item.name"
+            :class="['process-item', selectedProcessNames.includes(item.name) ? 'selected' : 'name-mode']"
+          >
+            <el-checkbox
+              :model-value="selectedProcessNames.includes(item.name)"
+              @change="toggleProcessName(item.name)"
+            />
+            <span class="process-name">{{ item.name }}</span>
+            <span class="process-badge" v-if="item.instanceCount > 1">
+              {{ item.instanceCount }}实例
+            </span>
+          </div>
+        </template>
+      </div>
+
+      <!-- 快捷操作 -->
+      <div class="quick-actions">
+        <button class="quick-btn" @click="selectAll">全选</button>
+        <button class="quick-btn" @click="clearAll">清空</button>
+        <span class="selected-count">
+          已选 {{ selectedCount }} 个{{ collectMode === 'name' ? '进程名' : '进程' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- 采集配置 -->
+    <div class="config-section">
+      <div class="section-title">采集配置</div>
+      <div class="config-item">
+        <div class="config-label">采集间隔</div>
+        <el-select v-model="interval" size="small" style="width: 100%">
+          <el-option
+            v-for="opt in intervalOptions"
+            :key="opt"
+            :label="`${opt}秒`"
+            :value="opt"
+          />
+        </el-select>
+      </div>
+      <div class="config-tip">
+        <b>说明：</b>采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="loading" @click="handleStart">
-        开始采集
-      </el-button>
+      <div class="dialog-footer">
+        <button class="cancel-btn" @click="emit('update:visible', false)">取消</button>
+        <button class="start-btn" :disabled="loading" @click="handleStart">
+          {{ loading ? '加载中...' : '开始采集' }}
+        </button>
+      </div>
     </template>
   </el-dialog>
 </template>
 
 <style scoped>
-.collect-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.config-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.section-label {
+.dialog-title {
   font-size: 14px;
   font-weight: 600;
+  color: #333;
 }
-.interval-config {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.device-info {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f0f9eb;
+  border-radius: 4px;
 }
-.interval-unit {
-  font-size: 12px;
+.device-label {
+  font-size: 11px;
   color: #666;
+  margin-bottom: 4px;
 }
-.interval-buttons {
-  display: flex;
-  gap: 4px;
+.device-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #67c23a;
 }
-.preset-buttons {
-  display: flex;
-  gap: 4px;
+.process-section {
+  margin-bottom: 12px;
+}
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
   margin-bottom: 8px;
+}
+.subtitle {
+  color: #999;
+  font-weight: normal;
+}
+.search-wrapper {
+  margin-bottom: 6px;
+}
+.mode-selector {
+  margin-bottom: 10px;
+}
+.mode-tip {
+  font-size: 10px;
+  color: #999;
+  margin-top: 4px;
+}
+.preset-tags {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.preset-tag {
+  padding: 3px 8px;
+  background: #e6f7ff;
+  color: #409eff;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  border: 1px solid #91d5ff;
+}
+.preset-tag:hover {
+  background: #bae7ff;
 }
 .process-list {
   border: 1px solid #eee;
   border-radius: 4px;
-  padding: 8px;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
+  padding: 4px;
 }
 .process-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  margin-bottom: 2px;
+}
+.process-item:last-child {
+  margin-bottom: 0;
+}
+.process-item.selected {
+  background: #f0f9eb;
 }
 .process-name {
   flex: 1;
-  font-size: 12px;
+  font-size: 11px;
 }
 .process-pid {
+  font-size: 10px;
+  color: #999;
+}
+.process-badge {
+  font-size: 10px;
+  color: #409eff;
+  background: #e6f7ff;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.process-item.name-mode.selected {
+  background: #e6f7ff;
+}
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+.quick-btn {
+  padding: 4px 10px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.quick-btn:hover {
+  background: #eee;
+}
+.selected-count {
+  font-size: 10px;
+  color: #999;
+  margin-left: auto;
+}
+.config-section {
+  margin-bottom: 16px;
+}
+.config-item {
+  margin-bottom: 8px;
+}
+.config-label {
   font-size: 11px;
   color: #666;
+  margin-bottom: 4px;
 }
-.process-cpu {
-  font-size: 11px;
-  color: #e6a23c;
+.config-tip {
+  font-size: 10px;
+  color: #999;
+  padding: 6px 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
 }
-.selected-summary {
-  font-size: 11px;
-  color: #666;
+.dialog-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.cancel-btn {
+  padding: 8px 20px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.cancel-btn:hover {
+  background: #eee;
+}
+.start-btn {
+  padding: 8px 20px;
+  background: #67c23a;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.start-btn:hover {
+  background: #5cb85c;
+}
+.start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

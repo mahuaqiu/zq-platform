@@ -3,17 +3,22 @@
 """
 性能监控 API 路由
 """
+import httpx
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.database import get_db
 from core.performance_monitor.model import PerformanceCollect
+from core.env_machine.model import EnvMachine
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
     WorkerReportRequest, TagCreateRequest, TagUpdateRequest,
-    VersionCreateRequest
+    VersionCreateRequest,
+    # Response Schema（用于正确序列化 datetime）
+    CollectResponse, DataResponse, PaginatedResponse
 )
 from core.performance_monitor.service import (
     PerformanceCollectService, PerformanceDataService,
@@ -23,19 +28,108 @@ from core.performance_monitor.service import (
 router = APIRouter(prefix="/performance-monitor", tags=["性能监控"])
 
 
+# ===== 进程列表 =====
+
+@router.get("/processes")
+async def get_processes(
+    device_id: str,
+    search: Optional[str] = Query(None, description="模糊搜索进程名"),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取设备进程列表（代理 worker API）"""
+    # 从数据库获取设备信息
+    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted == False)
+    result = await db.execute(stmt)
+    device = result.scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    # 构建 worker URL
+    worker_url = f"http://{device.ip}:{device.port}/api/worker/{device_id}/processes"
+
+    # 调用 worker API
+    try:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
+            params = {}
+            if search:
+                params["search"] = search
+            resp = await client.get(worker_url, params=params)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Worker 响应超时")
+
+
 # ===== 采集管理 =====
 
 @router.post("/collect/start")
 async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends(get_db)):
     """开始采集"""
+    # 1. 保存采集记录到数据库
     collect_id = await PerformanceCollectService.start_collect(db, request)
+
+    # 2. 从数据库获取设备信息
+    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
+    result = await db.execute(stmt)
+    device = result.scalar_one_or_none()
+
+    if device:
+        # 3. 转发采集请求给 worker
+        worker_url = f"http://{device.ip}:{device.port}/api/worker/{request.device_id}/collect/start"
+        try:
+            async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
+                # 构造 worker 请求参数（包含 collect_id）
+                worker_request = {
+                    "collect_id": collect_id,
+                    "interval": request.interval,
+                    "timeout": 43200,  # 默认12小时
+                    "target_processes": request.target_processes or []
+                }
+                resp = await client.post(worker_url, json=worker_request)
+                if resp.status_code != 200:
+                    # worker 失败时更新状态
+                    await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+                    raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
+        except httpx.ConnectError:
+            await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+            raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
+        except httpx.TimeoutException:
+            await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+            raise HTTPException(status_code=504, detail="Worker 响应超时")
+
     return {"collect_id": collect_id, "status": "started"}
 
 
 @router.post("/collect/stop")
 async def stop_collect(request: CollectStopRequest, db: AsyncSession = Depends(get_db)):
     """停止采集"""
+    # 1. 更新数据库状态
     success = await PerformanceCollectService.stop_collect(db, request.collect_id, request.device_id)
+
+    # 2. 从数据库获取设备信息
+    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
+    result = await db.execute(stmt)
+    device = result.scalar_one_or_none()
+
+    if device:
+        # 3. 转发停止请求给 worker
+        worker_url = f"http://{device.ip}:{device.port}/api/worker/{request.device_id}/collect/stop"
+        try:
+            async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
+                worker_request = {"collect_id": request.collect_id} if request.collect_id else {}
+                resp = await client.post(worker_url, json=worker_request)
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Worker 响应超时")
+
     return {"status": "stopped" if success else "not_found"}
 
 
@@ -55,14 +149,18 @@ async def get_collect_list(
 ):
     """获取采集列表"""
     result = await PerformanceCollectService.get_collect_list(db, device_id, page, page_size)
-    return result
+    # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
+    items = [CollectResponse.model_validate(item) for item in result["items"]]
+    return {"total": result["total"], "items": items}
 
 
 @router.get("/collect/{collect_id}")
 async def get_collect_detail(collect_id: str, db: AsyncSession = Depends(get_db)):
     """获取采集详情"""
     collect = await db.get(PerformanceCollect, collect_id)
-    return collect
+    if collect:
+        return CollectResponse.model_validate(collect)
+    return None
 
 
 @router.get("/collect/{collect_id}/data")
@@ -74,14 +172,37 @@ async def get_collect_data(
 ):
     """获取采集数据"""
     result = await PerformanceDataService.get_collect_data(db, collect_id, page, page_size)
-    return result
+    # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
+    items = [DataResponse.model_validate(item) for item in result["items"]]
+    return {"total": result["total"], "items": items}
 
 
 @router.get("/collect/{collect_id}/latest")
 async def get_latest_data(collect_id: str, limit: int = Query(10, ge=1, le=100), db: AsyncSession = Depends(get_db)):
     """获取最新数据"""
     items = await PerformanceDataService.get_latest_data(db, collect_id, limit)
-    return {"items": items}
+    # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
+    validated_items = [DataResponse.model_validate(item) for item in items]
+    return {"items": validated_items}
+
+
+@router.delete("/collect/{collect_id}")
+async def delete_collect(collect_id: str, db: AsyncSession = Depends(get_db)):
+    """删除采集记录及其所有数据"""
+    success = await PerformanceCollectService.delete_collect(db, collect_id)
+    return {"status": "deleted" if success else "not_found"}
+
+
+@router.put("/collect/{collect_id}/protected")
+async def set_collect_protected(
+    collect_id: str,
+    request: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """设置采集记录保护状态"""
+    is_protected = request.get("is_protected", False)
+    success = await PerformanceCollectService.set_protected(db, collect_id, is_protected)
+    return {"status": "updated" if success else "not_found"}
 
 
 # ===== 数据上报 =====

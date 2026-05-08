@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
-import type { ChartSeries } from '../types';
+import type { ChartSeries, ChartTag } from '../types';
+import type { PerformanceData } from '#/api/core/performance-monitor';
 
 // 定义 Props 类型
-interface ChartTag {
-  name: string;
-  start: number;
-  duration: number;
-  type: string;
-  color: string;
-}
-
 interface Props {
   title: string;
   series: ChartSeries[];
@@ -19,20 +12,208 @@ interface Props {
   height?: number;
   timeRange?: [number, number];
   tags?: ChartTag[];
+  // 新增 Props
+  rawData?: PerformanceData[]; // 原始数据（用于 Tooltip 显示进程明细）
+  enableTagClick?: boolean; // 是否允许点击添加标签
+  collectId?: string; // 采集ID（用于标签操作）
+  showActualTime?: boolean; // 是否显示实际时间
+  chartType?: 'cpu' | 'gpu' | 'memory' | 'commitMemory'; // 图表类型，用于区分 tooltip
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showTop10: false,
+  height: 200,
+  enableTagClick: false,
+  showActualTime: false,
+  chartType: 'cpu',
+});
+
+// 定义 Events
+const emit = defineEmits<{
+  (e: 'point-click', data: { time: number; collectId: string }): void;
+  (e: 'tag-delete', tagId: string): void;
+}>();
 
 const chartRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;
 
 const chartHeight = computed(() => props.height || 200);
 
+// 主单位（取第一个 series 的单位）
+const mainUnit = computed(() => {
+  return props.series[0]?.unit || '%';
+});
+
+// 计算X轴间隔（根据数据量智能调整）
+const xAxisInterval = computed(() => {
+  const dataLength = props.series[0]?.data.length || 0;
+  // 数据量少于10个，全部显示
+  if (dataLength <= 10) return 0;
+  // 数据量10-30，间隔1个显示
+  if (dataLength <= 30) return 1;
+  // 数据量30-60，间隔2个显示
+  if (dataLength <= 60) return 2;
+  // 数据量60-120，间隔3个显示
+  if (dataLength <= 120) return 3;
+  // 数据量120-300，间隔5个显示
+  if (dataLength <= 300) return 5;
+  // 数据量300-600，间隔10个显示
+  if (dataLength <= 600) return 10;
+  // 数据量更大，间隔15个显示
+  return 15;
+});
+// 当前值显示（右上角叠加）
+const currentValues = computed(() => {
+  return props.series.map((s) => {
+    const lastData = s.data[s.data.length - 1];
+    const unit = s.unit || '%';
+    let displayValue = '-';
+    if (lastData?.value !== undefined) {
+      if (unit === 'GB') {
+        displayValue = lastData.value.toFixed(1);
+      } else if (unit === 'MB') {
+        displayValue = Math.round(lastData.value).toString();
+      } else {
+        displayValue = lastData.value.toFixed(1);
+      }
+    }
+    return {
+      name: s.name,
+      value: displayValue,
+      color: s.color,
+    };
+  });
+});
+
 function initChart() {
   if (!chartRef.value) return;
   chartInstance = echarts.init(chartRef.value);
+
+  // 绑定点击事件
+  if (props.enableTagClick) {
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series') {
+        const dataIndex = params.dataIndex;
+        const time = props.series[0]?.data[dataIndex]?.time;
+        if (time !== undefined && props.collectId) {
+          emit('point-click', { time, collectId: props.collectId });
+        }
+      }
+    });
+  }
+
   updateChart();
 }
+
+function formatDateTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+}
+
+// 计算Y轴范围（智能分段，根据数据范围动态调整）
+const yAxisConfig = computed(() => {
+  const unit = mainUnit.value;
+  const allValues = props.series.flatMap(s => s.data.map(d => d.value));
+
+  if (allValues.length === 0) {
+    return { min: 0, max: 100, interval: 20 };
+  }
+
+  const maxValue = Math.max(...allValues);
+  const minValue = Math.min(...allValues);
+  const range = maxValue - minValue;
+
+  if (unit === '%') {
+    // 百分比：从0开始，根据最大值智能分段
+    if (maxValue <= 10) {
+      return { min: 0, max: 10, interval: 2 };
+    } else if (maxValue <= 20) {
+      return { min: 0, max: 20, interval: 4 };
+    } else if (maxValue <= 50) {
+      return { min: 0, max: 50, interval: 10 };
+    } else if (maxValue <= 100) {
+      return { min: 0, max: 100, interval: 20 };
+    } else {
+      const roundedMax = Math.ceil(maxValue / 20) * 20;
+      return { min: 0, max: roundedMax, interval: 20 };
+    }
+  } else if (unit === 'MB') {
+    // MB单位：智能计算范围，数据集中在某个区间时不从0开始
+    // 当数据波动小于最大值的20%时，Y轴从最小值附近开始
+    if (range < maxValue * 0.3 && minValue > 200) {
+      // 计算合适的Y轴范围
+      const padding = range * 0.2; // 上下留20%空间
+      let baseMin = Math.floor((minValue - padding) / 50) * 50;
+      let baseMax = Math.ceil((maxValue + padding) / 50) * 50;
+
+      // 确保最小值不小于0
+      if (baseMin < 0) baseMin = 0;
+
+      // 计算合适的间隔（约4-5个刻度）
+      const diff = baseMax - baseMin;
+      let interval = Math.ceil(diff / 4 / 50) * 50;
+      if (interval < 50) interval = 50;
+      if (interval > 500) interval = Math.ceil(interval / 100) * 100;
+
+      return { min: baseMin, max: baseMax, interval };
+    }
+
+    // 数据波动大或最小值较小，从0开始
+    if (maxValue <= 100) {
+      return { min: 0, max: 100, interval: 25 };
+    } else if (maxValue <= 200) {
+      return { min: 0, max: 200, interval: 50 };
+    } else if (maxValue <= 500) {
+      return { min: 0, max: 500, interval: 100 };
+    } else if (maxValue <= 1000) {
+      return { min: 0, max: 1000, interval: 200 };
+    } else if (maxValue <= 2000) {
+      return { min: 0, max: 2000, interval: 400 };
+    } else if (maxValue <= 5000) {
+      return { min: 0, max: 5000, interval: 1000 };
+    } else if (maxValue <= 10000) {
+      return { min: 0, max: 10000, interval: 2000 };
+    } else {
+      const roundedMax = Math.ceil(maxValue / 2000) * 2000;
+      return { min: 0, max: roundedMax, interval: Math.ceil(roundedMax / 5 / 100) * 100 };
+    }
+  } else if (unit === 'GB') {
+    // GB单位：智能计算范围
+    if (range < maxValue * 0.3 && minValue > 0.5) {
+      const padding = range * 0.2;
+      let baseMin = Math.floor((minValue - padding) * 10) / 10;
+      let baseMax = Math.ceil((maxValue + padding) * 10) / 10;
+      if (baseMin < 0) baseMin = 0;
+      const diff = baseMax - baseMin;
+      let interval = Math.ceil(diff * 10 / 4) / 10;
+      if (interval < 0.1) interval = 0.1;
+      return { min: baseMin, max: baseMax, interval };
+    }
+
+    if (maxValue <= 1) {
+      return { min: 0, max: 1, interval: 0.2 };
+    } else if (maxValue <= 2) {
+      return { min: 0, max: 2, interval: 0.5 };
+    } else if (maxValue <= 5) {
+      return { min: 0, max: 5, interval: 1 };
+    } else if (maxValue <= 10) {
+      return { min: 0, max: 10, interval: 2 };
+    } else if (maxValue <= 20) {
+      return { min: 0, max: 20, interval: 4 };
+    } else {
+      const roundedMax = Math.ceil(maxValue / 4) * 4;
+      return { min: 0, max: roundedMax, interval: 4 };
+    }
+  }
+
+  return { min: 0, max: Math.ceil(maxValue * 1.2), interval: Math.ceil(maxValue / 5) };
+});
 
 function updateChart() {
   if (!chartInstance) return;
@@ -71,47 +252,132 @@ function updateChart() {
   const option = {
     tooltip: {
       trigger: 'axis',
+      confine: true, // 限制tooltip在图表区域内
       formatter: (params: any) => {
-        const time = params[0].axisValue;
-        let html = `<div>相对时间: ${time}秒</div>`;
-        params.forEach((p: any) => {
-          html += `<div>${p.seriesName}: ${p.value?.toFixed(1)}%</div>`;
+        const dataIndex = params[0].dataIndex;
+        const relativeTime = params[0].axisValue;
+        const rawDataPoint = props.rawData?.[dataIndex];
+
+        let html = `<div style="font-size:12px;padding:4px 8px;max-width:200px;">`;
+
+        // 相对时间
+        html += `<div><span style="color:#666">相对时间:</span> <b>${relativeTime}秒</b></div>`;
+
+        // 实际时间（如果有原始数据）
+        if (rawDataPoint?.timestamp) {
+          html += `<div><span style="color:#666">实际时间:</span> <b style="color:#409eff">${formatDateTime(rawDataPoint.timestamp)}</b></div>`;
+        }
+
+        html += `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #eee">`;
+
+        // 曲线值
+        params.forEach((p: any, idx: number) => {
+          const series = props.series[idx];
+          const unit = series?.unit || '%';
+          let displayValue = '-';
+          if (p.value !== undefined) {
+            if (unit === 'GB') {
+              displayValue = p.value.toFixed(2) + ' GB';
+            } else if (unit === 'MB') {
+              displayValue = Math.round(p.value) + ' MB';
+            } else {
+              displayValue = p.value.toFixed(1) + '%';
+            }
+          }
+          html += `<div><span style="color:${p.color}">${p.seriesName}:</span> <b>${displayValue}</b></div>`;
         });
+
+        // 进程明细 - CPU 和 GPU 图表都显示，最多显示5个进程
+        if (rawDataPoint?.target_processes?.length) {
+          html += `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #eee">`;
+          html += `<div style="color:#999;font-size:11px">进程明细:</div>`;
+          // 限制最多显示5个进程
+          const processesToShow = rawDataPoint.target_processes.slice(0, 5);
+          processesToShow.forEach((p) => {
+            let valueStr = '';
+            if (props.chartType === 'cpu') {
+              valueStr = `${p.total_cpu.toFixed(1)}%`;
+            } else if (props.chartType === 'gpu') {
+              valueStr = `${(p.total_gpu || 0).toFixed(1)}%`;
+            } else if (props.chartType === 'commitMemory') {
+              valueStr = `${Math.round(p.total_committed_memory || 0)} MB`;
+            } else if (props.chartType === 'memory') {
+              valueStr = `${Math.round(p.total_memory || 0)} MB`;
+            }
+            html += `<div style="font-size:11px"><span style="color:#999">${p.name}</span> ${valueStr}</div>`;
+          });
+          if (rawDataPoint.target_processes.length > 5) {
+            html += `<div style="font-size:10px;color:#666">...还有${rawDataPoint.target_processes.length - 5}个进程</div>`;
+          }
+          html += `</div>`;
+        }
+
+        html += `</div></div>`;
         return html;
       },
     },
     legend: {
-      show: props.series.length > 1,
-      top: 0,
-      right: 10,
-      data: props.series.map((s) => s.name),
+      show: false,
     },
     grid: {
-      left: 50,
-      right: 20,
-      top: 30,
-      bottom: 30,
+      left: 40,
+      right: 15,
+      top: 25,
+      bottom: 25,
     },
     xAxis: {
       type: 'category',
       data: xAxisData,
-      axisLabel: { formatter: (v: number) => `${v}s` },
+      axisLabel: {
+        formatter: (v: number) => `${v}s`,
+        interval: xAxisInterval.value,
+      },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { formatter: '{value}%' },
+      min: yAxisConfig.value.min,
+      max: yAxisConfig.value.max,
+      interval: yAxisConfig.value.interval,
+      splitNumber: 4, // 固定分成4段，避免太密集
+      axisLabel: {
+        formatter: (v: number) => {
+          // Y轴不显示单位，单位在标题上显示
+          if (mainUnit.value === 'GB') {
+            return v.toFixed(v < 1 ? 1 : 0);
+          } else if (mainUnit.value === 'MB') {
+            return Math.round(v);
+          }
+          return v;
+        },
+      },
     },
     series: seriesConfig,
   };
+
+  // 添加标签区间标记
+  if (markAreas.length > 0 && seriesConfig.length > 0) {
+    (option as any).series[0].markArea = {
+      data: markAreas,
+    };
+  }
 
   chartInstance.setOption(option);
 }
 
 watch(() => props.series, updateChart, { deep: true });
 watch(() => props.timeRange, updateChart);
+watch(() => props.tags, updateChart, { deep: true });
+watch(() => props.rawData, updateChart, { deep: true });
 
 onMounted(() => {
   initChart();
+});
+
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.dispose();
+    chartInstance = null;
+  }
 });
 </script>
 
@@ -122,22 +388,107 @@ onMounted(() => {
       ref="chartRef"
       class="chart-container"
       :style="{ height: chartHeight + 'px' }"
-    ></div>
+    >
+      <!-- 当前值叠加在图表右上角 -->
+      <div class="chart-values-overlay">
+        <div
+          v-for="cv in currentValues"
+          :key="cv.name"
+          class="overlay-value"
+          :style="{ color: cv.color }"
+        >
+          {{ cv.name }}: {{ cv.value }}
+        </div>
+      </div>
+    </div>
+    <!-- 标签列表显示 -->
+    <div v-if="tags?.length" class="tags-list">
+      <div
+        v-for="tag in tags"
+        :key="tag.name"
+        class="tag-item"
+        :class="tag.type === 'peak' ? 'tag-peak' : 'tag-mean'"
+      >
+        <span class="tag-name">{{ tag.name }}</span>
+        <span class="tag-range">{{ tag.start }}s - {{ tag.start + tag.duration }}s</span>
+        <button class="tag-delete" @click="emit('tag-delete', tag.name)">×</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .chart-panel {
   background: #fff;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 12px;
 }
 .chart-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
   margin-bottom: 8px;
 }
 .chart-container {
   width: 100%;
+  background: #f8f9fa;
+  border-radius: 4px;
+  position: relative;
+}
+.chart-values-overlay {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 10;
+  pointer-events: none;
+}
+.overlay-value {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tag-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.tag-peak {
+  background: rgba(103, 194, 126, 0.15);
+  border: 1px solid rgba(103, 194, 126, 0.4);
+  color: #67c23a;
+}
+.tag-mean {
+  background: rgba(245, 108, 108, 0.15);
+  border: 1px solid rgba(245, 108, 108, 0.4);
+  color: #f56c6c;
+}
+.tag-name {
+  font-weight: 600;
+}
+.tag-range {
+  color: #666;
+}
+.tag-delete {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.tag-delete:hover {
+  opacity: 0.7;
 }
 </style>
