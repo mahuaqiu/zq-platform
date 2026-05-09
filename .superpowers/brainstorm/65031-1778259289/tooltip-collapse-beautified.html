@@ -1,0 +1,151 @@
+<h2>折叠Tooltip - 美化设计</h2>
+<p class="subtitle">更美观的布局 + 清晰的视觉层次 + 优雅的折叠交互</p>
+
+<div class="mockup">
+  <div class="mockup-header">折叠Tooltip美化设计（应对10+子进程）</div>
+  <div class="mockup-body">
+
+    <!-- 折叠状态Tooltip（美化版） -->
+    <div style="margin-bottom: 20px;">
+      <h4 style="margin: 0 0 10px 0; color: #409eff; font-size: 13px;">✅ 折叠状态（默认显示）</h4>
+      <div style="position: relative; height: 160px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,140 40,130 80,90 120,80 160,70 180,75 200,60 240,55 280,50 320,45 360,40 400,35 400,180 0,180" fill="url(#cpuGrad)" stroke="none"/>
+          <polyline points="0,140 40,130 80,90 120,80 160,70 180,75 200,60 240,55 280,50 320,45 360,40 400,35" fill="none" stroke="#409eff" stroke-width="2"/>
+          <circle cx="180" cy="75" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+          <line x1="180" y1="0" x2="180" y2="180" stroke="#ffc107" stroke-width="1.5" stroke-dasharray="6,4"/>
+        </svg>
+
+        <!-- 折叠Tooltip（美化版） -->
+        <div style="position: absolute; top: 15px; right: 20px; background: white; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); width: 130px; backdrop-filter: blur(10px);">
+          <!-- 时刻标题 -->
+          <div style="font-size: 12px; color: #333; font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+            🕐 90s
+          </div>
+
+          <!-- 系统指标（紧凑布局） -->
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 10px; height: 10px; background: #409eff; border-radius: 2px;"></div>
+                <span style="font-size: 11px; color: #666;">系统</span>
+              </div>
+              <span style="font-size: 12px; color: #409eff; font-weight: 600;">45.2%</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 10px; height: 10px; background: #67c23a; border-radius: 2px;"></div>
+                <span style="font-size: 11px; color: #666;">进程</span>
+              </div>
+              <span style="font-size: 12px; color: #67c23a; font-weight: 600;">28.5%</span>
+            </div>
+          </div>
+
+          <!-- 子进程汇总 -->
+          <div style="background: #f0f9ff; padding: 8px; border-radius: 8px; margin-bottom: 8px;">
+            <div style="font-size: 10px; color: #409eff; font-weight: 500;">3个子进程实例</div>
+          </div>
+
+          <!-- 展开按钮（美化版） -->
+          <button style="width: 100%; background: linear-gradient(135deg, #409eff, #66b1ff); border: none; padding: 6px 0; font-size: 11px; color: white; border-radius: 8px; cursor: pointer; font-weight: 500; box-shadow: 0 2px 4px rgba(64, 158, 255, 0.3);">
+            ▼ 查看详情
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 展开状态Tooltip（美化版） -->
+    <div>
+      <h4 style="margin: 0 0 10px 0; color: #67c23a; font-size: 13px;">✅ 展开状态（点击后显示子进程列表）</h4>
+      <div style="position: relative; height: 160px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="cpuGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,140 40,130 80,90 120,80 160,70 180,75 200,60 240,55 280,50 320,45 360,40 400,35 400,180 0,180" fill="url(#cpuGrad2)" stroke="none"/>
+          <polyline points="0,140 40,130 80,90 120,80 160,70 180,75 200,60 240,55 280,50 320,45 360,40 400,35" fill="none" stroke="#409eff" stroke-width="2"/>
+          <circle cx="180" cy="75" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+          <line x1="180" y1="0" x2="180" y2="180" stroke="#ffc107" stroke-width="1.5" stroke-dasharray="6,4"/>
+        </svg>
+
+        <!-- 展开Tooltip（美化版） -->
+        <div style="position: absolute; top: 15px; right: 20px; background: white; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); width: 150px; max-height: 140px; backdrop-filter: blur(10px);">
+          <!-- 时刻标题 -->
+          <div style="font-size: 12px; color: #333; font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+            🕐 90s
+          </div>
+
+          <!-- 系统指标 -->
+          <div style="margin-bottom: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 10px; height: 10px; background: #409eff; border-radius: 2px;"></div>
+                <span style="font-size: 11px; color: #666;">系统</span>
+              </div>
+              <span style="font-size: 12px; color: #409eff; font-weight: 600;">45.2%</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 10px; height: 10px; background: #67c23a; border-radius: 2px;"></div>
+                <span style="font-size: 11px; color: #666;">进程</span>
+              </div>
+              <span style="font-size: 12px; color: #67c23a; font-weight: 600;">28.5%</span>
+            </div>
+          </div>
+
+          <!-- 收起按钮 -->
+          <button style="width: 100%; background: #f5f5f5; border: 1px solid rgba(0,0,0,0.1); padding: 5px 0; font-size: 10px; color: #666; border-radius: 6px; cursor: pointer; margin-bottom: 6px;">
+            ▲ 收起
+          </button>
+
+          <!-- 子进程列表（可滚动） -->
+          <div style="border-top: 1px solid rgba(0,0,0,0.08); padding-top: 6px; max-height: 80px; overflow-y: auto;">
+            <div style="font-size: 10px; color: #666; margin-bottom: 4px; font-weight: 500;">子进程明细：</div>
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 4px; font-size: 10px;">
+                <span style="color: #333; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">chrome.exe</span>
+                <span style="color: #409eff; font-weight: 600;">12.5%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 4px; font-size: 10px;">
+                <span style="color: #333; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">chrome.exe</span>
+                <span style="color: #409eff; font-weight: 600;">10.3%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 4px; font-size: 10px;">
+                <span style="color: #333; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">chrome.exe</span>
+                <span style="color: #409eff; font-weight: 600;">5.7%</span>
+              </div>
+              <div style="color: #999; font-size: 9px; text-align: center; margin-top: 2px;">共3个子进程</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>美化要点：</h3>
+  <ul style="line-height: 1.8; font-size: 13px;">
+    <li><strong>圆角设计</strong>：Tooltip圆角12px，按钮圆角8px，列表项圆角4px</li>
+    <li><strong>阴影效果</strong>：box-shadow: 0 4px 12px rgba(0,0,0,0.15)，更有层次感</li>
+    <li><strong>渐变按钮</strong>：展开按钮使用渐变背景（linear-gradient）</li>
+    <li><strong>毛玻璃效果</strong>：backdrop-filter: blur(10px)，更现代</li>
+    <li><strong>图标辅助</strong>：时刻标题前加时钟图标（🕐）</li>
+    <li><strong>颜色方块</strong>：系统/进程指标前加小方块，更清晰</li>
+    <li><strong>子进程汇总</strong>：折叠状态显示子进程数量（蓝色背景卡片）</li>
+    <li><strong>紧凑布局</strong>：固定宽度130px（折叠）/ 150px（展开），不占用过多空间</li>
+    <li><strong>滚动支持</strong>：max-height + overflow-y: auto，支持10+子进程滚动查看</li>
+  </ul>
+</div>
+
+<p style="margin-top: 15px; color: #666; font-size: 13px;">这个美化后的折叠Tooltip设计你觉得更好看吗？</p>

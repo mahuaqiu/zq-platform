@@ -1,0 +1,125 @@
+<h2>时间导航条 - 简洁版本（不显示标记区域）</h2>
+<p class="subtitle">方案二样式 + 去掉标记区域 + 拖拽区间选择</p>
+
+<div class="mockup">
+  <div class="mockup-header">时间导航条最终设计（简洁版）</div>
+  <div class="mockup-body">
+
+    <!-- 最终方案：去掉标记区域 -->
+    <div>
+      <h4 style="margin: 0 0 10px 0; color: #409eff; font-size: 13px;">✅ 最终设计（简洁，不显示标记区域）</h4>
+      <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <span style="font-size: 14px; color: #333; font-weight: bold;">⏱ 时间导航</span>
+          <div style="font-size: 12px; color: #666;">采集时长: 180s</div>
+        </div>
+
+        <!-- 时间轴（只显示拖拽区间，不显示标记区域） -->
+        <div style="position: relative; height: 60px; background: linear-gradient(90deg, #f0f9ff 0%, #fff 50%, #f0f9ff 100%); border: 1px solid #ddd; border-radius: 8px;">
+          <!-- 时间刻度线 -->
+          <div style="position: absolute; top: 0; left: 10px; right: 10px; height: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>0s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>30s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>60s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>90s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>120s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>150s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #999; position: relative;">
+              <span>180s</span>
+              <div style="width: 1px; height: 40px; background: #ddd; position: absolute; top: 5px;"></div>
+            </div>
+          </div>
+
+          <!-- 用户选中的区间（可拖拽调整） -->
+          <div style="position: absolute; top: 25px; left: 10px; width: 50%; height: 30px; background: rgba(64, 158, 255, 0.25); border-left: 4px solid #409eff; border-right: 4px solid #409eff; border-radius: 2px; cursor: pointer;">
+            <!-- 左侧拖拽手柄 -->
+            <div style="position: absolute; left: -8px; top: 5px; width: 16px; height: 20px; background: white; border: 2px solid #409eff; border-radius: 8px; cursor: ew-resize; display: flex; align-items: center; justify-content: center;">
+              <div style="width: 6px; height: 10px; background: #409eff; border-radius: 2px;"></div>
+            </div>
+            <!-- 右侧拖拽手柄 -->
+            <div style="position: absolute; right: -8px; top: 5px; width: 16px; height: 20px; background: white; border: 2px solid #409eff; border-radius: 8px; cursor: ew-resize; display: flex; align-items: center; justify-content: center;">
+              <div style="width: 6px; height: 10px; background: #409eff; border-radius: 2px;"></div>
+            </div>
+          </div>
+
+          <!-- 当前选中区间的时间标签 -->
+          <div style="position: absolute; top: 60px; left: 10px; background: #409eff; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold;">
+            0s
+          </div>
+          <div style="position: absolute; top: 60px; right: 10px; background: #409eff; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold;">
+            90s
+          </div>
+        </div>
+
+        <div style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
+          💡 左右拖动蓝色手柄选择时间区间（标记区域不在时间轴上显示，只在图表上标记）
+        </div>
+      </div>
+    </div>
+
+    <!-- 对比说明 -->
+    <div style="background: #f5f5f5; border-radius: 8px; padding: 15px; margin-top: 20px;">
+      <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">🎯 简化设计说明</h4>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px; line-height: 1.6;">
+        <div>
+          <strong style="color: #999;">之前的设计：</strong>
+          <ul style="margin: 5px 0; padding-left: 15px; color: #666;">
+            <li>时间轴上叠加显示标记区域（绿色/橙色）</li>
+            <li>标记标签显示在时间轴上</li>
+            <li>视觉层次复杂，可能干扰拖拽交互</li>
+          </ul>
+        </div>
+        <div>
+          <strong style="color: #409eff;">现在的设计：</strong>
+          <ul style="margin: 5px 0; padding-left: 15px; color: #666;">
+            <li>时间轴只显示用户选择的区间（蓝色）</li>
+            <li>简洁清爽，拖拽交互更直观</li>
+            <li>标记只在图表上显示（圆点+标签）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+        <strong style="color: #333;">标记显示位置：</strong>
+        <span style="color: #666; margin-left: 10px;">
+          标记（发起共享、场景加载等）只在图表折线上显示（圆点标记），不在时间轴上显示
+        </span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>设计要点总结：</h3>
+  <ul style="line-height: 1.8; font-size: 13px;">
+    <li><strong>时间轴样式</strong>：方案二的详细时间轴样式（刻度线 + 渐变背景）</li>
+    <li><strong>去掉标记区域</strong>：时间轴上不显示标记的彩色区间，更简洁</li>
+    <li><strong>拖拽区间选择</strong>：用户左右拖动蓝色手柄选择时间区间</li>
+    <li><strong>双端手柄</strong>：左侧手柄（起始时间） + 右侧手柄（结束时间）</li>
+    <li><strong>实时时间标签</strong>：拖动时时间标签实时更新（0s、90s）</li>
+    <li><strong>标记显示位置</strong>：标记只在图表折线上显示（圆点），不在时间轴上</li>
+    <li><strong>简洁清爽</strong>：去掉复杂的视觉层次，拖拽交互更直观</li>
+  </ul>
+</div>
+
+<p style="margin-top: 15px; color: #666; font-size: 13px;">这个简化后的时间导航条设计（去掉标记区域）你觉得更清爽吗？</p>

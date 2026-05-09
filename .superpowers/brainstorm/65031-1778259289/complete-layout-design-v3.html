@@ -1,0 +1,345 @@
+<h2>实时监控页面 - 完整布局设计 v3</h2>
+<p class="subtitle">一行一个图表 + 折线图 + 简化标记显示（起点点标记）</p>
+
+<div class="mockup">
+  <div class="mockup-header">实时监控页面完整布局（标记显示优化）</div>
+  <div class="mockup-body" style="max-height: 80vh; overflow-y: auto;">
+    <!-- 顶部：设备选择和采集控制 -->
+    <div style="background: #f5f5f5; padding: 12px; margin-bottom: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="display: inline-block; padding: 8px 20px; background: #409eff; color: white; border-radius: 4px; font-weight: bold;">设备选择</span>
+        <div style="padding: 8px 15px; background: white; border-radius: 4px; border: 1px solid #ddd;">
+          <span style="font-weight: bold;">192.168.1.100</span>
+          <span style="margin-left: 10px; color: #67c23a; font-size: 12px;">● 在线</span>
+        </div>
+        <div style="padding: 8px 15px; background: white; border-radius: 4px; border: 1px solid #ddd; font-size: 12px;">
+          <span style="color: #666;">采集状态：</span>
+          <span style="color: #67c23a; font-weight: bold;">运行中</span>
+          <span style="margin-left: 10px; color: #999;">已采集: 125s</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="mock-button" style="background: #67c23a; color: white; padding: 8px 20px;">开始采集</button>
+        <button class="mock-button" style="background: #f56c6c; color: white; padding: 8px 20px;">停止采集</button>
+        <button class="mock-button" style="background: #e6a23c; color: white; padding: 8px 20px;">查看历史</button>
+      </div>
+    </div>
+
+    <!-- 时间筛选和标记功能面板 -->
+    <div style="background: linear-gradient(135deg, #fff7e6 0%, #fffbf0 100%); border: 1px solid #e6a23c; border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 16px; color: #e6a23c; font-weight: bold;">📅 时间筛选 & 标记</span>
+        </div>
+        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="font-size: 12px; color: #666;">绝对时间：</label>
+            <input class="mock-input" placeholder="开始" style="width: 90px; font-size: 12px;">
+            <span style="color: #999;">-</span>
+            <input class="mock-input" placeholder="结束" style="width: 90px; font-size: 12px;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="font-size: 12px; color: #666;">相对时间：</label>
+            <input class="mock-input" placeholder="0" style="width: 60px; font-size: 12px;">
+            <span style="color: #999;">-</span>
+            <input class="mock-input" placeholder="125" style="width: 60px; font-size: 12px;">
+            <span style="color: #999; font-size: 11px;">秒</span>
+          </div>
+          <button class="mock-button" style="background: #409eff; color: white; padding: 6px 15px; font-size: 12px;">应用</button>
+          <button class="mock-button" style="background: #909399; color: white; padding: 6px 15px; font-size: 12px;">清除</button>
+        </div>
+      </div>
+
+      <!-- 标记列表 -->
+      <div style="padding-top: 10px; border-top: 1px dashed #e6a23c;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-size: 12px; color: #666;">已添加标记：</span>
+          <span style="background: linear-gradient(135deg, #409eff, #66b1ff); color: white; padding: 5px 12px; border-radius: 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px;">
+            发起共享 <span style="font-size: 10px; opacity: 0.8;">(峰值 0-30s)</span>
+          </span>
+          <span style="background: linear-gradient(135deg, #67c23a, #85ce61); color: white; padding: 5px 12px; border-radius: 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px;">
+            场景加载 <span style="font-size: 10px; opacity: 0.8;">(均值 50-80s)</span>
+          </span>
+          <button class="mock-button" style="background: #e6a23c; color: white; padding: 5px 12px; font-size: 11px; border-radius: 6px;">+ 添加标记</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CPU使用率图表（标记简化显示） -->
+    <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #333; font-size: 15px;">📊 CPU使用率</h4>
+        <div style="display: flex; gap: 10px; font-size: 12px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: #409eff; border-radius: 50%;"></span>
+          <span style="color: #409eff;">系统 45.2%</span>
+          <span style="display: inline-block; width: 12px; height: 12px; background: #67c23a; border-radius: 50%; margin-left: 8px;"></span>
+          <span style="color: #67c23a;">进程 28.5%</span>
+          <span style="margin-left: 15px; color: #999; font-size: 11px;">💡 点击折线查看该时刻TOP10</span>
+        </div>
+      </div>
+      <div style="height: 180px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <!-- 系统折线（填充） -->
+          <polygon points="0,140 20,120 40,130 60,110 80,90 100,100 120,80 140,85 160,70 180,75 200,60 220,65 240,55 260,60 280,50 300,55 320,45 340,50 360,40 380,45 400,35 400,180 0,180" fill="url(#cpuGrad)" stroke="none"/>
+          <!-- 系统折线 -->
+          <polyline points="0,140 20,120 40,130 60,110 80,90 100,100 120,80 140,85 160,70 180,75 200,60 220,65 240,55 260,60 280,50 300,55 320,45 340,50 360,40 380,45 400,35" fill="none" stroke="#409eff" stroke-width="2"/>
+          <!-- 进程折线 -->
+          <polyline points="0,150 20,140 40,145 60,130 80,120 100,125 120,110 140,115 160,105 180,110 200,95 220,100 240,90 260,95 280,85 300,90 320,80 340,85 360,75 380,80 400,70" fill="none" stroke="#67c23a" stroke-width="2"/>
+
+          <!-- 标记起点（0秒 - 发起共享） -->
+          <circle cx="0" cy="140" r="7" fill="#409eff" stroke="white" stroke-width="2"/>
+          <text x="0" y="15" style="font-size: 10px; color: #409eff; font-weight: bold;">发起共享</text>
+
+          <!-- 标记起点（50秒 - 场景加载） -->
+          <circle cx="125" cy="80" r="7" fill="#67c23a" stroke="white" stroke-width="2"/>
+          <text x="125" y="15" style="font-size: 10px; color: #67c23a; font-weight: bold;">场景加载</text>
+
+          <!-- 用户点击点（90秒） -->
+          <circle cx="180" cy="75" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+          <!-- 垂直指示线 -->
+          <line x1="180" y1="0" x2="180" y2="180" stroke="#ffc107" stroke-width="1.5" stroke-dasharray="6,4"/>
+        </svg>
+        <!-- 时间标签 -->
+        <div style="position: absolute; bottom: 8px; left: 175px; background: #ffc107; padding: 3px 10px; border-radius: 4px; font-size: 11px; color: white; font-weight: bold;">
+          90s
+        </div>
+      </div>
+      <div style="margin-top: 8px; font-size: 11px; color: #666; text-align: center;">
+        💡 标记在起点显示圆点（发起共享@0s、场景加载@50s），点击折线查看TOP10（当前选中90s）
+      </div>
+    </div>
+
+    <!-- GPU使用率图表 -->
+    <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #333; font-size: 15px;">📊 GPU使用率</h4>
+        <div style="display: flex; gap: 10px; font-size: 12px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: #e6a23c; border-radius: 50%;"></span>
+          <span style="color: #e6a23c;">系统 78.6%</span>
+          <span style="display: inline-block; width: 12px; height: 12px; background: #f56c6c; border-radius: 50%; margin-left: 8px;"></span>
+          <span style="color: #f56c6c;">进程 62.3%</span>
+        </div>
+      </div>
+      <div style="height: 180px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="gpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#e6a23c;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#e6a23c;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,80 20,60 40,70 60,50 80,55 100,40 120,45 140,35 160,40 180,30 200,35 220,25 240,30 260,20 280,25 300,15 320,20 340,15 360,20 380,15 400,10 400,180 0,180" fill="url(#gpuGrad)" stroke="none"/>
+          <polyline points="0,80 20,60 40,70 60,50 80,55 100,40 120,45 140,35 160,40 180,30 200,35 220,25 240,30 260,20 280,25 300,15 320,20 340,15 360,20 380,15 400,10" fill="none" stroke="#e6a23c" stroke-width="2"/>
+          <polyline points="0,100 20,85 40,90 60,75 80,80 100,65 120,70 140,60 160,65 180,55 200,60 220,50 240,55 260,45 280,50 300,40 320,45 340,40 360,45 380,40 400,35" fill="none" stroke="#f56c6c" stroke-width="2"/>
+
+          <!-- 标记起点 -->
+          <circle cx="0" cy="80" r="7" fill="#409eff" stroke="white" stroke-width="2"/>
+          <text x="0" y="15" style="font-size: 10px; color: #409eff; font-weight: bold;">发起共享</text>
+          <circle cx="125" cy="45" r="7" fill="#67c23a" stroke="white" stroke-width="2"/>
+          <text x="125" y="15" style="font-size: 10px; color: #67c23a; font-weight: bold;">场景加载</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- TOP10 进程排名（独立一行） -->
+    <div style="background: white; border: 2px solid #ffc107; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin: 0; color: #333; font-size: 15px;">🏆 进程 TOP10 排名</h4>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span style="background: #ffc107; color: white; padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: bold;">时刻: 90s</span>
+          <div style="font-size: 12px; color: #666;">
+            切换：
+            <button class="mock-button" style="background: #409eff; color: white; padding: 5px 12px; font-size: 11px; border-radius: 4px;">CPU TOP10</button>
+            <button class="mock-button" style="background: #909399; color: white; padding: 5px 12px; font-size: 11px; border-radius: 4px; margin-left: 5px;">GPU TOP10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP10水平柱状图 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <!-- 左列：TOP1-5 -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #333; font-weight: bold;">chrome.exe</div>
+            <div style="flex: 1; height: 20px; background: #f0f0f0; border-radius: 4px; position: relative;">
+              <div style="width: 85%; height: 100%; background: linear-gradient(90deg, #409eff, #66b1ff); border-radius: 4px;">
+                <span style="position: absolute; right: 5px; top: 4px; font-size: 11px; color: white; font-weight: bold;">12.5%</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #333; font-weight: bold;">vscode.exe</div>
+            <div style="flex: 1; height: 20px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 70%; height: 100%; background: linear-gradient(90deg, #67c23a, #85ce61); border-radius: 4px;">
+                <span style="position: absolute; right: 5px; top: 4px; font-size: 11px; color: white; font-weight: bold;">10.3%</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #333; font-weight: bold;">node.exe</div>
+            <div style="flex: 1; height: 20px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 55%; height: 100%; background: linear-gradient(90deg, #e6a23c, #ebb563); border-radius: 4px;">
+                <span style="position: absolute; right: 5px; top: 4px; font-size: 11px; color: white; font-weight: bold;">8.2%</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">python.exe</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 40%; height: 100%; background: #f56c6c; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">5.8%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">slack.exe</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 35%; height: 100%; background: #909399; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">4.5%</span>
+          </div>
+        </div>
+
+        <!-- 右列：TOP6-10 -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">discord.exe</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 30%; height: 100%; background: #b37feb; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">3.8%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">spotify.exe</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 25%; height: 100%; background: #91d5ff; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">3.2%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">teams.exe</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 22%; height: 100%; background: #ff85c0; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">2.8%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">explorer.exe</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 20%; height: 100%; background: #87e8de; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">2.5%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 90px; font-size: 12px; color: #666;">系统进程</div>
+            <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 4px;">
+              <div style="width: 18%; height: 100%; background: #95de64; border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11px; color: #999; width: 45px; text-align: right;">2.2%</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd; font-size: 12px; color: #666; text-align: center;">
+        💡 点击上方CPU/GPU折线图的任意点，TOP10自动切换为该时刻的进程排名（默认显示最新时刻）
+      </div>
+    </div>
+
+    <!-- 提交内存图表 -->
+    <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #333; font-size: 15px;">📊 提交内存</h4>
+        <div style="display: flex; gap: 10px; font-size: 12px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: #f56c6c; border-radius: 50%;"></span>
+          <span style="color: #f56c6c;">进程 1024 MB</span>
+        </div>
+      </div>
+      <div style="height: 180px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="memGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#f56c6c;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#f56c6c;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,100 20,90 40,95 60,85 80,80 100,85 120,75 140,80 160,70 180,75 200,65 220,70 240,60 260,65 280,55 300,60 320,50 340,55 360,45 380,50 400,40 400,180 0,180" fill="url(#memGrad)" stroke="none"/>
+          <polyline points="0,100 20,90 40,95 60,85 80,80 100,85 120,75 140,80 160,70 180,75 200,65 220,70 240,60 260,65 280,55 300,60 320,50 340,55 360,45 380,50 400,40" fill="none" stroke="#f56c6c" stroke-width="2"/>
+          <circle cx="0" cy="100" r="7" fill="#409eff" stroke="white" stroke-width="2"/>
+          <text x="0" y="15" style="font-size: 10px; color: #409eff; font-weight: bold;">发起共享</text>
+          <circle cx="125" cy="75" r="7" fill="#67c23a" stroke="white" stroke-width="2"/>
+          <text x="125" y="15" style="font-size: 10px; color: #67c23a; font-weight: bold;">场景加载</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 进程内存图表 -->
+    <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #333; font-size: 15px;">📊 进程内存</h4>
+        <div style="display: flex; gap: 10px; font-size: 12px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: #909399; border-radius: 50%;"></span>
+          <span style="color: #909399;">进程 512 MB</span>
+        </div>
+      </div>
+      <div style="height: 180px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="pmemGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#909399;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#909399;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,110 20,105 40,108 60,100 80,95 100,98 120,90 140,95 160,88 180,92 200,85 220,88 240,80 260,85 280,78 300,82 320,75 340,80 360,72 380,76 400,70 400,180 0,180" fill="url(#pmemGrad)" stroke="none"/>
+          <polyline points="0,110 20,105 40,108 60,100 80,95 100,98 120,90 140,95 160,88 180,92 200,85 220,88 240,80 260,85 280,78 300,82 320,75 340,80 360,72 380,76 400,70" fill="none" stroke="#909399" stroke-width="2"/>
+          <circle cx="0" cy="110" r="7" fill="#409eff" stroke="white" stroke-width="2"/>
+          <text x="0" y="15" style="font-size: 10px; color: #409eff; font-weight: bold;">发起共享</text>
+          <circle cx="125" cy="90" r="7" fill="#67c23a" stroke="white" stroke-width="2"/>
+          <text x="125" y="15" style="font-size: 10px; color: #67c23a; font-weight: bold;">场景加载</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 高级指标面板 -->
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e8f4ff 100%); border: 1px solid #409eff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; color: #409eff; font-size: 14px;">▶ 高级指标 (hwinfo_raw 200+传感器)</h3>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input class="mock-input" placeholder="搜索指标（如：CPU核心温度）" style="width: 220px; font-size: 12px;">
+          <select class="mock-input" style="width: 100px; font-size: 12px;">
+            <option>全部分类</option>
+            <option>系统</option>
+            <option>硬件</option>
+            <option>网络</option>
+          </select>
+          <select class="mock-input" style="width: 100px; font-size: 12px;">
+            <option>卡片模式</option>
+            <option>图表模式</option>
+          </select>
+          <button class="mock-button" style="background: #409eff; color: white; padding: 6px 15px; font-size: 12px;">🔍 搜索</button>
+        </div>
+      </div>
+      <div style="margin-top: 8px; color: #666; font-size: 11px; padding: 8px; background: white; border-radius: 4px;">
+        💡 点击展开或输入搜索内容后显示对应的hwinfo指标（共200+传感器数据，默认不显示）
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>标记显示优化要点：</h3>
+  <ul style="line-height: 1.8; font-size: 13px;">
+    <li><strong>✅ 去掉区域填充</strong>：标记不再显示为大面积背景色区域，避免遮挡图表</li>
+    <li><strong>✅ 起点点标记</strong>：标记的起始时间点用圆点标记（如发起共享@0s、场景加载@50s）</li>
+    <li><strong>✅ 标签显示</strong>：圆点上方显示标记名称（如"发起共享"、"场景加载"）</li>
+    <li><strong>✅ 终点不标</strong>：标记的结束时间点不显示，更简洁清爽</li>
+    <li><strong>✅ 颜色对应</strong>：标记点颜色与标记列表颜色一致（发起共享蓝色、场景加载绿色）</li>
+    <li><strong>✅ 所有图表统一</strong>：CPU、GPU、内存图表都显示标记起点</li>
+  </ul>
+</div>
+
+<p style="margin-top: 15px; color: #666; font-size: 13px;">这个标记显示优化你觉得合理吗？是否比之前的区域填充更简洁好看？</p>

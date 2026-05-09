@@ -1,0 +1,240 @@
+<h2>实时监控页面 - Tooltip和标记细节设计</h2>
+<p class="subtitle">标记圆点在折线上 + Tooltip显示该时刻数据 + 子进程详情</p>
+
+<div class="mockup">
+  <div class="mockup-header">图表交互细节设计（标记 + Tooltip + 子进程详情）</div>
+  <div class="mockup-body">
+
+    <!-- CPU图表示例（展示标记点在折线上 + Tooltip） -->
+    <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #333; font-size: 15px;">📊 CPU使用率（点击90s时刻展示Tooltip）</h4>
+        <div style="display: flex; gap: 10px; font-size: 12px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: #409eff; border-radius: 50%;"></span>
+          <span style="color: #409eff;">系统 45.2%</span>
+          <span style="display: inline-block; width: 12px; height: 12px; background: #67c23a; border-radius: 50%; margin-left: 8px;"></span>
+          <span style="color: #67c23a;">进程 28.5%</span>
+        </div>
+      </div>
+
+      <!-- 折线图 + 标记点在折线上 + Tooltip -->
+      <div style="height: 180px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; border: 1px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <!-- 系统折线填充 -->
+          <polygon points="0,140 40,130 80,90 120,80 160,70 180,75 200,60 240,55 280,50 320,45 360,40 400,35 400,180 0,180" fill="url(#cpuGrad)" stroke="none"/>
+          <!-- 系统折线 -->
+          <polyline points="0,140 40,130 80,90 120,80 160,70 180,75 200,60 240,55 280,50 320,45 360,40 400,35" fill="none" stroke="#409eff" stroke-width="2"/>
+          <!-- 进程折线 -->
+          <polyline points="0,150 40,145 80,120 120,110 160,105 180,110 200,95 240,90 280,85 320,80 360,75 400,70" fill="none" stroke="#67c23a" stroke-width="2"/>
+
+          <!-- 标记圆点在折线数据点上（发起共享@0s） -->
+          <circle cx="0" cy="140" r="7" fill="#409eff" stroke="white" stroke-width="2"/>
+
+          <!-- 标记圆点在折线数据点上（场景加载@50s） -->
+          <circle cx="120" cy="80" r="7" fill="#67c23a" stroke="white" stroke-width="2"/>
+
+          <!-- 用户点击点（90s时刻） -->
+          <circle cx="180" cy="75" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+          <!-- 垂直指示线 -->
+          <line x1="180" y1="0" x2="180" y2="180" stroke="#ffc107" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+          <!-- 数据点标记（hover状态） -->
+          <circle cx="180" cy="110" r="5" fill="#67c23a" stroke="white" stroke-width="2"/>
+        </svg>
+
+        <!-- Tooltip浮窗 -->
+        <div style="position: absolute; top: 20px; right: 30px; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 180px; z-index: 10;">
+          <div style="font-weight: bold; color: #333; font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px;">
+            📅 时刻: 90s
+          </div>
+
+          <!-- 系统指标 -->
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span style="color: #409eff; font-size: 12px;">系统CPU:</span>
+              <span style="color: #409eff; font-weight: bold; font-size: 12px;">45.2%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #67c23a; font-size: 12px;">进程CPU:</span>
+              <span style="color: #67c23a; font-weight: bold; font-size: 12px;">28.5%</span>
+            </div>
+          </div>
+
+          <!-- 子进程明细（原有功能） -->
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ddd;">
+            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">进程明细：</div>
+            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #333;">chrome.exe (PID:1234)</span>
+                <span style="color: #409eff; font-weight: bold;">12.5%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #333;">chrome.exe (PID:5678)</span>
+                <span style="color: #409eff; font-weight: bold;">10.3%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #333;">chrome.exe (PID:9012)</span>
+                <span style="color: #409eff; font-weight: bold;">5.7%</span>
+              </div>
+              <div style="color: #999; font-size: 10px; margin-top: 2px;">... 共3个子进程</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间标签 -->
+        <div style="position: absolute; bottom: 8px; left: 175px; background: #ffc107; padding: 3px 10px; border-radius: 4px; font-size: 11px; color: white; font-weight: bold;">
+          90s
+        </div>
+      </div>
+
+      <div style="margin-top: 8px; font-size: 12px; color: #666; display: flex; justify-content: space-between;">
+        <span>💡 标记圆点在折线数据点上：发起共享@0s（蓝）、场景加载@50s（绿）</span>
+        <span>💡 Hover/点击数据点显示Tooltip（含子进程明细）</span>
+      </div>
+    </div>
+
+    <!-- Tooltip详细示例 -->
+    <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+      <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">Tooltip内容设计（和原来一样，显示子进程详情）</h4>
+
+      <!-- Tooltip示例卡片 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+
+        <!-- CPU Tooltip示例 -->
+        <div style="background: white; border: 2px solid #409eff; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <div style="font-weight: bold; color: #333; font-size: 13px; margin-bottom: 8px; border-bottom: 2px solid #409eff; padding-bottom: 6px;">
+            📊 CPU使用率 Tooltip (时刻: 125s)
+          </div>
+
+          <!-- 系统指标 -->
+          <div style="margin-bottom: 8px; background: #f0f9ff; padding: 8px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span style="color: #409eff; font-size: 12px;">● 系统CPU:</span>
+              <span style="color: #409eff; font-weight: bold; font-size: 13px;">52.8%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #67c23a; font-size: 12px;">● 进程CPU:</span>
+              <span style="color: #67c23a; font-weight: bold; font-size: 13px;">35.2%</span>
+            </div>
+          </div>
+
+          <!-- 子进程明细 -->
+          <div style="padding-top: 6px; border-top: 1px solid #ddd;">
+            <div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: bold;">子进程明细：</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 3px;">
+                <span style="color: #333;">chrome.exe (PID:1234)</span>
+                <span style="color: #409eff; font-weight: bold;">15.2%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 3px;">
+                <span style="color: #333;">chrome.exe (PID:5678)</span>
+                <span style="color: #409eff; font-weight: bold;">12.3%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 3px;">
+                <span style="color: #333;">chrome.exe (PID:9012)</span>
+                <span style="color: #409eff; font-weight: bold;">7.7%</span>
+              </div>
+            </div>
+            <div style="color: #999; font-size: 10px; margin-top: 4px; text-align: right;">共3个子进程实例</div>
+          </div>
+        </div>
+
+        <!-- GPU Tooltip示例 -->
+        <div style="background: white; border: 2px solid #e6a23c; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <div style="font-weight: bold; color: #333; font-size: 13px; margin-bottom: 8px; border-bottom: 2px solid #e6a23c; padding-bottom: 6px;">
+            📊 GPU使用率 Tooltip (时刻: 125s)
+          </div>
+
+          <!-- 系统指标 -->
+          <div style="margin-bottom: 8px; background: #fef0f0; padding: 8px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span style="color: #e6a23c; font-size: 12px;">● 系统GPU:</span>
+              <span style="color: #e6a23c; font-weight: bold; font-size: 13px;">78.6%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #f56c6c; font-size: 12px;">● 进程GPU:</span>
+              <span style="color: #f56c6c; font-weight: bold; font-size: 13px;">62.3%</span>
+            </div>
+          </div>
+
+          <!-- 子进程明细 -->
+          <div style="padding-top: 6px; border-top: 1px solid #ddd;">
+            <div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: bold;">子进程明细：</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 3px;">
+                <span style="color: #333;">game.exe (PID:1234)</span>
+                <span style="color: #e6a23c; font-weight: bold;">45.8%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 4px 6px; border-radius: 3px;">
+                <span style="color: #333;">game.exe (PID:5678)</span>
+                <span style="color: #e6a23c; font-weight: bold;">16.5%</span>
+              </div>
+            </div>
+            <div style="color: #999; font-size: 10px; margin-top: 4px; text-align: right;">共2个子进程实例</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
+        💡 Tooltip保持原有功能：显示该时刻的系统指标 + 进程总指标 + 所有子进程实例的明细（PID + 使用率）
+      </div>
+    </div>
+
+    <!-- 标记点位置说明 -->
+    <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+      <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">标记圆点位置设计（在折线数据点上）</h4>
+
+      <div style="height: 120px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; border: 1px solid #eee; margin-bottom: 10px;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <!-- 折线 -->
+          <polyline points="0,90 50,80 100,70 150,60 200,50 250,55 300,45 350,40 400,35" fill="none" stroke="#409eff" stroke-width="2"/>
+
+          <!-- 标记圆点在折线数据点上（发起共享@0s） -->
+          <circle cx="0" cy="90" r="7" fill="#409eff" stroke="white" stroke-width="2"/>
+          <text x="0" y="15" style="font-size: 10px; color: #409eff; font-weight: bold;">发起共享@0s</text>
+
+          <!-- 标记圆点在折线数据点上（场景加载@50s） -->
+          <circle cx="125" cy="65" r="7" fill="#67c23a" stroke="white" stroke-width="2"/>
+          <text x="125" y="15" style="font-size: 10px; color: #67c23a; font-weight: bold;">场景加载@50s</text>
+
+          <!-- 标记圆点在折线数据点上（峰值区间@100s） -->
+          <circle cx="250" cy="55" r="7" fill="#e6a23c" stroke="white" stroke-width="2"/>
+          <text x="250" y="15" style="font-size: 10px; color: #e6a23c; font-weight: bold;">峰值区间@100s</text>
+        </svg>
+      </div>
+
+      <div style="font-size: 12px; color: #666; line-height: 1.6;">
+        <strong>标记圆点规则：</strong>
+        <ul style="margin: 5px 0 0 0; padding-left: 20px;">
+          <li>标记圆点放在折线的具体数据点坐标上（cx对应时间，cy对应折线Y坐标）</li>
+          <li>圆点颜色与标记列表颜色一致（发起共享蓝色、场景加载绿色、峰值区间橙色）</li>
+          <li>圆点上方显示标记名称和时间（如"发起共享@0s"）</li>
+          <li>终点不显示标记，只显示起点</li>
+          <li>Hover标记圆点也可以显示Tooltip（该时刻的数据）</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>交互细节设计要点：</h3>
+  <ul style="line-height: 1.8; font-size: 13px;">
+    <li><strong>✅ 标记圆点在折线上</strong>：圆点坐标精确对应折线数据点（cx=时间，cy=折线Y值）</li>
+    <li><strong>✅ Tooltip提示</strong>：Hover或点击折线数据点显示Tooltip，包含该时刻的所有数据</li>
+    <li><strong>✅ 子进程详情</strong>：Tooltip中显示所有子进程实例的明细（PID + 使用率），和原来一样</li>
+    <li><strong>✅ 系统指标</strong>：Tooltip顶部显示系统指标和进程总指标</li>
+    <li><strong>✅ 标记点交互</strong>：Hover标记圆点也可以显示该时刻的Tooltip</li>
+    <li><strong>✅ 原有功能保留</strong>：Tooltip样式和内容保持原有的完整细节显示</li>
+  </ul>
+</div>
+
+<p style="margin-top: 15px; color: #666; font-size: 13px;">这个交互细节设计（标记在折线上 + Tooltip含子进程详情）符合你的需求吗？</p>

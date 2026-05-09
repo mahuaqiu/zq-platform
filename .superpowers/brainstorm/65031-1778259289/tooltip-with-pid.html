@@ -1,0 +1,197 @@
+<h2>折叠Tooltip - 子进程显示优化</h2>
+<p class="subtitle">显示PID信息 + 区分不同子进程实例 + 尺寸150px/180px</p>
+
+<div class="mockup">
+  <div class="mockup-header">Tooltip子进程显示优化（显示PID）</div>
+  <div class="mockup-body">
+
+    <!-- 折叠状态（显示PID） -->
+    <div style="margin-bottom: 25px;">
+      <h4 style="margin: 0 0 10px 0; color: #409eff; font-size: 13px;">✅ 折叠状态（宽度150px，显示PID）</h4>
+      <div style="position: relative; height: 220px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 12px; border: 2px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="cpuGrad7" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,160 40,150 80,120 120,110 160,100 180,105 200,90 240,85 280,80 320,75 360,70 400,65 400,220 0,220" fill="url(#cpuGrad7)" stroke="none"/>
+          <polyline points="0,160 40,150 80,120 120,110 160,100 180,105 200,90 240,85 280,80 320,75 360,70 400,65" fill="none" stroke="#409eff" stroke-width="2"/>
+          <circle cx="180" cy="105" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+          <line x1="180" y1="0" x2="180" y2="220" stroke="#ffc107" stroke-width="1.5" stroke-dasharray="6,4"/>
+        </svg>
+
+        <!-- 折叠Tooltip（显示子进程数量） -->
+        <div style="position: absolute; top: 15px; right: 15px; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.12); width: 150px;">
+          <div style="font-size: 14px; color: #333; font-weight: 600; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+            🕐 90s
+          </div>
+
+          <div style="margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 12px; height: 12px; background: #409eff; border-radius: 3px;"></div>
+                <span style="font-size: 13px; color: #666;">系统</span>
+              </div>
+              <span style="font-size: 14px; color: #409eff; font-weight: 600;">45.2%</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 12px; height: 12px; background: #67c23a; border-radius: 3px;"></div>
+                <span style="font-size: 13px; color: #666;">进程</span>
+              </div>
+              <span style="font-size: 14px; color: #67c23a; font-weight: 600;">28.5%</span>
+            </div>
+          </div>
+
+          <!-- 子进程汇总（显示实例数量） -->
+          <div style="background: #f0f9ff; padding: 8px; border-radius: 8px; font-size: 12px; color: #409eff; font-weight: 500;">
+            chrome.exe (3个实例)
+          </div>
+
+          <button style="width: 100%; background: linear-gradient(135deg, #409eff, #66b1ff); border: none; padding: 8px 0; font-size: 13px; color: white; border-radius: 8px; margin-top: 10px; font-weight: 500;">
+            ▼ 查看详情
+          </button>
+        </div>
+      </div>
+      <div style="margin-top: 8px; font-size: 12px; color: #666; text-align: center;">
+        💡 折叠状态显示子进程汇总：进程名 + 实例数量（chrome.exe 3个实例）
+      </div>
+    </div>
+
+    <!-- 展开状态（显示PID） -->
+    <div style="margin-bottom: 25px;">
+      <h4 style="margin: 0 0 10px 0; color: #67c23a; font-size: 13px;">✅ 展开状态（宽度180px，显示PID）</h4>
+      <div style="position: relative; height: 220px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 12px; border: 2px solid #eee;">
+        <svg width="100%" height="100%" style="position: absolute;">
+          <defs>
+            <linearGradient id="cpuGrad8" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.15"/>
+              <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.03"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,160 40,150 80,120 120,110 160,100 180,105 200,90 240,85 280,80 320,75 360,70 400,65 400,220 0,220" fill="url(#cpuGrad8)" stroke="none"/>
+          <polyline points="0,160 40,150 80,120 120,110 160,100 180,105 200,90 240,85 280,80 320,75 360,70 400,65" fill="none" stroke="#409eff" stroke-width="2"/>
+          <circle cx="180" cy="105" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+          <line x1="180" y1="0" x2="180" y2="220" stroke="#ffc107" stroke-width="1.5" stroke-dasharray="6,4"/>
+        </svg>
+
+        <!-- 展开Tooltip（显示PID） -->
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.2); width: 180px; z-index: 10;">
+          <button style="position: absolute; top: 8px; right: 8px; background: #f5f5f5; border: none; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; color: #666;">✕</button>
+
+          <div style="font-size: 14px; color: #333; font-weight: 600; margin-bottom: 10px;">🕐 90s</div>
+
+          <div style="margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 12px; height: 12px; background: #409eff; border-radius: 3px;"></div>
+                <span style="font-size: 13px; color: #666;">系统</span>
+              </div>
+              <span style="font-size: 14px; color: #409eff; font-weight: 600;">45.2%</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 12px; height: 12px; background: #67c23a; border-radius: 3px;"></div>
+                <span style="font-size: 13px; color: #666;">进程</span>
+              </div>
+              <span style="font-size: 14px; color: #67c23a; font-weight: 600;">28.5%</span>
+            </div>
+          </div>
+
+          <!-- 子进程列表（显示PID） -->
+          <div style="border-top: 1px solid #eee; padding-top: 10px; max-height: 100px; overflow-y: auto;">
+            <div style="font-size: 13px; color: #666; margin-bottom: 8px; font-weight: 500;">子进程明细：</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <!-- 子进程1（显示PID） -->
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 6px 8px; border-radius: 6px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="color: #333;">chrome.exe</span>
+                  <span style="color: #999; font-size: 11px;">(PID:1234)</span>
+                </div>
+                <span style="color: #409eff; font-weight: 600;">12.5%</span>
+              </div>
+              <!-- 子进程2（显示PID） -->
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 6px 8px; border-radius: 6px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="color: #333;">chrome.exe</span>
+                  <span style="color: #999; font-size: 11px;">(PID:5678)</span>
+                </div>
+                <span style="color: #409eff; font-weight: 600;">10.3%</span>
+              </div>
+              <!-- 子进程3（显示PID） -->
+              <div style="display: flex; justify-content: space-between; background: #f9f9f9; padding: 6px 8px; border-radius: 6px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="color: #333;">chrome.exe</span>
+                  <span style="color: #999; font-size: 11px;">(PID:9012)</span>
+                </div>
+                <span style="color: #409eff; font-weight: 600;">5.7%</span>
+              </div>
+            </div>
+            <div style="color: #999; font-size: 12px; text-align: center; margin-top: 5px;">共3个子进程实例</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 8px; font-size: 12px; color: #666; text-align: center;">
+        💡 展开状态显示每个子进程的PID：chrome.exe (PID:1234)、chrome.exe (PID:5678)、chrome.exe (PID:9012)
+      </div>
+    </div>
+
+    <!-- PID显示说明 -->
+    <div style="background: #f5f5f5; border-radius: 8px; padding: 15px;">
+      <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">🎯 PID显示格式</h4>
+
+      <div style="display: flex; align-items: center; gap: 15px; font-size: 13px;">
+        <div style="flex: 1;">
+          <div style="margin-bottom: 8px;">
+            <strong style="color: #409eff;">折叠状态：</strong>
+            <span style="color: #666;">显示进程名 + 实例数量</span>
+            <div style="background: white; padding: 5px 8px; border-radius: 4px; margin-top: 3px; font-size: 12px; color: #409eff;">
+              chrome.exe (3个实例)
+            </div>
+          </div>
+        </div>
+
+        <div style="flex: 1;">
+          <div style="margin-bottom: 8px;">
+            <strong style="color: #67c23a;">展开状态：</strong>
+            <span style="color: #666;">显示每个实例的PID</span>
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 3px;">
+              <div style="background: white; padding: 3px 6px; border-radius: 3px; font-size: 12px;">
+                <span style="color: #333;">chrome.exe</span>
+                <span style="color: #999; font-size: 11px;">(PID:1234)</span>
+                <span style="color: #409eff; font-weight: 600; margin-left: 5px;">12.5%</span>
+              </div>
+              <div style="background: white; padding: 3px 6px; border-radius: 3px; font-size: 12px;">
+                <span style="color: #333;">chrome.exe</span>
+                <span style="color: #999; font-size: 11px;">(PID:5678)</span>
+                <span style="color: #409eff; font-weight: 600; margin-left: 5px;">10.3%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 13px; color: #666;">
+        💡 <strong style="color: #333;">显示逻辑：</strong>同一进程名可能有多个实例（不同PID），用户可通过PID区分不同实例，了解每个实例的资源占用情况
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>子进程显示优化要点：</h3>
+  <ul style="line-height: 1.8; font-size: 13px;">
+    <li><strong>折叠状态</strong>：显示进程名 + 实例数量（chrome.exe 3个实例）</li>
+    <li><strong>展开状态</strong>：显示每个实例的PID（chrome.exe (PID:1234)）</li>
+    <li><strong>区分实例</strong>：同一进程名有多个PID实例，用户可区分不同实例</li>
+    <li><strong>PID格式</strong>：进程名 + 空格 + (PID:数字)，如 chrome.exe (PID:1234)</li>
+    <li><strong>使用率显示</strong>：每个实例显示独立的使用率（12.5%、10.3%、5.7%）</li>
+    <li><strong>宽度保持</strong>：折叠150px，展开180px，足够显示PID信息</li>
+    <li><strong>原有功能保留</strong>：和原来的Tooltip一样，显示所有子进程的PID和使用率</li>
+  </ul>
+</div>
+
+<p style="margin-top: 15px; color: #666; font-size: 13px;">这个子进程PID显示方式你觉得能区分不同实例了吗？</p>

@@ -1,0 +1,142 @@
+<h2>TOP10动态交互设计 - 点击曲线显示时刻TOP10</h2>
+<p class="subtitle">点击CPU/GPU曲线图上的任意点，TOP10自动切换为该时刻的进程排名</p>
+
+<div class="mockup">
+  <div class="mockup-header">交互式TOP10设计（推荐方案）</div>
+  <div class="mockup-body">
+    <!-- CPU使用率图表 + TOP10柱状图 -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 20px;">
+      <!-- 左侧：CPU使用率曲线图 -->
+      <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="margin: 0; color: #333;">📊 CPU使用率</h4>
+          <div style="display: flex; gap: 10px;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #409eff; border-radius: 50%;"></span>
+            <span style="font-size: 12px; color: #409eff;">系统 45.2%</span>
+            <span style="display: inline-block; width: 12px; height: 12px; background: #67c23a; border-radius: 50%;"></span>
+            <span style="font-size: 12px; color: #67c23a;">进程 28.5%</span>
+          </div>
+        </div>
+        <div style="height: 160px; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; position: relative; overflow: hidden;">
+          <svg width="100%" height="100%" style="position: absolute;">
+            <defs>
+              <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#409eff;stop-opacity:0.3"/>
+                <stop offset="100%" style="stop-color:#409eff;stop-opacity:0.05"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,80 Q50,60 100,70 T200,50 T300,65 T400,55" fill="url(#cpuGrad)" stroke="none"/>
+            <path d="M0,80 Q50,60 100,70 T200,50 T300,65 T400,55" fill="none" stroke="#409eff" stroke-width="2"/>
+            <path d="M0,100 Q50,90 100,95 T200,80 T300,90 T400,85" fill="none" stroke="#67c23a" stroke-width="2"/>
+            <!-- 点击指示点 -->
+            <circle cx="250" cy="50" r="6" fill="#ffc107" stroke="white" stroke-width="2"/>
+            <!-- 垂直指示线 -->
+            <line x1="250" y1="0" x2="250" y2="160" stroke="#ffc107" stroke-width="1" stroke-dasharray="5,5"/>
+          </svg>
+          <!-- 时间标签 -->
+          <div style="position: absolute; bottom: 5px; left: 245px; background: rgba(255, 193, 7, 0.9); padding: 2px 8px; border-radius: 3px; font-size: 10px; color: white;">
+            125s
+          </div>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px; color: #666;">
+          💡 点击曲线图上的任意点，右侧TOP10将显示该时刻的进程排名（当前选中：125秒时刻）
+        </div>
+      </div>
+
+      <!-- 右侧：CPU TOP10水平柱状图（动态显示选中时刻） -->
+      <div style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="margin: 0; color: #333; font-size: 14px;">🏆 CPU TOP10</h4>
+          <div style="background: #ffc107; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+            时刻: 125s
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <!-- TOP1 -->
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 70px; font-size: 11px; color: #333; overflow: hidden; text-overflow: ellipsis;">chrome.exe</div>
+            <div style="flex: 1; height: 18px; background: #f0f0f0; border-radius: 3px; position: relative;">
+              <div style="width: 85%; height: 100%; background: linear-gradient(90deg, #409eff, #66b1ff); border-radius: 3px; position: relative;">
+                <div style="position: absolute; right: 5px; top: 2px; font-size: 10px; color: white; font-weight: bold;">12.5%</div>
+              </div>
+            </div>
+          </div>
+          <!-- TOP2 -->
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 70px; font-size: 11px; color: #333; overflow: hidden; text-overflow: ellipsis;">vscode.exe</div>
+            <div style="flex: 1; height: 18px; background: #f0f0f0; border-radius: 3px; position: relative;">
+              <div style="width: 70%; height: 100%; background: linear-gradient(90deg, #67c23a, #85ce61); border-radius: 3px; position: relative;">
+                <div style="position: absolute; right: 5px; top: 2px; font-size: 10px; color: white; font-weight: bold;">10.3%</div>
+              </div>
+            </div>
+          </div>
+          <!-- TOP3 -->
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 70px; font-size: 11px; color: #333; overflow: hidden; text-overflow: ellipsis;">node.exe</div>
+            <div style="flex: 1; height: 18px; background: #f0f0f0; border-radius: 3px; position: relative;">
+              <div style="width: 55%; height: 100%; background: linear-gradient(90deg, #e6a23c, #ebb563); border-radius: 3px; position: relative;">
+                <div style="position: absolute; right: 5px; top: 2px; font-size: 10px; color: white; font-weight: bold;">8.2%</div>
+              </div>
+            </div>
+          </div>
+          <!-- TOP4-10简化显示 -->
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 70px; font-size: 11px; color: #666;">python.exe</div>
+            <div style="flex: 1; height: 14px; background: #f0f0f0; border-radius: 3px;">
+              <div style="width: 40%; height: 100%; background: #f56c6c; border-radius: 3px;"></div>
+            </div>
+            <div style="font-size: 10px; color: #999;">5.8%</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 70px; font-size: 11px; color: #666;">slack.exe</div>
+            <div style="flex: 1; height: 14px; background: #f0f0f0; border-radius: 3px;">
+              <div style="width: 35%; height: 100%; background: #909399; border-radius: 3px;"></div>
+            </div>
+            <div style="font-size: 10px; color: #999;">4.5%</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 70px; font-size: 11px; color: #666;">...</div>
+            <div style="flex: 1; height: 14px; background: #f5f5f5; border-radius: 3px; display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 10px; color: #999;">其他进程 (共5个)</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd; font-size: 10px; color: #999;">
+          点击进程名可高亮该进程在主图表中的曲线
+        </div>
+      </div>
+    </div>
+
+    <!-- 默认状态（未点击时） -->
+    <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-top: 20px;">
+      <h4 style="margin: 0; color: #666;">默认状态示例（未点击曲线时）</h4>
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-top: 10px;">
+        <div style="background: white; padding: 10px; border-radius: 6px; height: 140px; display: flex; align-items: center; justify-content: center;">
+          <span style="color: #999; font-size: 12px;">CPU曲线图（默认无选中点）</span>
+        </div>
+        <div style="background: white; padding: 10px; border-radius: 6px;">
+          <div style="margin-bottom: 8px; color: #333; font-size: 14px;">🏆 CPU TOP10</div>
+          <div style="background: #67c23a; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; display: inline-block;">
+            最新时刻 (实时更新)
+          </div>
+          <div style="margin-top: 8px; font-size: 10px; color: #999;">
+            未点击曲线时，默认显示最新时刻的TOP10
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>交互设计要点：</h3>
+  <ul style="line-height: 1.8;">
+    <li><strong>✅ 默认显示最新时刻</strong>：未点击曲线时，TOP10自动显示最新sample的进程排名</li>
+    <li><strong>✅ 点击切换时刻</strong>：点击曲线图上的任意点，TOP10切换为该时刻的排名</li>
+    <li><strong>✅ 时刻指示器</strong>：点击点显示黄色指示点和垂直虚线，底部显示时间标签（如"125s"）</li>
+    <li><strong>✅ TOP10标题显示时刻</strong>：右侧TOP10标题旁显示当前选中的时刻（如"时刻: 125s"）</li>
+    <li><strong>✅ 实时更新</strong>：默认状态时，TOP10随最新数据实时更新</li>
+  </ul>
+</div>
+
+<p style="margin-top: 15px; color: #666;">这个交互设计你觉得合理吗？还有其他需要调整的地方吗？</p>
