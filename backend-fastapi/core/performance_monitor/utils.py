@@ -17,7 +17,7 @@ def extract_core_metrics(hwinfo_raw: Optional[Dict[str, Any]], target_processes:
     Returns:
         包含核心指标的字典：cpu_usage, gpu_usage, commit_memory, process_cpu, process_gpu, process_memory
     """
-    result = {
+    result: Dict[str, Optional[float]] = {
         "cpu_usage": None,
         "gpu_usage": None,
         "commit_memory": None,
