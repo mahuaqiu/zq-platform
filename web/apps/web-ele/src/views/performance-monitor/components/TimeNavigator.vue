@@ -51,10 +51,19 @@ function handleMouseMove(e: MouseEvent) {
   const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
   const time = Math.round((percent / 100) * props.duration);
 
+  // 严格边界保护：确保时间值在有效范围内
+  const minTime = 0;
+  const maxTime = props.duration;
+  const minGap = 5; // 最小间隔
+
   if (isDraggingLeft.value) {
-    localStartTime.value = Math.min(time, localEndTime.value - 5);
+    // 左边界：不能小于0，不能超过endTime-5
+    const maxAllowed = Math.max(minTime, localEndTime.value - minGap);
+    localStartTime.value = Math.max(minTime, Math.min(time, maxAllowed));
   } else if (isDraggingRight.value) {
-    localEndTime.value = Math.max(time, localStartTime.value + 5);
+    // 右边界：不能超过duration，不能小于startTime+5
+    const minAllowed = Math.min(maxTime, localStartTime.value + minGap);
+    localEndTime.value = Math.min(maxTime, Math.max(time, minAllowed));
   }
 }
 

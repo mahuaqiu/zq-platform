@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, nextTick, watch } from 'vue';
 import { ElInput, ElSelect, ElButton, ElOption } from 'element-plus';
+import * as echarts from 'echarts';
 import { getMetricMappings, queryAdvancedMetrics } from '#/api/core/performance-monitor';
 import type { MetricMappingResponse, AdvancedMetricsResponse, MetricTimeSeries } from '#/api/core/performance-monitor';
 
@@ -16,6 +17,8 @@ const results = ref<MetricMappingResponse[]>([]);
 const selectedMetrics = ref<string[]>([]);
 const metricsData = ref<AdvancedMetricsResponse | null>(null);
 const loading = ref(false);
+const chartRefs = ref<Map<string, HTMLDivElement>>(new Map());
+const chartInstances = ref<Map<string, echarts.ECharts>>(new Map());
 
 async function handleSearch() {
   loading.value = true;
@@ -39,14 +42,83 @@ async function handleShowMetric(hwinfoKey: string) {
       metric_keys: selectedMetrics.value,
     });
     loading.value = false;
+
+    // 渲染图表
+    await nextTick();
+    renderCharts();
   } else {
     metricsData.value = null;
+    // 清理图表实例
+    chartInstances.value.forEach(chart => chart.dispose());
+    chartInstances.value.clear();
+    chartRefs.value.clear();
   }
 }
 
 function isSelected(hwinfoKey: string): boolean {
   return selectedMetrics.value.includes(hwinfoKey);
 }
+
+function renderCharts() {
+  if (!metricsData.value?.metrics) return;
+
+  Object.entries(metricsData.value.metrics).forEach(([key, ts]) => {
+    const chartDiv = chartRefs.value.get(key);
+    if (!chartDiv) return;
+
+    // 清理已有实例
+    const existingChart = chartInstances.value.get(key);
+    if (existingChart) {
+      existingChart.dispose();
+    }
+
+    // 创建新图表
+    const chart = echarts.init(chartDiv);
+    const timeData = ts.data.map(d => d.relative_time);
+    const valueData = ts.data.map(d => d.value);
+
+    chart.setOption({
+      grid: { left: 40, right: 20, top: 10, bottom: 25 },
+      xAxis: {
+        type: 'category',
+        data: timeData,
+        axisLabel: { fontSize: 10, color: '#999' },
+        axisLine: { lineStyle: { color: '#ddd' } },
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { fontSize: 10, color: '#999' },
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: '#eee', type: 'dashed' } },
+      },
+      series: [{
+        type: 'line',
+        data: valueData,
+        lineStyle: { color: '#409eff', width: 2 },
+        itemStyle: { color: '#409eff' },
+        smooth: true,
+        symbol: 'none',
+      }],
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const time = params[0]?.axisValue;
+          const value = params[0]?.value;
+          return `时间: ${time}秒<br/>值: ${value?.toFixed(2)} ${ts.unit || ''}`;
+        },
+      },
+    });
+
+    chartInstances.value.set(key, chart);
+  });
+}
+
+// 监听窗口大小变化，调整图表尺寸
+onMounted(() => {
+  window.addEventListener('resize', () => {
+    chartInstances.value.forEach(chart => chart.resize());
+  });
+});
 </script>
 
 <template>
@@ -83,10 +155,13 @@ function isSelected(hwinfoKey: string): boolean {
     <!-- 已选指标图表 -->
     <div class="metrics-charts" v-if="metricsData && metricsData.metrics">
       <div v-for="[key, ts] in Object.entries(metricsData.metrics)" :key="key" class="metric-chart">
-        <div class="chart-title">{{ ts.display_name || key }}</div>
-        <div class="chart-values">
-          最新值: {{ ts.data.length ? ts.data[ts.data.length-1]?.value?.toFixed(2) : '-' }} {{ ts.unit }}
+        <div class="chart-header">
+          <span class="chart-title">{{ ts.display_name || key }}</span>
+          <span class="chart-info">
+            最新值: {{ ts.data.length ? ts.data[ts.data.length-1]?.value?.toFixed(2) : '-' }} {{ ts.unit }}
+          </span>
         </div>
+        <div class="chart-container" :ref="(el) => { if (el) chartRefs.set(key, el as HTMLDivElement) }"></div>
       </div>
     </div>
 
@@ -166,15 +241,24 @@ function isSelected(hwinfoKey: string): boolean {
   border-radius: 6px;
   margin-bottom: 10px;
 }
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
 .chart-title {
   font-size: 13px;
   color: #333;
   font-weight: bold;
 }
-.chart-values {
+.chart-info {
   font-size: 12px;
   color: #666;
-  margin-top: 5px;
+}
+.chart-container {
+  width: 100%;
+  height: 120px;
 }
 .no-results {
   text-align: center;

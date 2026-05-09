@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { ElDialog, ElInput, ElButton, ElColorPicker } from 'element-plus';
 import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 import type { MarkerResponse } from '#/api/core/performance-monitor';
@@ -7,6 +7,7 @@ import type { MarkerResponse } from '#/api/core/performance-monitor';
 interface Props {
   collectId: string;
   markers: MarkerResponse[];
+  clickedTime?: number; // 从图表点击接收的时间点
 }
 
 const props = defineProps<Props>();
@@ -22,6 +23,18 @@ const newMarker = ref({
   color: '#409eff',
   note: '',
 });
+
+// 监听图表点击时间点，自动填充并打开对话框
+watch(
+  () => props.clickedTime,
+  (time) => {
+    if (time !== undefined && time >= 0) {
+      newMarker.value.start_time = time;
+      newMarker.value.name = ''; // 清空名称让用户输入
+      showAddDialog.value = true; // 自动打开对话框
+    }
+  }
+);
 
 async function handleAddMarker() {
   if (!newMarker.value.name || newMarker.value.start_time < 0) {
