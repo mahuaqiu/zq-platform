@@ -232,6 +232,9 @@ class PerformanceMetricMapping(BaseModel):
     # 单位
     unit = Column(String(20), nullable=True, comment="单位")
 
+    # 排序
+    sort = Column(Integer, nullable=False, default=0, comment="排序")
+
 
 class PerformanceMarker(BaseModel):
     """
