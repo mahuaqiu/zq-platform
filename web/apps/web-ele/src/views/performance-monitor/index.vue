@@ -8,6 +8,9 @@ import MetricCard from './components/MetricCard.vue';
 import Top10List from './components/Top10List.vue';
 import CollectDialog from './components/CollectDialog.vue';
 import TimelineSelector from './components/TimelineSelector.vue';
+import TimeNavigator from './components/TimeNavigator.vue';
+import MarkerManager from './components/MarkerManager.vue';
+import AdvancedMetrics from './components/AdvancedMetrics.vue';
 import {
   getCollectStatus,
   stopCollect,
@@ -18,6 +21,7 @@ import {
   createVersion,
   deleteCollect,
   setCollectProtected,
+  getMarkers,
 } from '#/api/core/performance-monitor';
 import { getEnvMachineListApi } from '#/api/core/env-machine';
 import type {
@@ -25,6 +29,7 @@ import type {
   CollectStatus,
   PerformanceCollect,
   PerformanceVersion,
+  MarkerResponse,
 } from '#/api/core/performance-monitor';
 import type { EnvMachine } from '#/api/core/env-machine';
 import type { ChartSeries, MetricCardData, Top10Item } from './types';
@@ -58,6 +63,12 @@ const showCollectDialog = ref(false);
 // 性能数据
 const performanceData = ref<PerformanceData[]>([]);
 const historyData = ref<PerformanceData[]>([]); // 历史数据用于趋势线
+
+// 标记数据
+const markers = ref<MarkerResponse[]>([]);
+
+// 点击图表选中的时刻（用于 TOP10 切换）
+const clickedTime = ref<number>(0);
 
 // 采集历史
 const collectHistory = ref<PerformanceCollect[]>([]);
@@ -468,9 +479,23 @@ async function loadCollectData(collectId: string) {
       historyData.value = result.items.slice(-50);
       // 数据加载后重新应用时间窗口设置
       setTimeWindow(timeWindow.value);
+      // 加载标记
+      await loadMarkers();
     }
   } catch (error) {
     console.error('获取采集数据失败', error);
+  }
+}
+
+// 加载标记数据
+async function loadMarkers() {
+  if (currentCollectId.value) {
+    try {
+      const res = await getMarkers(currentCollectId.value);
+      markers.value = res;
+    } catch (error) {
+      console.error('获取标记失败', error);
+    }
   }
 }
 
@@ -709,6 +734,16 @@ function formatDuration(startTime: string, endTime?: string): string {
   const mins = Math.floor((diffSec % 3600) / 60);
   return `${hours}小时${mins}分钟`;
 }
+
+// 处理图表点击事件（更新 clickedTime 用于 TOP10 切换）
+function handlePointClick(data: { time: number; collectId: string }) {
+  clickedTime.value = data.time;
+}
+
+// 处理时间导航条范围变化
+function handleRangeChange(range: [number, number]) {
+  selectedRelativeTimeRange.value = range;
+}
 </script>
 
 <template>
@@ -815,38 +850,73 @@ function formatDuration(startTime: string, endTime?: string): string {
       </div>
     </div>
 
+    <!-- 时间导航条 -->
+    <TimeNavigator
+      v-if="performanceData.length > 0"
+      :duration="performanceData[performanceData.length - 1]?.relative_time || 0"
+      :start-time="selectedRelativeTimeRange?.[0] || 0"
+      :end-time="selectedRelativeTimeRange?.[1] || performanceData[performanceData.length - 1]?.relative_time || 0"
+      @range-change="handleRangeChange"
+    />
+
+    <!-- 标记管理 -->
+    <MarkerManager
+      v-if="currentCollectId"
+      :collect-id="currentCollectId"
+      :markers="markers"
+      @refresh="loadMarkers"
+    />
+
     <!-- 主内容区 -->
     <div class="main-content">
-      <!-- 左侧曲线图 -->
+      <!-- 图表区（一行一个图表） -->
       <div class="charts-area">
         <ChartPanel
-          title="CPU（%）"
+          title="CPU使用率"
           :series="cpuChartSeries"
           :height="180"
           :raw-data="filteredPerformanceData"
+          :markers="markers"
           chart-type="cpu"
+          @point-click="handlePointClick"
         />
         <ChartPanel
-          title="GPU（%）"
+          title="GPU使用率"
           :series="gpuChartSeries"
-          :height="150"
+          :height="180"
           :raw-data="filteredPerformanceData"
+          :markers="markers"
           chart-type="gpu"
+          @point-click="handlePointClick"
         />
+
+        <!-- TOP10 进程排名 -->
+        <Top10List
+          :data="filteredPerformanceData"
+          :clicked-time="clickedTime"
+        />
+
         <ChartPanel
-          title="提交内存（MB）"
+          title="提交内存"
           :series="commitMemoryChartSeries"
           :height="150"
           :raw-data="filteredPerformanceData"
+          :markers="markers"
           chart-type="commitMemory"
+          @point-click="handlePointClick"
         />
         <ChartPanel
-          title="内存（MB）"
+          title="进程内存"
           :series="memoryChartSeries"
           :height="150"
           :raw-data="filteredPerformanceData"
+          :markers="markers"
           chart-type="memory"
+          @point-click="handlePointClick"
         />
+
+        <!-- 高级指标面板 -->
+        <AdvancedMetrics v-if="currentCollectId" :collect-id="currentCollectId" />
       </div>
 
       <!-- 右侧栏 -->
@@ -858,10 +928,6 @@ function formatDuration(startTime: string, endTime?: string): string {
             <MetricCard v-for="(card, i) in metricCards" :key="i" :data="card" />
           </div>
         </div>
-
-        <!-- TOP10 概览 -->
-        <Top10List title="CPU TOP10" :items="top10Cpu" />
-        <Top10List title="GPU TOP10" :items="top10Gpu" />
       </div>
     </div>
 
