@@ -1,63 +1,90 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { Top10Item } from '../types';
+import { ref, watch } from 'vue';
+import type { PerformanceData } from '../types';
+
+interface Top10ItemInternal {
+  name: string;
+  value: number;
+  percent: number;
+}
 
 const props = defineProps<{
-  title: string;
-  items: Top10Item[];
+  data: PerformanceData[];
+  clickedTime?: number;
 }>();
 
-// TOP3 显示迷你趋势线
-const top3 = computed(() => props.items.slice(0, 3));
-// 其他显示列表
-const others = computed(() => props.items.slice(3, 10));
+const currentTime = ref<number>(0);
+const top5 = ref<Top10ItemInternal[]>([]);
+const top6to10 = ref<Top10ItemInternal[]>([]);
 
-function getBgColor(index: number): string {
-  if (index === 0) return '#f0f9eb';
-  if (index === 1) return '#fef0f0';
-  return '#fdf6ec';
+// 监听点击时刻变化
+watch(
+  () => props.clickedTime,
+  (time) => {
+    if (time !== undefined) {
+      currentTime.value = time;
+      updateTop10Data(time);
+    }
+  },
+  { immediate: true }
+);
+
+function updateTop10Data(time: number) {
+  // 找到最接近的数据
+  const closestData =
+    props.data.find((d) => d.relative_time === time) ||
+    props.data.reduce(
+      (prev, curr) =>
+        Math.abs(curr.relative_time - time) < Math.abs(prev.relative_time - time) ? curr : prev,
+      props.data[0]
+    );
+
+  if (closestData?.top10_cpu) {
+    const maxCpu = Math.max(...closestData.top10_cpu.map((p) => p.cpu || 0));
+    const items = closestData.top10_cpu.map((p) => ({
+      name: p.name,
+      value: p.cpu || 0,
+      percent: maxCpu > 0 ? ((p.cpu || 0) / maxCpu) * 100 : 0,
+    }));
+    top5.value = items.slice(0, 5);
+    top6to10.value = items.slice(5, 10);
+  }
+}
+
+function getBarColor(idx: number): string {
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399'];
+  return colors[idx] || '#909399';
 }
 </script>
 
 <template>
   <div class="top10-list">
-    <div class="top10-title">{{ title }}</div>
+    <div class="top10-header">
+      <span class="top10-title">进程 TOP10 排名</span>
+      <span class="top10-time">时刻: {{ currentTime }}s</span>
+    </div>
     <div class="top10-content">
-      <!-- TOP3 迷你趋势线 -->
-      <div
-        v-for="(item, index) in top3"
-        :key="index"
-        class="top10-item top-item"
-        :style="{ background: getBgColor(index) }"
-      >
-        <div class="mini-trend">
-          <svg class="mini-svg" viewBox="0 0 40 16">
-            <polyline
-              :points="
-                item.trendData
-                  .map((v, i) => `${i * 4},${16 - Math.min(v, 16)}`)
-                  .join(' ')
-              "
-              :stroke="item.color"
-              stroke-width="1.5"
-              fill="none"
-            />
-          </svg>
+      <div class="top10-column">
+        <div v-for="(item, idx) in top5" :key="idx" class="top10-item">
+          <span class="process-name">{{ item.name }}</span>
+          <div class="bar-container">
+            <div
+              class="bar-fill"
+              :style="{ width: item.percent + '%', background: getBarColor(idx) }"
+            >
+              <span class="bar-value">{{ item.value.toFixed(1) }}%</span>
+            </div>
+          </div>
         </div>
-        <span class="process-name">{{ item.name }}</span>
-        <span class="process-value" :style="{ color: item.color }">
-          {{ item.value.toFixed(1) }}%
-        </span>
       </div>
-
-      <!-- TOP4-10 列表 -->
-      <div
-        v-for="(item, index) in others"
-        :key="index + 3"
-        class="top10-item other-item"
-      >
-        <span class="process-name">{{ item.name }}</span>
-        <span class="process-value">{{ item.value.toFixed(1) }}%</span>
+      <div class="top10-column">
+        <div v-for="(item, idx) in top6to10" :key="idx" class="top10-item small">
+          <span class="process-name">{{ item.name }}</span>
+          <div class="bar-container">
+            <div class="bar-fill" :style="{ width: item.percent + '%', background: '#909399' }"></div>
+          </div>
+          <span class="bar-value-right">{{ item.value.toFixed(1) }}%</span>
+        </div>
       </div>
     </div>
   </div>
@@ -66,53 +93,74 @@ function getBgColor(index: number): string {
 <style scoped>
 .top10-list {
   background: #fff;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 12px;
+}
+.top10-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 .top10-title {
   font-size: 15px;
   font-weight: 700;
   color: #333;
-  margin-bottom: 8px;
+}
+.top10-time {
+  font-size: 12px;
+  color: #666;
 }
 .top10-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+.top10-column {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .top10-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px;
-  border-radius: 4px;
-}
-.top-item {
-  font-size: 11px;
-}
-.mini-trend {
-  width: 40px;
-  height: 16px;
-}
-.mini-svg {
-  width: 100%;
-  height: 100%;
 }
 .process-name {
-  flex: 1;
-  font-size: 11px;
-  color: #333;
-}
-.process-value {
+  width: 90px;
   font-size: 12px;
-  font-weight: 600;
+  color: #333;
+  font-weight: bold;
 }
-.other-item {
-  background: transparent;
-  border-top: 1px dashed #eee;
-  padding: 4px 0;
-  font-size: 10px;
+.top10-item.small .process-name {
   color: #666;
-  justify-content: space-between;
+  font-weight: normal;
+}
+.bar-container {
+  flex: 1;
+  height: 20px;
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+.top10-item.small .bar-container {
+  height: 16px;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 5px;
+}
+.bar-value {
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+}
+.bar-value-right {
+  font-size: 11px;
+  color: #999;
+  width: 45px;
+  text-align: right;
 }
 </style>
