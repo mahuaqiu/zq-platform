@@ -18,11 +18,16 @@ from core.performance_monitor.schema import (
     WorkerReportRequest, TagCreateRequest, TagUpdateRequest,
     VersionCreateRequest,
     # Response Schema（用于正确序列化 datetime）
-    CollectResponse, DataResponse, PaginatedResponse
+    CollectResponse, DataResponse, PaginatedResponse,
+    # v0.3.0 新增
+    WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
+    MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse
 )
 from core.performance_monitor.service import (
     PerformanceCollectService, PerformanceDataService,
-    PerformanceTagService, PerformanceVersionService
+    PerformanceTagService, PerformanceVersionService,
+    # v0.3.0 新增
+    MetricMappingService, MarkerService
 )
 
 router = APIRouter(prefix="/performance-monitor", tags=["性能监控"])
@@ -208,8 +213,15 @@ async def set_collect_protected(
 # ===== 数据上报 =====
 
 @router.post("/report")
-async def report_data(request: WorkerReportRequest, db: AsyncSession = Depends(get_db)):
-    """Worker 上报数据"""
+async def report_data(request: WorkerReportRequestV3, db: AsyncSession = Depends(get_db)):
+    """Worker 上报数据（v0.3.0）"""
+    success = await PerformanceDataService.report_data(db, request)
+    return {"status": "success" if success else "failed"}
+
+
+@router.post("/report/v2")
+async def report_data_v2(request: WorkerReportRequest, db: AsyncSession = Depends(get_db)):
+    """Worker 上报数据（v2，兼容旧版本）"""
     success = await PerformanceDataService.report_data(db, request)
     return {"status": "success" if success else "failed"}
 
@@ -267,4 +279,87 @@ async def get_compare_data(version_ids: str, db: AsyncSession = Depends(get_db))
     """获取版本对比数据"""
     ids = version_ids.split(",")
     result = await PerformanceVersionService.get_compare_data(db, ids)
+    return result
+
+
+# ===== 指标映射管理（v0.3.0）=====
+
+@router.get("/metric-mapping/list")
+async def get_metric_mappings(
+    keyword: Optional[str] = None,
+    category: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """获取指标映射列表"""
+    mappings = await MetricMappingService.get_mappings(db, keyword, category)
+    return {"items": [MetricMappingResponse.model_validate(m) for m in mappings]}
+
+
+@router.post("/metric-mapping")
+async def create_metric_mapping(request: MetricMappingCreate, db: AsyncSession = Depends(get_db)):
+    """创建指标映射"""
+    mapping_id = await MetricMappingService.create_mapping(db, request)
+    return {"id": mapping_id, "status": "created"}
+
+
+@router.put("/metric-mapping/{mapping_id}")
+async def update_metric_mapping(mapping_id: str, request: MetricMappingUpdate, db: AsyncSession = Depends(get_db)):
+    """更新指标映射"""
+    success = await MetricMappingService.update_mapping(db, mapping_id, request)
+    return {"status": "updated" if success else "not_found"}
+
+
+@router.delete("/metric-mapping/{mapping_id}")
+async def delete_metric_mapping(mapping_id: str, db: AsyncSession = Depends(get_db)):
+    """删除指标映射"""
+    success = await MetricMappingService.delete_mapping(db, mapping_id)
+    return {"status": "deleted" if success else "not_found"}
+
+
+@router.post("/metric-mapping/batch-import")
+async def batch_import_mappings(
+    collect_id: str = Query(..., description="采集记录ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """批量导入未映射的传感器"""
+    result = await MetricMappingService.batch_import(db, collect_id)
+    return result
+
+
+# ===== 标记管理（v0.3.0）=====
+
+@router.get("/marker/list")
+async def get_markers(collect_id: str, db: AsyncSession = Depends(get_db)):
+    """获取标记列表"""
+    markers = await MarkerService.get_markers(db, collect_id)
+    return {"items": [MarkerResponse.model_validate(m) for m in markers]}
+
+
+@router.post("/marker")
+async def create_marker(request: MarkerCreate, db: AsyncSession = Depends(get_db)):
+    """创建标记"""
+    marker_id = await MarkerService.create_marker(db, request)
+    return {"id": marker_id, "status": "created"}
+
+
+@router.put("/marker/{marker_id}")
+async def update_marker(marker_id: str, request: MarkerUpdate, db: AsyncSession = Depends(get_db)):
+    """更新标记"""
+    success = await MarkerService.update_marker(db, marker_id, request)
+    return {"status": "updated" if success else "not_found"}
+
+
+@router.delete("/marker/{marker_id}")
+async def delete_marker(marker_id: str, db: AsyncSession = Depends(get_db)):
+    """删除标记"""
+    success = await MarkerService.delete_marker(db, marker_id)
+    return {"status": "deleted" if success else "not_found"}
+
+
+# ===== 高级指标查询 =====
+
+@router.post("/metrics/query")
+async def query_advanced_metrics(request: AdvancedMetricsQuery, db: AsyncSession = Depends(get_db)):
+    """查询高级指标"""
+    result = await PerformanceDataService.query_advanced_metrics(db, request)
     return result
