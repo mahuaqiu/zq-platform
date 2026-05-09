@@ -323,7 +323,7 @@ export async function getCompareData(versionIds: string[]) {
 
 // 标记 API
 export function getMarkers(collectId: string) {
-  return requestClient.get<MarkerResponse[]>(`/api/core/performance-monitor/marker/list`, { params: { collect_id: collectId } });
+  return requestClient.get<{ items: MarkerResponse[] }>(`/api/core/performance-monitor/marker/list`, { params: { collect_id: collectId } });
 }
 
 export function createMarker(data: MarkerCreate) {

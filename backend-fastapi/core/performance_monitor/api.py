@@ -363,3 +363,58 @@ async def query_advanced_metrics(request: AdvancedMetricsQuery, db: AsyncSession
     """查询高级指标"""
     result = await PerformanceDataService.query_advanced_metrics(db, request)
     return result
+
+
+# ===== 版本导出（v0.3.0）=====
+
+@router.get("/version/export/html")
+async def export_html_report(
+    version_ids: str = Query(..., description="版本ID列表，逗号分隔，最多6个"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    导出HTML报告
+
+    Args:
+        version_ids: 版本ID列表，逗号分隔
+
+    Returns:
+        HTML文件下载响应
+    """
+    ids = version_ids.split(",")
+    if len(ids) > 6:
+        raise HTTPException(status_code=400, detail="最多支持6个版本对比")
+
+    # TODO: 实现HTML报告生成逻辑
+    # 1. 获取对比数据
+    # 2. 使用模板引擎生成HTML
+    # 3. 返回StreamingResponse
+
+    raise HTTPException(status_code=501, detail="导出HTML功能待实现")
+
+
+@router.get("/version/export/excel")
+async def export_excel_data(
+    version_ids: str = Query(..., description="版本ID列表，逗号分隔，最多6个"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    导出Excel数据明细
+
+    Args:
+        version_ids: 版本ID列表，逗号分隔
+
+    Returns:
+        Excel文件下载响应
+    """
+    ids = version_ids.split(",")
+    if len(ids) > 6:
+        raise HTTPException(status_code=400, detail="最多支持6个版本对比")
+
+    # TODO: 实现Excel数据导出逻辑
+    # 1. 获取对比数据
+    # 2. 使用pandas/openpyxl生成Excel
+    # 3. 返回StreamingResponse
+
+    raise HTTPException(status_code=501, detail="导出Excel功能待实现")
+    return result

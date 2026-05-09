@@ -3,6 +3,7 @@
 """
 性能监控业务逻辑
 """
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Type
 
@@ -21,6 +22,8 @@ from core.performance_monitor.schema import (
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PerformanceCollectService(BaseService):
@@ -310,6 +313,11 @@ class PerformanceDataService(BaseService):
                         "relative_time": item.relative_time,
                         "value": value
                     })
+
+        # 检查是否有有效数据
+        has_data = any(len(m["data"]) > 0 for m in metrics_data.values())
+        if not has_data:
+            logger.warning(f"查询高级指标未找到有效数据，collect_id={request.collect_id}, keys={request.metric_keys}")
 
         return metrics_data
 
