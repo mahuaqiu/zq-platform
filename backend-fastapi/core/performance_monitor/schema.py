@@ -141,6 +141,41 @@ class WorkerReportRequest(BaseModel):
     samples: List[PerformanceSampleReport] = Field(default_factory=list, description="性能样本列表")
 
 
+# ===== Worker 上报数据 Schema (v0.3.0) =====
+
+
+class SystemReport(BaseModel):
+    """系统性能数据（兼容旧版本Worker）"""
+    cpu_usage: Optional[float] = Field(None, ge=0, le=100, description="CPU使用率 %")
+    gpu_usage: Optional[float] = Field(None, ge=0, le=100, description="GPU使用率 %")
+    commit_memory: Optional[float] = Field(None, ge=0, description="提交内存 GB")
+    memory_usage: Optional[float] = Field(None, ge=0, description="内存使用 GB")
+    power: Optional[float] = Field(None, ge=0, description="功耗 W")
+    cpu_speed: Optional[float] = Field(None, ge=0, description="CPU速度 GHz")
+    cpu_temp: Optional[float] = Field(None, description="CPU温度 °C")
+    process_handles: Optional[int] = Field(None, ge=0, description="进程句柄数")
+    upload_speed: Optional[float] = Field(None, ge=0, description="上传速度 KB/s")
+    download_speed: Optional[float] = Field(None, ge=0, description="下载速度 KB/s")
+
+
+class PerformanceSampleReportV3(BaseModel):
+    """单个性能样本上报 Schema（v0.3.0）"""
+    timestamp: datetime = Field(..., description="实际时间")
+    relative_time: int = Field(..., ge=0, description="相对时间（秒）")
+    hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
+    system: Optional[SystemReport] = Field(None, description="系统性能数据（兼容旧版本，回退使用）")
+    target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程")
+    top10_cpu: List[Top10ProcessReport] = Field(default_factory=list, description="CPU TOP10")
+    top10_gpu: List[Top10ProcessReport] = Field(default_factory=list, description="GPU TOP10")
+
+
+class WorkerReportRequestV3(BaseModel):
+    """Worker 上报数据请求 Schema（v0.3.0）"""
+    collect_id: str = Field(..., description="采集记录ID")
+    device_id: str = Field(..., description="设备ID")
+    samples: List[PerformanceSampleReportV3] = Field(default_factory=list, description="性能样本列表")
+
+
 class PerformanceReportRequest(BaseModel):
     """性能报告请求 Schema"""
     collect_id: str = Field(..., description="采集记录ID")
@@ -175,6 +210,59 @@ class VersionCreateRequest(BaseModel):
 class VersionCompareRequest(BaseModel):
     """版本对比请求 Schema"""
     version_ids: List[str] = Field(..., min_length=2, description="版本ID列表，至少2个")
+
+
+# ===== 指标映射 Schema =====
+
+
+class MetricMappingCreate(BaseModel):
+    """创建指标映射请求"""
+    hwinfo_key: str = Field(..., max_length=100, description="HWiNFO传感器键名")
+    display_name: str = Field(..., max_length=100, description="中文显示名称")
+    category: str = Field(default="system", description="指标分类")
+    is_primary: bool = Field(default=False, description="是否常用指标")
+    unit: Optional[str] = Field(None, max_length=20, description="单位")
+
+
+class MetricMappingUpdate(BaseModel):
+    """更新指标映射请求"""
+    display_name: Optional[str] = Field(None, max_length=100)
+    category: Optional[str] = Field(None)
+    is_primary: Optional[bool] = Field(None)
+    unit: Optional[str] = Field(None)
+
+
+# ===== 标记 Schema =====
+
+
+class MarkerCreate(BaseModel):
+    """创建标记请求"""
+    collect_id: str = Field(..., description="采集记录ID")
+    name: str = Field(..., max_length=50, description="标记名称")
+    start_time: int = Field(..., ge=0, description="开始时间（秒）")
+    end_time: Optional[int] = Field(None, ge=0, description="结束时间（秒）")
+    color: str = Field(default="#409eff", description="标记颜色")
+    note: Optional[str] = Field(None, max_length=200, description="备注")
+
+
+class MarkerUpdate(BaseModel):
+    """更新标记请求"""
+    name: Optional[str] = Field(None, max_length=50)
+    start_time: Optional[int] = Field(None, ge=0)
+    end_time: Optional[int] = Field(None, ge=0)
+    color: Optional[str] = Field(None)
+    note: Optional[str] = Field(None)
+
+
+# ===== 高级指标查询 Schema =====
+
+
+class AdvancedMetricsQuery(BaseModel):
+    """高级指标查询请求"""
+    collect_id: str = Field(..., description="采集记录ID")
+    metric_keys: List[str] = Field(..., min_length=1, description="指标键名列表")
+    start_time: Optional[int] = Field(None, ge=0, description="起始时间（秒）")
+    end_time: Optional[int] = Field(None, ge=0, description="结束时间（秒）")
 
 
 # ===== 响应 Schema =====
@@ -279,6 +367,43 @@ class VersionResponse(BaseModel):
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MetricMappingResponse(BaseModel):
+    """指标映射响应"""
+    id: str
+    hwinfo_key: str
+    display_name: str
+    category: str
+    is_primary: bool
+    unit: Optional[str]
+    sort: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarkerResponse(BaseModel):
+    """标记响应"""
+    id: str
+    collect_id: str
+    name: str
+    start_time: int
+    end_time: Optional[int]
+    color: str
+    note: Optional[str]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MetricTimeSeries(BaseModel):
+    """指标时序数据"""
+    hwinfo_key: str
+    display_name: Optional[str]
+    unit: Optional[str]
+    data: List[Dict[str, Any]]  # [{ relative_time, value }]
+
+
+class AdvancedMetricsResponse(BaseModel):
+    """高级指标查询响应"""
+    metrics: Dict[str, MetricTimeSeries]  # key: hwinfo_key
 
 
 class PaginatedResponse(BaseModel):

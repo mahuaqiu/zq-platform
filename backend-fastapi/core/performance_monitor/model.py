@@ -136,6 +136,9 @@ class PerformanceData(BaseModel):
     # GPU TOP10
     top10_gpu = Column(JSON, nullable=True, comment="GPU TOP10")
 
+    # 新增：hwinfo_raw 完整数据（v0.3.0）
+    hwinfo_raw = Column(JSON, nullable=True, comment="HWiNFO原始传感器数据（完整）")
+
 
 class PerformanceTag(BaseModel):
     """
@@ -199,3 +202,68 @@ class PerformanceVersion(BaseModel):
 
     # 保护标记
     is_protected = Column(Boolean, nullable=False, default=False, comment="保护标记")
+
+
+class PerformanceMetricMapping(BaseModel):
+    """
+    指标映射配置表
+
+    字段说明：
+    - hwinfo_key: HWiNFO传感器键名
+    - display_name: 中文显示名称
+    - category: 指标分类
+    - is_primary: 是否常用指标
+    - unit: 单位
+    """
+    __tablename__ = "performance_metric_mapping"
+
+    # hwinfo传感器原始名称
+    hwinfo_key = Column(String(100), nullable=False, unique=True, index=True, comment="HWiNFO传感器键名")
+
+    # 中文显示名称
+    display_name = Column(String(100), nullable=False, comment="中文显示名称")
+
+    # 指标分类
+    category = Column(String(20), nullable=False, default="system", comment="指标分类")
+
+    # 是否常用指标
+    is_primary = Column(Boolean, nullable=False, default=False, comment="是否常用指标")
+
+    # 单位
+    unit = Column(String(20), nullable=True, comment="单位")
+
+    # 排序
+    sort = Column(Integer, nullable=False, default=0, comment="排序")
+
+
+class PerformanceMarker(BaseModel):
+    """
+    标记数据表（v0.3.0新增）
+
+    字段说明：
+    - collect_id: 采集记录ID
+    - name: 标记名称
+    - start_time: 开始时间（相对时间，秒）
+    - end_time: 结束时间（相对时间，秒，可选）
+    - color: 标记颜色
+    - note: 备注信息
+    """
+    __tablename__ = "performance_marker"
+
+    # 采集记录ID
+    collect_id = Column(String(21), ForeignKey("performance_collect.id"), nullable=False, index=True, comment="采集记录ID")
+
+    # 标记名称
+    name = Column(String(50), nullable=False, comment="标记名称")
+
+    # 开始时间（相对时间，秒）
+    start_time = Column(Integer, nullable=False, comment="开始时间")
+
+    # 结束时间（相对时间，秒，可选）
+    end_time = Column(Integer, nullable=True, comment="结束时间")
+
+    # 标记颜色
+    color = Column(String(10), nullable=False, default="#409eff", comment="标记颜色")
+
+    # 备注
+    note = Column(String(200), nullable=True, comment="备注信息")

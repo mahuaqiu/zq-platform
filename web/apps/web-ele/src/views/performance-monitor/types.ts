@@ -38,6 +38,32 @@ export interface Top10Item {
   color: string;
 }
 
+// TOP10 进程数据（原始格式）
+export interface Top10ProcessItem {
+  name: string;
+  cpu?: number;
+  gpu?: number;
+}
+
+// 性能数据点
+export interface PerformanceData {
+  relative_time: number;
+  cpu_usage?: number;
+  gpu_usage?: number;
+  commit_memory?: number;
+  memory_usage?: number;
+  power?: number;
+  cpu_speed?: number;
+  cpu_temp?: number;
+  process_handles?: number;
+  upload_speed?: number;
+  download_speed?: number;
+  target_processes?: any[];
+  top10_cpu?: Top10ProcessItem[];
+  top10_gpu?: Top10ProcessItem[];
+  hwinfo_raw?: any;
+}
+
 // 版本颜色映射
 export const VERSION_COLORS = [
   '#67c23a', // 绿

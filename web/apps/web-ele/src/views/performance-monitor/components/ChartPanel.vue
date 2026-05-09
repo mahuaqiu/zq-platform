@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import type { ChartSeries, ChartTag } from '../types';
-import type { PerformanceData } from '#/api/core/performance-monitor';
+import type { PerformanceData, MarkerResponse } from '#/api/core/performance-monitor';
 
 // 定义 Props 类型
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
   collectId?: string; // 采集ID（用于标签操作）
   showActualTime?: boolean; // 是否显示实际时间
   chartType?: 'cpu' | 'gpu' | 'memory' | 'commitMemory'; // 图表类型，用于区分 tooltip
+  markers?: MarkerResponse[]; // 标记列表（v0.3.0）
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -226,9 +227,43 @@ function updateChart() {
     data: s.data.map((d) => d.value),
     lineStyle: { color: s.color, width: 2 },
     itemStyle: { color: s.color },
-    smooth: true,
+    smooth: false,
     symbol: 'none',
   }));
+
+// 标记圆点显示
+if (props.markers && props.markers.length > 0 && seriesConfig.length > 0) {
+    const markPointData: any[] = [];
+
+    props.markers.forEach((marker) => {
+      // 找到标记起点对应的 dataIndex
+      const dataIndex = props.series[0]?.data.findIndex((d) => d.time === marker.start_time);
+      if (dataIndex !== undefined && dataIndex >= 0) {
+        const yValue = props.series[0].data[dataIndex].value;
+        markPointData.push({
+          coord: [dataIndex, yValue],
+          symbol: 'circle',
+          symbolSize: 10,
+          itemStyle: {
+            color: marker.color,
+            borderColor: 'white',
+            borderWidth: 2
+          },
+          label: {
+            show: true,
+            formatter: marker.name,
+            position: 'top',
+            color: marker.color,
+            fontSize: 10,
+          },
+        });
+      }
+    });
+
+    if (markPointData.length > 0) {
+      seriesConfig[0].markPoint = { data: markPointData };
+    }
+  }
 
   // 标签区间标记
   const markAreas: any[] = [];
@@ -368,6 +403,7 @@ watch(() => props.series, updateChart, { deep: true });
 watch(() => props.timeRange, updateChart);
 watch(() => props.tags, updateChart, { deep: true });
 watch(() => props.rawData, updateChart, { deep: true });
+watch(() => props.markers, updateChart, { deep: true });
 
 onMounted(() => {
   initChart();
