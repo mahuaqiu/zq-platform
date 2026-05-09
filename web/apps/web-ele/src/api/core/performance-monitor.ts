@@ -99,6 +99,79 @@ export interface CollectStatus {
   elapsed_seconds?: number;
 }
 
+// 标记类型
+export interface MarkerCreate {
+  collect_id: string;
+  name: string;
+  start_time: number;
+  end_time?: number;
+  color: string;
+  note?: string;
+}
+
+export interface MarkerUpdate {
+  name?: string;
+  start_time?: number;
+  end_time?: number;
+  color?: string;
+  note?: string;
+}
+
+export interface MarkerResponse {
+  id: string;
+  collect_id: string;
+  name: string;
+  start_time: number;
+  end_time?: number;
+  color: string;
+  note?: string;
+}
+
+// 指标映射类型
+export interface MetricMappingCreate {
+  hwinfo_key: string;
+  display_name: string;
+  category: string;
+  is_primary: boolean;
+  unit?: string;
+}
+
+export interface MetricMappingUpdate {
+  hwinfo_key?: string;
+  display_name?: string;
+  category?: string;
+  is_primary?: boolean;
+  unit?: string;
+}
+
+export interface MetricMappingResponse {
+  id: string;
+  hwinfo_key: string;
+  display_name: string;
+  category: string;
+  is_primary: boolean;
+  unit?: string;
+}
+
+// 高级指标查询
+export interface AdvancedMetricsQuery {
+  collect_id: string;
+  metric_keys: string[];
+  start_time?: number;
+  end_time?: number;
+}
+
+export interface MetricTimeSeries {
+  hwinfo_key: string;
+  display_name?: string;
+  unit?: string;
+  data: { relative_time: number; value: number }[];
+}
+
+export interface AdvancedMetricsResponse {
+  metrics: Record<string, MetricTimeSeries>;
+}
+
 // ===== API 函数 =====
 
 // 进程列表
@@ -246,4 +319,53 @@ export async function getCompareData(versionIds: string[]) {
   return requestClient.get(
     `/api/core/performance-monitor/version/compare?version_ids=${versionIds.join(',')}`,
   );
+}
+
+// 标记 API
+export function getMarkers(collectId: string) {
+  return requestClient.get<MarkerResponse[]>(`/api/core/performance-monitor/marker/list`, { params: { collect_id: collectId } });
+}
+
+export function createMarker(data: MarkerCreate) {
+  return requestClient.post<{ id: string; status: string }>(`/api/core/performance-monitor/marker`, data);
+}
+
+export function updateMarker(markerId: string, data: MarkerUpdate) {
+  return requestClient.put<{ status: string }>(`/api/core/performance-monitor/marker/${markerId}`, data);
+}
+
+export function deleteMarker(markerId: string) {
+  return requestClient.delete<{ status: string }>(`/api/core/performance-monitor/marker/${markerId}`);
+}
+
+// 指标映射 API
+export function getMetricMappings(keyword?: string, category?: string) {
+  return requestClient.get<MetricMappingResponse[]>(`/api/core/performance-monitor/metric-mapping/list`, {
+    params: { keyword, category }
+  });
+}
+
+export function createMetricMapping(data: MetricMappingCreate) {
+  return requestClient.post<{ id: string; status: string }>(`/api/core/performance-monitor/metric-mapping`, data);
+}
+
+export function updateMetricMapping(mappingId: string, data: MetricMappingUpdate) {
+  return requestClient.put<{ status: string }>(`/api/core/performance-monitor/metric-mapping/${mappingId}`, data);
+}
+
+export function deleteMetricMapping(mappingId: string) {
+  return requestClient.delete<{ status: string }>(`/api/core/performance-monitor/metric-mapping/${mappingId}`);
+}
+
+export function batchImportMappings(collectId: string) {
+  return requestClient.post<{ imported_count: number; sensors: any[] }>(
+    `/api/core/performance-monitor/metric-mapping/batch-import`,
+    null,
+    { params: { collect_id: collectId } }
+  );
+}
+
+// 高级指标查询
+export function queryAdvancedMetrics(data: AdvancedMetricsQuery) {
+  return requestClient.post<AdvancedMetricsResponse>(`/api/core/performance-monitor/metrics/query`, data);
 }
