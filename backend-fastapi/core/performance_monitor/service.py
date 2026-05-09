@@ -6,14 +6,20 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Type
 
-from sqlalchemy import select, and_, desc, func
+from sqlalchemy import select, and_, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
-from core.performance_monitor.model import PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion
+from core.performance_monitor.model import (
+    PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion,
+    PerformanceMetricMapping, PerformanceMarker
+)
+from core.performance_monitor.utils import extract_core_metrics
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest, WorkerReportRequest,
-    TagCreateRequest, TagUpdateRequest, VersionCreateRequest
+    TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
+    WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
+    MarkerCreate, MarkerUpdate, AdvancedMetricsQuery
 )
 
 
@@ -143,30 +149,76 @@ class PerformanceDataService(BaseService):
     model = PerformanceData
 
     @classmethod
-    async def report_data(cls, db: AsyncSession, request: WorkerReportRequest) -> bool:
-        """接收 Worker 上报数据（批量）"""
+    async def report_data(cls, db: AsyncSession, request) -> bool:
+        """
+        接收 Worker 上报数据（批量）
+
+        支持 v0.2.2 (WorkerReportRequest) 和 v0.3.0 (WorkerReportRequestV3)
+        v0.3.0 优先使用 hwinfo_raw 提取核心指标，回退到 system 字段
+        """
         for sample in request.samples:
             # 将 timezone-aware datetime 转换为 timezone-naive datetime
             # Worker 上报的 timestamp 带有 UTC timezone，需要转换为 naive datetime
             timestamp_naive = sample.timestamp.replace(tzinfo=None) if sample.timestamp.tzinfo else sample.timestamp
 
+            # v0.3.0: 检查 hwinfo_raw 是否存在，优先从中提取核心指标
+            hwinfo_raw = getattr(sample, 'hwinfo_raw', None)
+            system = getattr(sample, 'system', None)
+            target_processes_raw = [p.model_dump() for p in sample.target_processes]
+
+            if hwinfo_raw:
+                # v0.3.0: 从 hwinfo_raw 提取核心指标
+                core_metrics = extract_core_metrics(hwinfo_raw, target_processes_raw)
+                cpu_usage = core_metrics.get("cpu_usage")
+                gpu_usage = core_metrics.get("gpu_usage")
+                commit_memory = core_metrics.get("commit_memory")
+            elif system:
+                # v0.2.2: 使用 system 字段
+                cpu_usage = system.cpu_usage
+                gpu_usage = system.gpu_usage
+                commit_memory = system.commit_memory
+            else:
+                # 无数据时设为 None
+                cpu_usage = None
+                gpu_usage = None
+                commit_memory = None
+
+            # 获取其他系统指标（从 system 或 hwinfo_raw）
+            if system:
+                memory_usage = system.memory_usage
+                power = system.power
+                cpu_speed = system.cpu_speed
+                cpu_temp = system.cpu_temp
+                process_handles = system.process_handles
+                upload_speed = system.upload_speed
+                download_speed = system.download_speed
+            else:
+                memory_usage = None
+                power = None
+                cpu_speed = None
+                cpu_temp = None
+                process_handles = None
+                upload_speed = None
+                download_speed = None
+
             data = PerformanceData(
                 collect_id=request.collect_id,
                 timestamp=timestamp_naive,
                 relative_time=sample.relative_time,
-                cpu_usage=sample.system.cpu_usage,
-                gpu_usage=sample.system.gpu_usage,
-                commit_memory=sample.system.commit_memory,
-                memory_usage=sample.system.memory_usage,
-                power=sample.system.power,
-                cpu_speed=sample.system.cpu_speed,
-                cpu_temp=sample.system.cpu_temp,
-                process_handles=sample.system.process_handles,
-                upload_speed=sample.system.upload_speed,
-                download_speed=sample.system.download_speed,
-                target_processes=[p.model_dump() for p in sample.target_processes],
+                cpu_usage=cpu_usage,
+                gpu_usage=gpu_usage,
+                commit_memory=commit_memory,
+                memory_usage=memory_usage,
+                power=power,
+                cpu_speed=cpu_speed,
+                cpu_temp=cpu_temp,
+                process_handles=process_handles,
+                upload_speed=upload_speed,
+                download_speed=download_speed,
+                target_processes=target_processes_raw,
                 top10_cpu=[p.model_dump() for p in sample.top10_cpu],
-                top10_gpu=[p.model_dump() for p in sample.top10_gpu]
+                top10_gpu=[p.model_dump() for p in sample.top10_gpu],
+                hwinfo_raw=hwinfo_raw
             )
             db.add(data)
         await db.commit()
@@ -200,6 +252,66 @@ class PerformanceDataService(BaseService):
         result = await db.execute(stmt)
         items = result.scalars().all()
         return list(reversed(items))
+
+    @classmethod
+    async def query_advanced_metrics(
+        cls, db: AsyncSession, request: AdvancedMetricsQuery
+    ) -> Dict[str, Any]:
+        """
+        查询高级指标时序数据
+
+        Args:
+            db: 数据库会话
+            request: 查询请求，包含 collect_id, metric_keys, start_time, end_time
+
+        Returns:
+            按指标键名分组的时序数据
+        """
+        # 构建基础查询条件
+        conditions = [PerformanceData.collect_id == request.collect_id]
+        if request.start_time is not None:
+            conditions.append(PerformanceData.relative_time >= request.start_time)
+        if request.end_time is not None:
+            conditions.append(PerformanceData.relative_time <= request.end_time)
+
+        # 查询数据
+        stmt = select(PerformanceData).where(
+            and_(*conditions)
+        ).order_by(PerformanceData.relative_time)
+        result = await db.execute(stmt)
+        items = result.scalars().all()
+
+        # 构建指标映射字典（用于获取 display_name 和 unit）
+        mapping_stmt = select(PerformanceMetricMapping).where(
+            PerformanceMetricMapping.hwinfo_key.in_(request.metric_keys)
+        )
+        mapping_result = await db.execute(mapping_stmt)
+        mappings = {m.hwinfo_key: m for m in mapping_result.scalars().all()}
+
+        # 按指标键名分组数据
+        metrics_data: Dict[str, Dict[str, Any]] = {}
+        for key in request.metric_keys:
+            mapping = mappings.get(key)
+            metrics_data[key] = {
+                "hwinfo_key": key,
+                "display_name": mapping.display_name if mapping else key,
+                "unit": mapping.unit if mapping else None,
+                "data": []
+            }
+
+        # 遍历数据，提取每个指标的值
+        for item in items:
+            hwinfo_raw = item.hwinfo_raw or {}
+            for key in request.metric_keys:
+                if key in hwinfo_raw:
+                    value_info = hwinfo_raw.get(key, {})
+                    value = value_info.get("value") if isinstance(value_info, dict) else None
+                    metrics_data[key]["data"].append({
+                        "relative_time": item.relative_time,
+                        "value": value
+                    })
+
+        return metrics_data
 
 
 class PerformanceTagService(BaseService):
@@ -310,3 +422,269 @@ class PerformanceVersionService(BaseService):
                 })
 
         return {"versions": versions_data}
+
+
+class MetricMappingService(BaseService):
+    """指标映射服务"""
+    model = PerformanceMetricMapping
+
+    @classmethod
+    async def get_mappings(
+        cls, db: AsyncSession, keyword: Optional[str] = None, category: Optional[str] = None
+    ) -> List[PerformanceMetricMapping]:
+        """
+        获取映射列表
+
+        Args:
+            db: 数据库会话
+            keyword: 搜索关键词（模糊匹配 hwinfo_key 或 display_name）
+            category: 指标分类过滤
+
+        Returns:
+            映射列表
+        """
+        conditions = [PerformanceMetricMapping.is_deleted == False]
+        if keyword:
+            conditions.append(
+                or_(
+                    PerformanceMetricMapping.hwinfo_key.ilike(f"%{keyword}%"),
+                    PerformanceMetricMapping.display_name.ilike(f"%{keyword}%")
+                )
+            )
+        if category:
+            conditions.append(PerformanceMetricMapping.category == category)
+
+        stmt = select(PerformanceMetricMapping).where(
+            and_(*conditions)
+        ).order_by(PerformanceMetricMapping.sort, PerformanceMetricMapping.hwinfo_key)
+        result = await db.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def create_mapping(cls, db: AsyncSession, request: MetricMappingCreate) -> str:
+        """
+        创建映射
+
+        Args:
+            db: 数据库会话
+            request: 创建请求
+
+        Returns:
+            映射ID
+        """
+        mapping = PerformanceMetricMapping(
+            hwinfo_key=request.hwinfo_key,
+            display_name=request.display_name,
+            category=request.category,
+            is_primary=request.is_primary,
+            unit=request.unit
+        )
+        db.add(mapping)
+        await db.commit()
+        await db.refresh(mapping)
+        return mapping.id
+
+    @classmethod
+    async def update_mapping(
+        cls, db: AsyncSession, mapping_id: str, request: MetricMappingUpdate
+    ) -> bool:
+        """
+        更新映射
+
+        Args:
+            db: 数据库会话
+            mapping_id: 映射ID
+            request: 更新请求
+
+        Returns:
+            是否成功
+        """
+        mapping = await db.get(PerformanceMetricMapping, mapping_id)
+        if not mapping:
+            return False
+        if request.display_name is not None:
+            mapping.display_name = request.display_name
+        if request.category is not None:
+            mapping.category = request.category
+        if request.is_primary is not None:
+            mapping.is_primary = request.is_primary
+        if request.unit is not None:
+            mapping.unit = request.unit
+        await db.commit()
+        return True
+
+    @classmethod
+    async def delete_mapping(cls, db: AsyncSession, mapping_id: str) -> bool:
+        """
+        删除映射
+
+        Args:
+            db: 数据库会话
+            mapping_id: 映射ID
+
+        Returns:
+            是否成功
+        """
+        mapping = await db.get(PerformanceMetricMapping, mapping_id)
+        if not mapping:
+            return False
+        await db.delete(mapping)
+        await db.commit()
+        return True
+
+    @classmethod
+    async def batch_import(cls, db: AsyncSession, collect_id: str) -> Dict[str, Any]:
+        """
+        批量导入未映射传感器
+
+        从指定采集记录的 hwinfo_raw 数据中发现未映射的传感器键名，
+        自动创建映射记录。
+
+        Args:
+            db: 数据库会话
+            collect_id: 采集记录ID
+
+        Returns:
+            导入结果，包含新增数量和已存在数量
+        """
+        # 查询该采集的所有数据
+        stmt = select(PerformanceData).where(
+            PerformanceData.collect_id == collect_id
+        ).limit(1)
+        result = await db.execute(stmt)
+        first_data = result.scalar_one_or_none()
+        if not first_data or not first_data.hwinfo_raw:
+            return {"new": 0, "existing": 0, "message": "无 hwinfo_raw 数据"}
+
+        # 获取所有已存在的映射键名
+        existing_stmt = select(PerformanceMetricMapping.hwinfo_key)
+        existing_result = await db.execute(existing_stmt)
+        existing_keys = set(row[0] for row in existing_result.fetchall())
+
+        # 从 hwinfo_raw 中提取新的键名
+        hwinfo_raw = first_data.hwinfo_raw
+        new_keys = []
+        for key in hwinfo_raw.keys():
+            if key not in existing_keys:
+                new_keys.append(key)
+
+        # 批量创建映射
+        new_count = 0
+        for key in new_keys:
+            mapping = PerformanceMetricMapping(
+                hwinfo_key=key,
+                display_name=key,  # 默认使用原键名作为显示名称
+                category="system",
+                is_primary=False,
+                unit=None
+            )
+            db.add(mapping)
+            new_count += 1
+
+        await db.commit()
+        return {
+            "new": new_count,
+            "existing": len(existing_keys),
+            "message": f"新增 {new_count} 个映射，已存在 {len(existing_keys)} 个"
+        }
+
+
+class MarkerService(BaseService):
+    """标记服务"""
+    model = PerformanceMarker
+
+    @classmethod
+    async def get_markers(cls, db: AsyncSession, collect_id: str) -> List[PerformanceMarker]:
+        """
+        获取标记列表
+
+        Args:
+            db: 数据库会话
+            collect_id: 采集记录ID
+
+        Returns:
+            标记列表
+        """
+        stmt = select(PerformanceMarker).where(
+            and_(
+                PerformanceMarker.collect_id == collect_id,
+                PerformanceMarker.is_deleted == False
+            )
+        ).order_by(PerformanceMarker.start_time)
+        result = await db.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def create_marker(cls, db: AsyncSession, request: MarkerCreate) -> str:
+        """
+        创建标记
+
+        Args:
+            db: 数据库会话
+            request: 创建请求
+
+        Returns:
+            标记ID
+        """
+        marker = PerformanceMarker(
+            collect_id=request.collect_id,
+            name=request.name,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            color=request.color,
+            note=request.note
+        )
+        db.add(marker)
+        await db.commit()
+        await db.refresh(marker)
+        return marker.id
+
+    @classmethod
+    async def update_marker(
+        cls, db: AsyncSession, marker_id: str, request: MarkerUpdate
+    ) -> bool:
+        """
+        更新标记
+
+        Args:
+            db: 数据库会话
+            marker_id: 标记ID
+            request: 更新请求
+
+        Returns:
+            是否成功
+        """
+        marker = await db.get(PerformanceMarker, marker_id)
+        if not marker:
+            return False
+        if request.name is not None:
+            marker.name = request.name
+        if request.start_time is not None:
+            marker.start_time = request.start_time
+        if request.end_time is not None:
+            marker.end_time = request.end_time
+        if request.color is not None:
+            marker.color = request.color
+        if request.note is not None:
+            marker.note = request.note
+        await db.commit()
+        return True
+
+    @classmethod
+    async def delete_marker(cls, db: AsyncSession, marker_id: str) -> bool:
+        """
+        删除标记
+
+        Args:
+            db: 数据库会话
+            marker_id: 标记ID
+
+        Returns:
+            是否成功
+        """
+        marker = await db.get(PerformanceMarker, marker_id)
+        if not marker:
+            return False
+        await db.delete(marker)
+        await db.commit()
+        return True
