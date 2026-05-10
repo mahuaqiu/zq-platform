@@ -19,27 +19,48 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 删除AI助手相关表
+    # 1. 删除AI助手相关菜单数据
+    op.execute("""
+        DELETE FROM core_menu WHERE id LIKE 'ai-assistant%';
+    """)
+
+    # 2. 删除AI助手相关表
     # 注意：删除顺序很重要，先删除关联表和外键约束的表
 
-    # 1. 删除消息表（有外键关联）
+    # 删除消息表（有外键关联）
     op.drop_table('ai_assistant_message')
 
-    # 2. 删除会话表
+    # 删除会话表
     op.drop_table('ai_assistant_session')
 
-    # 3. 删除群组-角色关联表（多对多）
+    # 删除群组-角色关联表（多对多）
     op.drop_table('ai_group_role')
 
-    # 4. 删除群组表（被关联表引用）
+    # 删除群组表（被关联表引用）
     op.drop_table('ai_assistant_group')
 
-    # 5. 删除角色表
+    # 删除角色表
     op.drop_table('ai_assistant_role')
 
 
 def downgrade() -> None:
-    # 恢复AI助手相关表（按相反顺序创建）
+    # 恢复AI助手菜单数据（先恢复父菜单，再恢复子菜单）
+    op.execute("""
+        INSERT INTO core_menu (id, parent_id, name, title, path, type, component, icon, order, sort, is_deleted,
+                              hideInMenu, hideChildrenInMenu, hideInBreadcrumb, hideInTab, affixTab, keepAlive,
+                              noBasicLayout, openInNewWindow, sys_create_datetime, sys_update_datetime)
+        VALUES
+        ('ai-assistant-root', NULL, 'AIAssistant', 'AI助手', '/ai-assistant', 'catalog', NULL, 'ep:chat-dot-round', 3, 3, false,
+         false, false, false, false, false, false, false, false, NOW(), NOW()),
+        ('ai-assistant-role', 'ai-assistant-root', 'AIAssistantRole', '角色管理', '/ai-assistant/role', 'menu',
+         '/views/ai-assistant/role/index', NULL, 0, 0, false, false, false, false, false, false, false, false, false, NOW(), NOW()),
+        ('ai-assistant-session', 'ai-assistant-root', 'AIAssistantSession', '会话管理', '/ai-assistant/session', 'menu',
+         '/views/ai-assistant/session/index', NULL, 1, 1, false, false, false, false, false, false, false, false, false, NOW(), NOW()),
+        ('ai-assistant-group', 'ai-assistant-root', 'AIAssistantGroup', '群组管理', '/ai-assistant/group', 'menu',
+         '/views/ai-assistant/group/index', NULL, 2, 2, false, false, false, false, false, false, false, false, false, NOW(), NOW()),
+        ('ai-assistant-skill', 'ai-assistant-root', 'AIAssistantSkill', 'Skill管理', '/ai-assistant/skill', 'menu',
+         '/views/ai-assistant/skill/index', NULL, 3, 3, false, false, false, false, false, false, false, false, false, NOW(), NOW());
+    """)
 
     # 1. 角色表
     op.create_table(
