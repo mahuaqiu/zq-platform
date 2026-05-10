@@ -76,6 +76,39 @@ ALL_MENUS = [
         "order": 4,
     },
 
+    # ==================== 性能监控（一级菜单）====================
+    {
+        "id": "performance-monitor-root",
+        "name": "PerformanceMonitor",
+        "title": "性能监控",
+        "path": "/performance-monitor",
+        "type": "catalog",
+        "icon": "ep:data-line",
+        "order": 2,
+        "parent_id": None,
+    },
+    # 性能监控子菜单
+    {
+        "id": "performance-monitor-main",
+        "name": "PerformanceMonitorMain",
+        "title": "性能监控",
+        "path": "/performance-monitor",
+        "type": "menu",
+        "component": "/views/performance-monitor/index",
+        "parent_id": "performance-monitor-root",
+        "order": 1,
+    },
+    {
+        "id": "performance-monitor-compare",
+        "name": "PerformanceMonitorCompare",
+        "title": "版本对比",
+        "path": "/performance-monitor/compare",
+        "type": "menu",
+        "component": "/views/performance-monitor/compare",
+        "parent_id": "performance-monitor-root",
+        "order": 2,
+    },
+
     # ==================== 测试报告（一级菜单）====================
     {
         "id": "test-report-root",
@@ -84,7 +117,7 @@ ALL_MENUS = [
         "path": "/test-report",
         "type": "catalog",
         "icon": "ep:document",
-        "order": 2,
+        "order": 3,
         "parent_id": None,
     },
     # 测试报告子菜单
@@ -97,59 +130,6 @@ ALL_MENUS = [
         "component": "/views/test-report/list/index",
         "parent_id": "test-report-root",
         "order": 1,
-    },
-
-    # ==================== AI助手（一级菜单）====================
-    {
-        "id": "ai-assistant-root",
-        "name": "AIAssistant",
-        "title": "AI助手",
-        "path": "/ai-assistant",
-        "type": "catalog",
-        "icon": "ep:chat-dot-round",
-        "order": 3,
-        "parent_id": None,
-    },
-    # AI助手子菜单
-    {
-        "id": "ai-assistant-role",
-        "name": "AIAssistantRole",
-        "title": "角色管理",
-        "path": "/ai-assistant/role",
-        "type": "menu",
-        "component": "/views/ai-assistant/role/index",
-        "parent_id": "ai-assistant-root",
-        "order": 0,
-    },
-    {
-        "id": "ai-assistant-session",
-        "name": "AIAssistantSession",
-        "title": "会话管理",
-        "path": "/ai-assistant/session",
-        "type": "menu",
-        "component": "/views/ai-assistant/session/index",
-        "parent_id": "ai-assistant-root",
-        "order": 1,
-    },
-    {
-        "id": "ai-assistant-group",
-        "name": "AIAssistantGroup",
-        "title": "群组管理",
-        "path": "/ai-assistant/group",
-        "type": "menu",
-        "component": "/views/ai-assistant/group/index",
-        "parent_id": "ai-assistant-root",
-        "order": 2,
-    },
-    {
-        "id": "ai-assistant-skill",
-        "name": "AIAssistantSkill",
-        "title": "Skill管理",
-        "path": "/ai-assistant/skill",
-        "type": "menu",
-        "component": "/views/ai-assistant/skill/index",
-        "parent_id": "ai-assistant-root",
-        "order": 3,
     },
 
     # ==================== 定时任务（一级菜单）====================
@@ -185,37 +165,67 @@ ALL_MENUS = [
         "order": 2,
     },
 
-    # ==================== 性能监控（一级菜单）====================
+    # ==================== 系统管理（一级菜单）====================
     {
-        "id": "performance-monitor-root",
-        "name": "PerformanceMonitor",
-        "title": "性能监控",
-        "path": "/performance-monitor",
+        "id": "system-root",
+        "name": "System",
+        "title": "系统管理",
+        "path": "/system",
         "type": "catalog",
-        "icon": "ep:data-line",
+        "icon": "ep:setting",
         "order": 5,
         "parent_id": None,
     },
-    # 性能监控子菜单
+    # 系统管理子菜单
     {
-        "id": "performance-monitor-main",
-        "name": "PerformanceMonitorMain",
-        "title": "性能监控",
-        "path": "/performance-monitor",
+        "id": "system-user",
+        "name": "SystemUser",
+        "title": "用户管理",
+        "path": "/system/user",
         "type": "menu",
-        "component": "/views/performance-monitor/index",
-        "parent_id": "performance-monitor-root",
+        "component": "/views/_core/user/index",
+        "parent_id": "system-root",
         "order": 1,
     },
     {
-        "id": "performance-monitor-compare",
-        "name": "PerformanceMonitorCompare",
-        "title": "版本对比",
-        "path": "/performance-monitor/compare",
+        "id": "system-role",
+        "name": "SystemRole",
+        "title": "角色管理",
+        "path": "/system/role",
         "type": "menu",
-        "component": "/views/performance-monitor/compare",
-        "parent_id": "performance-monitor-root",
+        "component": "/views/_core/role/index",
+        "parent_id": "system-root",
         "order": 2,
+    },
+    {
+        "id": "system-menu",
+        "name": "SystemMenu",
+        "title": "菜单管理",
+        "path": "/system/menu",
+        "type": "menu",
+        "component": "/views/_core/menu/index",
+        "parent_id": "system-root",
+        "order": 3,
+    },
+    {
+        "id": "system-dept",
+        "name": "SystemDept",
+        "title": "部门管理",
+        "path": "/system/dept",
+        "type": "menu",
+        "component": "/views/_core/dept/index",
+        "parent_id": "system-root",
+        "order": 4,
+    },
+    {
+        "id": "system-login-log",
+        "name": "SystemLoginLog",
+        "title": "登录日志",
+        "path": "/system/login-log",
+        "type": "menu",
+        "component": "/views/_core/login-log/index",
+        "parent_id": "system-root",
+        "order": 5,
     },
 ]
 
@@ -287,19 +297,20 @@ async def clear_and_init_menus():
         print("    - 设备列表")
         print("    - 升级管理")
         print("    - 设备配置")
-        print("  测试报告 (order=2)")
+        print("  性能监控 (order=2)")
+        print("    - 性能监控")
+        print("    - 版本对比")
+        print("  测试报告 (order=3)")
         print("    - 报告列表")
-        print("  AI助手 (order=3)")
-        print("    - 角色管理")
-        print("    - 会话管理")
-        print("    - 群组管理")
-        print("    - Skill管理")
         print("  定时任务 (order=4)")
         print("    - 任务列表")
         print("    - 执行日志")
-        print("  性能监控 (order=5)")
-        print("    - 性能监控")
-        print("    - 版本对比")
+        print("  系统管理 (order=5)")
+        print("    - 用户管理")
+        print("    - 角色管理")
+        print("    - 菜单管理")
+        print("    - 部门管理")
+        print("    - 登录日志")
         print("请刷新前端页面查看。")
         print("=" * 50)
 
