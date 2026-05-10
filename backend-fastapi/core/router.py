@@ -18,8 +18,6 @@ from core.issues_analysis.api import router as issues_analysis_router
 from core.env_machine.api import router as env_machine_router
 from core.test_report.api import router as test_report_router
 from core.scheduler.api import router as scheduler_router
-from core.ai_assistant.api import router as ai_assistant_router
-from core.ai_assistant.public_api import router as ai_public_router
 from core.config_template.api import router as config_template_router
 from core.performance_monitor.api import router as performance_monitor_router
 
@@ -39,7 +37,5 @@ router.include_router(issues_analysis_router)
 router.include_router(env_machine_router)
 router.include_router(test_report_router)
 router.include_router(scheduler_router)
-router.include_router(ai_assistant_router)
-router.include_router(ai_public_router)
 router.include_router(config_template_router)
 router.include_router(performance_monitor_router)

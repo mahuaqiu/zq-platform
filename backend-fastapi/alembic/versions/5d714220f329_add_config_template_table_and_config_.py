@@ -1,7 +1,7 @@
 """add config_template table and config_version field
 
 Revision ID: 5d714220f329
-Revises: a1b2c3d4e5f7
+Revises: 15eaeb5cfdfb
 Create Date: 2026-04-15 22:46:25.608728
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '5d714220f329'
-down_revision: Union[str, None] = 'a1b2c3d4e5f7'
+down_revision: Union[str, None] = '15eaeb5cfdfb'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
