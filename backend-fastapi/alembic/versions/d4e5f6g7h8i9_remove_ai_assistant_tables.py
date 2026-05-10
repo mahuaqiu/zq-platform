@@ -45,8 +45,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # 恢复AI助手菜单数据（先恢复父菜单，再恢复子菜单）
+    # 注意：order 是 PostgreSQL 保留字，需要用双引号包裹
     op.execute("""
-        INSERT INTO core_menu (id, parent_id, name, title, path, type, component, icon, order, sort, is_deleted,
+        INSERT INTO core_menu (id, parent_id, name, title, path, type, component, icon, "order", sort, is_deleted,
                               hideInMenu, hideChildrenInMenu, hideInBreadcrumb, hideInTab, affixTab, keepAlive,
                               noBasicLayout, openInNewWindow, sys_create_datetime, sys_update_datetime)
         VALUES
