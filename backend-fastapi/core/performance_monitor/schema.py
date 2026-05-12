@@ -161,7 +161,7 @@ class SystemReport(BaseModel):
 class PerformanceSampleReportV3(BaseModel):
     """单个性能样本上报 Schema（v0.3.0）"""
     timestamp: datetime = Field(..., description="实际时间")
-    relative_time: int = Field(..., ge=0, description="相对时间（秒）")
+    relative_time: Optional[int] = Field(None, ge=0, description="相对时间（秒），可选，不传则后端自动计算")
     hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
     system: Optional[SystemReport] = Field(None, description="系统性能数据（兼容旧版本，回退使用）")
     target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程")

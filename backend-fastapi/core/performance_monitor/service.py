@@ -158,11 +158,28 @@ class PerformanceDataService(BaseService):
 
         支持 v0.2.2 (WorkerReportRequest) 和 v0.3.0 (WorkerReportRequestV3)
         v0.3.0 优先使用 hwinfo_raw 提取核心指标，回退到 system 字段
+        v0.3.1 支持 relative_time 自动计算（不传时根据 collect.start_time 计算）
         """
+        # 获取采集记录的 start_time，用于计算 relative_time
+        collect = await db.get(PerformanceCollect, request.collect_id)
+        if not collect:
+            logger.warning(f"采集记录不存在: {request.collect_id}")
+            return False
+
+        start_time = collect.start_time
+
         for sample in request.samples:
             # 将 timezone-aware datetime 转换为 timezone-naive datetime
             # Worker 上报的 timestamp 带有 UTC timezone，需要转换为 naive datetime
             timestamp_naive = sample.timestamp.replace(tzinfo=None) if sample.timestamp.tzinfo else sample.timestamp
+
+            # 计算 relative_time：如果未提供则根据 timestamp 和 start_time 计算
+            relative_time = sample.relative_time
+            if relative_time is None:
+                # 计算 timestamp 相对于 start_time 的秒数
+                relative_time = int((timestamp_naive - start_time).total_seconds())
+                # 确保 relative_time 不为负数（防止时间误差）
+                relative_time = max(0, relative_time)
 
             # v0.3.0: 检查 hwinfo_raw 是否存在，优先从中提取核心指标
             hwinfo_raw = getattr(sample, 'hwinfo_raw', None)
