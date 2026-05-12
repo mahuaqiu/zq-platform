@@ -6,7 +6,6 @@ import { useRouter } from 'vue-router';
 import ChartPanel from './components/ChartPanel.vue';
 import Top10List from './components/Top10List.vue';
 import CollectDialog from './components/CollectDialog.vue';
-import TimelineSelector from './components/TimelineSelector.vue';
 import TimeNavigator from './components/TimeNavigator.vue';
 import MarkerManager from './components/MarkerManager.vue';
 import AdvancedMetrics from './components/AdvancedMetrics.vue';
@@ -129,42 +128,8 @@ const filteredCollectHistory = computed(() => {
 // 定时轮询
 let pollingTimer: number | null = null;
 
-// 时间窗口选择（分钟）
-const timeWindow = ref(-1); // 默认全部
-
-// 用户选择的时间窗口范围（相对时间，秒）
+// 用户选择的时间窗口范围（相对时间，秒）- 由 TimeNavigator 控制
 const selectedRelativeTimeRange = ref<[number, number] | null>(null);
-
-// 根据时间按钮设置时间范围
-function setTimeWindow(minutes: number) {
-  timeWindow.value = minutes;
-
-  const data = performanceData.value;
-  if (!data.length) {
-    selectedRelativeTimeRange.value = null;
-    return;
-  }
-
-  if (minutes === -1) {
-    // 全部：显示所有数据
-    selectedRelativeTimeRange.value = null;
-  } else {
-    // 从终点时间向前计算
-    const lastData = data[data.length - 1];
-    if (!lastData) {
-      selectedRelativeTimeRange.value = null;
-      return;
-    }
-    const endTime = lastData.relative_time;
-    const startTime = Math.max(0, endTime - minutes * 60);
-    selectedRelativeTimeRange.value = [startTime, endTime];
-  }
-}
-
-// 监听 timeWindow 变化
-watch(timeWindow, (newVal) => {
-  setTimeWindow(newVal);
-});
 
 // 根据时间窗口过滤后的数据
 const filteredPerformanceData = computed(() => {
@@ -181,24 +146,6 @@ const filteredPerformanceData = computed(() => {
 // 迷你趋势线数据（基于时间窗口过滤后的数据，取最后10条）
 const historyTrendData = computed(() => {
   return filteredPerformanceData.value.slice(-10);
-});
-
-// 转换为 Date 格式的选中时间窗口（传给 TimelineSelector）
-const selectedWindowDates = computed<[Date, Date] | undefined>(() => {
-  if (!selectedRelativeTimeRange.value || !actualTimeRange.value) {
-    return undefined;
-  }
-
-  const [startRelative, endRelative] = selectedRelativeTimeRange.value;
-  // 使用第一条数据的时间戳作为基准
-  const firstData = performanceData.value[0];
-  if (!firstData) return undefined;
-
-  const baseTimestamp = new Date(firstData.timestamp).getTime();
-  const startDate = new Date(baseTimestamp + startRelative * 1000);
-  const endDate = new Date(baseTimestamp + endRelative * 1000);
-
-  return [startDate, endDate];
 });
 
 // 进程名显示（采集中状态）
@@ -430,8 +377,8 @@ async function loadCollectData(collectId: string) {
     if (result?.items?.length) {
       performanceData.value = result.items;
       historyData.value = result.items.slice(-50);
-      // 数据加载后重新应用时间窗口设置
-      setTimeWindow(timeWindow.value);
+      // 重置时间范围选择
+      selectedRelativeTimeRange.value = null;
       // 加载标记
       await loadMarkers();
     }
@@ -518,8 +465,7 @@ function handleCollectStarted(collectId: string) {
   stopPolling();
   performanceData.value = [];
   historyData.value = [];
-  // 重置时间窗口为"全部"
-  timeWindow.value = -1;
+  // 重置时间范围选择
   selectedRelativeTimeRange.value = null;
   currentCollectId.value = collectId;
   refreshStatus();
@@ -598,31 +544,6 @@ async function handleCreateVersion() {
 
 function handleVersionClick(versionId: string) {
   router.push(`/performance-monitor/compare?version_ids=${versionId}`);
-}
-
-function handleTimelineWindowChange(range: [Date, Date]) {
-  // 将 Date 转换为 relative_time（相对秒数）
-  const data = performanceData.value;
-  if (!data.length || !data[0]) {
-    selectedRelativeTimeRange.value = null;
-    return;
-  }
-
-  // 找到第一条数据的时间戳作为基准
-  const baseTimestamp = new Date(data[0].timestamp).getTime();
-  const startRelativeTime = Math.floor((range[0].getTime() - baseTimestamp) / 1000);
-  const endRelativeTime = Math.floor((range[1].getTime() - baseTimestamp) / 1000);
-
-  // 更新选择的时间范围
-  selectedRelativeTimeRange.value = [startRelativeTime, endRelativeTime];
-}
-
-function handleTimelineVersionClick(versionId: string) {
-  handleVersionClick(versionId);
-}
-
-function handleTimelineCollectClick(collectId: string) {
-  console.log('点击采集', collectId);
 }
 
 // 打开历史采集弹窗
@@ -771,51 +692,7 @@ function handleRangeChange(range: [number, number]) {
       </div>
     </div>
 
-    <!-- 时间轴选择器 -->
-    <div class="time-selector-wrapper">
-      <div class="time-selector">
-        <div class="time-btn-group">
-          <button
-            v-for="opt in [30, 60, -1]"
-            :key="opt"
-            :class="timeWindow === opt ? 'time-btn active' : 'time-btn'"
-            @click="setTimeWindow(opt)"
-          >
-            {{ opt === -1 ? '全部' : `${opt}分钟` }}
-          </button>
-        </div>
-        <TimelineSelector
-          class="timeline-component"
-          :collects="collectHistory"
-          :versions="versions"
-          :current-collect-id="currentCollectId"
-          :total-duration="timeWindow === -1 ? 120 : timeWindow"
-          :actual-start-time="actualTimeRange?.startTime"
-          :actual-end-time="actualTimeRange?.endTime"
-          :selected-window="selectedWindowDates"
-          @window-change="handleTimelineWindowChange"
-          @version-click="handleTimelineVersionClick"
-          @collect-click="handleTimelineCollectClick"
-        />
-      </div>
-      <!-- 已标记版本显示 -->
-      <div v-if="versions.length > 0" class="version-tags-row">
-        <span class="version-label">已标记版本：</span>
-        <span
-          v-for="(v, i) in versions"
-          :key="v.id"
-          class="version-tag"
-          :style="{ background: VERSION_COLORS[i % VERSION_COLORS.length] || '#67c23a' }"
-          @click="handleVersionClick(v.id)"
-        >
-          {{ v.name }}
-        </span>
-        <span class="click-hint">点击跳转</span>
-      </div>
-    </div>
-
-    <!-- 时间导航条 -->
-    <TimeNavigator
+        <TimeNavigator
       v-if="performanceData.length > 0"
       :duration="performanceData[performanceData.length - 1]?.relative_time || 0"
       :start-time="selectedRelativeTimeRange?.[0] || 0"
@@ -1179,62 +1056,6 @@ function handleRangeChange(range: [number, number]) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.time-selector-wrapper {
-  background: #fff;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-.time-selector {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.time-btn-group {
-  display: flex;
-  gap: 8px;
-}
-.time-btn {
-  padding: 6px 12px;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #666;
-  cursor: pointer;
-}
-.time-btn.active {
-  background: #409eff;
-  border: none;
-  color: #fff;
-}
-.time-btn:hover:not(.active) {
-  background: #eee;
-}
-.timeline-component {
-  flex: 1;
-}
-.version-tags-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 10px;
-  color: #999;
-}
-.version-label {
-  color: #999;
-}
-.version-tag {
-  cursor: pointer;
-  padding: 2px 6px;
-  color: #fff;
-  border-radius: 3px;
-  font-size: 10px;
-}
-.click-hint {
-  color: #999;
 }
 
 /* 历史采集弹窗样式 - 重新设计 */
