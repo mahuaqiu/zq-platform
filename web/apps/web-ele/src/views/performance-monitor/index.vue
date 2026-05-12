@@ -1227,21 +1227,21 @@ function handleRangeChange(range: [number, number]) {
 .main-content {
   display: flex;
   gap: 12px;
-  align-items: stretch; // 确保两侧高度一致
+  align-items: stretch; /* 确保两侧高度一致 */
 }
 .charts-area {
-  flex: 1 1 65%; // 明确设置 flex-grow, flex-shrink, flex-basis
+  flex: 1 1 65%; /* 明确设置 flex-grow, flex-shrink, flex-basis */
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: 0; // 防止内容溢出
+  min-width: 0; /* 防止内容溢出 */
 }
 .sidebar {
-  flex: 1 1 35%; // 明确设置 flex-grow, flex-shrink, flex-basis
+  flex: 1 1 35%; /* 明确设置 flex-grow, flex-shrink, flex-basis */
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: 0; // 防止内容溢出
+  min-width: 0; /* 防止内容溢出 */
 }
 .metrics-grid {
   background: #fff;
