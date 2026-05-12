@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { ElDialog, ElInput, ElButton, ElColorPicker } from 'element-plus';
 import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 import type { MarkerResponse } from '#/api/core/performance-monitor';
@@ -10,7 +10,10 @@ interface Props {
   clickedTime?: number; // 从图表点击接收的时间点
 }
 
-const props = defineProps<Props>();
+// 过滤有效标记（name 不为空）
+const validMarkers = computed(() => {
+  return props.markers.filter(m => m.name && m.name.trim() !== '');
+});
 const emit = defineEmits<{
   (e: 'refresh'): void;
 }>();
@@ -73,7 +76,7 @@ function resetForm() {
   <div class="marker-manager">
     <span class="marker-label">标记：</span>
     <span
-      v-for="marker in markers"
+      v-for="marker in validMarkers"
       :key="marker.id"
       class="marker-tag"
       :style="{ borderColor: marker.color, color: marker.color, background: marker.color + '15' }"
