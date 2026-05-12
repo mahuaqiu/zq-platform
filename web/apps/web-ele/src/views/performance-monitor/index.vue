@@ -4,7 +4,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElDatePicker, ElPopconfirm } from 'element-plus';
 import { useRouter } from 'vue-router';
 import ChartPanel from './components/ChartPanel.vue';
-import MetricCard from './components/MetricCard.vue';
 import Top10List from './components/Top10List.vue';
 import CollectDialog from './components/CollectDialog.vue';
 import TimelineSelector from './components/TimelineSelector.vue';
@@ -32,7 +31,7 @@ import type {
   MarkerResponse,
 } from '#/api/core/performance-monitor';
 import type { EnvMachine } from '#/api/core/env-machine';
-import type { ChartSeries, MetricCardData, Top10Item } from './types';
+import type { ChartSeries, Top10Item } from './types';
 import { VERSION_COLORS } from './types';
 
 const router = useRouter();
@@ -69,6 +68,14 @@ const markers = ref<MarkerResponse[]>([]);
 
 // 点击图表选中的时刻（用于 TOP10 切换）
 const clickedTime = ref<number>(0);
+
+// TOP10 类型（CPU 或 GPU）
+const top10Type = ref<'cpu' | 'gpu'>('cpu');
+
+// TOP10 类型切换
+function handleTop10TypeChange(type: 'cpu' | 'gpu') {
+  top10Type.value = type;
+}
 
 // 采集历史
 const collectHistory = ref<PerformanceCollect[]>([]);
@@ -309,60 +316,6 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
   });
   return [
     { name: '进程内存', data: processData, color: '#909399', unit: 'MB' },
-  ];
-});
-
-// 次要指标卡片数据
-const metricCards = computed<MetricCardData[]>(() => {
-  const latest = currentMetrics.value;
-  if (!latest) return [];
-
-  // 获取历史数据用于迷你趋势线（基于时间窗口过滤后的数据）
-  const history = historyTrendData.value;
-
-  return [
-    {
-      name: '功耗',
-      value: latest.power || 0,
-      unit: 'W',
-      color: '#409eff',
-      historyData: history.map((d) => d.power || 0),
-    },
-    {
-      name: 'CPU速度',
-      value: latest.cpu_speed || 0,
-      unit: 'GHz',
-      color: '#67c23a',
-      historyData: history.map((d) => d.cpu_speed || 0),
-    },
-    {
-      name: 'CPU温度',
-      value: latest.cpu_temp || 0,
-      unit: '°C',
-      color: '#e6a23c',
-      historyData: history.map((d) => d.cpu_temp || 0),
-    },
-    {
-      name: '进程句柄',
-      value: latest.process_handles || 0,
-      unit: '',
-      color: '#909399',
-      historyData: history.map((d) => d.process_handles || 0),
-    },
-    {
-      name: '上传速度',
-      value: latest.upload_speed || 0,
-      unit: 'MB/s',
-      color: '#67c23a',
-      historyData: history.map((d) => d.upload_speed || 0),
-    },
-    {
-      name: '下载速度',
-      value: latest.download_speed || 0,
-      unit: 'MB/s',
-      color: '#409eff',
-      historyData: history.map((d) => d.download_speed || 0),
-    },
   ];
 });
 
@@ -687,6 +640,30 @@ async function handleSelectHistoryCollect(collectId: string) {
   showHistoryDialog.value = false;
 }
 
+// 确认删除采集记录（使用正式对话框）
+async function confirmDeleteCollect(collect: PerformanceCollect) {
+  if (collect.status === 'running' || collect.is_protected) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      '删除后数据将无法恢复，是否确认删除该采集记录？',
+      '删除确认',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        customClass: 'delete-confirm-dialog',
+      }
+    );
+    // 用户确认后执行删除
+    await handleDeleteCollect(collect.id);
+  } catch {
+    // 用户取消，不做任何操作
+  }
+}
+
 // 删除历史采集记录
 async function handleDeleteCollect(collectId: string) {
   historyDeleting.value = collectId;
@@ -751,59 +728,46 @@ function handleRangeChange(range: [number, number]) {
     <!-- 顶部控制栏 -->
     <div class="control-bar">
       <div class="left-controls">
-        <!-- 设备选择框 -->
-        <div class="device-selector">
-          <span v-if="loadingDevices" style="color: #999; font-size: 12px;">加载中...</span>
-          <el-select
-            v-else
-            v-model="deviceId"
-            placeholder="选择设备"
-            style="width: 200px"
-            @change="handleDeviceChange"
+        <!-- 设备选择标签 -->
+        <span class="device-label-tag">设备选择</span>
+
+        <!-- 设备下拉选择框（加大宽度） -->
+        <el-select
+          v-if="!loadingDevices"
+          v-model="deviceId"
+          placeholder="选择设备"
+          class="device-select-large"
+          @change="handleDeviceChange"
+        >
+          <el-option
+            v-for="device in onlineDevices"
+            :key="device.id"
+            :label="device.device_type + ' - ' + device.ip"
+            :value="device.id"
           >
-            <el-option
-              v-for="device in onlineDevices"
-              :key="device.id"
-              :label="device.device_type + '-' + device.ip"
-              :value="device.id"
-            />
-          </el-select>
+            <span>{{ device.device_type }}</span>
+            <span style="margin-left: 10px; color: #409eff">{{ device.ip }}</span>
+          </el-option>
+        </el-select>
+        <span v-else class="loading-text">加载中...</span>
+
+        <!-- 设备状态卡片（仅未采集时显示） -->
+        <div v-if="!collectStatus.is_collecting && currentDeviceInfo" class="device-status-card">
+          <span class="device-ip">{{ currentDeviceInfo.ip }}</span>
+          <span class="online-badge" v-if="currentDeviceInfo.status === 'online' || currentDeviceInfo.status === 'using'">● 在线</span>
         </div>
-        <!-- 开始采集按钮 - 始终显示，采集中时隐藏 -->
-        <button
-          v-if="!collectStatus.is_collecting"
-          class="start-btn"
-          @click="handleStartClick"
-        >
-          开始采集
-        </button>
-        <!-- 停止采集按钮 - 始终显示，不采集中时disabled样式 -->
-        <button
-          class="stop-btn"
-          :disabled="!collectStatus.is_collecting"
-          @click="handleStopClick"
-        >
-          停止采集
-        </button>
-        <!-- 采集中状态显示进程名（带 Tooltip） -->
-        <div
-          v-if="collectStatus.is_collecting"
-          class="status-badge"
-          :title="processTooltipContent"
-        >
-          <span class="status-dot"></span>
-          采集中 (频率{{ collectStatus.interval }}秒) |
-          <span v-if="processNamesDisplay" class="process-names">
-            {{ processNamesDisplay }}
-          </span>
-          <span v-else>{{ collectStatus.target_processes?.length || 0 }}进程</span>
+
+        <!-- 采集状态卡片（采集时显示） -->
+        <div v-if="collectStatus.is_collecting" class="collect-status-card">
+          <span class="collect-label">采集状态：</span>
+          <span class="collect-running">运行中</span>
+          <span class="collect-duration">已采集: {{ performanceData.length > 0 ? performanceData[performanceData.length - 1]?.relative_time : 0 }}s</span>
         </div>
-      </div>
-      <div class="right-controls">
-        <button class="mark-version-btn" @click="handleMarkVersionClick">
-          标记版本
-        </button>
-        <button class="history-btn" @click="handleHistoryClick">历史采集</button>
+
+        <!-- 操作按钮（放到左边） -->
+        <button class="start-btn" @click="handleStartClick">开始采集</button>
+        <button class="stop-btn" :disabled="!collectStatus.is_collecting" @click="handleStopClick">停止采集</button>
+        <button class="history-btn" @click="handleHistoryClick">查看历史</button>
       </div>
     </div>
 
@@ -867,68 +831,62 @@ function handleRangeChange(range: [number, number]) {
       @refresh="loadMarkers"
     />
 
-    <!-- 主内容区 -->
-    <div class="main-content">
-      <!-- 图表区（一行一个图表） -->
-      <div class="charts-area">
-        <ChartPanel
-          title="CPU使用率"
-          :series="cpuChartSeries"
-          :height="180"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="cpu"
-          @point-click="handlePointClick"
-        />
-        <ChartPanel
-          title="GPU使用率"
-          :series="gpuChartSeries"
-          :height="180"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="gpu"
-          @point-click="handlePointClick"
-        />
+    <!-- 主内容区 - 单列布局 -->
+    <div class="charts-area">
+      <!-- CPU使用率图表 -->
+      <ChartPanel
+        title="CPU使用率"
+        :series="cpuChartSeries"
+        :height="180"
+        :raw-data="filteredPerformanceData"
+        :markers="markers"
+        chart-type="cpu"
+        @point-click="handlePointClick"
+      />
 
-        <!-- TOP10 进程排名 -->
-        <Top10List
-          :data="filteredPerformanceData"
-          :clicked-time="clickedTime"
-        />
+      <!-- GPU使用率图表 -->
+      <ChartPanel
+        title="GPU使用率"
+        :series="gpuChartSeries"
+        :height="180"
+        :raw-data="filteredPerformanceData"
+        :markers="markers"
+        chart-type="gpu"
+        @point-click="handlePointClick"
+      />
 
-        <ChartPanel
-          title="提交内存"
-          :series="commitMemoryChartSeries"
-          :height="150"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="commitMemory"
-          @point-click="handlePointClick"
-        />
-        <ChartPanel
-          title="进程内存"
-          :series="memoryChartSeries"
-          :height="150"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="memory"
-          @point-click="handlePointClick"
-        />
+      <!-- TOP10 进程排名 -->
+      <Top10List
+        :data="filteredPerformanceData"
+        :clicked-time="clickedTime"
+        :type="top10Type"
+        @type-change="handleTop10TypeChange"
+      />
 
-        <!-- 高级指标面板 -->
-        <AdvancedMetrics v-if="currentCollectId" :collect-id="currentCollectId" />
-      </div>
+      <!-- 提交内存图表 -->
+      <ChartPanel
+        title="提交内存"
+        :series="commitMemoryChartSeries"
+        :height="180"
+        :raw-data="filteredPerformanceData"
+        :markers="markers"
+        chart-type="commitMemory"
+        @point-click="handlePointClick"
+      />
 
-      <!-- 右侧栏 -->
-      <div class="sidebar">
-        <!-- 其它指标卡片 -->
-        <div class="metrics-grid">
-          <div class="metrics-title">其它指标</div>
-          <div class="metrics-cards">
-            <MetricCard v-for="(card, i) in metricCards" :key="i" :data="card" />
-          </div>
-        </div>
-      </div>
+      <!-- 进程内存图表 -->
+      <ChartPanel
+        title="进程内存"
+        :series="memoryChartSeries"
+        :height="180"
+        :raw-data="filteredPerformanceData"
+        :markers="markers"
+        chart-type="memory"
+        @point-click="handlePointClick"
+      />
+
+      <!-- 高级指标面板 -->
+      <AdvancedMetrics v-if="currentCollectId" :collect-id="currentCollectId" />
     </div>
 
     <!-- 开始采集弹窗 -->
@@ -1034,25 +992,14 @@ function handleRangeChange(range: [number, number]) {
               >
                 {{ c.is_protected ? '🔒 已保留' : '🔓 保留' }}
               </button>
-              <el-popconfirm
-                title="确定删除该采集记录吗？删除后数据无法恢复。"
-                confirm-button-text="删除"
-                cancel-button-text="取消"
-                confirm-button-type="danger"
-                @confirm="handleDeleteCollect(c.id)"
-                :disabled="c.status === 'running' || c.is_protected"
-              >
-                <template #reference>
-                  <button
+              <button
                     class="action-btn delete-btn"
                     :disabled="c.status === 'running' || c.is_protected || historyDeleting === c.id"
-                    @click.stop
+                    @click.stop="confirmDeleteCollect(c)"
                   >
                     <span v-if="historyDeleting === c.id">删除中...</span>
                     <span v-else>🗑️ 删除</span>
                   </button>
-                </template>
-              </el-popconfirm>
             </div>
           </div>
 
@@ -1126,19 +1073,28 @@ function handleRangeChange(range: [number, number]) {
   gap: 12px;
   align-items: center;
   flex-wrap: nowrap;
-  flex-shrink: 0;
 }
-.device-selector {
+/* 设备选择标签 - 蓝色背景 */
+.device-label-tag {
   display: inline-block;
-  min-width: 200px;
+  padding: 8px 20px;
+  background: #409eff;
+  color: white;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 13px;
 }
-.device-select {
-  width: 180px;
-  min-width: 180px;
+/* 设备下拉选择框（加大宽度） */
+.device-select-large {
+  width: 260px;
+}
+.loading-text {
+  color: #999;
+  font-size: 12px;
 }
 /* 开始采集按钮 - 绿色 */
 .start-btn {
-  padding: 6px 16px;
+  padding: 8px 20px;
   background: #67c23a;
   color: #fff;
   border: none;
@@ -1149,115 +1105,80 @@ function handleRangeChange(range: [number, number]) {
 .start-btn:hover {
   background: #5cb85c;
 }
-/* 停止采集按钮 - 灰色 */
+/* 停止采集按钮 - 红色 */
 .stop-btn {
-  padding: 6px 16px;
-  background: #f5f5f5;
-  color: #999;
-  border: 1px solid #ddd;
+  padding: 8px 20px;
+  background: #f56c6c;
+  color: #fff;
+  border: none;
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
 }
 .stop-btn:disabled {
+  background: #f5f5f5;
+  color: #999;
+  border: 1px solid #ddd;
   cursor: not-allowed;
   opacity: 0.6;
 }
 .stop-btn:not(:disabled):hover {
-  background: #eee;
-  color: #666;
-  border-color: #ccc;
+  background: #f78989;
 }
-.right-controls {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-/* 标记版本按钮 - 原生button蓝色 */
-.mark-version-btn {
-  padding: 6px 12px;
-  background: #409eff;
+/* 查看历史按钮 - 橙色 */
+.history-btn {
+  padding: 8px 20px;
+  background: #e6a23c;
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-}
-.mark-version-btn:hover {
-  background: #337ecc;
-}
-/* 历史采集按钮 - 原生button灰色 */
-.history-btn {
-  padding: 6px 12px;
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
 }
 .history-btn:hover {
-  background: #eee;
+  background: #ebb563;
 }
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: #f0f9eb;
+/* 设备状态卡片 */
+.device-status-card {
+  padding: 8px 15px;
+  background: white;
   border-radius: 4px;
-  font-size: 11px;
-  color: #67c23a;
-  cursor: pointer;
+  border: 1px solid #ddd;
 }
-.status-dot {
-  width: 8px;
-  height: 8px;
-  background: #67c23a;
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-.process-names {
-  color: #409eff;
-}
-.main-content {
-  display: flex;
-  gap: 12px;
-  align-items: stretch; /* 确保两侧高度一致 */
-}
-.charts-area {
-  flex: 1 1 65%; /* 明确设置 flex-grow, flex-shrink, flex-basis */
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0; /* 防止内容溢出 */
-}
-.sidebar {
-  flex: 1 1 35%; /* 明确设置 flex-grow, flex-shrink, flex-basis */
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0; /* 防止内容溢出 */
-}
-.metrics-grid {
-  background: #fff;
-  border-radius: 6px;
-  padding: 12px;
-}
-.metrics-title {
-  font-size: 15px;
-  font-weight: 700;
+.device-ip {
+  font-weight: bold;
+  font-size: 13px;
   color: #333;
-  margin-bottom: 10px;
 }
-.metrics-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.online-badge {
+  margin-left: 10px;
+  color: #67c23a;
+  font-size: 12px;
+}
+/* 采集状态卡片 */
+.collect-status-card {
+  padding: 8px 15px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 12px;
+}
+.collect-label {
+  color: #666;
+}
+.collect-running {
+  color: #67c23a;
+  font-weight: bold;
+}
+.collect-duration {
+  margin-left: 10px;
+  color: #999;
+}
+/* 图表区 - 单列布局 */
+.charts-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .time-selector-wrapper {
   background: #fff;

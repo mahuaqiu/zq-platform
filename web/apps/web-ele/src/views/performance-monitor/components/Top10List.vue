@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from 'vue';
-import * as echarts from 'echarts';
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
 import type { PerformanceData } from '../types';
 
 interface Top10ItemInternal {
   name: string;
   value: number;
-  trendData: number[]; // 迷你趋势线数据
 }
 
 const props = defineProps<{
   data: PerformanceData[];
   clickedTime?: number;
-  type?: 'cpu' | 'gpu'; // 区分CPU TOP10和GPU TOP10
+  type?: 'cpu' | 'gpu';
+}>();
+
+const emit = defineEmits<{
+  (e: 'type-change', type: 'cpu' | 'gpu'): void;
 }>();
 
 const currentTime = ref<number>(0);
-const top3 = ref<Top10ItemInternal[]>([]);
-const top4to10 = ref<Top10ItemInternal[]>([]);
-const miniChartRefs = ref<Map<string, HTMLDivElement>>(new Map());
-const miniCharts = ref<Map<string, echarts.ECharts>>(new Map());
+const top1to5 = ref<Top10ItemInternal[]>([]);
+const top6to10 = ref<Top10ItemInternal[]>([]);
 
 // 监听点击时刻变化
 watch(
@@ -28,6 +28,22 @@ watch(
     if (time !== undefined) {
       currentTime.value = time;
       updateTop10Data(time);
+    }
+  },
+  { immediate: true }
+);
+
+// 监听数据变化
+watch(
+  () => props.data,
+  (data) => {
+    if (data.length > 0 && currentTime.value === 0) {
+      // 初始化时使用最新数据
+      const lastData = data[data.length - 1];
+      if (lastData) {
+        currentTime.value = lastData.relative_time;
+        updateTop10Data(lastData.relative_time);
+      }
     }
   },
   { immediate: true }
@@ -47,179 +63,228 @@ function updateTop10Data(time: number) {
   const valueKey = props.type === 'gpu' ? 'gpu' : 'cpu';
 
   if (top10List) {
-    // 计算每个进程的历史趋势数据
-    const items = top10List.slice(0, 10).map((p) => {
-      const processName = p.name;
-      // 从历史数据中提取该进程的趋势
-      const trendData = props.data.map((d) => {
-        const topList = props.type === 'gpu' ? d.top10_gpu : d.top10_cpu;
-        const process = topList?.find((proc) => proc.name === processName);
-        return process?.[valueKey] || 0;
-      });
+    const items = top10List.slice(0, 10).map((p) => ({
+      name: p.name,
+      value: p[valueKey] || 0,
+    }));
 
-      return {
-        name: processName,
-        value: p[valueKey] || 0,
-        trendData,
-      };
-    });
-
-    top3.value = items.slice(0, 3);
-    top4to10.value = items.slice(3, 10);
-
-    // 渲染迷你趋势线
-    nextTick(() => {
-      renderMiniCharts();
-    });
+    top1to5.value = items.slice(0, 5);
+    top6to10.value = items.slice(5, 10);
+  } else {
+    top1to5.value = [];
+    top6to10.value = [];
   }
 }
 
-function renderMiniCharts() {
-  top3.value.forEach((item) => {
-    const chartDiv = miniChartRefs.value.get(item.name);
-    if (!chartDiv) return;
-
-    // 清理已有实例
-    const existingChart = miniCharts.value.get(item.name);
-    if (existingChart) {
-      existingChart.dispose();
-    }
-
-    // 创建迷你趋势图
-    const chart = echarts.init(chartDiv);
-    chart.setOption({
-      grid: { left: 0, right: 0, top: 0, bottom: 0 },
-      xAxis: { type: 'category', show: false, data: item.trendData.map((_, i) => i) },
-      yAxis: { type: 'value', show: false },
-      series: [{
-        type: 'line',
-        data: item.trendData,
-        lineStyle: { color: '#409eff', width: 1.5 },
-        smooth: true,
-        symbol: 'none',
-      }],
-    });
-
-    miniCharts.value.set(item.name, chart);
-  });
+// 切换类型
+function handleTypeChange(type: 'cpu' | 'gpu') {
+  emit('type-change', type);
+  updateTop10Data(currentTime.value);
 }
 
-function getItemColor(idx: number): string {
-  const colors = ['#409eff', '#67c23a', '#e6a23c'];
+// 进度条颜色
+function getBarColor(idx: number): string {
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#b37beb', '#91d5ff', '#ff85c0', '#87e8de', '#95de64'];
   return colors[idx] || '#909399';
 }
 
-onMounted(() => {
-  window.addEventListener('resize', () => {
-    miniCharts.value.forEach(chart => chart.resize());
-  });
+// 计算进度条宽度（基于最大值）
+function getBarWidth(item: Top10ItemInternal, max: number): number {
+  if (max <= 0) return 0;
+  return Math.round((item.value / max) * 100);
+}
+
+// 获取 TOP1-5 的最大值
+const top1to5Max = computed(() => {
+  const values = top1to5.value.map((item) => item.value);
+  return Math.max(...values, 0.01);
 });
 </script>
 
 <template>
   <div class="top10-list">
     <div class="top10-header">
-      <span class="top10-title">{{ type === 'gpu' ? 'GPU' : 'CPU' }} TOP10 进程</span>
-      <span class="top10-time">时刻: {{ currentTime }}s</span>
+      <h4 class="top10-title">进程 TOP10 排名</h4>
+      <div class="top10-controls">
+        <span class="time-badge">最新时刻</span>
+        <div class="type-switch">
+          <button
+            :class="['switch-btn', type === 'cpu' ? 'active' : '']"
+            @click="handleTypeChange('cpu')"
+          >
+            CPU TOP10
+          </button>
+          <button
+            :class="['switch-btn', type === 'gpu' ? 'active' : '']"
+            @click="handleTypeChange('gpu')"
+          >
+            GPU TOP10
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="top10-content">
-      <!-- TOP3 迷你趋势线 -->
-      <div class="top3-section">
-        <div v-for="(item, idx) in top3" :key="idx" class="top3-item" :style="{ background: idx === 0 ? '#f0f9eb' : idx === 1 ? '#fef0f0' : '#fdf6ec' }">
-          <div class="mini-trend" :ref="(el) => { if (el) miniChartRefs.set(item.name, el as HTMLDivElement) }"></div>
-          <span class="process-name">{{ item.name }}</span>
-          <span class="process-value" :style="{ color: getItemColor(idx) }">{{ item.value.toFixed(1) }}%</span>
+
+    <!-- 双列布局 -->
+    <div class="top10-grid">
+      <!-- 左侧 TOP1-5 -->
+      <div class="top-column">
+        <div v-for="(item, idx) in top1to5" :key="idx" class="top-item">
+          <div class="process-name" :class="{ bold: idx < 3 }">{{ item.name }}</div>
+          <div class="bar-container">
+            <div
+              class="bar-fill"
+              :style="{
+                width: getBarWidth(item, top1to5Max) + '%',
+                background: `linear-gradient(90deg, ${getBarColor(idx)}, ${getBarColor(idx)}aa)`
+              }"
+            >
+              <span v-if="idx < 3" class="bar-value">{{ item.value.toFixed(1) }}%</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- TOP4-10 列表 -->
-      <div class="top4to10-section">
-        <div v-for="(item, idx) in top4to10" :key="idx" class="top4to10-item">
-          <span class="rank">{{ idx + 4 }}</span>
-          <span class="process-name">{{ item.name }}</span>
-          <span class="process-value">{{ item.value.toFixed(1) }}%</span>
+      <!-- 右侧 TOP6-10 -->
+      <div class="top-column">
+        <div v-for="(item, idx) in top6to10" :key="idx" class="top-item secondary">
+          <div class="process-name">{{ item.name }}</div>
+          <div class="bar-container">
+            <div
+              class="bar-fill"
+              :style="{
+                width: getBarWidth(item, top1to5Max) + '%',
+                background: getBarColor(idx + 5)
+              }"
+            ></div>
+          </div>
+          <span class="item-value">{{ item.value.toFixed(1) }}%</span>
         </div>
       </div>
+    </div>
+
+    <!-- 提示 -->
+    <div class="top10-hint">
+      点击上方CPU/GPU折线图的任意数据点，TOP10自动切换为该时刻的进程排名
     </div>
   </div>
 </template>
 
 <style scoped>
 .top10-list {
-  background: #fff;
-  border-radius: 8px;
-  padding: 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 .top10-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 12px;
 }
 .top10-title {
-  font-size: 15px;
-  font-weight: 700;
+  margin: 0;
   color: #333;
+  font-size: 15px;
 }
-.top10-time {
-  font-size: 12px;
+.top10-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.time-badge {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
   color: #666;
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 12px;
 }
-.top10-content {
+.type-switch {
+  display: flex;
+  gap: 5px;
+}
+.switch-btn {
+  background: #909399;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  border: none;
+}
+.switch-btn.active {
+  background: #409eff;
+}
+.switch-btn:hover:not(.active) {
+  background: #73767a;
+}
+.top10-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+.top-column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
-.top3-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.top3-item {
+.top-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px;
-  border-radius: 4px;
-}
-.mini-trend {
-  width: 40px;
-  height: 16px;
 }
 .process-name {
-  flex: 1;
+  width: 90px;
   font-size: 12px;
   color: #333;
+}
+.process-name.bold {
   font-weight: bold;
 }
-.process-value {
-  font-size: 13px;
-  font-weight: 600;
+.bar-container {
+  flex: 1;
+  height: 20px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  position: relative;
 }
-.top4to10-section {
-  border-top: 1px dashed #eee;
-  padding-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  position: relative;
 }
-.top4to10-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.bar-value {
+  position: absolute;
+  right: 5px;
+  top: 4px;
+  font-size: 11px;
+  color: white;
+  font-weight: bold;
+}
+.top-item.secondary {
   font-size: 11px;
 }
-.rank {
-  width: 18px;
-  color: #999;
-  font-weight: bold;
-}
-.top4to10-item .process-name {
-  flex: 1;
+.top-item.secondary .process-name {
   color: #666;
   font-weight: normal;
 }
-.top4to10-item .process-value {
+.top-item.secondary .bar-container {
+  height: 16px;
+}
+.item-value {
+  font-size: 11px;
   color: #999;
+  width: 45px;
+  text-align: right;
+}
+.top10-hint {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
   font-size: 12px;
+  color: #666;
+  text-align: center;
 }
 </style>

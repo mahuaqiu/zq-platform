@@ -4,7 +4,7 @@
 性能监控业务逻辑
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Type
 
 from sqlalchemy import select, and_, desc, func, or_
@@ -33,9 +33,11 @@ class PerformanceCollectService(BaseService):
     @classmethod
     async def start_collect(cls, db: AsyncSession, request: CollectStartRequest) -> str:
         """开始采集"""
+        # 使用 timezone-aware UTC 时间
+        start_time_utc = datetime.now(timezone.utc)
         collect = PerformanceCollect(
             device_id=request.device_id,
-            start_time=datetime.utcnow(),
+            start_time=start_time_utc.replace(tzinfo=None),  # 存储为 naive datetime（UTC）
             interval=request.interval,
             target_processes=request.target_processes,
             status="running"
@@ -167,19 +169,40 @@ class PerformanceDataService(BaseService):
             return False
 
         start_time = collect.start_time
+        if start_time is None:
+            logger.error(f"采集记录缺少 start_time: {request.collect_id}")
+            return False
 
         for sample in request.samples:
-            # 将 timezone-aware datetime 转换为 timezone-naive datetime
-            # Worker 上报的 timestamp 带有 UTC timezone，需要转换为 naive datetime
-            timestamp_naive = sample.timestamp.replace(tzinfo=None) if sample.timestamp.tzinfo else sample.timestamp
+            # 确保 timestamp 存在
+            if sample.timestamp is None:
+                logger.warning(f"样本缺少 timestamp，跳过")
+                continue
+
+            # 将 timestamp 转换为 UTC naive datetime
+            # Worker 上报的 timestamp 可能带有 timezone，需要统一转换为 UTC
+            if sample.timestamp.tzinfo is not None:
+                # 如果是 timezone-aware，先转换为 UTC，然后去掉 tzinfo
+                timestamp_utc = sample.timestamp.astimezone(timezone.utc)
+                timestamp_naive = timestamp_utc.replace(tzinfo=None)
+            else:
+                # 如果已经是 naive datetime，假设它是 UTC 时间（ Worker 应上报 UTC）
+                timestamp_naive = sample.timestamp
 
             # 计算 relative_time：如果未提供则根据 timestamp 和 start_time 计算
             relative_time = sample.relative_time
             if relative_time is None:
-                # 计算 timestamp 相对于 start_time 的秒数
-                relative_time = int((timestamp_naive - start_time).total_seconds())
-                # 确保 relative_time 不为负数（防止时间误差）
-                relative_time = max(0, relative_time)
+                try:
+                    # 计算 timestamp 相对于 start_time 的秒数（两者都是 UTC naive datetime）
+                    delta = timestamp_naive - start_time
+                    relative_time = int(delta.total_seconds())
+                    # 确保 relative_time 不为负数（防止时间误差）
+                    relative_time = max(0, relative_time)
+                    logger.debug(f"计算 relative_time: timestamp={timestamp_naive}, start_time={start_time}, result={relative_time}")
+                except Exception as e:
+                    logger.error(f"计算 relative_time 失败: timestamp={timestamp_naive}, start_time={start_time}, error={e}")
+                    # 使用默认值 0 防止数据库错误
+                    relative_time = 0
 
             # v0.3.0: 检查 hwinfo_raw 是否存在，优先从中提取核心指标
             hwinfo_raw = getattr(sample, 'hwinfo_raw', None)

@@ -11,14 +11,22 @@ interface Props {
 
 const props = defineProps<Props>();
 
+// 默认折叠
+const isExpanded = ref(false);
 const keyword = ref('');
 const category = ref('all');
+const displayMode = ref('card');
 const results = ref<MetricMappingResponse[]>([]);
 const selectedMetrics = ref<string[]>([]);
 const metricsData = ref<AdvancedMetricsResponse | null>(null);
 const loading = ref(false);
 const chartRefs = ref<Map<string, HTMLDivElement>>(new Map());
 const chartInstances = ref<Map<string, echarts.ECharts>>(new Map());
+
+// 展开/折叠
+function toggleExpand() {
+  isExpanded.value = !isExpanded.value;
+}
 
 async function handleSearch() {
   loading.value = true;
@@ -124,21 +132,33 @@ onMounted(() => {
 <template>
   <div class="advanced-metrics">
     <div class="metrics-header">
-      <span class="metrics-title">高级指标 (hwinfo_raw 200+传感器)</span>
-      <div class="metrics-controls">
-        <ElInput v-model="keyword" placeholder="搜索指标" style="width: 220px" clearable />
+      <h3 class="metrics-title" @click="toggleExpand">
+        <span class="expand-icon">{{ isExpanded ? '▼' : '▶' }}</span>
+        高级指标 (hwinfo_raw 200+传感器)
+      </h3>
+      <div v-if="isExpanded" class="metrics-controls">
+        <ElInput v-model="keyword" placeholder="搜索指标（如：CPU核心温度）" style="width: 220px" clearable />
         <ElSelect v-model="category" style="width: 100px">
-          <ElOption label="全部" value="all" />
+          <ElOption label="全部分类" value="all" />
           <ElOption label="系统" value="system" />
           <ElOption label="硬件" value="hardware" />
           <ElOption label="网络" value="network" />
+        </ElSelect>
+        <ElSelect v-model="displayMode" style="width: 100px">
+          <ElOption label="卡片模式" value="card" />
+          <ElOption label="图表模式" value="chart" />
         </ElSelect>
         <ElButton type="primary" @click="handleSearch" :loading="loading">搜索</ElButton>
       </div>
     </div>
 
+    <!-- 折叠提示 -->
+    <div v-if="!isExpanded" class="metrics-hint">
+      点击展开或输入搜索内容后显示对应的hwinfo指标（共200+传感器数据，默认不显示）
+    </div>
+
     <!-- 搜索结果 -->
-    <div class="metrics-results" v-if="results.length">
+    <div v-if="isExpanded && results.length" class="metrics-results">
       <div
         v-for="m in results"
         :key="m.id"
@@ -153,7 +173,7 @@ onMounted(() => {
     </div>
 
     <!-- 已选指标图表 -->
-    <div class="metrics-charts" v-if="metricsData && metricsData.metrics">
+    <div v-if="isExpanded && metricsData && metricsData.metrics" class="metrics-charts">
       <div v-for="[key, ts] in Object.entries(metricsData.metrics)" :key="key" class="metric-chart">
         <div class="chart-header">
           <span class="chart-title">{{ ts.display_name || key }}</span>
@@ -166,7 +186,7 @@ onMounted(() => {
     </div>
 
     <!-- 无结果提示 -->
-    <div class="no-results" v-if="!results.length && keyword">
+    <div v-if="isExpanded && !results.length && keyword" class="no-results">
       未找到匹配的指标
     </div>
   </div>
@@ -178,6 +198,7 @@ onMounted(() => {
   border: 1px solid #409eff;
   border-radius: 8px;
   padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 .metrics-header {
   display: flex;
@@ -185,13 +206,26 @@ onMounted(() => {
   justify-content: space-between;
 }
 .metrics-title {
-  font-size: 14px;
+  margin: 0;
   color: #409eff;
-  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+}
+.expand-icon {
+  margin-right: 5px;
 }
 .metrics-controls {
   display: flex;
   gap: 10px;
+  align-items: center;
+}
+.metrics-hint {
+  margin-top: 8px;
+  color: #666;
+  font-size: 11px;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
 }
 .metrics-results {
   margin-top: 15px;
