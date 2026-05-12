@@ -27,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   enableTagClick: false,
   showActualTime: false,
   chartType: 'cpu',
+  markers: () => [],
 });
 
 // 定义 Events
