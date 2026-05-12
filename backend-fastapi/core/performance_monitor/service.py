@@ -224,7 +224,7 @@ class PerformanceDataService(BaseService):
             data = PerformanceData(
                 collect_id=request.collect_id,
                 timestamp=timestamp_naive,
-                relative_time=sample.relative_time,
+                relative_time=relative_time,
                 cpu_usage=cpu_usage,
                 gpu_usage=gpu_usage,
                 commit_memory=commit_memory,
