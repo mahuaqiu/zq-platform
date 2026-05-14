@@ -9,6 +9,7 @@ import CollectDialog from './components/CollectDialog.vue';
 import TimeNavigator from './components/TimeNavigator.vue';
 import MarkerManager from './components/MarkerManager.vue';
 import AdvancedMetrics from './components/AdvancedMetrics.vue';
+import ProcessTooltip from './components/ProcessTooltip.vue';
 import {
   getCollectStatus,
   stopCollect,
@@ -95,6 +96,18 @@ const historySearchDate = ref<[Date, Date] | null>(null);
 const historySearchProcess = ref('');
 const historyLoading = ref(false);
 const historyDeleting = ref<string | null>(null);
+
+// Tooltip 状态
+interface TooltipState {
+  position: { x: number; y: number };
+  data: PerformanceData | undefined;
+  seriesData: { name: string; value: number; color: string; unit: string }[];
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  containerRect: DOMRect;
+}
+
+const tooltipState = ref<TooltipState | null>(null);
+const activeChartKey = ref<string | null>(null);
 
 // 按钮操作 loading 状态（防止重复点击）
 const isStarting = ref(false);
@@ -659,6 +672,22 @@ function handlePointClick(data: { time: number; collectId: string }) {
   clickedTime.value = data.time;
 }
 
+// Tooltip 显示事件处理
+function handleTooltipShow(data: TooltipState, chartKey: string) {
+  tooltipState.value = data;
+  activeChartKey.value = chartKey;
+}
+
+// Tooltip 隐藏事件处理
+function handleTooltipHide() {
+  tooltipState.value = null;
+}
+
+// Tooltip 关闭事件处理
+function handleTooltipClose() {
+  tooltipState.value = null;
+}
+
 // 处理时间导航条范围变化
 function handleRangeChange(range: [number, number]) {
   selectedRelativeTimeRange.value = range;
@@ -734,26 +763,50 @@ function handleRangeChange(range: [number, number]) {
     <!-- 主内容区 - 单列布局 -->
     <div class="charts-area">
       <!-- CPU使用率图表 -->
-      <ChartPanel
-        title="CPU使用率"
-        :series="cpuChartSeries"
-        :height="180"
-        :raw-data="filteredPerformanceData"
-        :markers="markers"
-        chart-type="cpu"
-        @point-click="handlePointClick"
-      />
+      <div class="chart-wrapper">
+        <ChartPanel
+          title="CPU使用率"
+          :series="cpuChartSeries"
+          :height="180"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="cpu"
+          @point-click="handlePointClick"
+          @tooltip-show="(data) => handleTooltipShow(data, 'cpu')"
+          @tooltip-hide="handleTooltipHide"
+        />
+        <ProcessTooltip
+          v-if="tooltipState && activeChartKey === 'cpu'"
+          :visible="tooltipState !== null"
+          :position="tooltipState.position"
+          :containerRect="tooltipState.containerRect"
+          :data="tooltipState"
+          @close="handleTooltipClose"
+        />
+      </div>
 
       <!-- GPU使用率图表 -->
-      <ChartPanel
-        title="GPU使用率"
-        :series="gpuChartSeries"
-        :height="180"
-        :raw-data="filteredPerformanceData"
-        :markers="markers"
-        chart-type="gpu"
-        @point-click="handlePointClick"
-      />
+      <div class="chart-wrapper">
+        <ChartPanel
+          title="GPU使用率"
+          :series="gpuChartSeries"
+          :height="180"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="gpu"
+          @point-click="handlePointClick"
+          @tooltip-show="(data) => handleTooltipShow(data, 'gpu')"
+          @tooltip-hide="handleTooltipHide"
+        />
+        <ProcessTooltip
+          v-if="tooltipState && activeChartKey === 'gpu'"
+          :visible="tooltipState !== null"
+          :position="tooltipState.position"
+          :containerRect="tooltipState.containerRect"
+          :data="tooltipState"
+          @close="handleTooltipClose"
+        />
+      </div>
 
       <!-- TOP10 进程排名 -->
       <Top10List
@@ -764,26 +817,50 @@ function handleRangeChange(range: [number, number]) {
       />
 
       <!-- 提交内存图表 -->
-      <ChartPanel
-        title="提交内存"
-        :series="commitMemoryChartSeries"
-        :height="180"
-        :raw-data="filteredPerformanceData"
-        :markers="markers"
-        chart-type="commitMemory"
-        @point-click="handlePointClick"
-      />
+      <div class="chart-wrapper">
+        <ChartPanel
+          title="提交内存"
+          :series="commitMemoryChartSeries"
+          :height="180"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="commitMemory"
+          @point-click="handlePointClick"
+          @tooltip-show="(data) => handleTooltipShow(data, 'commitMemory')"
+          @tooltip-hide="handleTooltipHide"
+        />
+        <ProcessTooltip
+          v-if="tooltipState && activeChartKey === 'commitMemory'"
+          :visible="tooltipState !== null"
+          :position="tooltipState.position"
+          :containerRect="tooltipState.containerRect"
+          :data="tooltipState"
+          @close="handleTooltipClose"
+        />
+      </div>
 
       <!-- 进程内存图表 -->
-      <ChartPanel
-        title="内存"
-        :series="memoryChartSeries"
-        :height="180"
-        :raw-data="filteredPerformanceData"
-        :markers="markers"
-        chart-type="memory"
-        @point-click="handlePointClick"
-      />
+      <div class="chart-wrapper">
+        <ChartPanel
+          title="内存"
+          :series="memoryChartSeries"
+          :height="180"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="memory"
+          @point-click="handlePointClick"
+          @tooltip-show="(data) => handleTooltipShow(data, 'memory')"
+          @tooltip-hide="handleTooltipHide"
+        />
+        <ProcessTooltip
+          v-if="tooltipState && activeChartKey === 'memory'"
+          :visible="tooltipState !== null"
+          :position="tooltipState.position"
+          :containerRect="tooltipState.containerRect"
+          :data="tooltipState"
+          @close="handleTooltipClose"
+        />
+      </div>
 
       <!-- 高级指标面板 -->
       <AdvancedMetrics v-if="currentCollectId" :collect-id="currentCollectId" />
@@ -1085,6 +1162,10 @@ function handleRangeChange(range: [number, number]) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.chart-wrapper {
+  position: relative;
 }
 
 /* 历史采集弹窗样式 - 重新设计 */
