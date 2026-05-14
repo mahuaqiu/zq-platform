@@ -396,7 +396,7 @@ async function loadMarkers() {
   if (currentCollectId.value) {
     try {
       const res = await getMarkers(currentCollectId.value);
-      markers.value = res;
+      markers.value = res.items || [];
     } catch (error) {
       console.error('获取标记失败', error);
     }
