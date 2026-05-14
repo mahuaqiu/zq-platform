@@ -8,6 +8,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '性能监控',
       hideInMenu: true,
+      keepAlive: false,
     },
   },
 ];

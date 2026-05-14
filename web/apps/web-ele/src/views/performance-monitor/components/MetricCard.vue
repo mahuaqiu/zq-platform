@@ -92,7 +92,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (miniChart) {
-    miniChart.dispose();
+    try {
+      if (miniChartRef.value && document.body.contains(miniChartRef.value)) {
+        miniChart.dispose();
+      }
+    } catch (e) {
+      console.warn('MiniChart dispose error:', e);
+    }
     miniChart = null;
   }
 });

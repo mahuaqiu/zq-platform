@@ -6,17 +6,23 @@ import type { MarkerResponse } from '#/api/core/performance-monitor';
 
 interface Props {
   collectId: string;
-  markers: MarkerResponse[];
+  markers?: MarkerResponse[];
   clickedTime?: number; // 从图表点击接收的时间点
 }
 
-// 过滤有效标记（name 不为空）
-const validMarkers = computed(() => {
-  return props.markers.filter(m => m.name && m.name.trim() !== '');
+const props = withDefaults(defineProps<Props>(), {
+  markers: () => [],
 });
+
 const emit = defineEmits<{
   (e: 'refresh'): void;
 }>();
+
+// 过滤有效标记（name 不为空）
+const validMarkers = computed(() => {
+  if (!props.markers || !Array.isArray(props.markers)) return [];
+  return props.markers.filter((m) => m.name && m.name.trim() !== '');
+});
 
 const showAddDialog = ref(false);
 const newMarker = ref({
@@ -36,7 +42,7 @@ watch(
       newMarker.value.name = ''; // 清空名称让用户输入
       showAddDialog.value = true; // 自动打开对话框
     }
-  }
+  },
 );
 
 async function handleAddMarker() {
@@ -79,12 +85,20 @@ function resetForm() {
       v-for="marker in validMarkers"
       :key="marker.id"
       class="marker-tag"
-      :style="{ borderColor: marker.color, color: marker.color, background: marker.color + '15' }"
+      :style="{
+        borderColor: marker.color,
+        color: marker.color,
+        background: marker.color + '15',
+      }"
     >
       {{ marker.name }} ({{ marker.start_time }}s)
-      <button class="marker-delete" @click="handleDeleteMarker(marker.id)">×</button>
+      <button class="marker-delete" @click="handleDeleteMarker(marker.id)">
+        ×
+      </button>
     </span>
-    <button class="add-marker-btn" @click="showAddDialog = true">+ 添加标记</button>
+    <button class="add-marker-btn" @click="showAddDialog = true">
+      + 添加标记
+    </button>
 
     <ElDialog v-model="showAddDialog" title="添加标记" width="400px">
       <div class="form-item">
@@ -93,11 +107,19 @@ function resetForm() {
       </div>
       <div class="form-item">
         <label>开始时间（秒）</label>
-        <ElInput v-model.number="newMarker.start_time" type="number" placeholder="0" />
+        <ElInput
+          v-model.number="newMarker.start_time"
+          type="number"
+          placeholder="0"
+        />
       </div>
       <div class="form-item">
         <label>结束时间（秒）</label>
-        <ElInput v-model.number="newMarker.end_time" type="number" placeholder="可选" />
+        <ElInput
+          v-model.number="newMarker.end_time"
+          type="number"
+          placeholder="可选"
+        />
       </div>
       <div class="form-item">
         <label>颜色</label>

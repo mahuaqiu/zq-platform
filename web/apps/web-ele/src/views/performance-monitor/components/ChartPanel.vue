@@ -2,7 +2,10 @@
 import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import type { ChartSeries, ChartTag } from '../types';
-import type { PerformanceData, MarkerResponse } from '#/api/core/performance-monitor';
+import type {
+  PerformanceData,
+  MarkerResponse,
+} from '#/api/core/performance-monitor';
 
 // 定义 Props 类型
 interface Props {
@@ -121,7 +124,7 @@ function formatDateTime(timestamp: string): string {
 // 计算Y轴范围（智能分段，根据数据范围动态调整）
 const yAxisConfig = computed(() => {
   const unit = mainUnit.value;
-  const allValues = props.series.flatMap(s => s.data.map(d => d.value));
+  const allValues = props.series.flatMap((s) => s.data.map((d) => d.value));
 
   if (allValues.length === 0) {
     return { min: 0, max: 100, interval: 20 };
@@ -183,7 +186,11 @@ const yAxisConfig = computed(() => {
       return { min: 0, max: 10000, interval: 2000 };
     } else {
       const roundedMax = Math.ceil(maxValue / 2000) * 2000;
-      return { min: 0, max: roundedMax, interval: Math.ceil(roundedMax / 5 / 100) * 100 };
+      return {
+        min: 0,
+        max: roundedMax,
+        interval: Math.ceil(roundedMax / 5 / 100) * 100,
+      };
     }
   } else if (unit === 'GB') {
     // GB单位：智能计算范围
@@ -193,7 +200,7 @@ const yAxisConfig = computed(() => {
       let baseMax = Math.ceil((maxValue + padding) * 10) / 10;
       if (baseMin < 0) baseMin = 0;
       const diff = baseMax - baseMin;
-      let interval = Math.ceil(diff * 10 / 4) / 10;
+      let interval = Math.ceil((diff * 10) / 4) / 10;
       if (interval < 0.1) interval = 0.1;
       return { min: baseMin, max: baseMax, interval };
     }
@@ -214,7 +221,11 @@ const yAxisConfig = computed(() => {
     }
   }
 
-  return { min: 0, max: Math.ceil(maxValue * 1.2), interval: Math.ceil(maxValue / 5) };
+  return {
+    min: 0,
+    max: Math.ceil(maxValue * 1.2),
+    interval: Math.ceil(maxValue / 5),
+  };
 });
 
 function updateChart() {
@@ -232,13 +243,15 @@ function updateChart() {
     symbol: 'none',
   }));
 
-// 标记圆点显示
-if (props.markers && props.markers.length > 0 && seriesConfig.length > 0) {
+  // 标记圆点显示
+  if (props.markers && props.markers.length > 0 && seriesConfig.length > 0) {
     const markPointData: any[] = [];
 
     props.markers.forEach((marker) => {
       // 找到标记起点对应的 dataIndex
-      const dataIndex = props.series[0]?.data.findIndex((d) => d.time === marker.start_time);
+      const dataIndex = props.series[0]?.data.findIndex(
+        (d) => d.time === marker.start_time,
+      );
       if (dataIndex !== undefined && dataIndex >= 0) {
         const yValue = props.series[0].data[dataIndex].value;
         markPointData.push({
@@ -248,7 +261,7 @@ if (props.markers && props.markers.length > 0 && seriesConfig.length > 0) {
           itemStyle: {
             color: marker.color,
             borderColor: 'white',
-            borderWidth: 2
+            borderWidth: 2,
           },
           label: {
             show: true,
@@ -412,7 +425,15 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (chartInstance) {
-    chartInstance.dispose();
+    try {
+      // 检查 DOM 元素是否仍然存在
+      if (chartRef.value && document.body.contains(chartRef.value)) {
+        chartInstance.dispose();
+      }
+    } catch (e) {
+      // 忽略 dispose 错误
+      console.warn('Chart dispose error:', e);
+    }
     chartInstance = null;
   }
 });
@@ -447,8 +468,12 @@ onUnmounted(() => {
         :class="tag.type === 'peak' ? 'tag-peak' : 'tag-mean'"
       >
         <span class="tag-name">{{ tag.name }}</span>
-        <span class="tag-range">{{ tag.start }}s - {{ tag.start + tag.duration }}s</span>
-        <button class="tag-delete" @click="emit('tag-delete', tag.name)">×</button>
+        <span class="tag-range"
+          >{{ tag.start }}s - {{ tag.start + tag.duration }}s</span
+        >
+        <button class="tag-delete" @click="emit('tag-delete', tag.name)">
+          ×
+        </button>
       </div>
     </div>
   </div>

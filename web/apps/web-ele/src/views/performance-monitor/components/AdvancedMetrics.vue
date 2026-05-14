@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue';
+import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { ElInput, ElSelect, ElButton, ElOption } from 'element-plus';
 import * as echarts from 'echarts';
-import { getMetricMappings, queryAdvancedMetrics } from '#/api/core/performance-monitor';
-import type { MetricMappingResponse, AdvancedMetricsResponse, MetricTimeSeries } from '#/api/core/performance-monitor';
+import {
+  getMetricMappings,
+  queryAdvancedMetrics,
+} from '#/api/core/performance-monitor';
+import type {
+  MetricMappingResponse,
+  AdvancedMetricsResponse,
+  MetricTimeSeries,
+} from '#/api/core/performance-monitor';
 
 interface Props {
   collectId: string;
@@ -38,7 +45,9 @@ async function handleSearch() {
 
 async function handleShowMetric(hwinfoKey: string) {
   if (selectedMetrics.value.includes(hwinfoKey)) {
-    selectedMetrics.value = selectedMetrics.value.filter(k => k !== hwinfoKey);
+    selectedMetrics.value = selectedMetrics.value.filter(
+      (k) => k !== hwinfoKey,
+    );
   } else {
     selectedMetrics.value.push(hwinfoKey);
   }
@@ -57,7 +66,7 @@ async function handleShowMetric(hwinfoKey: string) {
   } else {
     metricsData.value = null;
     // 清理图表实例
-    chartInstances.value.forEach(chart => chart.dispose());
+    chartInstances.value.forEach((chart) => chart.dispose());
     chartInstances.value.clear();
     chartRefs.value.clear();
   }
@@ -82,8 +91,8 @@ function renderCharts() {
 
     // 创建新图表
     const chart = echarts.init(chartDiv);
-    const timeData = ts.data.map(d => d.relative_time);
-    const valueData = ts.data.map(d => d.value);
+    const timeData = ts.data.map((d) => d.relative_time);
+    const valueData = ts.data.map((d) => d.value);
 
     chart.setOption({
       grid: { left: 40, right: 20, top: 10, bottom: 25 },
@@ -99,14 +108,16 @@ function renderCharts() {
         axisLine: { show: false },
         splitLine: { lineStyle: { color: '#eee', type: 'dashed' } },
       },
-      series: [{
-        type: 'line',
-        data: valueData,
-        lineStyle: { color: '#409eff', width: 2 },
-        itemStyle: { color: '#409eff' },
-        smooth: true,
-        symbol: 'none',
-      }],
+      series: [
+        {
+          type: 'line',
+          data: valueData,
+          lineStyle: { color: '#409eff', width: 2 },
+          itemStyle: { color: '#409eff' },
+          smooth: true,
+          symbol: 'none',
+        },
+      ],
       tooltip: {
         trigger: 'axis',
         formatter: (params: any) => {
@@ -123,10 +134,24 @@ function renderCharts() {
 
 // 监听窗口大小变化，调整图表尺寸
 onMounted(() => {
-  window.addEventListener('resize', () => {
-    chartInstances.value.forEach(chart => chart.resize());
-  });
+  window.addEventListener('resize', handleResize);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+  chartInstances.value.forEach((chart) => {
+    try {
+      chart.dispose();
+    } catch (e) {
+      console.warn('Chart dispose error:', e);
+    }
+  });
+  chartInstances.value.clear();
+});
+
+function handleResize() {
+  chartInstances.value.forEach((chart) => chart.resize());
+}
 </script>
 
 <template>
@@ -137,7 +162,12 @@ onMounted(() => {
         高级指标 (hwinfo_raw 200+传感器)
       </h3>
       <div v-if="isExpanded" class="metrics-controls">
-        <ElInput v-model="keyword" placeholder="搜索指标（如：CPU核心温度）" style="width: 220px" clearable />
+        <ElInput
+          v-model="keyword"
+          placeholder="搜索指标（如：CPU核心温度）"
+          style="width: 220px"
+          clearable
+        />
         <ElSelect v-model="category" style="width: 100px">
           <ElOption label="全部分类" value="all" />
           <ElOption label="系统" value="system" />
@@ -148,7 +178,9 @@ onMounted(() => {
           <ElOption label="卡片模式" value="card" />
           <ElOption label="图表模式" value="chart" />
         </ElSelect>
-        <ElButton type="primary" @click="handleSearch" :loading="loading">搜索</ElButton>
+        <ElButton type="primary" @click="handleSearch" :loading="loading"
+          >搜索</ElButton
+        >
       </div>
     </div>
 
@@ -173,15 +205,35 @@ onMounted(() => {
     </div>
 
     <!-- 已选指标图表 -->
-    <div v-if="isExpanded && metricsData && metricsData.metrics" class="metrics-charts">
-      <div v-for="[key, ts] in Object.entries(metricsData.metrics)" :key="key" class="metric-chart">
+    <div
+      v-if="isExpanded && metricsData && metricsData.metrics"
+      class="metrics-charts"
+    >
+      <div
+        v-for="[key, ts] in Object.entries(metricsData.metrics)"
+        :key="key"
+        class="metric-chart"
+      >
         <div class="chart-header">
           <span class="chart-title">{{ ts.display_name || key }}</span>
           <span class="chart-info">
-            最新值: {{ ts.data.length ? ts.data[ts.data.length-1]?.value?.toFixed(2) : '-' }} {{ ts.unit }}
+            最新值:
+            {{
+              ts.data.length
+                ? ts.data[ts.data.length - 1]?.value?.toFixed(2)
+                : '-'
+            }}
+            {{ ts.unit }}
           </span>
         </div>
-        <div class="chart-container" :ref="(el) => { if (el) chartRefs.set(key, el as HTMLDivElement) }"></div>
+        <div
+          class="chart-container"
+          :ref="
+            (el) => {
+              if (el) chartRefs.set(key, el as HTMLDivElement);
+            }
+          "
+        ></div>
       </div>
     </div>
 

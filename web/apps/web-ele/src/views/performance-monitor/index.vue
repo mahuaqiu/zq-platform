@@ -127,6 +127,7 @@ const filteredCollectHistory = computed(() => {
 
 // 定时轮询
 let pollingTimer: number | null = null;
+let isMounted = false; // 组件挂载状态
 
 // 用户选择的时间窗口范围（相对时间，秒）- 由 TimeNavigator 控制
 const selectedRelativeTimeRange = ref<[number, number] | null>(null);
@@ -323,6 +324,7 @@ async function fetchOnlineDevices() {
 
 // 初始化
 onMounted(async () => {
+  isMounted = true;
   await fetchOnlineDevices();
 
   await refreshStatus();
@@ -340,13 +342,15 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  isMounted = false;
   stopPolling();
 });
 
 async function refreshStatus() {
-  if (!deviceId.value) return;
+  if (!isMounted || !deviceId.value) return;
   try {
     const status = await getCollectStatus(deviceId.value);
+    if (!isMounted) return; // 异步操作完成后再次检查
     collectStatus.value = status;
     if (status.is_collecting && status.collect_id) {
       currentCollectId.value = status.collect_id;
@@ -422,8 +426,10 @@ function startPolling(collectId: string) {
 
 // 加载最新数据
 async function loadLatestData(collectId: string) {
+  if (!isMounted) return;
   try {
     const result = await getLatestData(collectId, 50);
+    if (!isMounted) return; // 异步操作完成后再次检查
     if (result?.items?.length) {
       // 合并数据，避免重复
       const existingIds = new Set(performanceData.value.map(d => d.id));
