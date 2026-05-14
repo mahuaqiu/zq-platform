@@ -96,6 +96,10 @@ const historySearchProcess = ref('');
 const historyLoading = ref(false);
 const historyDeleting = ref<string | null>(null);
 
+// 按钮操作 loading 状态（防止重复点击）
+const isStarting = ref(false);
+const isStopping = ref(false);
+
 // 过滤后的历史采集列表
 const filteredCollectHistory = computed(() => {
   const list = collectHistory.value;
@@ -486,7 +490,8 @@ function handleCollectStarted(collectId: string) {
 }
 
 async function handleStopClick() {
-  if (!currentCollectId.value) return;
+  if (!currentCollectId.value || isStopping.value) return;
+  isStopping.value = true;
   try {
     await stopCollect({
       collect_id: currentCollectId.value,
@@ -498,6 +503,8 @@ async function handleStopClick() {
     fetchCollectHistory();
   } catch (error) {
     ElMessage.error('停止采集失败');
+  } finally {
+    isStopping.value = false;
   }
 }
 
@@ -701,7 +708,9 @@ function handleRangeChange(range: [number, number]) {
 
         <!-- 操作按钮（放到左边） -->
         <button class="start-btn" :disabled="collectStatus.is_collecting" @click="handleStartClick">开始采集</button>
-        <button class="stop-btn" :disabled="!collectStatus.is_collecting" @click="handleStopClick">停止采集</button>
+        <button class="stop-btn" :disabled="!collectStatus.is_collecting || isStopping" @click="handleStopClick">
+          {{ isStopping ? '停止中...' : '停止采集' }}
+        </button>
         <button class="history-btn" @click="handleHistoryClick">查看历史</button>
       </div>
     </div>
