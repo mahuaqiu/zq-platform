@@ -33,10 +33,18 @@ const props = withDefaults(defineProps<Props>(), {
   markers: () => [],
 });
 
-// 定义 Events
+// 定义 Events（新增 tooltip 事件）
 const emit = defineEmits<{
   (e: 'point-click', data: { time: number; collectId: string }): void;
   (e: 'tag-delete', tagId: string): void;
+  (e: 'tooltip-show', data: {
+    position: { x: number; y: number };
+    data: PerformanceData | undefined;
+    seriesData: { name: string; value: number; color: string; unit: string }[];
+    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+    containerRect: DOMRect;
+  }): void;
+  (e: 'tooltip-hide'): void;
 }>();
 
 const chartRef = ref<HTMLDivElement>();
@@ -106,6 +114,35 @@ function initChart() {
       }
     });
   }
+
+  // 监听鼠标移动事件，传递数据给外部 tooltip
+  chartInstance.on('mousemove', (params: any) => {
+    if (params.componentType === 'series') {
+      const dataIndex = params.dataIndex;
+      const rawDataPoint = props.rawData?.[dataIndex];
+
+      // 构建主曲线数据
+      const seriesData = props.series.map((s) => ({
+        name: s.name,
+        value: s.data[dataIndex]?.value || 0,
+        color: s.color,
+        unit: s.unit || '%',
+      }));
+
+      emit('tooltip-show', {
+        position: { x: params.event.offsetX, y: params.event.offsetY },
+        data: rawDataPoint,
+        seriesData,
+        chartType: props.chartType,
+        containerRect: chartRef.value!.getBoundingClientRect(),
+      });
+    }
+  });
+
+  // 监听鼠标离开事件
+  chartInstance.on('mouseout', () => {
+    emit('tooltip-hide');
+  });
 
   updateChart();
 }
@@ -345,41 +382,9 @@ function updateChart() {
         });
         html += `</div>`;
 
-        // 进程明细 - 显示每个子进程实例的PID和使用率
+        // 进程明细提示
         if (rawDataPoint?.target_processes?.length) {
-          html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee">`;
-          html += `<div style="color:#999;font-size:11px;margin-bottom:4px">子进程明细：</div>`;
-
-          // 遍历每个进程及其实例
-          rawDataPoint.target_processes.forEach((process) => {
-            if (process.instances && process.instances.length > 0) {
-              // 显示每个实例的PID和使用率
-              process.instances.forEach((instance) => {
-                let valueStr = '';
-                if (props.chartType === 'cpu') {
-                  valueStr = `${instance.cpu.toFixed(1)}%`;
-                } else if (props.chartType === 'gpu') {
-                  valueStr = `${(instance.gpu || 0).toFixed(1)}%`;
-                } else if (props.chartType === 'commitMemory') {
-                  valueStr = `${Math.round(instance.committed_memory || 0)} MB`;
-                } else if (props.chartType === 'memory') {
-                  valueStr = `${Math.round(instance.memory || 0)} MB`;
-                }
-                html += `<div style="display:flex;justify-content:space-between;background:#f9f9f9;padding:4px 6px;border-radius:4px;font-size:11px;margin-bottom:2px">`;
-                html += `<div><span style="color:#333">${process.name}</span> <span style="color:#999;font-size:10px">(PID:${instance.pid})</span></div>`;
-                html += `<span style="color:#409eff;font-weight:600">${valueStr}</span>`;
-                html += `</div>`;
-              });
-            }
-          });
-
-          // 统计总实例数
-          const totalInstances = rawDataPoint.target_processes.reduce(
-            (sum, p) => sum + (p.instances?.length || 0),
-            0
-          );
-          html += `<div style="color:#999;font-size:11px;text-align:center;margin-top:4px">共${totalInstances}个子进程实例</div>`;
-          html += `</div>`;
+          html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee;font-size:11px;color:#999;text-align:center">鼠标悬停查看子进程详情</div>`;
         }
 
         html += `</div></div>`;
