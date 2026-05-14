@@ -309,17 +309,13 @@ function updateChart() {
 
         let html = `<div style="font-size:12px;padding:4px 8px;max-width:200px;">`;
 
-        // 相对时间
-        html += `<div><span style="color:#666">相对时间:</span> <b>${relativeTime}秒</b></div>`;
-
         // 实际时间（如果有原始数据）
         if (rawDataPoint?.timestamp) {
-          html += `<div><span style="color:#666">实际时间:</span> <b style="color:#409eff">${formatDateTime(rawDataPoint.timestamp)}</b></div>`;
+          html += `<div style="font-size:12px;margin-bottom:4px"><b style="color:#409eff">${formatDateTime(rawDataPoint.timestamp)}</b></div>`;
         }
 
-        html += `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #eee">`;
-
-        // 曲线值
+        // 曲线值（带方块图标）
+        html += `<div style="margin-top:6px">`;
         params.forEach((p: any, idx: number) => {
           const series = props.series[idx];
           const unit = series?.unit || '%';
@@ -333,31 +329,50 @@ function updateChart() {
               displayValue = p.value.toFixed(1) + '%';
             }
           }
-          html += `<div><span style="color:${p.color}">${p.seriesName}:</span> <b>${displayValue}</b></div>`;
+          html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">`;
+          html += `<div style="display:flex;align-items:center;gap:5px">`;
+          html += `<div style="width:12px;height:12px;background:${p.color};border-radius:3px"></div>`;
+          html += `<span style="font-size:13px;color:#666">${p.seriesName}</span>`;
+          html += `</div>`;
+          html += `<span style="font-size:14px;color:${p.color};font-weight:600">${displayValue}</span>`;
+          html += `</div>`;
         });
+        html += `</div>`;
 
-        // 进程明细 - CPU 和 GPU 图表都显示，最多显示5个进程
+        // 进程明细 - 显示每个子进程实例的PID和使用率
         if (rawDataPoint?.target_processes?.length) {
-          html += `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #eee">`;
-          html += `<div style="color:#999;font-size:11px">进程明细:</div>`;
-          // 限制最多显示5个进程
-          const processesToShow = rawDataPoint.target_processes.slice(0, 5);
-          processesToShow.forEach((p) => {
-            let valueStr = '';
-            if (props.chartType === 'cpu') {
-              valueStr = `${p.total_cpu.toFixed(1)}%`;
-            } else if (props.chartType === 'gpu') {
-              valueStr = `${(p.total_gpu || 0).toFixed(1)}%`;
-            } else if (props.chartType === 'commitMemory') {
-              valueStr = `${Math.round(p.total_committed_memory || 0)} MB`;
-            } else if (props.chartType === 'memory') {
-              valueStr = `${Math.round(p.total_memory || 0)} MB`;
+          html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee">`;
+          html += `<div style="color:#999;font-size:11px;margin-bottom:4px">子进程明细：</div>`;
+
+          // 遍历每个进程及其实例
+          rawDataPoint.target_processes.forEach((process) => {
+            if (process.instances && process.instances.length > 0) {
+              // 显示每个实例的PID和使用率
+              process.instances.forEach((instance) => {
+                let valueStr = '';
+                if (props.chartType === 'cpu') {
+                  valueStr = `${instance.cpu.toFixed(1)}%`;
+                } else if (props.chartType === 'gpu') {
+                  valueStr = `${(instance.gpu || 0).toFixed(1)}%`;
+                } else if (props.chartType === 'commitMemory') {
+                  valueStr = `${Math.round(instance.committed_memory || 0)} MB`;
+                } else if (props.chartType === 'memory') {
+                  valueStr = `${Math.round(instance.memory || 0)} MB`;
+                }
+                html += `<div style="display:flex;justify-content:space-between;background:#f9f9f9;padding:4px 6px;border-radius:4px;font-size:11px;margin-bottom:2px">`;
+                html += `<div><span style="color:#333">${process.name}</span> <span style="color:#999;font-size:10px">(PID:${instance.pid})</span></div>`;
+                html += `<span style="color:#409eff;font-weight:600">${valueStr}</span>`;
+                html += `</div>`;
+              });
             }
-            html += `<div style="font-size:11px"><span style="color:#999">${p.name}</span> ${valueStr}</div>`;
           });
-          if (rawDataPoint.target_processes.length > 5) {
-            html += `<div style="font-size:10px;color:#666">...还有${rawDataPoint.target_processes.length - 5}个进程</div>`;
-          }
+
+          // 统计总实例数
+          const totalInstances = rawDataPoint.target_processes.reduce(
+            (sum, p) => sum + (p.instances?.length || 0),
+            0
+          );
+          html += `<div style="color:#999;font-size:11px;text-align:center;margin-top:4px">共${totalInstances}个子进程实例</div>`;
           html += `</div>`;
         }
 
