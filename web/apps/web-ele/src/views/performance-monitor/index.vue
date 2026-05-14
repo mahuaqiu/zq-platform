@@ -107,6 +107,7 @@ interface TooltipState {
 }
 
 const tooltipState = ref<TooltipState | null>(null);
+const tooltipLockedPosition = ref<{ x: number; y: number } | null>(null); // 锁定时的位置
 const activeChartKey = ref<string | null>(null);
 
 // 按钮操作 loading 状态（防止重复点击）
@@ -674,18 +675,41 @@ function handlePointClick(data: { time: number; collectId: string }) {
 
 // Tooltip 显示事件处理
 function handleTooltipShow(data: TooltipState, chartKey: string) {
-  tooltipState.value = data;
+  // 如果已锁定，不更新位置（但可以更新数据）
+  if (tooltipLockedPosition.value) {
+    tooltipState.value = {
+      ...data,
+      position: tooltipLockedPosition.value,
+    };
+  } else {
+    tooltipState.value = data;
+  }
   activeChartKey.value = chartKey;
 }
 
 // Tooltip 隐藏事件处理
 function handleTooltipHide() {
+  // 如果已锁定，不隐藏
+  if (tooltipLockedPosition.value) return;
   tooltipState.value = null;
 }
 
 // Tooltip 关闭事件处理
 function handleTooltipClose() {
   tooltipState.value = null;
+  tooltipLockedPosition.value = null;
+}
+
+// Tooltip 锁定事件处理（鼠标进入 tooltip 区域）
+function handleTooltipLock() {
+  if (tooltipState.value) {
+    tooltipLockedPosition.value = tooltipState.value.position;
+  }
+}
+
+// Tooltip 解锁事件处理（鼠标离开 tooltip 区域）
+function handleTooltipUnlock() {
+  tooltipLockedPosition.value = null;
 }
 
 // 处理时间导航条范围变化
@@ -782,6 +806,8 @@ function handleRangeChange(range: [number, number]) {
           :containerRect="tooltipState.containerRect"
           :data="tooltipState"
           @close="handleTooltipClose"
+          @lock="handleTooltipLock"
+          @unlock="handleTooltipUnlock"
         />
       </div>
 
@@ -805,6 +831,8 @@ function handleRangeChange(range: [number, number]) {
           :containerRect="tooltipState.containerRect"
           :data="tooltipState"
           @close="handleTooltipClose"
+          @lock="handleTooltipLock"
+          @unlock="handleTooltipUnlock"
         />
       </div>
 
@@ -836,6 +864,8 @@ function handleRangeChange(range: [number, number]) {
           :containerRect="tooltipState.containerRect"
           :data="tooltipState"
           @close="handleTooltipClose"
+          @lock="handleTooltipLock"
+          @unlock="handleTooltipUnlock"
         />
       </div>
 
@@ -859,6 +889,8 @@ function handleRangeChange(range: [number, number]) {
           :containerRect="tooltipState.containerRect"
           :data="tooltipState"
           @close="handleTooltipClose"
+          @lock="handleTooltipLock"
+          @unlock="handleTooltipUnlock"
         />
       </div>
 

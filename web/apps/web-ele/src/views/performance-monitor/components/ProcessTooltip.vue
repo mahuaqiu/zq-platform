@@ -24,10 +24,22 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'close'): void;
+  (e: 'lock'): void;  // 锁定位置，停止跟随鼠标
+  (e: 'unlock'): void; // 解锁位置
 }>();
 
 // 折叠/展开状态
 const expanded = ref(false);
+
+// 鼠标进入 tooltip 时锁定位置
+function handleMouseEnter() {
+  emit('lock');
+}
+
+// 鼠标离开 tooltip 时解锁位置
+function handleMouseLeave() {
+  emit('unlock');
+}
 
 // 关闭时重置状态
 watch(
@@ -146,6 +158,8 @@ const tooltipPosition = computed(() => {
       top: tooltipPosition.top + 'px',
       width: expanded ? '180px' : '150px',
     }"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
   >
     <!-- 时间显示 -->
     <div class="tooltip-header">
