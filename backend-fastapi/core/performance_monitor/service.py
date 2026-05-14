@@ -15,7 +15,11 @@ from core.performance_monitor.model import (
     PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion,
     PerformanceMetricMapping, PerformanceMarker
 )
-from core.performance_monitor.utils import extract_core_metrics
+from core.performance_monitor.utils import (
+    extract_core_metrics,
+    convert_aggregated_to_target_processes,
+    convert_top_n_to_top10
+)
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest, WorkerReportRequest,
     TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
@@ -158,9 +162,12 @@ class PerformanceDataService(BaseService):
         """
         接收 Worker 上报数据（批量）
 
-        支持 v0.2.2 (WorkerReportRequest) 和 v0.3.0 (WorkerReportRequestV3)
-        v0.3.0 优先使用 hwinfo_raw 提取核心指标，回退到 system 字段
-        v0.3.1 支持 relative_time 自动计算（不传时根据 collect.start_time 计算）
+        支持 v0.2.2 (WorkerReportRequest)、v0.3.0/v0.3.1 (WorkerReportRequestV3)
+        v0.3.1:
+          - 系统指标从 hwinfo_raw 取 "Total CPU Usage" 和 "GPU D3D Usage"
+          - 进程指标从 aggregated 汇总数据取
+          - 支持 processes、aggregated、top_n_cpu、top_n_gpu 新字段
+          - relative_time 自动计算（不传时根据 collect.start_time 计算）
         """
         # 获取采集记录的 start_time，用于计算 relative_time
         collect = await db.get(PerformanceCollect, request.collect_id)
@@ -204,27 +211,73 @@ class PerformanceDataService(BaseService):
                     # 使用默认值 0 防止数据库错误
                     relative_time = 0
 
-            # v0.3.0: 检查 hwinfo_raw 是否存在，优先从中提取核心指标
+            # v0.3.1: 检查新字段 aggregated/processes
             hwinfo_raw = getattr(sample, 'hwinfo_raw', None)
             system = getattr(sample, 'system', None)
-            target_processes_raw = [p.model_dump() for p in sample.target_processes]
 
-            if hwinfo_raw:
-                # v0.3.0: 从 hwinfo_raw 提取核心指标
+            # v0.3.1 新字段
+            aggregated = getattr(sample, 'aggregated', None)
+            processes = getattr(sample, 'processes', None)
+            top_n_cpu = getattr(sample, 'top_n_cpu', None)
+            top_n_gpu = getattr(sample, 'top_n_gpu', None)
+
+            # 将新字段转换为字典格式
+            aggregated_dict = [p.model_dump() for p in aggregated] if aggregated else None
+            processes_dict = [p.model_dump() for p in processes] if processes else None
+            top_n_cpu_dict = [p.model_dump() for p in top_n_cpu] if top_n_cpu else None
+            top_n_gpu_dict = [p.model_dump() for p in top_n_gpu] if top_n_gpu else None
+
+            # 提取核心指标
+            # v0.3.1: 系统指标从 hwinfo_raw 取，进程指标从 aggregated 取
+            if aggregated_dict:
+                # v0.3.1: 使用新字段
+                core_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
+                cpu_usage = core_metrics.get("cpu_usage")
+                gpu_usage = core_metrics.get("gpu_usage")
+                # 进程指标
+                process_cpu = core_metrics.get("process_cpu")
+                process_gpu = core_metrics.get("process_gpu")
+                process_memory = core_metrics.get("process_memory")
+                process_committed_memory = core_metrics.get("process_committed_memory")
+
+                # 转换为旧版本的 target_processes 格式（用于前端兼容）
+                target_processes_raw = convert_aggregated_to_target_processes(aggregated_dict, processes_dict)
+                top10_cpu_raw = convert_top_n_to_top10(top_n_cpu_dict, "cpu")
+                top10_gpu_raw = convert_top_n_to_top10(top_n_gpu_dict, "gpu")
+            elif hwinfo_raw:
+                # v0.3.0: 从 hwinfo_raw 提取核心指标（旧版本兼容）
+                target_processes_raw = [p.model_dump() for p in sample.target_processes] if hasattr(sample, 'target_processes') else []
                 core_metrics = extract_core_metrics(hwinfo_raw, target_processes_raw)
                 cpu_usage = core_metrics.get("cpu_usage")
                 gpu_usage = core_metrics.get("gpu_usage")
-                commit_memory = core_metrics.get("commit_memory")
+                process_cpu = core_metrics.get("process_cpu")
+                process_gpu = core_metrics.get("process_gpu")
+                process_memory = core_metrics.get("process_memory")
+                process_committed_memory = core_metrics.get("process_committed_memory")
+                top10_cpu_raw = [p.model_dump() for p in sample.top10_cpu] if hasattr(sample, 'top10_cpu') else []
+                top10_gpu_raw = [p.model_dump() for p in sample.top10_gpu] if hasattr(sample, 'top10_gpu') else []
             elif system:
                 # v0.2.2: 使用 system 字段
                 cpu_usage = system.cpu_usage
                 gpu_usage = system.gpu_usage
-                commit_memory = system.commit_memory
+                process_cpu = None
+                process_gpu = None
+                process_memory = None
+                process_committed_memory = None
+                target_processes_raw = [p.model_dump() for p in sample.target_processes] if hasattr(sample, 'target_processes') else []
+                top10_cpu_raw = [p.model_dump() for p in sample.top10_cpu] if hasattr(sample, 'top10_cpu') else []
+                top10_gpu_raw = [p.model_dump() for p in sample.top10_gpu] if hasattr(sample, 'top10_gpu') else []
             else:
                 # 无数据时设为 None
                 cpu_usage = None
                 gpu_usage = None
-                commit_memory = None
+                process_cpu = None
+                process_gpu = None
+                process_memory = None
+                process_committed_memory = None
+                target_processes_raw = []
+                top10_cpu_raw = []
+                top10_gpu_raw = []
 
             # 获取其他系统指标（从 system 或 hwinfo_raw）
             if system:
@@ -250,8 +303,8 @@ class PerformanceDataService(BaseService):
                 relative_time=relative_time,
                 cpu_usage=cpu_usage,
                 gpu_usage=gpu_usage,
-                commit_memory=commit_memory,
-                memory_usage=memory_usage,
+                commit_memory=process_committed_memory / 1024 if process_committed_memory else None,  # MB转GB
+                memory_usage=process_memory / 1024 if process_memory else None,  # MB转GB
                 power=power,
                 cpu_speed=cpu_speed,
                 cpu_temp=cpu_temp,
@@ -259,8 +312,8 @@ class PerformanceDataService(BaseService):
                 upload_speed=upload_speed,
                 download_speed=download_speed,
                 target_processes=target_processes_raw,
-                top10_cpu=[p.model_dump() for p in sample.top10_cpu],
-                top10_gpu=[p.model_dump() for p in sample.top10_gpu],
+                top10_cpu=top10_cpu_raw,
+                top10_gpu=top10_gpu_raw,
                 hwinfo_raw=hwinfo_raw
             )
             db.add(data)

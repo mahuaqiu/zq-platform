@@ -141,7 +141,7 @@ class WorkerReportRequest(BaseModel):
     samples: List[PerformanceSampleReport] = Field(default_factory=list, description="性能样本列表")
 
 
-# ===== Worker 上报数据 Schema (v0.3.0) =====
+# ===== Worker 上报数据 Schema (v0.3.1) =====
 
 
 class SystemReport(BaseModel):
@@ -158,19 +158,61 @@ class SystemReport(BaseModel):
     download_speed: Optional[float] = Field(None, ge=0, description="下载速度 KB/s")
 
 
+class ProcessInfoReport(BaseModel):
+    """单个进程信息上报 Schema（v0.3.1）"""
+    pid: int = Field(..., description="进程ID")
+    name: str = Field(..., description="进程名")
+    cpu_percent: float = Field(default=0, ge=0, le=100, description="CPU使用率 %")
+    working_set_mb: float = Field(default=0, ge=0, description="物理内存 MB")
+    committed_memory_mb: float = Field(default=0, ge=0, description="虚拟内存 MB")
+    gpu_percent: float = Field(default=0, ge=0, le=100, description="GPU使用率 %")
+    gpu_memory_mb: float = Field(default=0, ge=0, description="GPU显存 MB")
+    handle_count: int = Field(default=0, ge=0, description="句柄数")
+
+
+class AggregatedProcessInfoReport(BaseModel):
+    """进程汇总信息上报 Schema（v0.3.1）"""
+    name: str = Field(..., description="进程名")
+    pids: List[int] = Field(default_factory=list, description="所有实例的PID列表")
+    cpu_percent_total: float = Field(default=0, ge=0, le=100, description="总CPU使用率 %")
+    working_set_mb_total: float = Field(default=0, ge=0, description="总物理内存 MB")
+    committed_memory_mb_total: float = Field(default=0, ge=0, description="总虚拟内存 MB")
+    gpu_percent_total: float = Field(default=0, ge=0, le=100, description="总GPU使用率 %")
+    handle_count_total: int = Field(default=0, ge=0, description="总句柄数")
+    process_count: int = Field(default=0, ge=0, description="实例数量")
+
+
+class TopNProcessReport(BaseModel):
+    """TOP N 进程上报 Schema（v0.3.1）- 与 ProcessInfoReport 结构相同"""
+    pid: int = Field(..., description="进程ID")
+    name: str = Field(..., description="进程名")
+    cpu_percent: float = Field(default=0, ge=0, le=100, description="CPU使用率 %")
+    working_set_mb: float = Field(default=0, ge=0, description="物理内存 MB")
+    committed_memory_mb: float = Field(default=0, ge=0, description="虚拟内存 MB")
+    gpu_percent: float = Field(default=0, ge=0, le=100, description="GPU使用率 %")
+    gpu_memory_mb: float = Field(default=0, ge=0, description="GPU显存 MB")
+    handle_count: int = Field(default=0, ge=0, description="句柄数")
+
+
 class PerformanceSampleReportV3(BaseModel):
-    """单个性能样本上报 Schema（v0.3.0）"""
+    """单个性能样本上报 Schema（v0.3.1）"""
     timestamp: datetime = Field(..., description="实际时间")
     relative_time: Optional[int] = Field(None, ge=0, description="相对时间（秒），可选，不传则后端自动计算")
     hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
     system: Optional[SystemReport] = Field(None, description="系统性能数据（兼容旧版本，回退使用）")
-    target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程")
-    top10_cpu: List[Top10ProcessReport] = Field(default_factory=list, description="CPU TOP10")
-    top10_gpu: List[Top10ProcessReport] = Field(default_factory=list, description="GPU TOP10")
+    # v0.3.1 新增字段
+    processes: Optional[List[ProcessInfoReport]] = Field(None, description="目标进程列表（按配置筛选）")
+    aggregated: Optional[List[AggregatedProcessInfoReport]] = Field(None, description="目标进程汇总")
+    top_n_cpu: Optional[List[TopNProcessReport]] = Field(None, description="CPU使用率 Top N")
+    top_n_gpu: Optional[List[TopNProcessReport]] = Field(None, description="GPU使用率 Top N")
+    # 兼容旧版本字段
+    target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程（旧版本）")
+    top10_cpu: List[Top10ProcessReport] = Field(default_factory=list, description="CPU TOP10（旧版本）")
+    top10_gpu: List[Top10ProcessReport] = Field(default_factory=list, description="GPU TOP10（旧版本）")
 
 
 class WorkerReportRequestV3(BaseModel):
-    """Worker 上报数据请求 Schema（v0.3.0）"""
+    """Worker 上报数据请求 Schema（v0.3.1）"""
     collect_id: str = Field(..., description="采集记录ID")
     device_id: str = Field(..., description="设备ID")
     samples: List[PerformanceSampleReportV3] = Field(default_factory=list, description="性能样本列表")

@@ -767,7 +767,7 @@ function handleRangeChange(range: [number, number]) {
 
       <!-- 进程内存图表 -->
       <ChartPanel
-        title="进程内存"
+        title="内存"
         :series="memoryChartSeries"
         :height="180"
         :raw-data="filteredPerformanceData"
