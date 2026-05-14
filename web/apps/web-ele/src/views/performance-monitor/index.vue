@@ -331,8 +331,16 @@ onMounted(async () => {
   await fetchCollectHistory();
   await fetchVersions();
 
-  // 如果没有正在采集，加载最近的采集数据
-  if (!collectStatus.value.is_collecting && collectHistory.value.length > 0) {
+  // 根据采集状态加载数据
+  if (collectStatus.value.is_collecting && collectStatus.value.collect_id) {
+    // 正在采集：加载已采集的数据并启动轮询
+    currentCollectId.value = collectStatus.value.collect_id!;
+    // 先加载已采集的历史数据
+    await loadCollectData(collectStatus.value.collect_id!);
+    // 然后启动轮询
+    startPolling(collectStatus.value.collect_id!);
+  } else if (collectHistory.value.length > 0) {
+    // 未采集：加载最近的采集数据
     const latestCollect = collectHistory.value[0];
     if (latestCollect?.id) {
       currentCollectId.value = latestCollect.id;
@@ -692,7 +700,7 @@ function handleRangeChange(range: [number, number]) {
         </div>
 
         <!-- 操作按钮（放到左边） -->
-        <button class="start-btn" @click="handleStartClick">开始采集</button>
+        <button class="start-btn" :disabled="collectStatus.is_collecting" @click="handleStartClick">开始采集</button>
         <button class="stop-btn" :disabled="!collectStatus.is_collecting" @click="handleStopClick">停止采集</button>
         <button class="history-btn" @click="handleHistoryClick">查看历史</button>
       </div>
@@ -985,8 +993,14 @@ function handleRangeChange(range: [number, number]) {
   font-size: 12px;
   cursor: pointer;
 }
-.start-btn:hover {
+.start-btn:hover:not(:disabled) {
   background: #5cb85c;
+}
+.start-btn:disabled {
+  background: #c8e6c9;
+  color: #fff;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 /* 停止采集按钮 - 红色 */
 .stop-btn {

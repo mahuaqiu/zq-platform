@@ -233,6 +233,12 @@ function updateChart() {
 
   const xAxisData = props.series[0]?.data.map((d) => d.time) || [];
 
+  // 当数据为空时，清空图表防止旧数据残留
+  if (xAxisData.length === 0) {
+    chartInstance.clear();
+    return;
+  }
+
   const seriesConfig = props.series.map((s) => ({
     name: s.name,
     type: 'line',
