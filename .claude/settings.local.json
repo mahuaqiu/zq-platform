@@ -133,7 +133,13 @@
       "Bash(dir \"D:\\\\code\\\\zq-platform\\\\*.png\")",
       "Bash(pnpm check:type --filter web-ele)",
       "Bash(npm run *)",
-      "Bash(python3 -c \"import perfwin; import json; m = perfwin.Monitor\\(interval=1.0, duration=2.0\\); m.start\\(\\); import time; time.sleep\\(3\\); result = m.get_result\\(\\); print\\('hwinfo_raw keys:', list\\(result.samples[0].hwinfo_raw.keys\\(\\)\\) if result.samples else 'No samples'\\)\")"
+      "Bash(python3 -c \"import perfwin; import json; m = perfwin.Monitor\\(interval=1.0, duration=2.0\\); m.start\\(\\); import time; time.sleep\\(3\\); result = m.get_result\\(\\); print\\('hwinfo_raw keys:', list\\(result.samples[0].hwinfo_raw.keys\\(\\)\\) if result.samples else 'No samples'\\)\")",
+      "Bash(alembic history *)",
+      "Bash(cd /d D:\\\\code\\\\zq-platform\\\\backend-fastapi)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m alembic history)",
+      "Bash(timeout 15)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"from core.performance_monitor.api import router; print\\('API loaded successfully'\\); print\\('Routes:', [r.path for r in router.routes]\\)\")",
+      "Bash(pnpm exec *)"
     ]
   }
 }
