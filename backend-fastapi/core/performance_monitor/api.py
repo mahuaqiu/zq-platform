@@ -15,11 +15,11 @@ from core.performance_monitor.model import PerformanceCollect
 from core.env_machine.model import EnvMachine
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
-    WorkerReportRequest, TagCreateRequest, TagUpdateRequest,
+    TagCreateRequest, TagUpdateRequest,
     VersionCreateRequest,
     # Response Schema（用于正确序列化 datetime）
     CollectResponse, DataResponse, PaginatedResponse,
-    # v0.3.0 新增
+    # v0.3.1
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
     MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse
 )
@@ -214,14 +214,7 @@ async def set_collect_protected(
 
 @router.post("/report")
 async def report_data(request: WorkerReportRequestV3, db: AsyncSession = Depends(get_db)):
-    """Worker 上报数据（v0.3.0）"""
-    success = await PerformanceDataService.report_data(db, request)
-    return {"status": "success" if success else "failed"}
-
-
-@router.post("/report/v2")
-async def report_data_v2(request: WorkerReportRequest, db: AsyncSession = Depends(get_db)):
-    """Worker 上报数据（v2，兼容旧版本）"""
+    """Worker 上报数据（v0.3.1）"""
     success = await PerformanceDataService.report_data(db, request)
     return {"status": "success" if success else "failed"}
 
