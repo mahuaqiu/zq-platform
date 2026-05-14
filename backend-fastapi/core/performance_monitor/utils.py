@@ -28,24 +28,60 @@ def extract_core_metrics(hwinfo_raw: Optional[Dict[str, Any]], target_processes:
 
     # 从 hwinfo_raw 提取系统指标（尝试多个键名）
     if hwinfo_raw:
-        # CPU 使用率
-        for key in ["CPU Total Usage", "CPU Total", "Total CPU Usage"]:
+        # CPU 使用率 - 扩展匹配键名
+        cpu_keys = [
+            "CPU Total Usage",
+            "CPU Total",
+            "Total CPU Usage",
+            "CPU Usage",
+            "Total CPU",
+            "CPU: Utilization",
+            "CPU [#0]: Utilization",
+        ]
+        for key in cpu_keys:
             if key in hwinfo_raw:
                 value = hwinfo_raw[key].get("value")
                 if value is not None:
                     result["cpu_usage"] = float(value)
                     break
 
-        # GPU 使用率
-        for key in ["GPU Core Usage", "GPU Usage", "GPU Total Usage"]:
+        # 如果标准键名都不存在，尝试计算所有核心的平均使用率
+        if result["cpu_usage"] is None:
+            core_usages = []
+            for key in hwinfo_raw.keys():
+                # 匹配 "Core X T0 Usage" 或 "Core X Usage" 格式
+                if key.startswith("Core ") and ("Usage" in key or "Utility" in key):
+                    value = hwinfo_raw[key].get("value")
+                    if value is not None:
+                        core_usages.append(float(value))
+            if core_usages:
+                # 取所有核心的平均值
+                result["cpu_usage"] = sum(core_usages) / len(core_usages)
+
+        # GPU 使用率 - 扩展匹配键名
+        gpu_keys = [
+            "GPU Core Usage",
+            "GPU Usage",
+            "GPU Total Usage",
+            "GPU Core Load",
+            "GPU Utilization",
+            "GPU D3D Usage",
+        ]
+        for key in gpu_keys:
             if key in hwinfo_raw:
                 value = hwinfo_raw[key].get("value")
                 if value is not None:
                     result["gpu_usage"] = float(value)
                     break
 
-        # 提交内存
-        for key in ["Commit Memory", "Commit Memory Total"]:
+        # 提交内存 - 扩展匹配键名
+        commit_keys = [
+            "Commit Memory",
+            "Commit Memory Total",
+            "Committed Memory",
+            "Commit Total",
+        ]
+        for key in commit_keys:
             if key in hwinfo_raw:
                 value = hwinfo_raw[key].get("value")
                 unit = hwinfo_raw[key].get("unit", "MB")
