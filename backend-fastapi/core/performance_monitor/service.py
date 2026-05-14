@@ -21,7 +21,7 @@ from core.performance_monitor.utils import (
     convert_top_n_to_top10
 )
 from core.performance_monitor.schema import (
-    CollectStartRequest, CollectStopRequest, WorkerReportRequest,
+    CollectStartRequest, CollectStopRequest,
     TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery
@@ -162,12 +162,9 @@ class PerformanceDataService(BaseService):
         """
         接收 Worker 上报数据（批量）
 
-        支持 v0.2.2 (WorkerReportRequest)、v0.3.0/v0.3.1 (WorkerReportRequestV3)
-        v0.3.1:
-          - 系统指标从 hwinfo_raw 取 "Total CPU Usage" 和 "GPU D3D Usage"
-          - 进程指标从 aggregated 汇总数据取
-          - 支持 processes、aggregated、top_n_cpu、top_n_gpu 新字段
-          - relative_time 自动计算（不传时根据 collect.start_time 计算）
+        系统指标从 hwinfo_raw 取 "Total CPU Usage" 和 "GPU D3D Usage"
+        进程指标从 aggregated 汇总数据取
+        relative_time 自动计算（不传时根据 collect.start_time 计算）
         """
         # 获取采集记录的 start_time，用于计算 relative_time
         collect = await db.get(PerformanceCollect, request.collect_id)
@@ -187,115 +184,47 @@ class PerformanceDataService(BaseService):
                 continue
 
             # 将 timestamp 转换为 UTC naive datetime
-            # Worker 上报的 timestamp 可能带有 timezone，需要统一转换为 UTC
             if sample.timestamp.tzinfo is not None:
-                # 如果是 timezone-aware，先转换为 UTC，然后去掉 tzinfo
                 timestamp_utc = sample.timestamp.astimezone(timezone.utc)
                 timestamp_naive = timestamp_utc.replace(tzinfo=None)
             else:
-                # 如果已经是 naive datetime，假设它是 UTC 时间（ Worker 应上报 UTC）
                 timestamp_naive = sample.timestamp
 
             # 计算 relative_time：如果未提供则根据 timestamp 和 start_time 计算
             relative_time = sample.relative_time
             if relative_time is None:
                 try:
-                    # 计算 timestamp 相对于 start_time 的秒数（两者都是 UTC naive datetime）
                     delta = timestamp_naive - start_time
                     relative_time = int(delta.total_seconds())
-                    # 确保 relative_time 不为负数（防止时间误差）
                     relative_time = max(0, relative_time)
-                    logger.debug(f"计算 relative_time: timestamp={timestamp_naive}, start_time={start_time}, result={relative_time}")
                 except Exception as e:
-                    logger.error(f"计算 relative_time 失败: timestamp={timestamp_naive}, start_time={start_time}, error={e}")
-                    # 使用默认值 0 防止数据库错误
+                    logger.error(f"计算 relative_time 失败: {e}")
                     relative_time = 0
 
-            # v0.3.1: 检查新字段 aggregated/processes
+            # 获取新字段
             hwinfo_raw = getattr(sample, 'hwinfo_raw', None)
-            system = getattr(sample, 'system', None)
-
-            # v0.3.1 新字段
             aggregated = getattr(sample, 'aggregated', None)
             processes = getattr(sample, 'processes', None)
             top_n_cpu = getattr(sample, 'top_n_cpu', None)
             top_n_gpu = getattr(sample, 'top_n_gpu', None)
 
-            # 将新字段转换为字典格式
-            aggregated_dict = [p.model_dump() for p in aggregated] if aggregated else None
-            processes_dict = [p.model_dump() for p in processes] if processes else None
-            top_n_cpu_dict = [p.model_dump() for p in top_n_cpu] if top_n_cpu else None
-            top_n_gpu_dict = [p.model_dump() for p in top_n_gpu] if top_n_gpu else None
+            # 将字段转换为字典格式
+            aggregated_dict = [p.model_dump() for p in aggregated] if aggregated else []
+            processes_dict = [p.model_dump() for p in processes] if processes else []
 
             # 提取核心指标
-            # v0.3.1: 系统指标从 hwinfo_raw 取，进程指标从 aggregated 取
-            if aggregated_dict:
-                # v0.3.1: 使用新字段
-                core_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
-                cpu_usage = core_metrics.get("cpu_usage")
-                gpu_usage = core_metrics.get("gpu_usage")
-                # 进程指标
-                process_cpu = core_metrics.get("process_cpu")
-                process_gpu = core_metrics.get("process_gpu")
-                process_memory = core_metrics.get("process_memory")
-                process_committed_memory = core_metrics.get("process_committed_memory")
+            core_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
+            cpu_usage = core_metrics.get("cpu_usage")
+            gpu_usage = core_metrics.get("gpu_usage")
+            process_cpu = core_metrics.get("process_cpu")
+            process_gpu = core_metrics.get("process_gpu")
+            process_memory = core_metrics.get("process_memory")
+            process_committed_memory = core_metrics.get("process_committed_memory")
 
-                # 转换为旧版本的 target_processes 格式（用于前端兼容）
-                target_processes_raw = convert_aggregated_to_target_processes(aggregated_dict, processes_dict)
-                top10_cpu_raw = convert_top_n_to_top10(top_n_cpu_dict, "cpu")
-                top10_gpu_raw = convert_top_n_to_top10(top_n_gpu_dict, "gpu")
-            elif hwinfo_raw:
-                # v0.3.0: 从 hwinfo_raw 提取核心指标（旧版本兼容）
-                target_processes_raw = [p.model_dump() for p in sample.target_processes] if hasattr(sample, 'target_processes') else []
-                core_metrics = extract_core_metrics(hwinfo_raw, target_processes_raw)
-                cpu_usage = core_metrics.get("cpu_usage")
-                gpu_usage = core_metrics.get("gpu_usage")
-                process_cpu = core_metrics.get("process_cpu")
-                process_gpu = core_metrics.get("process_gpu")
-                process_memory = core_metrics.get("process_memory")
-                process_committed_memory = core_metrics.get("process_committed_memory")
-                top10_cpu_raw = [p.model_dump() for p in sample.top10_cpu] if hasattr(sample, 'top10_cpu') else []
-                top10_gpu_raw = [p.model_dump() for p in sample.top10_gpu] if hasattr(sample, 'top10_gpu') else []
-            elif system:
-                # v0.2.2: 使用 system 字段
-                cpu_usage = system.cpu_usage
-                gpu_usage = system.gpu_usage
-                process_cpu = None
-                process_gpu = None
-                process_memory = None
-                process_committed_memory = None
-                target_processes_raw = [p.model_dump() for p in sample.target_processes] if hasattr(sample, 'target_processes') else []
-                top10_cpu_raw = [p.model_dump() for p in sample.top10_cpu] if hasattr(sample, 'top10_cpu') else []
-                top10_gpu_raw = [p.model_dump() for p in sample.top10_gpu] if hasattr(sample, 'top10_gpu') else []
-            else:
-                # 无数据时设为 None
-                cpu_usage = None
-                gpu_usage = None
-                process_cpu = None
-                process_gpu = None
-                process_memory = None
-                process_committed_memory = None
-                target_processes_raw = []
-                top10_cpu_raw = []
-                top10_gpu_raw = []
-
-            # 获取其他系统指标（从 system 或 hwinfo_raw）
-            if system:
-                memory_usage = system.memory_usage
-                power = system.power
-                cpu_speed = system.cpu_speed
-                cpu_temp = system.cpu_temp
-                process_handles = system.process_handles
-                upload_speed = system.upload_speed
-                download_speed = system.download_speed
-            else:
-                memory_usage = None
-                power = None
-                cpu_speed = None
-                cpu_temp = None
-                process_handles = None
-                upload_speed = None
-                download_speed = None
+            # 转换为前端兼容的 target_processes 格式
+            target_processes_raw = convert_aggregated_to_target_processes(aggregated_dict, processes_dict)
+            top10_cpu_raw = convert_top_n_to_top10(top_n_cpu, "cpu")
+            top10_gpu_raw = convert_top_n_to_top10(top_n_gpu, "gpu")
 
             data = PerformanceData(
                 collect_id=request.collect_id,
@@ -303,14 +232,14 @@ class PerformanceDataService(BaseService):
                 relative_time=relative_time,
                 cpu_usage=cpu_usage,
                 gpu_usage=gpu_usage,
-                commit_memory=process_committed_memory / 1024 if process_committed_memory else None,  # MB转GB
-                memory_usage=process_memory / 1024 if process_memory else None,  # MB转GB
-                power=power,
-                cpu_speed=cpu_speed,
-                cpu_temp=cpu_temp,
-                process_handles=process_handles,
-                upload_speed=upload_speed,
-                download_speed=download_speed,
+                commit_memory=process_committed_memory / 1024 if process_committed_memory else None,
+                memory_usage=process_memory / 1024 if process_memory else None,
+                power=None,
+                cpu_speed=None,
+                cpu_temp=None,
+                process_handles=None,
+                upload_speed=None,
+                download_speed=None,
                 target_processes=target_processes_raw,
                 top10_cpu=top10_cpu_raw,
                 top10_gpu=top10_gpu_raw,

@@ -80,86 +80,11 @@ class Top10Process(BaseModel):
     value: float = Field(..., description="指标值")
 
 
-# ===== Worker 上报数据 Schema =====
-
-
-class ProcessInstanceReport(BaseModel):
-    """进程实例上报 Schema"""
-    pid: int = Field(..., description="进程ID")
-    cpu: float = Field(..., ge=0, le=100, description="CPU使用率 %")
-    memory: float = Field(..., ge=0, description="内存使用 MB")
-    gpu: float = Field(default=0, ge=0, le=100, description="GPU使用率 %")
-    committed_memory: float = Field(default=0, ge=0, description="提交内存 MB")
-
-
-class TargetProcessReport(BaseModel):
-    """目标进程上报 Schema"""
-    name: str = Field(..., description="进程名称")
-    total_cpu: float = Field(..., ge=0, le=100, description="总CPU使用率 %")
-    total_memory: float = Field(..., ge=0, description="总内存使用 MB")
-    total_committed_memory: float = Field(default=0, ge=0, description="总提交内存 MB")
-    total_gpu: float = Field(default=0, ge=0, le=100, description="总GPU使用率 %")
-    instances: List[ProcessInstanceReport] = Field(default_factory=list, description="实例列表")
-
-
-class SystemMetricsReport(BaseModel):
-    """系统指标上报 Schema"""
-    cpu_usage: float = Field(..., ge=0, le=100, description="CPU使用率 %")
-    gpu_usage: float = Field(..., ge=0, le=100, description="GPU使用率 %")
-    commit_memory: float = Field(..., ge=0, description="提交内存 GB")
-    memory_usage: float = Field(..., ge=0, description="内存使用 GB")
-    power: float = Field(..., ge=0, description="功耗 W")
-    cpu_speed: float = Field(..., ge=0, description="CPU速度 GHz")
-    cpu_temp: float = Field(..., description="CPU温度 °C")
-    process_handles: int = Field(..., ge=0, description="进程句柄数")
-    upload_speed: float = Field(..., ge=0, description="上传速度 KB/s")
-    download_speed: float = Field(..., ge=0, description="下载速度 KB/s")
-
-
-class Top10ProcessReport(BaseModel):
-    """TOP10 进程上报 Schema"""
-    name: str = Field(..., description="进程名称")
-    cpu: Optional[float] = Field(None, description="CPU使用率 %")
-    memory: Optional[float] = Field(None, description="内存使用 MB")
-    gpu: Optional[float] = Field(None, description="GPU使用率 %")
-
-
-class PerformanceSampleReport(BaseModel):
-    """单个性能样本上报 Schema"""
-    timestamp: datetime = Field(..., description="实际时间")
-    relative_time: int = Field(..., ge=0, description="相对时间（秒）")
-    system: SystemMetricsReport = Field(..., description="系统指标")
-    target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程")
-    top10_cpu: List[Top10ProcessReport] = Field(default_factory=list, description="CPU TOP10")
-    top10_gpu: List[Top10ProcessReport] = Field(default_factory=list, description="GPU TOP10")
-
-
-class WorkerReportRequest(BaseModel):
-    """Worker 上报数据请求 Schema（批量上报）"""
-    collect_id: str = Field(..., description="采集记录ID")
-    device_id: str = Field(..., description="设备ID")
-    samples: List[PerformanceSampleReport] = Field(default_factory=list, description="性能样本列表")
-
-
 # ===== Worker 上报数据 Schema (v0.3.1) =====
 
 
-class SystemReport(BaseModel):
-    """系统性能数据（兼容旧版本Worker）"""
-    cpu_usage: Optional[float] = Field(None, ge=0, le=100, description="CPU使用率 %")
-    gpu_usage: Optional[float] = Field(None, ge=0, le=100, description="GPU使用率 %")
-    commit_memory: Optional[float] = Field(None, ge=0, description="提交内存 GB")
-    memory_usage: Optional[float] = Field(None, ge=0, description="内存使用 GB")
-    power: Optional[float] = Field(None, ge=0, description="功耗 W")
-    cpu_speed: Optional[float] = Field(None, ge=0, description="CPU速度 GHz")
-    cpu_temp: Optional[float] = Field(None, description="CPU温度 °C")
-    process_handles: Optional[int] = Field(None, ge=0, description="进程句柄数")
-    upload_speed: Optional[float] = Field(None, ge=0, description="上传速度 KB/s")
-    download_speed: Optional[float] = Field(None, ge=0, description="下载速度 KB/s")
-
-
 class ProcessInfoReport(BaseModel):
-    """单个进程信息上报 Schema（v0.3.1）"""
+    """单个进程信息上报 Schema"""
     pid: int = Field(..., description="进程ID")
     name: str = Field(..., description="进程名")
     cpu_percent: float = Field(default=0, ge=0, le=100, description="CPU使用率 %")
@@ -171,7 +96,7 @@ class ProcessInfoReport(BaseModel):
 
 
 class AggregatedProcessInfoReport(BaseModel):
-    """进程汇总信息上报 Schema（v0.3.1）"""
+    """进程汇总信息上报 Schema"""
     name: str = Field(..., description="进程名")
     pids: List[int] = Field(default_factory=list, description="所有实例的PID列表")
     cpu_percent_total: float = Field(default=0, ge=0, le=100, description="总CPU使用率 %")
@@ -183,7 +108,7 @@ class AggregatedProcessInfoReport(BaseModel):
 
 
 class TopNProcessReport(BaseModel):
-    """TOP N 进程上报 Schema（v0.3.1）- 与 ProcessInfoReport 结构相同"""
+    """TOP N 进程上报 Schema"""
     pid: int = Field(..., description="进程ID")
     name: str = Field(..., description="进程名")
     cpu_percent: float = Field(default=0, ge=0, le=100, description="CPU使用率 %")
@@ -195,24 +120,18 @@ class TopNProcessReport(BaseModel):
 
 
 class PerformanceSampleReportV3(BaseModel):
-    """单个性能样本上报 Schema（v0.3.1）"""
+    """单个性能样本上报 Schema"""
     timestamp: datetime = Field(..., description="实际时间")
     relative_time: Optional[int] = Field(None, ge=0, description="相对时间（秒），可选，不传则后端自动计算")
     hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
-    system: Optional[SystemReport] = Field(None, description="系统性能数据（兼容旧版本，回退使用）")
-    # v0.3.1 新增字段
     processes: Optional[List[ProcessInfoReport]] = Field(None, description="目标进程列表（按配置筛选）")
     aggregated: Optional[List[AggregatedProcessInfoReport]] = Field(None, description="目标进程汇总")
     top_n_cpu: Optional[List[TopNProcessReport]] = Field(None, description="CPU使用率 Top N")
     top_n_gpu: Optional[List[TopNProcessReport]] = Field(None, description="GPU使用率 Top N")
-    # 兼容旧版本字段
-    target_processes: List[TargetProcessReport] = Field(default_factory=list, description="目标进程（旧版本）")
-    top10_cpu: List[Top10ProcessReport] = Field(default_factory=list, description="CPU TOP10（旧版本）")
-    top10_gpu: List[Top10ProcessReport] = Field(default_factory=list, description="GPU TOP10（旧版本）")
 
 
 class WorkerReportRequestV3(BaseModel):
-    """Worker 上报数据请求 Schema（v0.3.1）"""
+    """Worker 上报数据请求 Schema"""
     collect_id: str = Field(..., description="采集记录ID")
     device_id: str = Field(..., description="设备ID")
     samples: List[PerformanceSampleReportV3] = Field(default_factory=list, description="性能样本列表")
