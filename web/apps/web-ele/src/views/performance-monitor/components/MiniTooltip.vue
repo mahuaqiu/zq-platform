@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import type { PerformanceData } from '#/api/core/performance-monitor';
 
 // Props 定义
@@ -16,69 +16,20 @@ const props = withDefaults(defineProps<Props>(), {
   visible: false,
 });
 
-const emit = defineEmits<{
-  (e: 'click', data: {
-    data: PerformanceData | undefined;
-    seriesData: { name: string; value: number; color: string; unit: string }[];
-    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
-    position: { x: number; y: number };
-  }): void;  // 点击 tooltip 显示详情
-}>();
-
-// 锁定状态（鼠标进入 tooltip 时停止跟随）
-const isLocked = ref(false);
-const lockedPosition = ref<{ x: number; y: number } | null>(null);
-
-// 当 visible 变为 false 时，重置锁定状态
-watch(() => props.visible, (newVisible) => {
-  if (!newVisible) {
-    isLocked.value = false;
-    lockedPosition.value = null;
-  }
-});
-
-// 相对于图表容器定位（absolute）
+// fixed 定位，基于视窗位置（containerRect + 鼠标相对位置）
 const tooltipPosition = computed(() => {
-  // 锁定时使用锁定位置
-  if (isLocked.value && lockedPosition.value) {
-    return {
-      left: lockedPosition.value.x + 30,
-      top: lockedPosition.value.y + 10
-    };
-  }
-
-  if (!props.position) {
+  if (!props.position || !props.containerRect) {
     return { left: 0, top: 0 };
   }
 
-  const offsetX = 30;
-  const offsetY = 10;
-
-  const left = props.position.x + offsetX;
-  const top = props.position.y + offsetY;
+  // 视窗位置 = 图表容器视窗位置 + 鼠标相对位置 + 偏移
+  const left = props.containerRect.left + props.position.x + 30;
+  const top = props.containerRect.top + props.position.y + 10;
 
   return { left, top };
 });
 
-// 鼠标进入 tooltip，锁定位置
-function handleMouseEnter() {
-  if (!isLocked.value && props.position) {
-    isLocked.value = true;
-    lockedPosition.value = { x: props.position.x, y: props.position.y };
-  }
-}
-
-// 点击 tooltip，触发详情显示
-function handleClick() {
-  emit('click', {
-    data: props.data,
-    seriesData: props.seriesData,
-    chartType: props.chartType,
-    position: lockedPosition.value || props.position,
-  });
-}
-
-// 显示进程名 + 实例数（最多显示 3 个进程）
+// 显示进程名 + 实例数（最多 3 个）
 const processSummary = computed(() => {
   if (!props.data?.target_processes) return [];
 
@@ -112,10 +63,8 @@ function formatDateTime(timestamp: string): string {
       left: tooltipPosition.left + 'px',
       top: tooltipPosition.top + 'px',
     }"
-    @mouseenter="handleMouseEnter"
-    @click="handleClick"
   >
-    <!-- 时间显示 -->
+    <!-- 时间 -->
     <div class="tooltip-time">
       {{ formatDateTime(data.timestamp) }}
     </div>
@@ -148,27 +97,27 @@ function formatDateTime(timestamp: string): string {
       </div>
     </div>
 
-    <!-- 点击提示 -->
+    <!-- 提示 -->
     <div class="tooltip-hint">
-      点击查看子进程详情
+      点击图表查看详情
     </div>
   </div>
 </template>
 
 <style scoped>
 .mini-tooltip {
-  position: absolute;  /* 相对于 chart-wrapper 定位 */
+  position: fixed;  /* 相对于视窗定位 */
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   padding: 12px;
-  z-index: 100;
+  z-index: 1000;
   font-size: 13px;
   min-width: 160px;
   max-width: 180px;
   max-height: 150px;
   overflow: hidden;
-  cursor: pointer;  /* 可点击 */
+  pointer-events: none;  /* 点击穿透 */
 }
 
 .tooltip-time {
