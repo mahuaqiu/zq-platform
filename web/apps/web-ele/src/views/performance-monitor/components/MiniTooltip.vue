@@ -18,32 +18,16 @@ const props = withDefaults(defineProps<Props>(), {
 
 // 跟随鼠标，保持固定偏移距离（30px 右侧，10px 下方）
 const tooltipPosition = computed(() => {
-  if (!props.position || !props.containerRect) {
+  if (!props.position) {
     return { left: 0, top: 0 };
   }
 
-  const width = 180;
-  const height = 150;
   const offsetX = 30;  // 水平偏移距离
   const offsetY = 10;  // 垂直偏移距离
 
   // 基于鼠标位置计算 tooltip 位置（保持固定偏移距离）
-  let left = props.position.x + offsetX;
-  let top = props.position.y + offsetY;
-
-  // 确保不超出右侧边界
-  if (left + width > props.containerRect.width) {
-    left = props.position.x - width - offsetX;  // 如果超出右侧，显示在鼠标左侧
-  }
-
-  // 确保不超出底部边界
-  if (top + height > props.containerRect.height) {
-    top = props.position.y - height - offsetY;  // 如果超出底部，显示在鼠标上方
-  }
-
-  // 确保不超出左侧和顶部
-  left = Math.max(0, left);
-  top = Math.max(0, top);
+  const left = props.position.x + offsetX;
+  const top = props.position.y + offsetY;
 
   return { left, top };
 });

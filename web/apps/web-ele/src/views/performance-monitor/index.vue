@@ -105,6 +105,7 @@ interface MiniTooltipState {
   seriesData: { name: string; value: number; color: string; unit: string }[];
   chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
   containerRect: DOMRect;
+  chartKey: string;  // 标识当前hover的图表
 }
 const miniTooltipState = ref<MiniTooltipState | null>(null);
 
@@ -690,7 +691,10 @@ function handlePointClick(data: { time: number; collectId: string }) {
 
 // 小 Tooltip 显示事件处理
 function handleMiniTooltipShow(data: MiniTooltipState, chartKey: string) {
-  miniTooltipState.value = data;
+  miniTooltipState.value = {
+    ...data,
+    chartKey,
+  };
 }
 
 // 小 Tooltip 隐藏事件处理
@@ -822,7 +826,7 @@ function handleRangeChange(range: [number, number]) {
             @detail-click="(data) => handleDetailClick(data, 'cpu')"
           />
           <MiniTooltip
-            v-if="miniTooltipState && activeChartKey === 'cpu'"
+            v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
             :visible="miniTooltipState !== null"
             :position="miniTooltipState.position"
             :containerRect="miniTooltipState.containerRect"
