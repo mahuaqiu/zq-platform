@@ -3,7 +3,7 @@ interface Props {
   currentMetric: string;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const emit = defineEmits<{
   change: [metric: string];
   more: [];
@@ -29,17 +29,17 @@ function handleMoreClick() {
 <template>
   <div class="metric-selector">
     <div class="metric-cards">
-      <div
+      <button
         v-for="metric in mainMetrics"
         :key="metric.key"
         :class="['metric-card', { active: currentMetric === metric.key }]"
         @click="handleMetricClick(metric.key)"
       >
         {{ metric.label }}
-      </div>
-      <div class="metric-card more-btn" @click="handleMoreClick">
+      </button>
+      <button class="metric-card more-btn" @click="handleMoreClick">
         更多指标 ▼
-      </div>
+      </button>
     </div>
   </div>
 </template>
@@ -64,12 +64,17 @@ function handleMoreClick() {
   font-size: 14px;
   cursor: pointer;
   background: #fff;
-  border: 1px solid #409eff;
-  color: #409eff;
+  border: 1px solid var(--el-color-primary);
+  color: var(--el-color-primary);
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover:not(.active) {
+  background: #ecf5ff;
 }
 
 .metric-card.active {
-  background: #409eff;
+  background: var(--el-color-primary);
   color: white;
   border: none;
 }
