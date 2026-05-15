@@ -16,18 +16,18 @@ const props = withDefaults(defineProps<Props>(), {
   visible: false,
 });
 
-// 跟随鼠标，保持固定偏移距离（30px 右侧，10px 下方）
+// 使用 fixed 定位，相对于视窗（基于 containerRect）
 const tooltipPosition = computed(() => {
-  if (!props.position) {
+  if (!props.position || !props.containerRect) {
     return { left: 0, top: 0 };
   }
 
   const offsetX = 30;  // 水平偏移距离
   const offsetY = 10;  // 垂直偏移距离
 
-  // 基于鼠标位置计算 tooltip 位置（保持固定偏移距离）
-  const left = props.position.x + offsetX;
-  const top = props.position.y + offsetY;
+  // 基于图表容器在视窗中的位置 + 鼠标相对位置 + 偏移
+  const left = props.containerRect.left + props.position.x + offsetX;
+  const top = props.containerRect.top + props.position.y + offsetY;
 
   return { left, top };
 });
@@ -109,17 +109,18 @@ function formatDateTime(timestamp: string): string {
 
 <style scoped>
 .mini-tooltip {
-  position: absolute;
+  position: fixed;  /* 相对于视窗定位 */
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   padding: 12px;
-  z-index: 100;
+  z-index: 1000;  /* 提高层级，确保在最上层 */
   font-size: 13px;
   min-width: 160px;
   max-width: 180px;
   max-height: 150px;
   overflow: hidden;
+  pointer-events: none;  /* 不阻挡鼠标事件，让点击能穿透到图表 */
 }
 
 .tooltip-time {
