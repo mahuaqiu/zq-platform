@@ -86,7 +86,7 @@ function formatDateTime(timestamp: string): string {
 // 面板位置计算（fixed 定位，基于点击位置）
 const panelPosition = computed(() => {
   console.log('=== panelPosition computed ===', props.visible, props.data, props.clickPosition, props.containerWidth);
-  const panelWidth = 420;
+  const panelWidth = 500;
   const panelHeight = 180;
 
   // 如果没有点击位置和容器宽度，默认显示在屏幕中央
@@ -137,10 +137,10 @@ const panelPosition = computed(() => {
     :style="panelPosition"
   >
     <!-- 测试：直接显示内容确认渲染 -->
-    <div style="background: red; color: white; padding: 10px;">测试面板渲染</div>
+    <div style=" padding: 10px; color: white;background: red;">测试面板渲染</div>
     <!-- 头部 -->
     <div class="panel-header">
-      <h3 class="panel-title">子进程详情</h3>
+      <h3 class="panel-title">目标进程明细</h3>
       <button class="close-btn" @click="emit('close')">×</button>
     </div>
 
@@ -197,24 +197,24 @@ const panelPosition = computed(() => {
 <style scoped>
 .process-detail-panel {
   position: fixed !important;
-  width: 420px;
+  z-index: 99999 !important;  /* 最高层级 */
+  display: block !important;
+  visibility: visible !important;
+  width: 500px;
   height: 180px;  /* 固定高度，不用 max-height */
+  padding: 16px;
   overflow-y: auto;
   background: yellow !important;  /* 改成黄色更醒目 */
   border: 5px solid red !important;  /* 红色边框 */
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
-  padding: 16px;
-  z-index: 99999 !important;  /* 最高层级 */
+  box-shadow: 0 4px 20px rgb(0 0 0 / 50%) !important;
   opacity: 1 !important;
-  display: block !important;
-  visibility: visible !important;
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 12px;
 }
 
@@ -225,15 +225,15 @@ const panelPosition = computed(() => {
 }
 
 .close-btn {
-  background: #f5f5f5;
-  border: none;
+  z-index: 51;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
   font-size: 14px;
   color: #666;
   cursor: pointer;
-  z-index: 51;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 50%;
 }
 
 .close-btn:hover {
@@ -245,21 +245,21 @@ const panelPosition = computed(() => {
 }
 
 .time-row {
+  margin-bottom: 4px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 4px;
 }
 
 .panel-series {
-  border-top: 1px dashed #eee;
   padding-top: 10px;
   margin-bottom: 10px;
+  border-top: 1px dashed #eee;
 }
 
 .series-label {
+  margin-bottom: 8px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 8px;
 }
 
 .series-row {
@@ -271,8 +271,8 @@ const panelPosition = computed(() => {
 
 .series-name {
   display: flex;
-  align-items: center;
   gap: 5px;
+  align-items: center;
   font-size: 13px;
   color: #666;
 }
@@ -289,14 +289,14 @@ const panelPosition = computed(() => {
 }
 
 .panel-processes {
-  border-top: 1px dashed #eee;
   padding-top: 10px;
+  border-top: 1px dashed #eee;
 }
 
 .processes-label {
+  margin-bottom: 8px;
   font-size: 12px;
   color: #999;
-  margin-bottom: 8px;
 }
 
 .processes-list {
@@ -307,11 +307,11 @@ const panelPosition = computed(() => {
 .instance-row {
   display: flex;
   justify-content: space-between;
-  background: #f9f9f9;
   padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 11px;
   margin-bottom: 4px;
+  font-size: 11px;
+  background: #f9f9f9;
+  border-radius: 6px;
 }
 
 .instance-name {
@@ -319,20 +319,20 @@ const panelPosition = computed(() => {
 }
 
 .instance-pid {
-  color: #999;
   font-size: 10px;
+  color: #999;
 }
 
 .instance-value {
-  color: #409eff;
   font-weight: 600;
+  color: #409eff;
 }
 
 .total-count {
-  color: #999;
-  font-size: 11px;
-  text-align: center;
   margin-top: 8px;
+  font-size: 11px;
+  color: #999;
+  text-align: center;
 }
 
 /* 过渡动画 */
