@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Close } from '@element-plus/icons-vue';
 
 interface Props {
@@ -22,7 +22,10 @@ const recentSearches = ref<string[]>([]);
 // 从 localStorage 加载最近搜索
 function loadRecentSearches(): string[] {
   try {
-    const stored = localStorage.getItem(RECENT_SEARCH_KEY);
+    // SSR 兼容：检查 localStorage 是否存在
+    const stored = typeof localStorage !== 'undefined'
+      ? localStorage.getItem(RECENT_SEARCH_KEY)
+      : null;
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
@@ -32,7 +35,10 @@ function loadRecentSearches(): string[] {
 // 保存最近搜索到 localStorage
 function saveRecentSearches(searches: string[]) {
   try {
-    localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(searches));
+    // SSR 兼容：检查 localStorage 是否存在
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(searches));
+    }
   } catch (error) {
     console.warn('保存最近搜索失败:', error);
   }
@@ -74,6 +80,21 @@ watch(() => props.visible, (newVal) => {
   if (!newVal) {
     searchKeyword.value = '';
   }
+});
+
+// 键盘交互支持
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.visible) {
+    emit('update:visible', false);
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown);
 });
 </script>
 
