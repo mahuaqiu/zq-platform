@@ -85,13 +85,11 @@ function formatDateTime(timestamp: string): string {
 
 // 面板位置计算（fixed 定位，基于点击位置）
 const panelPosition = computed(() => {
-  console.log('=== panelPosition computed ===', props.visible, props.data, props.clickPosition, props.containerWidth);
   const panelWidth = 500;
   const panelHeight = 180;
 
   // 如果没有点击位置和容器宽度，默认显示在屏幕中央
   if (!props.clickPosition || !props.containerWidth) {
-    console.log('no clickPosition, default position');
     return {
       left: '50%',
       transform: 'translateX(-50%)',
@@ -108,7 +106,6 @@ const panelPosition = computed(() => {
 
   // 右侧点位显示在左边
   if (chartWidth - clickX < panelWidth + 20) {
-    console.log('left position');
     return {
       left: '20px',
       right: 'auto',
@@ -119,7 +116,6 @@ const panelPosition = computed(() => {
   }
 
   // 默认显示在右边
-  console.log('right position');
   return {
     left: 'auto',
     right: '20px',
@@ -136,8 +132,6 @@ const panelPosition = computed(() => {
     class="process-detail-panel"
     :style="panelPosition"
   >
-    <!-- 测试：直接显示内容确认渲染 -->
-    <div style=" padding: 10px; color: white;background: red;">测试面板渲染</div>
     <!-- 头部 -->
     <div class="panel-header">
       <h3 class="panel-title">目标进程明细</h3>
@@ -196,19 +190,16 @@ const panelPosition = computed(() => {
 
 <style scoped>
 .process-detail-panel {
-  position: fixed !important;
-  z-index: 99999 !important;  /* 最高层级 */
-  display: block !important;
-  visibility: visible !important;
+  position: fixed;
+  z-index: 1000;
   width: 500px;
   height: 180px;  /* 固定高度，不用 max-height */
   padding: 16px;
   overflow-y: auto;
-  background: yellow !important;  /* 改成黄色更醒目 */
-  border: 5px solid red !important;  /* 红色边框 */
+  background: #fff;
+  border: 1px solid #ddd;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgb(0 0 0 / 50%) !important;
-  opacity: 1 !important;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 15%);
 }
 
 .panel-header {
