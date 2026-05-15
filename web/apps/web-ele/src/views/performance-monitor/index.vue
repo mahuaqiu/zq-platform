@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElDatePicker, ElPopconfirm } from 'element-plus';
+import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElDatePicker } from 'element-plus';
 import { useRouter } from 'vue-router';
 import ChartPanel from './components/ChartPanel.vue';
-import Top10List from './components/Top10List.vue';
+import Top10Panel from './components/Top10Panel.vue';
 import CollectDialog from './components/CollectDialog.vue';
 import TimeNavigator from './components/TimeNavigator.vue';
 import MarkerManager from './components/MarkerManager.vue';
-import AdvancedMetrics from './components/AdvancedMetrics.vue';
+import MetricSelector from './components/MetricSelector.vue';
+import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import MiniTooltip from './components/MiniTooltip.vue';
 import ProcessDetailPanel from './components/ProcessDetailPanel.vue';
 import {
@@ -32,8 +33,7 @@ import type {
   MarkerResponse,
 } from '#/api/core/performance-monitor';
 import type { EnvMachine } from '#/api/core/env-machine';
-import type { ChartSeries, Top10Item } from './types';
-import { VERSION_COLORS } from './types';
+import type { ChartSeries } from './types';
 
 const router = useRouter();
 
@@ -69,14 +69,6 @@ const markers = ref<MarkerResponse[]>([]);
 
 // 点击图表选中的时刻（用于 TOP10 切换）
 const clickedTime = ref<number>(0);
-
-// TOP10 类型（CPU 或 GPU）
-const top10Type = ref<'cpu' | 'gpu'>('cpu');
-
-// TOP10 类型切换
-function handleTop10TypeChange(type: 'cpu' | 'gpu') {
-  top10Type.value = type;
-}
 
 // 采集历史
 const collectHistory = ref<PerformanceCollect[]>([]);
@@ -203,6 +195,78 @@ const processTooltipContent = computed(() => {
     .join('\n');
 });
 
+// 当前选中的指标
+const currentMetric = ref<string>('cpu');
+const showMorePopup = ref(false);
+
+// 所有指标列表
+const allMetrics = computed(() => [
+  { key: 'cpu', label: 'CPU使用率' },
+  { key: 'gpu', label: 'GPU使用率' },
+  { key: 'memory', label: '进程内存' },
+  { key: 'commitMemory', label: '提交内存' },
+]);
+
+// 指标切换处理
+function handleMetricChange(metric: string) {
+  currentMetric.value = metric;
+}
+
+// 当前图表数据
+const currentChartSeries = computed<ChartSeries[]>(() => {
+  switch (currentMetric.value) {
+    case 'cpu': return cpuChartSeries.value;
+    case 'gpu': return gpuChartSeries.value;
+    case 'memory': return memoryChartSeries.value;
+    case 'commitMemory': return commitMemoryChartSeries.value;
+    default: return [];
+  }
+});
+
+// 当前图表标题
+const currentChartTitle = computed(() => {
+  const metric = allMetrics.value.find(m => m.key === currentMetric.value);
+  return metric?.label || currentMetric.value;
+});
+
+// 当前图表类型
+const currentChartType = computed(() => {
+  return currentMetric.value as 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+});
+
+// TOP10 面板显示条件（仅 CPU/GPU 显示）
+const showTop10Panel = computed(() => {
+  return currentMetric.value === 'cpu' || currentMetric.value === 'gpu';
+});
+
+// 当前 TOP10 数据
+const currentTop10Data = computed(() => {
+  if (!showTop10Panel.value) return [];
+  const latest = currentMetrics.value;
+  if (!latest) return [];
+  if (currentMetric.value === 'cpu') {
+    return latest.top10_cpu?.map(p => ({ name: p.name, value: p.cpu || 0 })) || [];
+  } else {
+    return latest.top10_gpu?.map(p => ({ name: p.name, value: p.gpu || 0 })) || [];
+  }
+});
+
+// 悬停联动状态
+const hoverTimestamp = ref<string | null>(null);
+const hoverDataPoint = ref<PerformanceData | null>(null);
+
+// 图表悬停处理
+function handleChartHover(data: { timestamp: string; dataPoint: PerformanceData }) {
+  hoverTimestamp.value = data.timestamp;
+  hoverDataPoint.value = data.dataPoint;
+}
+
+// 图表离开处理
+function handleChartLeave() {
+  hoverTimestamp.value = null;
+  hoverDataPoint.value = null;
+}
+
 // 当前数值显示（基于过滤后的数据）
 const currentMetrics = computed(() => {
   const data = filteredPerformanceData.value;
@@ -294,35 +358,6 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
   return [
     { name: '进程内存', data: processData, color: '#909399', unit: 'MB' },
   ];
-});
-
-// TOP10 数据
-const top10Cpu = computed<Top10Item[]>(() => {
-  const latest = currentMetrics.value;
-  if (!latest?.top10_cpu) return [];
-  return latest.top10_cpu.map((p, i) => ({
-    name: p.name,
-    value: p.cpu || 0,
-    trendData: historyTrendData.value.map((d) => {
-      const proc = d.top10_cpu?.find((t) => t.name === p.name);
-      return proc?.cpu || 0;
-    }),
-    color: VERSION_COLORS[i % 3] || '#67c23a',
-  }));
-});
-
-const top10Gpu = computed<Top10Item[]>(() => {
-  const latest = currentMetrics.value;
-  if (!latest?.top10_gpu) return [];
-  return latest.top10_gpu.map((p, i) => ({
-    name: p.name,
-    value: p.gpu || 0,
-    trendData: historyTrendData.value.map((d) => {
-      const proc = d.top10_gpu?.find((t) => t.name === p.name);
-      return proc?.gpu || 0;
-    }),
-    color: VERSION_COLORS[i % 3] || '#67c23a',
-  }));
 });
 
 // 获取在线设备列表
@@ -802,7 +837,26 @@ function handleRangeChange(range: [number, number]) {
       </div>
     </div>
 
-        <TimeNavigator
+        <!-- 指标选择器 -->
+    <div v-if="performanceData.length > 0" class="metric-selector-area">
+      <MetricSelector
+        :current-metric="currentMetric"
+        :metrics="allMetrics"
+        :current-data="currentMetrics"
+        @change="handleMetricChange"
+        @show-more="showMorePopup = true"
+      />
+      <MetricSearchPopup
+        v-model:visible="showMorePopup"
+        :current-metric="currentMetric"
+        :metrics="allMetrics"
+        :data="filteredPerformanceData"
+        @change="handleMetricChange"
+      />
+    </div>
+
+    <!-- 时间导航条 -->
+    <TimeNavigator
       v-if="performanceData.length > 0"
       :duration="performanceData[performanceData.length - 1]?.relative_time || 0"
       :start-time="selectedRelativeTimeRange?.[0] || 0"
@@ -818,25 +872,25 @@ function handleRangeChange(range: [number, number]) {
       @refresh="loadMarkers"
     />
 
-    <!-- 主内容区 - 单列布局 -->
+    <!-- 主内容区 - 单图表主导布局 -->
     <div class="charts-area">
-      <!-- CPU使用率图表 -->
-      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'cpu' }">
+      <!-- 当前指标图表 -->
+      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState }">
         <div class="chart-container-wrapper">
           <ChartPanel
-            title="CPU使用率"
-            :series="cpuChartSeries"
-            :height="225"
+            :title="currentChartTitle"
+            :series="currentChartSeries"
+            :height="500"
             :raw-data="filteredPerformanceData"
             :markers="markers"
-            chart-type="cpu"
+            :chart-type="currentChartType"
             @point-click="handlePointClick"
-            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'cpu')"
+            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, currentMetric)"
             @mini-tooltip-hide="handleMiniTooltipHide"
-            @detail-click="(data) => handleDetailClick(data, 'cpu')"
+            @detail-click="(data) => handleDetailClick(data, currentMetric)"
           />
           <MiniTooltip
-            v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
+            v-if="miniTooltipState && miniTooltipState.chartKey === currentMetric"
             :visible="miniTooltipState !== null"
             :position="miniTooltipState.position"
             :containerRect="miniTooltipState.containerRect"
@@ -845,133 +899,34 @@ function handleRangeChange(range: [number, number]) {
             :chartType="miniTooltipState.chartType"
           />
         </div>
-        <ProcessDetailPanel
-          v-if="detailPanelState && activeChartKey === 'cpu'"
-          :visible="detailPanelState !== null"
-          :data="detailPanelState.data"
-          :seriesData="detailPanelState.seriesData"
-          :chartType="detailPanelState.chartType"
-          :clickPosition="detailPanelState.position"
-          :containerWidth="detailPanelState.containerWidth"
-          @close="handlePanelClose"
-        />
       </div>
 
-      <!-- GPU使用率图表 -->
-      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'gpu' }">
-        <ChartPanel
-          title="GPU使用率"
-          :series="gpuChartSeries"
-          :height="225"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="gpu"
-          @point-click="handlePointClick"
-          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'gpu')"
-          @mini-tooltip-hide="handleMiniTooltipHide"
-          @detail-click="(data) => handleDetailClick(data, 'gpu')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'gpu'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
-        <ProcessDetailPanel
-          v-if="detailPanelState && activeChartKey === 'gpu'"
-          :visible="detailPanelState !== null"
-          :data="detailPanelState.data"
-          :seriesData="detailPanelState.seriesData"
-          :chartType="detailPanelState.chartType"
-          :clickPosition="detailPanelState.position"
-          :containerWidth="detailPanelState.containerWidth"
-          @close="handlePanelClose"
-        />
+      <!-- 底部面板区域 - 双面板布局 -->
+      <div class="bottom-panels">
+        <!-- 进程详情面板 -->
+        <div class="panel-wrapper detail-panel-wrapper">
+          <ProcessDetailPanel
+            v-if="detailPanelState"
+            :visible="detailPanelState !== null"
+            :data="detailPanelState.data"
+            :seriesData="detailPanelState.seriesData"
+            :chartType="detailPanelState.chartType"
+            :clickPosition="detailPanelState.position"
+            :containerWidth="detailPanelState.containerWidth"
+            @close="handlePanelClose"
+          />
+        </div>
+
+        <!-- TOP10 进程面板（仅 CPU/GPU 显示） -->
+        <div v-if="showTop10Panel" class="panel-wrapper top10-panel-wrapper">
+          <Top10Panel
+            :data="filteredPerformanceData"
+            :clicked-time="clickedTime"
+            :metric-type="currentMetric"
+          />
+        </div>
       </div>
-
-      <!-- TOP10 进程排名 -->
-      <Top10List
-        :data="filteredPerformanceData"
-        :clicked-time="clickedTime"
-        :type="top10Type"
-        @type-change="handleTop10TypeChange"
-      />
-
-      <!-- 提交内存图表 -->
-      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'commitMemory' }">
-        <ChartPanel
-          title="提交内存"
-          :series="commitMemoryChartSeries"
-          :height="225"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="commitMemory"
-          @point-click="handlePointClick"
-          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'commitMemory')"
-          @mini-tooltip-hide="handleMiniTooltipHide"
-          @detail-click="(data) => handleDetailClick(data, 'commitMemory')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'commitMemory'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
-        <ProcessDetailPanel
-          v-if="detailPanelState && activeChartKey === 'commitMemory'"
-          :visible="detailPanelState !== null"
-          :data="detailPanelState.data"
-          :seriesData="detailPanelState.seriesData"
-          :chartType="detailPanelState.chartType"
-          :clickPosition="detailPanelState.position"
-          :containerWidth="detailPanelState.containerWidth"
-          @close="handlePanelClose"
-        />
-      </div>
-
-      <!-- 进程内存图表 -->
-      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'memory' }">
-        <ChartPanel
-          title="内存"
-          :series="memoryChartSeries"
-          :height="225"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="memory"
-          @point-click="handlePointClick"
-          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'memory')"
-          @mini-tooltip-hide="handleMiniTooltipHide"
-          @detail-click="(data) => handleDetailClick(data, 'memory')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'memory'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
-        <ProcessDetailPanel
-          v-if="detailPanelState && activeChartKey === 'memory'"
-          :visible="detailPanelState !== null"
-          :data="detailPanelState.data"
-          :seriesData="detailPanelState.seriesData"
-          :chartType="detailPanelState.chartType"
-          :clickPosition="detailPanelState.position"
-          :containerWidth="detailPanelState.containerWidth"
-          @close="handlePanelClose"
-        />
-      </div>
-
-      <!-- 高级指标面板 -->
-      <AdvancedMetrics v-if="currentCollectId" :collect-id="currentCollectId" />
+    </div>
     </div>
 
     <!-- 开始采集弹窗 -->
@@ -1286,6 +1241,30 @@ function handleRangeChange(range: [number, number]) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* 指标选择器区域 */
+.metric-selector-area {
+  margin-bottom: 12px;
+}
+
+/* 底部面板区域 - 双面板布局 */
+.bottom-panels {
+  display: flex;
+  gap: 16px;
+  min-height: 500px;
+}
+
+.panel-wrapper {
+  flex: 1;
+  min-width: 500px;
+}
+
+.detail-panel-wrapper,
+.top10-panel-wrapper {
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 /* 历史采集弹窗样式 - 重新设计 */
