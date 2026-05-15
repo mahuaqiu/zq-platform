@@ -85,11 +85,13 @@ function formatDateTime(timestamp: string): string {
 
 // 面板位置计算（fixed 定位，基于点击位置）
 const panelPosition = computed(() => {
+  console.log('=== panelPosition computed ===', props.visible, props.data, props.clickPosition, props.containerWidth);
   const panelWidth = 420;
   const panelHeight = 180;
 
   // 如果没有点击位置和容器宽度，默认显示在屏幕中央
   if (!props.clickPosition || !props.containerWidth) {
+    console.log('no clickPosition, default position');
     return {
       left: '50%',
       transform: 'translateX(-50%)',
@@ -106,6 +108,7 @@ const panelPosition = computed(() => {
 
   // 右侧点位显示在左边
   if (chartWidth - clickX < panelWidth + 20) {
+    console.log('left position');
     return {
       left: '20px',
       right: 'auto',
@@ -116,6 +119,7 @@ const panelPosition = computed(() => {
   }
 
   // 默认显示在右边
+  console.log('right position');
   return {
     left: 'auto',
     right: '20px',
@@ -127,80 +131,84 @@ const panelPosition = computed(() => {
 </script>
 
 <template>
-  <Transition name="panel">
-    <div
-      v-if="visible && data"
-      class="process-detail-panel"
-      :style="panelPosition"
-    >
-      <!-- 头部 -->
-      <div class="panel-header">
-        <h3 class="panel-title">子进程详情</h3>
-        <button class="close-btn" @click="emit('close')">×</button>
-      </div>
+  <div
+    v-if="visible && data"
+    class="process-detail-panel"
+    :style="panelPosition"
+  >
+    <!-- 测试：直接显示内容确认渲染 -->
+    <div style="background: red; color: white; padding: 10px;">测试面板渲染</div>
+    <!-- 头部 -->
+    <div class="panel-header">
+      <h3 class="panel-title">子进程详情</h3>
+      <button class="close-btn" @click="emit('close')">×</button>
+    </div>
 
-      <!-- 时间信息 -->
-      <div class="panel-time">
-        <div class="time-row">时间: {{ formatDateTime(data.timestamp) }}</div>
-      </div>
+    <!-- 时间信息 -->
+    <div class="panel-time">
+      <div class="time-row">时间: {{ formatDateTime(data.timestamp) }}</div>
+    </div>
 
-      <!-- 主曲线数值 -->
-      <div class="panel-series">
-        <div class="series-label">主曲线数值：</div>
-        <div
-          v-for="s in seriesData"
-          :key="s.name"
-          class="series-row"
-        >
-          <div class="series-name">
-            <span class="color-dot" :style="{ background: s.color }"></span>
-            <span>{{ s.name }} {{ chartType === 'memory' || chartType === 'commitMemory' ? 'Memory' : 'CPU' }}</span>
-          </div>
-          <span class="series-value" :style="{ color: s.color }">
-            {{ s.value.toFixed(1) }}{{ s.unit }}
-          </span>
+    <!-- 主曲线数值 -->
+    <div class="panel-series">
+      <div class="series-label">主曲线数值：</div>
+      <div
+        v-for="s in seriesData"
+        :key="s.name"
+        class="series-row"
+      >
+        <div class="series-name">
+          <span class="color-dot" :style="{ background: s.color }"></span>
+          <span>{{ s.name }} {{ chartType === 'memory' || chartType === 'commitMemory' ? 'Memory' : 'CPU' }}</span>
         </div>
-      </div>
-
-      <!-- 子进程详情 -->
-      <div v-if="filteredProcesses.length > 0" class="panel-processes">
-        <div class="processes-label">子进程详情：</div>
-        <div class="processes-list">
-          <div
-            v-for="process in filteredProcesses"
-            :key="process.name"
-            class="process-group"
-          >
-            <div
-              v-for="instance in process.instances"
-              :key="instance.pid"
-              class="instance-row"
-            >
-              <span class="instance-name">{{ process.name }}</span>
-              <span class="instance-pid">(PID:{{ instance.pid }})</span>
-              <span class="instance-value">
-                {{ formatValue(getInstanceValue(instance, chartType), chartType) }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="total-count">共 {{ totalInstances }} 个子进程实例</div>
+        <span class="series-value" :style="{ color: s.color }">
+          {{ s.value.toFixed(1) }}{{ s.unit }}
+        </span>
       </div>
     </div>
-  </Transition>
+
+    <!-- 子进程详情 -->
+    <div v-if="filteredProcesses.length > 0" class="panel-processes">
+      <div class="processes-label">子进程详情：</div>
+      <div class="processes-list">
+        <div
+          v-for="process in filteredProcesses"
+          :key="process.name"
+          class="process-group"
+        >
+          <div
+            v-for="instance in process.instances"
+            :key="instance.pid"
+            class="instance-row"
+          >
+            <span class="instance-name">{{ process.name }}</span>
+            <span class="instance-pid">(PID:{{ instance.pid }})</span>
+            <span class="instance-value">
+              {{ formatValue(getInstanceValue(instance, chartType), chartType) }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="total-count">共 {{ totalInstances }} 个子进程实例</div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
 .process-detail-panel {
-  position: fixed;  /* 相对于视窗定位 */
+  position: fixed !important;
   width: 420px;
-  max-height: 180px;
+  height: 180px;  /* 固定高度，不用 max-height */
   overflow-y: auto;
-  background: white;
+  background: yellow !important;  /* 改成黄色更醒目 */
+  border: 5px solid red !important;  /* 红色边框 */
   border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
   padding: 16px;
-  z-index: 1000;
+  z-index: 99999 !important;  /* 最高层级 */
+  opacity: 1 !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .panel-header {

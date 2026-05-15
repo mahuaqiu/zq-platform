@@ -706,16 +706,24 @@ function handleMiniTooltipHide() {
 
 // 大面板点击事件处理
 function handleDetailClick(data: DetailPanelState, chartKey: string) {
+  console.log('=== handleDetailClick ===', data, chartKey);
+  console.log('detailPanelState before:', detailPanelState.value, 'activeChartKey before:', activeChartKey.value);
+
   // 如果点击的是同一个数据点，关闭面板（toggle）
   if (detailPanelState.value?.data?.relative_time === data.data?.relative_time
       && activeChartKey.value === chartKey) {
+    console.log('toggle close');
     detailPanelState.value = null;
     activeChartKey.value = null;
   } else {
     // 否则，切换显示新数据
+    console.log('set detailPanelState');
     detailPanelState.value = data;
     activeChartKey.value = chartKey;
   }
+
+  console.log('detailPanelState after:', detailPanelState.value, 'activeChartKey after:', activeChartKey.value);
+  console.log('ProcessDetailPanel v-if should be:', detailPanelState.value && activeChartKey.value === 'cpu');
 }
 
 // 大面板关闭事件处理
@@ -814,27 +822,29 @@ function handleRangeChange(range: [number, number]) {
     <div class="charts-area">
       <!-- CPU使用率图表 -->
       <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'cpu' }">
-        <ChartPanel
-          title="CPU使用率"
-          :series="cpuChartSeries"
-          :height="225"
-          :raw-data="filteredPerformanceData"
-          :markers="markers"
-          chart-type="cpu"
-          @point-click="handlePointClick"
-          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'cpu')"
-          @mini-tooltip-hide="handleMiniTooltipHide"
-          @detail-click="(data) => handleDetailClick(data, 'cpu')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
+        <div class="chart-container-wrapper">
+          <ChartPanel
+            title="CPU使用率"
+            :series="cpuChartSeries"
+            :height="225"
+            :raw-data="filteredPerformanceData"
+            :markers="markers"
+            chart-type="cpu"
+            @point-click="handlePointClick"
+            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'cpu')"
+            @mini-tooltip-hide="handleMiniTooltipHide"
+            @detail-click="(data) => handleDetailClick(data, 'cpu')"
+          />
+          <MiniTooltip
+            v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
+            :visible="miniTooltipState !== null"
+            :position="miniTooltipState.position"
+            :containerRect="miniTooltipState.containerRect"
+            :data="miniTooltipState.data"
+            :seriesData="miniTooltipState.seriesData"
+            :chartType="miniTooltipState.chartType"
+          />
+        </div>
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'cpu'"
           :visible="detailPanelState !== null"
@@ -1130,8 +1140,13 @@ function handleRangeChange(range: [number, number]) {
 <style scoped>
 /* 图表容器 - 单独占据整行 */
 .chart-wrapper {
-  position: relative;  /* MiniTooltip absolute 定位相对此容器 */
+  position: relative;
   margin-bottom: 16px;
+}
+
+/* 图表和 tooltip 的容器 */
+.chart-container-wrapper {
+  position: relative;
 }
 
 /* 面板激活时增加底部空间 */
