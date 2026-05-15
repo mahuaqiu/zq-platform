@@ -8,10 +8,14 @@ interface Props {
   data: PerformanceData | null;
   seriesData: { name: string; value: number; color: string; unit: string }[];
   chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  clickPosition?: { x: number; y: number } | null;  // 点击位置
+  containerWidth?: number;  // 图表容器宽度
 }
 
 const props = withDefaults(defineProps<Props>(), {
   visible: false,
+  clickPosition: null,
+  containerWidth: 800,
 });
 
 const emit = defineEmits<{
@@ -78,6 +82,29 @@ function formatDateTime(timestamp: string): string {
   const second = String(date.getSeconds()).padStart(2, '0');
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
+
+// 面板位置计算（底部弹出，右侧点位时显示在左边）
+const panelPosition = computed(() => {
+  // 面板宽度 420px
+  const panelWidth = 420;
+  const chartWidth = props.containerWidth;
+
+  // 如果没有点击位置，默认显示在右边
+  if (!props.clickPosition) {
+    return { right: '10px', left: 'auto' };
+  }
+
+  // 如果点击位置在图表右侧（距离右边界小于面板宽度），显示在左边
+  const clickX = props.clickPosition.x;
+
+  // 距离右边界 < 面板宽度 + 20px 边距，则显示在左边
+  if (chartWidth - clickX < panelWidth + 20) {
+    return { left: '10px', right: 'auto' };
+  }
+
+  // 否则显示在右边
+  return { right: '10px', left: 'auto' };
+});
 </script>
 
 <template>
@@ -85,6 +112,10 @@ function formatDateTime(timestamp: string): string {
     <div
       v-if="visible && data"
       class="process-detail-panel"
+      :style="{
+        left: panelPosition.left,
+        right: panelPosition.right,
+      }"
     >
       <!-- 头部 -->
       <div class="panel-header">
@@ -146,10 +177,9 @@ function formatDateTime(timestamp: string): string {
 <style scoped>
 .process-detail-panel {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  max-height: 400px;
+  bottom: -180px;  /* 显示在图表下方 */
+  width: 420px;
+  max-height: 180px;
   overflow-y: auto;
   background: white;
   border-radius: 8px;

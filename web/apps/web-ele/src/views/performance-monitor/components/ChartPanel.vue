@@ -50,6 +50,8 @@ const emit = defineEmits<{
     seriesData: { name: string; value: number; color: string; unit: string }[];
     chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
     chartKey: string;
+    position: { x: number; y: number };
+    containerWidth: number;
   }): void;
 }>();
 
@@ -136,6 +138,8 @@ onMounted(() => {
               seriesData,
               chartType: props.chartType,
               chartKey: props.chartType,
+              position: { x: offsetX, y: offsetY },
+              containerWidth: chartRef.value?.offsetWidth || 800,
             });
           }
         }

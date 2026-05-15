@@ -115,6 +115,8 @@ interface DetailPanelState {
   seriesData: { name: string; value: number; color: string; unit: string }[];
   chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
   chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory）
+  position?: { x: number; y: number };  // 点击位置
+  containerWidth?: number;  // 图表容器宽度
 }
 const detailPanelState = ref<DetailPanelState | null>(null);
 const activeChartKey = ref<string | null>(null);  // 当前激活的图表
@@ -811,77 +813,73 @@ function handleRangeChange(range: [number, number]) {
     <!-- 主内容区 - 单列布局 -->
     <div class="charts-area">
       <!-- CPU使用率图表 -->
-      <div class="chart-wrapper">
-        <div class="chart-area">
-          <ChartPanel
-            title="CPU使用率"
-            :series="cpuChartSeries"
-            :height="180"
-            :raw-data="filteredPerformanceData"
-            :markers="markers"
-            chart-type="cpu"
-            @point-click="handlePointClick"
-            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'cpu')"
-            @mini-tooltip-hide="handleMiniTooltipHide"
-            @detail-click="(data) => handleDetailClick(data, 'cpu')"
-          />
-          <MiniTooltip
-            v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
-            :visible="miniTooltipState !== null"
-            :position="miniTooltipState.position"
-            :containerRect="miniTooltipState.containerRect"
-            :data="miniTooltipState.data"
-            :seriesData="miniTooltipState.seriesData"
-            :chartType="miniTooltipState.chartType"
-          />
-        </div>
-        <div class="panel-area">
-          <ProcessDetailPanel
-            v-if="detailPanelState && activeChartKey === 'cpu'"
-            :visible="detailPanelState !== null"
-            :data="detailPanelState.data"
-            :seriesData="detailPanelState.seriesData"
-            :chartType="detailPanelState.chartType"
-            @close="handlePanelClose"
-          />
-        </div>
+      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'cpu' }">
+        <ChartPanel
+          title="CPU使用率"
+          :series="cpuChartSeries"
+          :height="225"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="cpu"
+          @point-click="handlePointClick"
+          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'cpu')"
+          @mini-tooltip-hide="handleMiniTooltipHide"
+          @detail-click="(data) => handleDetailClick(data, 'cpu')"
+        />
+        <MiniTooltip
+          v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
+          :visible="miniTooltipState !== null"
+          :position="miniTooltipState.position"
+          :containerRect="miniTooltipState.containerRect"
+          :data="miniTooltipState.data"
+          :seriesData="miniTooltipState.seriesData"
+          :chartType="miniTooltipState.chartType"
+        />
+        <ProcessDetailPanel
+          v-if="detailPanelState && activeChartKey === 'cpu'"
+          :visible="detailPanelState !== null"
+          :data="detailPanelState.data"
+          :seriesData="detailPanelState.seriesData"
+          :chartType="detailPanelState.chartType"
+          :clickPosition="detailPanelState.position"
+          :containerWidth="detailPanelState.containerWidth"
+          @close="handlePanelClose"
+        />
       </div>
 
       <!-- GPU使用率图表 -->
-      <div class="chart-wrapper">
-        <div class="chart-area">
-          <ChartPanel
-            title="GPU使用率"
-            :series="gpuChartSeries"
-            :height="180"
-            :raw-data="filteredPerformanceData"
-            :markers="markers"
-            chart-type="gpu"
-            @point-click="handlePointClick"
-            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'gpu')"
-            @mini-tooltip-hide="handleMiniTooltipHide"
-            @detail-click="(data) => handleDetailClick(data, 'gpu')"
-          />
-          <MiniTooltip
-            v-if="miniTooltipState && activeChartKey === 'gpu'"
-            :visible="miniTooltipState !== null"
-            :position="miniTooltipState.position"
-            :containerRect="miniTooltipState.containerRect"
-            :data="miniTooltipState.data"
-            :seriesData="miniTooltipState.seriesData"
-            :chartType="miniTooltipState.chartType"
-          />
-        </div>
-        <div class="panel-area">
-          <ProcessDetailPanel
-            v-if="detailPanelState && activeChartKey === 'gpu'"
-            :visible="detailPanelState !== null"
-            :data="detailPanelState.data"
-            :seriesData="detailPanelState.seriesData"
-            :chartType="detailPanelState.chartType"
-            @close="handlePanelClose"
-          />
-        </div>
+      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'gpu' }">
+        <ChartPanel
+          title="GPU使用率"
+          :series="gpuChartSeries"
+          :height="225"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="gpu"
+          @point-click="handlePointClick"
+          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'gpu')"
+          @mini-tooltip-hide="handleMiniTooltipHide"
+          @detail-click="(data) => handleDetailClick(data, 'gpu')"
+        />
+        <MiniTooltip
+          v-if="miniTooltipState && miniTooltipState.chartKey === 'gpu'"
+          :visible="miniTooltipState !== null"
+          :position="miniTooltipState.position"
+          :containerRect="miniTooltipState.containerRect"
+          :data="miniTooltipState.data"
+          :seriesData="miniTooltipState.seriesData"
+          :chartType="miniTooltipState.chartType"
+        />
+        <ProcessDetailPanel
+          v-if="detailPanelState && activeChartKey === 'gpu'"
+          :visible="detailPanelState !== null"
+          :data="detailPanelState.data"
+          :seriesData="detailPanelState.seriesData"
+          :chartType="detailPanelState.chartType"
+          :clickPosition="detailPanelState.position"
+          :containerWidth="detailPanelState.containerWidth"
+          @close="handlePanelClose"
+        />
       </div>
 
       <!-- TOP10 进程排名 -->
@@ -893,77 +891,73 @@ function handleRangeChange(range: [number, number]) {
       />
 
       <!-- 提交内存图表 -->
-      <div class="chart-wrapper">
-        <div class="chart-area">
-          <ChartPanel
-            title="提交内存"
-            :series="commitMemoryChartSeries"
-            :height="180"
-            :raw-data="filteredPerformanceData"
-            :markers="markers"
-            chart-type="commitMemory"
-            @point-click="handlePointClick"
-            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'commitMemory')"
-            @mini-tooltip-hide="handleMiniTooltipHide"
-            @detail-click="(data) => handleDetailClick(data, 'commitMemory')"
-          />
-          <MiniTooltip
-            v-if="miniTooltipState && activeChartKey === 'commitMemory'"
-            :visible="miniTooltipState !== null"
-            :position="miniTooltipState.position"
-            :containerRect="miniTooltipState.containerRect"
-            :data="miniTooltipState.data"
-            :seriesData="miniTooltipState.seriesData"
-            :chartType="miniTooltipState.chartType"
-          />
-        </div>
-        <div class="panel-area">
-          <ProcessDetailPanel
-            v-if="detailPanelState && activeChartKey === 'commitMemory'"
-            :visible="detailPanelState !== null"
-            :data="detailPanelState.data"
-            :seriesData="detailPanelState.seriesData"
-            :chartType="detailPanelState.chartType"
-            @close="handlePanelClose"
-          />
-        </div>
+      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'commitMemory' }">
+        <ChartPanel
+          title="提交内存"
+          :series="commitMemoryChartSeries"
+          :height="225"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="commitMemory"
+          @point-click="handlePointClick"
+          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'commitMemory')"
+          @mini-tooltip-hide="handleMiniTooltipHide"
+          @detail-click="(data) => handleDetailClick(data, 'commitMemory')"
+        />
+        <MiniTooltip
+          v-if="miniTooltipState && miniTooltipState.chartKey === 'commitMemory'"
+          :visible="miniTooltipState !== null"
+          :position="miniTooltipState.position"
+          :containerRect="miniTooltipState.containerRect"
+          :data="miniTooltipState.data"
+          :seriesData="miniTooltipState.seriesData"
+          :chartType="miniTooltipState.chartType"
+        />
+        <ProcessDetailPanel
+          v-if="detailPanelState && activeChartKey === 'commitMemory'"
+          :visible="detailPanelState !== null"
+          :data="detailPanelState.data"
+          :seriesData="detailPanelState.seriesData"
+          :chartType="detailPanelState.chartType"
+          :clickPosition="detailPanelState.position"
+          :containerWidth="detailPanelState.containerWidth"
+          @close="handlePanelClose"
+        />
       </div>
 
       <!-- 进程内存图表 -->
-      <div class="chart-wrapper">
-        <div class="chart-area">
-          <ChartPanel
-            title="内存"
-            :series="memoryChartSeries"
-            :height="180"
-            :raw-data="filteredPerformanceData"
-            :markers="markers"
-            chart-type="memory"
-            @point-click="handlePointClick"
-            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'memory')"
-            @mini-tooltip-hide="handleMiniTooltipHide"
-            @detail-click="(data) => handleDetailClick(data, 'memory')"
-          />
-          <MiniTooltip
-            v-if="miniTooltipState && activeChartKey === 'memory'"
-            :visible="miniTooltipState !== null"
-            :position="miniTooltipState.position"
-            :containerRect="miniTooltipState.containerRect"
-            :data="miniTooltipState.data"
-            :seriesData="miniTooltipState.seriesData"
-            :chartType="miniTooltipState.chartType"
-          />
-        </div>
-        <div class="panel-area">
-          <ProcessDetailPanel
-            v-if="detailPanelState && activeChartKey === 'memory'"
-            :visible="detailPanelState !== null"
-            :data="detailPanelState.data"
-            :seriesData="detailPanelState.seriesData"
-            :chartType="detailPanelState.chartType"
-            @close="handlePanelClose"
-          />
-        </div>
+      <div class="chart-wrapper" :class="{ 'has-panel': detailPanelState && activeChartKey === 'memory' }">
+        <ChartPanel
+          title="内存"
+          :series="memoryChartSeries"
+          :height="225"
+          :raw-data="filteredPerformanceData"
+          :markers="markers"
+          chart-type="memory"
+          @point-click="handlePointClick"
+          @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'memory')"
+          @mini-tooltip-hide="handleMiniTooltipHide"
+          @detail-click="(data) => handleDetailClick(data, 'memory')"
+        />
+        <MiniTooltip
+          v-if="miniTooltipState && miniTooltipState.chartKey === 'memory'"
+          :visible="miniTooltipState !== null"
+          :position="miniTooltipState.position"
+          :containerRect="miniTooltipState.containerRect"
+          :data="miniTooltipState.data"
+          :seriesData="miniTooltipState.seriesData"
+          :chartType="miniTooltipState.chartType"
+        />
+        <ProcessDetailPanel
+          v-if="detailPanelState && activeChartKey === 'memory'"
+          :visible="detailPanelState !== null"
+          :data="detailPanelState.data"
+          :seriesData="detailPanelState.seriesData"
+          :chartType="detailPanelState.chartType"
+          :clickPosition="detailPanelState.position"
+          :containerWidth="detailPanelState.containerWidth"
+          @close="handlePanelClose"
+        />
       </div>
 
       <!-- 高级指标面板 -->
@@ -1134,25 +1128,15 @@ function handleRangeChange(range: [number, number]) {
 </template>
 
 <style scoped>
-/* 图表容器使用 flex 布局 */
+/* 图表容器 - 单独占据整行 */
 .chart-wrapper {
-  display: flex;
-  gap: 16px;
+  position: relative;
   margin-bottom: 16px;
 }
 
-/* 图表区域自适应宽度 */
-.chart-area {
-  flex: 1;
-  min-width: 0;  /* 防止 flex 溢出 */
-  position: relative;
-}
-
-/* 右侧面板区域固定宽度 */
-.panel-area {
-  width: 320px;
-  min-height: 180px;  /* 与图表高度匹配 */
-  position: relative;
+/* 面板激活时增加底部空间 */
+.chart-wrapper.has-panel {
+  margin-bottom: 200px;  /* 为面板留出空间 */
 }
 
 .performance-monitor {
@@ -1287,10 +1271,6 @@ function handleRangeChange(range: [number, number]) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.chart-wrapper {
-  position: relative;
 }
 
 /* 历史采集弹窗样式 - 重新设计 */
