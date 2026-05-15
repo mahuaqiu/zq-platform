@@ -56,6 +56,96 @@ const emit = defineEmits<{
 const chartRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;
 
+// 使用原生 DOM 事件代替 ECharts 事件
+onMounted(() => {
+  if (chartRef.value) {
+    // 鼠标移动事件
+    chartRef.value.addEventListener('mousemove', (e) => {
+      // 检查图表是否有数据
+      if (!props.series.length || !chartInstance) return;
+
+      // 获取鼠标在图表中的位置
+      const offsetX = e.offsetX;
+      const offsetY = e.offsetY;
+
+      // 使用 ECharts 的 convertFromPixel 来获取数据索引
+      try {
+        const pointInPixel = [offsetX, offsetY];
+        const pointInGrid = chartInstance.convertFromPixel('grid', pointInPixel);
+
+        if (pointInGrid && pointInGrid[0] !== undefined) {
+          // pointInGrid[0] 是 x 轴索引（ dataIndex ）
+          const dataIndex = Math.round(pointInGrid[0]);
+
+          if (dataIndex >= 0 && dataIndex < props.series[0].data.length) {
+            const rawDataPoint = props.rawData?.[dataIndex];
+
+            // 构建主曲线数据
+            const seriesData = props.series.map((s) => ({
+              name: s.name,
+              value: s.data[dataIndex]?.value || 0,
+              color: s.color,
+              unit: s.unit || '%',
+            }));
+
+            emit('mini-tooltip-show', {
+              position: { x: offsetX, y: offsetY },
+              data: rawDataPoint,
+              seriesData,
+              chartType: props.chartType,
+              containerRect: chartRef.value!.getBoundingClientRect(),
+            });
+          }
+        }
+      } catch (err) {
+        // 忽略错误
+      }
+    });
+
+    // 鼠标离开事件
+    chartRef.value.addEventListener('mouseout', () => {
+      emit('mini-tooltip-hide');
+    });
+
+    // 点击事件
+    chartRef.value.addEventListener('click', (e) => {
+      if (!props.series.length || !chartInstance) return;
+
+      const offsetX = e.offsetX;
+      const offsetY = e.offsetY;
+
+      try {
+        const pointInPixel = [offsetX, offsetY];
+        const pointInGrid = chartInstance.convertFromPixel('grid', pointInPixel);
+
+        if (pointInGrid && pointInGrid[0] !== undefined) {
+          const dataIndex = Math.round(pointInGrid[0]);
+
+          if (dataIndex >= 0 && dataIndex < props.series[0].data.length) {
+            const rawDataPoint = props.rawData?.[dataIndex];
+
+            const seriesData = props.series.map((s) => ({
+              name: s.name,
+              value: s.data[dataIndex]?.value || 0,
+              color: s.color,
+              unit: s.unit || '%',
+            }));
+
+            emit('detail-click', {
+              data: rawDataPoint,
+              seriesData,
+              chartType: props.chartType,
+              chartKey: props.chartType,
+            });
+          }
+        }
+      } catch (err) {
+        // 忽略错误
+      }
+    });
+  }
+});
+
 const chartHeight = computed(() => props.height || 200);
 
 // 主单位（取第一个 series 的单位）
@@ -108,7 +198,7 @@ function initChart() {
   if (!chartRef.value) return;
   chartInstance = echarts.init(chartRef.value);
 
-  // 绑定点击事件
+  // 绑定点击事件（仅在 enableTagClick 时）
   if (props.enableTagClick) {
     chartInstance.on('click', (params: any) => {
       if (params.componentType === 'series') {
@@ -120,58 +210,6 @@ function initChart() {
       }
     });
   }
-
-  // 监听鼠标移动事件，传递数据给外部 mini tooltip
-  chartInstance.on('mousemove', (params: any) => {
-    if (params.componentType === 'series') {
-      const dataIndex = params.dataIndex;
-      const rawDataPoint = props.rawData?.[dataIndex];
-
-      // 构建主曲线数据
-      const seriesData = props.series.map((s) => ({
-        name: s.name,
-        value: s.data[dataIndex]?.value || 0,
-        color: s.color,
-        unit: s.unit || '%',
-      }));
-
-      emit('mini-tooltip-show', {
-        position: { x: params.event.offsetX, y: params.event.offsetY },
-        data: rawDataPoint,
-        seriesData,
-        chartType: props.chartType,
-        containerRect: chartRef.value!.getBoundingClientRect(),
-      });
-    }
-  });
-
-  // 监听鼠标离开事件
-  chartInstance.on('mouseout', () => {
-    emit('mini-tooltip-hide');
-  });
-
-  // 监听点击事件，传递数据给外部 detail panel
-  chartInstance.on('click', (params: any) => {
-    if (params.componentType === 'series') {
-      const dataIndex = params.dataIndex;
-      const rawDataPoint = props.rawData?.[dataIndex];
-
-      // 构建主曲线数据
-      const seriesData = props.series.map((s) => ({
-        name: s.name,
-        value: s.data[dataIndex]?.value || 0,
-        color: s.color,
-        unit: s.unit || '%',
-      }));
-
-      emit('detail-click', {
-        data: rawDataPoint,
-        seriesData,
-        chartType: props.chartType,
-        chartKey: props.chartType,  // 用 chartType 作为标识
-      });
-    }
-  });
 
   updateChart();
 }
@@ -372,7 +410,7 @@ function updateChart() {
 
   const option = {
     tooltip: {
-      show: false  // 完全禁用原 tooltip，使用外部组件控制
+      show: false  // 禁用原 tooltip，使用原生 DOM 事件
     },
     legend: {
       show: false,
