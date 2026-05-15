@@ -26,7 +26,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   showTop10: false,
-  height: 200,
+  height: 310,
   enableTagClick: false,
   showActualTime: false,
   chartType: 'cpu',
@@ -157,7 +157,7 @@ onMounted(() => {
   }
 });
 
-const chartHeight = computed(() => props.height || 200);
+const chartHeight = computed(() => props.height || 310);
 
 // 主单位（取第一个 series 的单位）
 const mainUnit = computed(() => {
@@ -539,75 +539,87 @@ onUnmounted(() => {
 
 <style scoped>
 .chart-panel {
+  padding: 12px;
   background: #fff;
   border-radius: 6px;
-  padding: 12px;
 }
+
 .chart-title {
+  margin-bottom: 8px;
   font-size: 15px;
   font-weight: 700;
   color: #333;
-  margin-bottom: 8px;
 }
+
 .chart-container {
+  position: relative;
   width: 100%;
   background: #f8f9fa;
   border-radius: 4px;
-  position: relative;
 }
+
 .chart-values-overlay {
   position: absolute;
   top: 4px;
   right: 8px;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 10;
   pointer-events: none;
 }
+
 .overlay-value {
   font-size: 10px;
   line-height: 1.4;
 }
+
 .tags-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
+
 .tag-item {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   padding: 4px 8px;
-  border-radius: 4px;
   font-size: 11px;
+  border-radius: 4px;
 }
+
 .tag-peak {
-  background: rgba(103, 194, 126, 0.15);
-  border: 1px solid rgba(103, 194, 126, 0.4);
   color: #67c23a;
+  background: rgb(103 194 126 / 15%);
+  border: 1px solid rgb(103 194 126 / 40%);
 }
+
 .tag-mean {
-  background: rgba(245, 108, 108, 0.15);
-  border: 1px solid rgba(245, 108, 108, 0.4);
   color: #f56c6c;
+  background: rgb(245 108 108 / 15%);
+  border: 1px solid rgb(245 108 108 / 40%);
 }
+
 .tag-name {
   font-weight: 600;
 }
+
 .tag-range {
   color: #666;
 }
+
 .tag-delete {
-  background: none;
-  border: none;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
   color: inherit;
   cursor: pointer;
-  font-size: 14px;
-  padding: 0;
-  line-height: 1;
+  background: none;
+  border: none;
 }
+
 .tag-delete:hover {
   opacity: 0.7;
 }
