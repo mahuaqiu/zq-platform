@@ -95,7 +95,6 @@ function formatDateTime(timestamp: string): string {
       <!-- 时间信息 -->
       <div class="panel-time">
         <div class="time-row">时间: {{ formatDateTime(data.timestamp) }}</div>
-        <div class="time-row">相对时间: {{ data.relative_time }}s</div>
       </div>
 
       <!-- 主曲线数值 -->
