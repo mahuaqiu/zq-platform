@@ -111,9 +111,7 @@ onMounted(() => {
 
     // 点击事件
     chartRef.value.addEventListener('click', (e) => {
-      console.log('=== ChartPanel click ===', e.offsetX, e.offsetY);
       if (!props.series.length || !chartInstance) {
-        console.log('blocked: no series or chartInstance');
         return;
       }
 
@@ -123,8 +121,6 @@ onMounted(() => {
       try {
         const pointInPixel = [offsetX, offsetY];
         const pointInGrid = chartInstance.convertFromPixel('grid', pointInPixel);
-
-        console.log('pointInGrid', pointInGrid);
 
         if (pointInGrid && pointInGrid[0] !== undefined) {
           const dataIndex = Math.round(pointInGrid[0]);
@@ -139,7 +135,6 @@ onMounted(() => {
               unit: s.unit || '%',
             }));
 
-            console.log('emit detail-click');
             emit('detail-click', {
               data: rawDataPoint,
               seriesData,
@@ -151,7 +146,7 @@ onMounted(() => {
           }
         }
       } catch (err) {
-        console.log('click error', err);
+        // 忽略点击错误
       }
     });
   }
