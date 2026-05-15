@@ -33,18 +33,24 @@ const props = withDefaults(defineProps<Props>(), {
   markers: () => [],
 });
 
-// 定义 Events（新增 tooltip 事件）
+// 定义 Events（改造为双区域tooltip）
 const emit = defineEmits<{
   (e: 'point-click', data: { time: number; collectId: string }): void;
   (e: 'tag-delete', tagId: string): void;
-  (e: 'tooltip-show', data: {
+  (e: 'mini-tooltip-show', data: {
     position: { x: number; y: number };
     data: PerformanceData | undefined;
     seriesData: { name: string; value: number; color: string; unit: string }[];
     chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
     containerRect: DOMRect;
   }): void;
-  (e: 'tooltip-hide'): void;
+  (e: 'mini-tooltip-hide'): void;
+  (e: 'detail-click', data: {
+    data: PerformanceData | undefined;
+    seriesData: { name: string; value: number; color: string; unit: string }[];
+    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+    chartKey: string;
+  }): void;
 }>();
 
 const chartRef = ref<HTMLDivElement>();
@@ -115,7 +121,7 @@ function initChart() {
     });
   }
 
-  // 监听鼠标移动事件，传递数据给外部 tooltip
+  // 监听鼠标移动事件，传递数据给外部 mini tooltip
   chartInstance.on('mousemove', (params: any) => {
     if (params.componentType === 'series') {
       const dataIndex = params.dataIndex;
@@ -129,7 +135,7 @@ function initChart() {
         unit: s.unit || '%',
       }));
 
-      emit('tooltip-show', {
+      emit('mini-tooltip-show', {
         position: { x: params.event.offsetX, y: params.event.offsetY },
         data: rawDataPoint,
         seriesData,
@@ -141,7 +147,30 @@ function initChart() {
 
   // 监听鼠标离开事件
   chartInstance.on('mouseout', () => {
-    emit('tooltip-hide');
+    emit('mini-tooltip-hide');
+  });
+
+  // 监听点击事件，传递数据给外部 detail panel
+  chartInstance.on('click', (params: any) => {
+    if (params.componentType === 'series') {
+      const dataIndex = params.dataIndex;
+      const rawDataPoint = props.rawData?.[dataIndex];
+
+      // 构建主曲线数据
+      const seriesData = props.series.map((s) => ({
+        name: s.name,
+        value: s.data[dataIndex]?.value || 0,
+        color: s.color,
+        unit: s.unit || '%',
+      }));
+
+      emit('detail-click', {
+        data: rawDataPoint,
+        seriesData,
+        chartType: props.chartType,
+        chartKey: props.chartType,  // 用 chartType 作为标识
+      });
+    }
   });
 
   updateChart();
@@ -343,53 +372,7 @@ function updateChart() {
 
   const option = {
     tooltip: {
-      trigger: 'axis',
-      confine: true, // 限制tooltip在图表区域内
-      formatter: (params: any) => {
-        const dataIndex = params[0].dataIndex;
-        const relativeTime = params[0].axisValue;
-        const rawDataPoint = props.rawData?.[dataIndex];
-
-        let html = `<div style="font-size:12px;padding:4px 8px;max-width:200px;">`;
-
-        // 实际时间（如果有原始数据）
-        if (rawDataPoint?.timestamp) {
-          html += `<div style="font-size:12px;margin-bottom:4px"><b style="color:#409eff">${formatDateTime(rawDataPoint.timestamp)}</b></div>`;
-        }
-
-        // 曲线值（带方块图标）
-        html += `<div style="margin-top:6px">`;
-        params.forEach((p: any, idx: number) => {
-          const series = props.series[idx];
-          const unit = series?.unit || '%';
-          let displayValue = '-';
-          if (p.value !== undefined) {
-            if (unit === 'GB') {
-              displayValue = p.value.toFixed(2) + ' GB';
-            } else if (unit === 'MB') {
-              displayValue = Math.round(p.value) + ' MB';
-            } else {
-              displayValue = p.value.toFixed(1) + '%';
-            }
-          }
-          html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">`;
-          html += `<div style="display:flex;align-items:center;gap:5px">`;
-          html += `<div style="width:12px;height:12px;background:${p.color};border-radius:3px"></div>`;
-          html += `<span style="font-size:13px;color:#666">${p.seriesName}</span>`;
-          html += `</div>`;
-          html += `<span style="font-size:14px;color:${p.color};font-weight:600">${displayValue}</span>`;
-          html += `</div>`;
-        });
-        html += `</div>`;
-
-        // 进程明细提示
-        if (rawDataPoint?.target_processes?.length) {
-          html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee;font-size:11px;color:#999;text-align:center">鼠标悬停查看子进程详情</div>`;
-        }
-
-        html += `</div></div>`;
-        return html;
-      },
+      show: false  // 完全禁用原 tooltip，使用外部组件控制
     },
     legend: {
       show: false,
