@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { PerformanceData } from '#/api/core/performance-monitor';
 
 // Props 定义
@@ -16,21 +16,67 @@ const props = withDefaults(defineProps<Props>(), {
   visible: false,
 });
 
+const emit = defineEmits<{
+  (e: 'click', data: {
+    data: PerformanceData | undefined;
+    seriesData: { name: string; value: number; color: string; unit: string }[];
+    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+    position: { x: number; y: number };
+  }): void;  // 点击 tooltip 显示详情
+}>();
+
+// 锁定状态（鼠标进入 tooltip 时停止跟随）
+const isLocked = ref(false);
+const lockedPosition = ref<{ x: number; y: number } | null>(null);
+
+// 当 visible 变为 false 时，重置锁定状态
+watch(() => props.visible, (newVisible) => {
+  if (!newVisible) {
+    isLocked.value = false;
+    lockedPosition.value = null;
+  }
+});
+
 // 相对于图表容器定位（absolute）
 const tooltipPosition = computed(() => {
+  // 锁定时使用锁定位置
+  if (isLocked.value && lockedPosition.value) {
+    return {
+      left: lockedPosition.value.x + 30,
+      top: lockedPosition.value.y + 10
+    };
+  }
+
   if (!props.position) {
     return { left: 0, top: 0 };
   }
 
-  const offsetX = 30;  // 水平偏移距离
-  const offsetY = 10;  // 垂直偏移距离
+  const offsetX = 30;
+  const offsetY = 10;
 
-  // 基于鼠标相对图表的位置 + 偏移
   const left = props.position.x + offsetX;
   const top = props.position.y + offsetY;
 
   return { left, top };
 });
+
+// 鼠标进入 tooltip，锁定位置
+function handleMouseEnter() {
+  if (!isLocked.value && props.position) {
+    isLocked.value = true;
+    lockedPosition.value = { x: props.position.x, y: props.position.y };
+  }
+}
+
+// 点击 tooltip，触发详情显示
+function handleClick() {
+  emit('click', {
+    data: props.data,
+    seriesData: props.seriesData,
+    chartType: props.chartType,
+    position: lockedPosition.value || props.position,
+  });
+}
 
 // 显示进程名 + 实例数（最多显示 3 个进程）
 const processSummary = computed(() => {
@@ -66,6 +112,8 @@ function formatDateTime(timestamp: string): string {
       left: tooltipPosition.left + 'px',
       top: tooltipPosition.top + 'px',
     }"
+    @mouseenter="handleMouseEnter"
+    @click="handleClick"
   >
     <!-- 时间显示 -->
     <div class="tooltip-time">
@@ -120,7 +168,7 @@ function formatDateTime(timestamp: string): string {
   max-width: 180px;
   max-height: 150px;
   overflow: hidden;
-  pointer-events: none;  /* 不阻挡鼠标事件，让点击能穿透到图表 */
+  cursor: pointer;  /* 可点击 */
 }
 
 .tooltip-time {

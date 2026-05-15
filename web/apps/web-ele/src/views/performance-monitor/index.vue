@@ -704,6 +704,30 @@ function handleMiniTooltipHide() {
   miniTooltipState.value = null;
 }
 
+// MiniTooltip 点击事件处理（显示详情面板）
+function handleMiniTooltipClick(data: {
+  data: PerformanceData | undefined;
+  seriesData: { name: string; value: number; color: string; unit: string }[];
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  position: { x: number; y: number };
+}, chartKey: string) {
+  if (!data.data) return;
+
+  // 设置详情面板状态
+  detailPanelState.value = {
+    data: data.data,
+    seriesData: data.seriesData,
+    chartType: data.chartType,
+    chartKey,
+    position: data.position,
+    containerWidth: miniTooltipState.value?.containerRect?.width || 800,
+  };
+  activeChartKey.value = chartKey;
+
+  // 隐藏小 tooltip
+  miniTooltipState.value = null;
+}
+
 // 大面板点击事件处理
 function handleDetailClick(data: DetailPanelState, chartKey: string) {
   // 如果点击的是同一个数据点，关闭面板（toggle）
@@ -834,6 +858,7 @@ function handleRangeChange(range: [number, number]) {
           :data="miniTooltipState.data"
           :seriesData="miniTooltipState.seriesData"
           :chartType="miniTooltipState.chartType"
+          @click="(data) => handleMiniTooltipClick(data, 'cpu')"
         />
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'cpu'"
@@ -869,6 +894,7 @@ function handleRangeChange(range: [number, number]) {
           :data="miniTooltipState.data"
           :seriesData="miniTooltipState.seriesData"
           :chartType="miniTooltipState.chartType"
+          @click="(data) => handleMiniTooltipClick(data, 'gpu')"
         />
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'gpu'"
@@ -912,6 +938,7 @@ function handleRangeChange(range: [number, number]) {
           :data="miniTooltipState.data"
           :seriesData="miniTooltipState.seriesData"
           :chartType="miniTooltipState.chartType"
+          @click="(data) => handleMiniTooltipClick(data, 'commitMemory')"
         />
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'commitMemory'"
@@ -947,6 +974,7 @@ function handleRangeChange(range: [number, number]) {
           :data="miniTooltipState.data"
           :seriesData="miniTooltipState.seriesData"
           :chartType="miniTooltipState.chartType"
+          @click="(data) => handleMiniTooltipClick(data, 'memory')"
         />
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'memory'"
@@ -1130,7 +1158,7 @@ function handleRangeChange(range: [number, number]) {
 <style scoped>
 /* 图表容器 - 单独占据整行 */
 .chart-wrapper {
-  position: relative;
+  position: relative;  /* MiniTooltip absolute 定位相对此容器 */
   margin-bottom: 16px;
 }
 
