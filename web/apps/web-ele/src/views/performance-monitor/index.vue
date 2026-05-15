@@ -358,7 +358,7 @@ onMounted(async () => {
 
   // 添加全局点击事件监听（用于关闭大面板）
   document.addEventListener('click', handleGlobalClick);
-});
+
   await fetchVersions();
 
   // 根据采集状态加载数据
