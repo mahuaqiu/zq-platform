@@ -16,18 +16,18 @@ const props = withDefaults(defineProps<Props>(), {
   visible: false,
 });
 
-// 使用 fixed 定位，相对于视窗（基于 containerRect）
+// 相对于图表容器定位（absolute）
 const tooltipPosition = computed(() => {
-  if (!props.position || !props.containerRect) {
+  if (!props.position) {
     return { left: 0, top: 0 };
   }
 
   const offsetX = 30;  // 水平偏移距离
   const offsetY = 10;  // 垂直偏移距离
 
-  // 基于图表容器在视窗中的位置 + 鼠标相对位置 + 偏移
-  const left = props.containerRect.left + props.position.x + offsetX;
-  const top = props.containerRect.top + props.position.y + offsetY;
+  // 基于鼠标相对图表的位置 + 偏移
+  const left = props.position.x + offsetX;
+  const top = props.position.y + offsetY;
 
   return { left, top };
 });
@@ -109,12 +109,12 @@ function formatDateTime(timestamp: string): string {
 
 <style scoped>
 .mini-tooltip {
-  position: fixed;  /* 相对于视窗定位 */
+  position: absolute;  /* 相对于 chart-wrapper 定位 */
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   padding: 12px;
-  z-index: 1000;  /* 提高层级，确保在最上层 */
+  z-index: 100;
   font-size: 13px;
   min-width: 160px;
   max-width: 180px;
