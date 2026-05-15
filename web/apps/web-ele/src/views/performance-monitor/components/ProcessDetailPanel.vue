@@ -83,27 +83,46 @@ function formatDateTime(timestamp: string): string {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-// 面板位置计算（底部弹出，右侧点位时显示在左边）
+// 面板位置计算（fixed 定位，基于点击位置）
 const panelPosition = computed(() => {
-  // 面板宽度 420px
   const panelWidth = 420;
+  const panelHeight = 180;
+
+  // 如果没有点击位置和容器宽度，默认显示在屏幕中央
+  if (!props.clickPosition || !props.containerWidth) {
+    return {
+      left: '50%',
+      transform: 'translateX(-50%)',
+      top: 'auto',
+      bottom: '20px'
+    };
+  }
+
+  // 基于 containerRect 计算视窗位置
+  // 这里我们假设 containerRect 在 miniTooltipState 中传递
+  // 简化处理：根据点击位置在图表中的位置判断左右
+  const clickX = props.clickPosition.x;
   const chartWidth = props.containerWidth;
 
-  // 如果没有点击位置，默认显示在右边
-  if (!props.clickPosition) {
-    return { right: '10px', left: 'auto' };
-  }
-
-  // 如果点击位置在图表右侧（距离右边界小于面板宽度），显示在左边
-  const clickX = props.clickPosition.x;
-
-  // 距离右边界 < 面板宽度 + 20px 边距，则显示在左边
+  // 右侧点位显示在左边
   if (chartWidth - clickX < panelWidth + 20) {
-    return { left: '10px', right: 'auto' };
+    return {
+      left: '20px',
+      right: 'auto',
+      top: 'auto',
+      bottom: '20px',
+      transform: 'none'
+    };
   }
 
-  // 否则显示在右边
-  return { right: '10px', left: 'auto' };
+  // 默认显示在右边
+  return {
+    left: 'auto',
+    right: '20px',
+    top: 'auto',
+    bottom: '20px',
+    transform: 'none'
+  };
 });
 </script>
 
@@ -112,10 +131,7 @@ const panelPosition = computed(() => {
     <div
       v-if="visible && data"
       class="process-detail-panel"
-      :style="{
-        left: panelPosition.left,
-        right: panelPosition.right,
-      }"
+      :style="panelPosition"
     >
       <!-- 头部 -->
       <div class="panel-header">
@@ -176,8 +192,7 @@ const panelPosition = computed(() => {
 
 <style scoped>
 .process-detail-panel {
-  position: absolute;
-  bottom: -180px;  /* 显示在图表下方 */
+  position: fixed;  /* 相对于视窗定位 */
   width: 420px;
   max-height: 180px;
   overflow-y: auto;
@@ -185,7 +200,7 @@ const panelPosition = computed(() => {
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   padding: 16px;
-  z-index: 50;
+  z-index: 1000;
 }
 
 .panel-header {

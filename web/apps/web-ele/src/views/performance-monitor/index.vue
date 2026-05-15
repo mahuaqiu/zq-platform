@@ -707,7 +707,7 @@ function handleMiniTooltipHide() {
 // 大面板点击事件处理
 function handleDetailClick(data: DetailPanelState, chartKey: string) {
   // 如果点击的是同一个数据点，关闭面板（toggle）
-  if (detailPanelState.value?.data.relative_time === data.data.relative_time
+  if (detailPanelState.value?.data?.relative_time === data.data?.relative_time
       && activeChartKey.value === chartKey) {
     detailPanelState.value = null;
     activeChartKey.value = null;
