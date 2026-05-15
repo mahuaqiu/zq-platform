@@ -509,6 +509,8 @@ onUnmounted(() => {
           {{ cv.name }}: {{ cv.value }}
         </div>
       </div>
+      <!-- MiniTooltip 插槽，让父组件传入 -->
+      <slot name="tooltip"></slot>
     </div>
     <!-- 标签列表显示 -->
     <div v-if="tags?.length" class="tags-list">

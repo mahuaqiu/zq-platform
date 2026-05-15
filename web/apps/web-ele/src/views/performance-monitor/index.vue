@@ -825,16 +825,19 @@ function handleRangeChange(range: [number, number]) {
           @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'cpu')"
           @mini-tooltip-hide="handleMiniTooltipHide"
           @detail-click="(data) => handleDetailClick(data, 'cpu')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
+        >
+          <template #tooltip>
+            <MiniTooltip
+              v-if="miniTooltipState && miniTooltipState.chartKey === 'cpu'"
+              :visible="miniTooltipState !== null"
+              :position="miniTooltipState.position"
+              :containerRect="miniTooltipState.containerRect"
+              :data="miniTooltipState.data"
+              :seriesData="miniTooltipState.seriesData"
+              :chartType="miniTooltipState.chartType"
+            />
+          </template>
+        </ChartPanel>
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'cpu'"
           :visible="detailPanelState !== null"
@@ -860,16 +863,19 @@ function handleRangeChange(range: [number, number]) {
           @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'gpu')"
           @mini-tooltip-hide="handleMiniTooltipHide"
           @detail-click="(data) => handleDetailClick(data, 'gpu')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'gpu'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
+        >
+          <template #tooltip>
+            <MiniTooltip
+              v-if="miniTooltipState && miniTooltipState.chartKey === 'gpu'"
+              :visible="miniTooltipState !== null"
+              :position="miniTooltipState.position"
+              :containerRect="miniTooltipState.containerRect"
+              :data="miniTooltipState.data"
+              :seriesData="miniTooltipState.seriesData"
+              :chartType="miniTooltipState.chartType"
+            />
+          </template>
+        </ChartPanel>
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'gpu'"
           :visible="detailPanelState !== null"
@@ -903,16 +909,19 @@ function handleRangeChange(range: [number, number]) {
           @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'commitMemory')"
           @mini-tooltip-hide="handleMiniTooltipHide"
           @detail-click="(data) => handleDetailClick(data, 'commitMemory')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'commitMemory'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
+        >
+          <template #tooltip>
+            <MiniTooltip
+              v-if="miniTooltipState && miniTooltipState.chartKey === 'commitMemory'"
+              :visible="miniTooltipState !== null"
+              :position="miniTooltipState.position"
+              :containerRect="miniTooltipState.containerRect"
+              :data="miniTooltipState.data"
+              :seriesData="miniTooltipState.seriesData"
+              :chartType="miniTooltipState.chartType"
+            />
+          </template>
+        </ChartPanel>
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'commitMemory'"
           :visible="detailPanelState !== null"
@@ -938,16 +947,19 @@ function handleRangeChange(range: [number, number]) {
           @mini-tooltip-show="(data) => handleMiniTooltipShow(data, 'memory')"
           @mini-tooltip-hide="handleMiniTooltipHide"
           @detail-click="(data) => handleDetailClick(data, 'memory')"
-        />
-        <MiniTooltip
-          v-if="miniTooltipState && miniTooltipState.chartKey === 'memory'"
-          :visible="miniTooltipState !== null"
-          :position="miniTooltipState.position"
-          :containerRect="miniTooltipState.containerRect"
-          :data="miniTooltipState.data"
-          :seriesData="miniTooltipState.seriesData"
-          :chartType="miniTooltipState.chartType"
-        />
+        >
+          <template #tooltip>
+            <MiniTooltip
+              v-if="miniTooltipState && miniTooltipState.chartKey === 'memory'"
+              :visible="miniTooltipState !== null"
+              :position="miniTooltipState.position"
+              :containerRect="miniTooltipState.containerRect"
+              :data="miniTooltipState.data"
+              :seriesData="miniTooltipState.seriesData"
+              :chartType="miniTooltipState.chartType"
+            />
+          </template>
+        </ChartPanel>
         <ProcessDetailPanel
           v-if="detailPanelState && activeChartKey === 'memory'"
           :visible="detailPanelState !== null"
