@@ -713,24 +713,14 @@ function handleMiniTooltipHide() {
 
 // 大面板点击事件处理
 function handleDetailClick(data: DetailPanelState, chartKey: string) {
-  console.log('=== handleDetailClick ===', data, chartKey);
-  console.log('detailPanelState before:', detailPanelState.value, 'activeChartKey before:', activeChartKey.value);
-
-  // 如果点击的是同一个数据点，关闭面板（toggle）
   if (detailPanelState.value?.data?.relative_time === data.data?.relative_time
       && activeChartKey.value === chartKey) {
-    console.log('toggle close');
     detailPanelState.value = null;
     activeChartKey.value = null;
   } else {
-    // 否则，切换显示新数据
-    console.log('set detailPanelState');
     detailPanelState.value = data;
     activeChartKey.value = chartKey;
   }
-
-  console.log('detailPanelState after:', detailPanelState.value, 'activeChartKey after:', activeChartKey.value);
-  console.log('ProcessDetailPanel v-if should be:', detailPanelState.value && activeChartKey.value === 'cpu');
 }
 
 // 大面板关闭事件处理
