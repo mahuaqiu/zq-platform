@@ -26,7 +26,18 @@ const quickButtons = [
   { label: '60分钟', value: 60 * 60 },
 ];
 
-const activeButton = ref(0);
+// 根据范围计算初始激活按钮
+function getActiveButtonFromRange(start: number, end: number, duration: number): number {
+  if (duration <= 0) return 0;
+  if (start === 0 && end === duration) return 0;
+  const range = end - start;
+  if (end === duration && range === 5 * 60) return 5 * 60;
+  if (end === duration && range === 30 * 60) return 30 * 60;
+  if (end === duration && range === 60 * 60) return 60 * 60;
+  return -1;
+}
+
+const activeButton = ref(getActiveButtonFromRange(props.startTime, props.endTime, props.duration));
 const navigatorRef = ref<HTMLDivElement>();
 const isDraggingLeft = ref(false);
 const isDraggingRight = ref(false);
@@ -39,6 +50,7 @@ const dragStartRight = ref(0);
 
 // 计算选中区间宽度百分比
 const rangePercent = computed(() => {
+  if (props.duration <= 0) return 0;
   return ((localEndTime.value - localStartTime.value) / props.duration) * 100;
 });
 
@@ -73,12 +85,14 @@ function formatMergedTime(): string {
 }
 
 // 计算选中区间位置（百分比）
-const leftPercent = computed(
-  () => (localStartTime.value / props.duration) * 100,
-);
-const rightPercent = computed(
-  () => (localEndTime.value / props.duration) * 100,
-);
+const leftPercent = computed(() => {
+  if (props.duration <= 0) return 0;
+  return (localStartTime.value / props.duration) * 100;
+});
+const rightPercent = computed(() => {
+  if (props.duration <= 0) return 100;
+  return (localEndTime.value / props.duration) * 100;
+});
 
 // 快速选择
 function handleQuickSelect(value: number) {
