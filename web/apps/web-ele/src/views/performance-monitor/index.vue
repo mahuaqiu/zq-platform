@@ -97,18 +97,25 @@ const historySearchProcess = ref('');
 const historyLoading = ref(false);
 const historyDeleting = ref<string | null>(null);
 
-// Tooltip 状态
-interface TooltipState {
+// 小 Tooltip 状态（hover 触发）
+interface MiniTooltipState {
   position: { x: number; y: number };
   data: PerformanceData | undefined;
   seriesData: { name: string; value: number; color: string; unit: string }[];
   chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
   containerRect: DOMRect;
 }
+const miniTooltipState = ref<MiniTooltipState | null>(null);
 
-const tooltipState = ref<TooltipState | null>(null);
-const tooltipLockedPosition = ref<{ x: number; y: number } | null>(null); // 锁定时的位置
-const activeChartKey = ref<string | null>(null);
+// 大面板状态（click 触发）
+interface DetailPanelState {
+  data: PerformanceData;  // 点击的数据点完整数据
+  seriesData: { name: string; value: number; color: string; unit: string }[];
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory）
+}
+const detailPanelState = ref<DetailPanelState | null>(null);
+const activeChartKey = ref<string | null>(null);  // 当前激活的图表
 
 // 按钮操作 loading 状态（防止重复点击）
 const isStarting = ref(false);
@@ -347,6 +354,10 @@ onMounted(async () => {
 
   await refreshStatus();
   await fetchCollectHistory();
+
+  // 添加全局点击事件监听（用于关闭大面板）
+  document.addEventListener('click', handleGlobalClick);
+});
   await fetchVersions();
 
   // 根据采集状态加载数据
@@ -370,6 +381,9 @@ onMounted(async () => {
 onUnmounted(() => {
   isMounted = false;
   stopPolling();
+
+  // 移除全局点击事件监听
+  document.removeEventListener('click', handleGlobalClick);
 });
 
 async function refreshStatus() {
@@ -673,43 +687,48 @@ function handlePointClick(data: { time: number; collectId: string }) {
   clickedTime.value = data.time;
 }
 
-// Tooltip 显示事件处理
-function handleTooltipShow(data: TooltipState, chartKey: string) {
-  // 如果已锁定，不更新位置（但可以更新数据）
-  if (tooltipLockedPosition.value) {
-    tooltipState.value = {
-      ...data,
-      position: tooltipLockedPosition.value,
-    };
+// 小 Tooltip 显示事件处理
+function handleMiniTooltipShow(data: MiniTooltipState, chartKey: string) {
+  miniTooltipState.value = data;
+}
+
+// 小 Tooltip 隐藏事件处理
+function handleMiniTooltipHide() {
+  miniTooltipState.value = null;
+}
+
+// 大面板点击事件处理
+function handleDetailClick(data: DetailPanelState, chartKey: string) {
+  // 如果点击的是同一个数据点，关闭面板（toggle）
+  if (detailPanelState.value?.data.relative_time === data.data.relative_time
+      && activeChartKey.value === chartKey) {
+    detailPanelState.value = null;
+    activeChartKey.value = null;
   } else {
-    tooltipState.value = data;
-  }
-  activeChartKey.value = chartKey;
-}
-
-// Tooltip 隐藏事件处理
-function handleTooltipHide() {
-  // 如果已锁定，不隐藏
-  if (tooltipLockedPosition.value) return;
-  tooltipState.value = null;
-}
-
-// Tooltip 关闭事件处理
-function handleTooltipClose() {
-  tooltipState.value = null;
-  tooltipLockedPosition.value = null;
-}
-
-// Tooltip 锁定事件处理（鼠标进入 tooltip 区域）
-function handleTooltipLock() {
-  if (tooltipState.value) {
-    tooltipLockedPosition.value = tooltipState.value.position;
+    // 否则，切换显示新数据
+    detailPanelState.value = data;
+    activeChartKey.value = chartKey;
   }
 }
 
-// Tooltip 解锁事件处理（鼠标离开 tooltip 区域）
-function handleTooltipUnlock() {
-  tooltipLockedPosition.value = null;
+// 大面板关闭事件处理
+function handlePanelClose() {
+  detailPanelState.value = null;
+  activeChartKey.value = null;
+}
+
+// 全局点击事件处理（点击外部关闭大面板）
+function handleGlobalClick(e: MouseEvent) {
+  // 如果面板显示，且点击的不是图表区域或面板区域
+  const target = e.target as HTMLElement;
+  if (detailPanelState.value) {
+    const isClickInChart = target.closest('.chart-area');
+    const isClickInPanel = target.closest('.process-detail-panel');
+    if (!isClickInChart && !isClickInPanel) {
+      detailPanelState.value = null;
+      activeChartKey.value = null;
+    }
+  }
 }
 
 // 处理时间导航条范围变化
