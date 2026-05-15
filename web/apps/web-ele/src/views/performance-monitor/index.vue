@@ -196,31 +196,34 @@ const processTooltipContent = computed(() => {
 });
 
 // 当前选中的指标
-const currentMetric = ref<string>('cpu');
+type MetricKey = 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+const currentMetric = ref<MetricKey>('cpu');
 const showMorePopup = ref(false);
 
 // 所有指标列表
 const allMetrics = computed(() => [
-  { key: 'cpu', label: 'CPU使用率' },
-  { key: 'gpu', label: 'GPU使用率' },
-  { key: 'memory', label: '进程内存' },
-  { key: 'commitMemory', label: '提交内存' },
+  { key: 'cpu' as MetricKey, label: 'CPU使用率' },
+  { key: 'gpu' as MetricKey, label: 'GPU使用率' },
+  { key: 'memory' as MetricKey, label: '进程内存' },
+  { key: 'commitMemory' as MetricKey, label: '提交内存' },
 ]);
 
 // 指标切换处理
-function handleMetricChange(metric: string) {
+function handleMetricChange(metric: MetricKey) {
   currentMetric.value = metric;
 }
 
+// 当前图表数据映射
+const chartSeriesMap: Record<MetricKey, () => ChartSeries[]> = {
+  cpu: () => cpuChartSeries.value,
+  gpu: () => gpuChartSeries.value,
+  memory: () => memoryChartSeries.value,
+  commitMemory: () => commitMemoryChartSeries.value,
+};
+
 // 当前图表数据
 const currentChartSeries = computed<ChartSeries[]>(() => {
-  switch (currentMetric.value) {
-    case 'cpu': return cpuChartSeries.value;
-    case 'gpu': return gpuChartSeries.value;
-    case 'memory': return memoryChartSeries.value;
-    case 'commitMemory': return commitMemoryChartSeries.value;
-    default: return [];
-  }
+  return chartSeriesMap[currentMetric.value]?.() || [];
 });
 
 // 当前图表标题
@@ -230,42 +233,11 @@ const currentChartTitle = computed(() => {
 });
 
 // 当前图表类型
-const currentChartType = computed(() => {
-  return currentMetric.value as 'cpu' | 'gpu' | 'memory' | 'commitMemory';
-});
+const currentChartType = computed(() => currentMetric.value);
 
 // TOP10 面板显示条件（仅 CPU/GPU 显示）
-const showTop10Panel = computed(() => {
-  return currentMetric.value === 'cpu' || currentMetric.value === 'gpu';
-});
-
-// 当前 TOP10 数据
-const currentTop10Data = computed(() => {
-  if (!showTop10Panel.value) return [];
-  const latest = currentMetrics.value;
-  if (!latest) return [];
-  if (currentMetric.value === 'cpu') {
-    return latest.top10_cpu?.map(p => ({ name: p.name, value: p.cpu || 0 })) || [];
-  } else {
-    return latest.top10_gpu?.map(p => ({ name: p.name, value: p.gpu || 0 })) || [];
-  }
-});
-
-// 悬停联动状态
-const hoverTimestamp = ref<string | null>(null);
-const hoverDataPoint = ref<PerformanceData | null>(null);
-
-// 图表悬停处理
-function handleChartHover(data: { timestamp: string; dataPoint: PerformanceData }) {
-  hoverTimestamp.value = data.timestamp;
-  hoverDataPoint.value = data.dataPoint;
-}
-
-// 图表离开处理
-function handleChartLeave() {
-  hoverTimestamp.value = null;
-  hoverDataPoint.value = null;
-}
+const TOP10_METRICS: MetricKey[] = ['cpu', 'gpu'];
+const showTop10Panel = computed(() => TOP10_METRICS.includes(currentMetric.value));
 
 // 当前数值显示（基于过滤后的数据）
 const currentMetrics = computed(() => {
