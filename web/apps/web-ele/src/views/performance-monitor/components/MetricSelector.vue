@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-
 interface Props {
   currentMetric: string;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits<{
   change: [metric: string];
   more: [];
