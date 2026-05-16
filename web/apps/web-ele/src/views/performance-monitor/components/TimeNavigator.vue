@@ -239,16 +239,16 @@ watch(
 
       <!-- 右侧导航条 -->
       <div class="navigator-wrapper">
-        <!-- 合并模式：顶部时间范围标签 -->
-        <div v-if="isMergedMode" class="merged-time-label">
-          {{ formatMergedTime() }}
-        </div>
-
         <div
           ref="navigatorRef"
           class="navigator-track"
           :class="{ 'merged-mode': isMergedMode }"
         >
+          <!-- 合并模式：顶部时间范围标签（在轨道区域内） -->
+          <div v-if="isMergedMode" class="merged-time-label">
+            {{ formatMergedTime() }}
+          </div>
+
           <!-- 背景轨道 -->
           <div class="track-background"></div>
 
@@ -300,42 +300,39 @@ watch(
 
 <style scoped>
 .time-navigator {
-  padding: 15px;
+  padding: 16px;
   background: white;
-  border: 1px solid #ddd;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .navigator-container {
   display: flex;
-  gap: 20px;
-  align-items: flex-start;
+  gap: 16px;
+  align-items: center;
 }
 
 /* 快速选择按钮样式 */
 .quick-buttons {
   display: flex;
   flex-shrink: 0;
-  flex-direction: column;
   gap: 8px;
 }
 
 .quick-btn {
-  padding: 8px 16px;
+  padding: 6px 16px;
   font-size: 13px;
-  color: #606266;
+  color: #666;
   white-space: nowrap;
   cursor: pointer;
-  background: white;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
 .quick-btn:hover {
   color: #409eff;
-  background-color: #ecf5ff;
-  border-color: #c6e2ff;
+  border-color: #409eff;
 }
 
 .quick-btn.active {
@@ -348,81 +345,82 @@ watch(
 .navigator-wrapper {
   display: flex;
   flex: 1;
-  flex-direction: column;
   min-width: 0;
 }
 
-/* 合并时间标签 */
+/* 合并时间标签 - 在轨道区域内 */
 .merged-time-label {
-  align-self: flex-start;
+  position: absolute;
+  top: 0;
+  left: 50%;
   padding: 2px 8px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #303133;
-  background: white;
+  font-size: 11px;
+  color: #409eff;
+  background: #fff;
   border-radius: 3px;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+  transform: translateX(-50%);
+  z-index: 10;
 }
 
 /* 导航条轨道 */
 .navigator-track {
   position: relative;
-  height: 30px;
+  height: 50px;
   cursor: default;
 }
 
 .navigator-track.merged-mode {
-  height: 30px;
+  height: 60px;
 }
 
 /* 背景轨道 */
 .track-background {
   position: absolute;
-  top: 50%;
+  top: 22px;
   right: 0;
   left: 0;
   height: 6px;
   background: #e8e8e8;
   border-radius: 3px;
-  transform: translateY(-50%);
 }
 
 /* 选中区间 */
 .selected-range {
   position: absolute;
-  top: 50%;
+  top: 22px;
   height: 6px;
   cursor: move;
   background: #409eff;
   border-radius: 3px;
-  transform: translateY(-50%);
 }
 
 /* 把手 */
 .handle {
   position: absolute;
-  top: 50%;
+  top: 17px;
   width: 14px;
   height: 16px;
   cursor: ew-resize;
   background: white;
   border: 2px solid #409eff;
   border-radius: 4px;
-  transform: translateY(-50%);
 }
 
 .handle.left {
-  left: -7px;
+  left: 0;
+  transform: translateX(-50%);
 }
 
 .handle.right {
-  right: -7px;
+  left: 100%;
+  transform: translateX(-50%);
 }
 
 .handle-inner {
   width: 4px;
   height: 8px;
-  margin: 3px auto 0;
+  margin: 2px auto 0;
   background: #409eff;
   border-radius: 2px;
 }
@@ -430,13 +428,13 @@ watch(
 /* 时间标签（分开模式） */
 .time-tag {
   position: absolute;
-  top: -20px;
+  top: 0;
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 500;
-  color: white;
+  color: #409eff;
   white-space: nowrap;
-  background: #409eff;
+  background: transparent;
   border-radius: 3px;
   transform: translateX(-50%);
 }
@@ -447,5 +445,18 @@ watch(
 
 .time-tag-right {
   left: 100%;
+}
+
+/* 合并模式样式 */
+.navigator-track.merged-mode .track-background {
+  top: 32px;
+}
+
+.navigator-track.merged-mode .selected-range {
+  top: 32px;
+}
+
+.navigator-track.merged-mode .handle {
+  top: 27px;
 }
 </style>
