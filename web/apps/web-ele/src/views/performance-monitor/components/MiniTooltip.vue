@@ -108,11 +108,6 @@ function formatDateTime(timestamp: string): string {
         {{ p.name }} ({{ p.instanceCount }}实例)
       </div>
     </div>
-
-    <!-- 提示 -->
-    <div class="tooltip-hint">
-      点击图表查看详情
-    </div>
   </div>
 </template>
 
@@ -180,13 +175,5 @@ function formatDateTime(timestamp: string): string {
   color: #409eff;
   font-weight: 500;
   margin-bottom: 4px;
-}
-
-.tooltip-hint {
-  border-top: 1px dashed #eee;
-  padding-top: 8px;
-  font-size: 11px;
-  color: #999;
-  text-align: center;
 }
 </style>
