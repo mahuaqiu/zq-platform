@@ -154,7 +154,14 @@
       "Bash(.venv\\\\Scripts\\\\Activate.ps1)",
       "Bash(del *)",
       "PowerShell(.venv\\\\Scripts\\\\Activate.ps1)",
-      "Bash(.venv\\\\Scripts\\\\python.exe -c \"from core.performance_monitor.utils import convert_top_n_to_top10; print\\('Import successful'\\)\")"
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"from core.performance_monitor.utils import convert_top_n_to_top10; print\\('Import successful'\\)\")",
+      "Bash(timeout 15 tail -f C:\\\\Users\\\\ADMINI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--code-zq-platform\\\\487957fa-ebdd-40c3-9aec-0b467ac882e3\\\\tasks\\\\b70a970ox.output)",
+      "Bash(findstr :5778)",
+      "Bash(taskkill *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\code\\\\zq-platform\\\\backend-fastapi\" -Filter \"*.log\" -Recurse)",
+      "Bash(Sort-Object LastWriteTime -Descending)",
+      "Bash(Select-Object -First 5 FullName, LastWriteTime)"
     ]
   }
 }
