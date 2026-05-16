@@ -133,14 +133,14 @@ def convert_aggregated_to_target_processes(
 
 
 def convert_top_n_to_top10(
-    top_n: Optional[List[Dict[str, Any]]],
+    top_n: Optional[List[Any]],
     metric_type: str = "cpu"
 ) -> List[Dict[str, Any]]:
     """
     将 v0.3.1 的 top_n_cpu/top_n_gpu 转换为旧版本的 top10_cpu/top10_gpu 格式
 
     Args:
-        top_n: Top N 进程列表
+        top_n: Top N 进程列表（可以是 Pydantic 对象或字典）
         metric_type: 指标类型 "cpu" 或 "gpu"
 
     Returns:
@@ -152,11 +152,21 @@ def convert_top_n_to_top10(
 
     result = []
     for p in top_n:
-        item = {"name": p.get("name", "")}
-        if metric_type == "cpu":
-            item["cpu"] = p.get("cpu_percent_total", 0)
+        # 支持 Pydantic 对象和字典两种格式
+        if hasattr(p, 'name'):
+            # Pydantic 对象
+            name = p.name
+            value = p.cpu_percent_total if metric_type == "cpu" else p.gpu_percent_total
         else:
-            item["gpu"] = p.get("gpu_percent_total", 0)
+            # 字典格式
+            name = p.get("name", "")
+            value = p.get("cpu_percent_total", 0) if metric_type == "cpu" else p.get("gpu_percent_total", 0)
+
+        item = {"name": name}
+        if metric_type == "cpu":
+            item["cpu"] = value
+        else:
+            item["gpu"] = value
         result.append(item)
 
     return result

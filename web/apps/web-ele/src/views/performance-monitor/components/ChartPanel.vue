@@ -20,7 +20,7 @@ interface Props {
   enableTagClick?: boolean; // 是否允许点击添加标签
   collectId?: string; // 采集ID（用于标签操作）
   showActualTime?: boolean; // 是否显示实际时间
-  chartType?: 'cpu' | 'gpu' | 'memory' | 'commitMemory'; // 图表类型，用于区分 tooltip
+  chartType?: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo'; // 图表类型，用于区分 tooltip
   markers?: MarkerResponse[]; // 标记列表（v0.3.0）
 }
 
@@ -41,14 +41,14 @@ const emit = defineEmits<{
     position: { x: number; y: number };
     data: PerformanceData | undefined;
     seriesData: { name: string; value: number; color: string; unit: string }[];
-    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
     containerRect: DOMRect;
   }): void;
   (e: 'mini-tooltip-hide'): void;
   (e: 'detail-click', data: {
     data: PerformanceData | undefined;
     seriesData: { name: string; value: number; color: string; unit: string }[];
-    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
     chartKey: string;
     position: { x: number; y: number };
     containerWidth: number;
@@ -463,7 +463,8 @@ function updateChart() {
     };
   }
 
-  chartInstance.setOption(option);
+  // 使用 notMerge: true 完全替换旧配置，避免旧数据线残留
+  chartInstance.setOption(option, { notMerge: true });
 }
 
 watch(() => props.series, updateChart, { deep: true });

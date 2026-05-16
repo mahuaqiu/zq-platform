@@ -12,6 +12,7 @@ import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import MiniTooltip from './components/MiniTooltip.vue';
 import ProcessDetailPanel from './components/ProcessDetailPanel.vue';
 import TargetProcessPanel from './components/TargetProcessPanel.vue';
+import { getMetricLabel } from './hwinfo-metrics-config';
 import {
   getCollectStatus,
   stopCollect,
@@ -23,6 +24,7 @@ import {
   deleteCollect,
   setCollectProtected,
   getMarkers,
+  queryAdvancedMetrics,
 } from '#/api/core/performance-monitor';
 import { getEnvMachineListApi } from '#/api/core/env-machine';
 import type {
@@ -95,7 +97,7 @@ interface MiniTooltipState {
   position: { x: number; y: number };
   data: PerformanceData | undefined;
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
   containerRect: DOMRect;
   chartKey: string;  // 标识当前hover的图表
 }
@@ -105,8 +107,8 @@ const miniTooltipState = ref<MiniTooltipState | null>(null);
 interface DetailPanelState {
   data: PerformanceData;  // 点击的数据点完整数据
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
-  chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory）
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
+  chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory/hwinfo）
   position?: { x: number; y: number };  // 点击位置
   containerWidth?: number;  // 图表容器宽度
 }
@@ -196,17 +198,80 @@ const processTooltipContent = computed(() => {
 });
 
 // 当前选中的指标
-type MetricKey = 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+type MetricKey = 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
 const currentMetric = ref<MetricKey>('cpu');
 const showMorePopup = ref(false);
 
+// HWiNFO 指标状态
+const hwinfoMetricKey = ref<string>(''); // 具体的 HWiNFO 指标 key
+const hwinfoMetricData = ref<{ time: number; value: number }[]>([]); // HWiNFO 指标数据
+const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({ displayName: '', unit: '' });
+
+// 处理选择 HWiNFO 指标
+async function handleHwinfoMetricSelect(metricKey: string) {
+  if (!currentCollectId.value) {
+    ElMessage.warning('请先选择采集记录');
+    return;
+  }
+
+  try {
+    const result = await queryAdvancedMetrics({
+      collect_id: currentCollectId.value,
+      metric_keys: [metricKey],
+      start_time: selectedRelativeTimeRange.value?.[0],
+      end_time: selectedRelativeTimeRange.value?.[1],
+    });
+
+    const metricData = result.metrics[metricKey];
+    if (metricData?.data) {
+      // 存储 HWiNFO 指标数据
+      hwinfoMetricKey.value = metricKey;
+      hwinfoMetricData.value = metricData.data;
+      hwinfoMetricInfo.value = {
+        displayName: metricData.display_name || metricKey,
+        unit: metricData.unit || '',
+      };
+
+      // 切换到 hwinfo 指标类型
+      currentMetric.value = 'hwinfo';
+
+      ElMessage.success(`已加载指标: ${hwinfoMetricInfo.value.displayName}`);
+    } else {
+      ElMessage.warning('该指标暂无数据');
+    }
+  } catch (error) {
+    console.error('查询指标数据失败:', error);
+    ElMessage.error('查询指标数据失败');
+  }
+}
+
 // 所有指标列表
-const allMetrics = computed(() => [
-  { key: 'cpu' as MetricKey, label: 'CPU使用率' },
-  { key: 'gpu' as MetricKey, label: 'GPU使用率' },
-  { key: 'memory' as MetricKey, label: '进程内存' },
-  { key: 'commitMemory' as MetricKey, label: '提交内存' },
-]);
+const allMetrics = computed(() => {
+  const baseMetrics = [
+    { key: 'cpu' as MetricKey, label: 'CPU使用率' },
+    { key: 'gpu' as MetricKey, label: 'GPU使用率' },
+    { key: 'memory' as MetricKey, label: '进程内存' },
+    { key: 'commitMemory' as MetricKey, label: '提交内存' },
+  ];
+
+  // 如果选择了 HWiNFO 指标，添加到列表
+  if (hwinfoMetricKey.value) {
+    const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const chineseName = getMetricLabel(hwinfoMetricKey.value);
+
+    // 如果有中文翻译，显示 "中文（英文）" 格式
+    const label = chineseName !== hwinfoMetricKey.value
+      ? `${chineseName}（${englishName}）`
+      : englishName;
+
+    baseMetrics.push({
+      key: 'hwinfo' as MetricKey,
+      label,
+    });
+  }
+
+  return baseMetrics;
+});
 
 // 指标切换处理
 function handleMetricChange(metric: MetricKey) {
@@ -219,6 +284,7 @@ const chartSeriesMap: Record<MetricKey, () => ChartSeries[]> = {
   gpu: () => gpuChartSeries.value,
   memory: () => memoryChartSeries.value,
   commitMemory: () => commitMemoryChartSeries.value,
+  hwinfo: () => hwinfoChartSeries.value,
 };
 
 // 当前图表数据
@@ -329,6 +395,38 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
   });
   return [
     { name: '进程内存', data: processData, color: '#409eff', unit: 'MB' },
+  ];
+});
+
+// HWiNFO 指标图表数据
+const hwinfoChartSeries = computed<ChartSeries[]>(() => {
+  if (!hwinfoMetricData.value.length) return [];
+
+  // 转换数据格式：relative_time -> time
+  const data = hwinfoMetricData.value.map(d => ({
+    time: d.relative_time,
+    value: d.value,
+  }));
+
+  const unit = hwinfoMetricInfo.value.unit || '';
+  const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+  const chineseName = getMetricLabel(hwinfoMetricKey.value);
+
+  // Tooltip 显示简洁名称：优先中文，没有则英文
+  const tooltipName = chineseName !== hwinfoMetricKey.value ? chineseName : englishName;
+
+  // 根据 unit 决定 Y 轴单位显示
+  let chartUnit = unit;
+  if (unit === 'W' || unit === '°C' || unit === 'MHz' || unit === 'V' || unit === 'A') {
+    chartUnit = unit; // 保持原单位
+  } else if (unit === 'MB/s' || unit === 'GB/s') {
+    chartUnit = unit;
+  } else if (!unit) {
+    chartUnit = ''; // 无单位
+  }
+
+  return [
+    { name: tooltipName, data, color: '#409eff', unit: chartUnit },
   ];
 });
 
@@ -814,9 +912,10 @@ function handleRangeChange(range: [number, number]) {
         />
         <MetricSearchPopup
           :visible="showMorePopup"
-          :metrics="allMetrics"
+          :collect-id="currentCollectId || ''"
           @update:visible="showMorePopup = $event"
-          @select="handleMetricChange"
+          @select="handleHwinfoMetricSelect"
+        />
         />
       </div>
     </div>
@@ -842,7 +941,7 @@ function handleRangeChange(range: [number, number]) {
             :title="currentChartTitle"
             :series="currentChartSeries"
             :height="500"
-            :raw-data="filteredPerformanceData"
+            :raw-data="currentMetric === 'hwinfo' ? [] : filteredPerformanceData"
             :markers="markers"
             :chart-type="currentChartType"
             @point-click="handlePointClick"
@@ -862,8 +961,8 @@ function handleRangeChange(range: [number, number]) {
         </div>
       </div>
 
-      <!-- 底部面板区域 - 双面板布局 -->
-      <div class="bottom-panels">
+      <!-- 底部面板区域 - 双面板布局（HWiNFO 指标不显示进程面板） -->
+      <div v-if="currentMetric !== 'hwinfo'" class="bottom-panels">
         <!-- 目标进程明细面板 -->
         <div class="panel-wrapper target-process-wrapper">
           <TargetProcessPanel

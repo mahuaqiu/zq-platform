@@ -9,7 +9,7 @@ interface Props {
   containerRect: DOMRect | null;
   data: PerformanceData | undefined;
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,8 +23,8 @@ const tooltipPosition = computed(() => {
     return { left: 0, top: 0 };
   }
 
-  // Tooltip 宽度约 180px
-  const tooltipWidth = 180;
+  // Tooltip 宽度约 280px（增加宽度避免换行）
+  const tooltipWidth = 280;
   const screenWidth = window.innerWidth;
 
   // 默认显示在鼠标右侧
@@ -40,17 +40,18 @@ const tooltipPosition = computed(() => {
   return { left, top };
 });
 
-// 显示进程名 + 实例数（最多 3 个）
+// 显示进程名 + 实例数（最多 3 个）- HWiNFO 指标不显示进程数据
 const processSummary = computed(() => {
-  if (!props.data?.target_processes) return [];
-
-  return props.data.target_processes
-    .filter(p => p.instances && p.instances.length > 0)
-    .slice(0, 3)
-    .map(p => ({
-      name: p.name,
-      instanceCount: p.instances.length
-    }));
+  if (props.data?.target_processes && props.chartType !== 'hwinfo') {
+    return props.data.target_processes
+      .filter(p => p.instances && p.instances.length > 0)
+      .slice(0, 3)
+      .map(p => ({
+        name: p.name,
+        instanceCount: p.instances.length
+      }));
+  }
+  return [];
 });
 
 // 格式化时间戳
@@ -124,8 +125,8 @@ function formatDateTime(timestamp: string): string {
   padding: 12px;
   z-index: 1000;
   font-size: 13px;
-  min-width: 160px;
-  max-width: 180px;
+  min-width: 200px;
+  max-width: 280px;  /* 增加宽度避免换行 */
   max-height: 150px;
   overflow: hidden;
   pointer-events: none;  /* 点击穿透 */

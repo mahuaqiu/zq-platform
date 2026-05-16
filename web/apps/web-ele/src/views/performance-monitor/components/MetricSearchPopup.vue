@@ -1,28 +1,34 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Close } from '@element-plus/icons-vue';
+import { getAvailableMetrics, type AvailableMetric } from '#/api/core/performance-monitor';
+import { getMetricLabel } from '../hwinfo-metrics-config';
 
 interface Props {
   visible: boolean;
-  metrics: { key: string; label: string }[];
+  collectId?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  collectId: '',
+});
+
 const emit = defineEmits<{
   'update:visible': [value: boolean];
   select: [metric: string];
 }>();
 
 const RECENT_SEARCH_KEY = 'performance-monitor-recent-metrics';
-const MAX_RECENT = 3;
+const MAX_RECENT = 5;
 
 const searchKeyword = ref('');
 const recentSearches = ref<string[]>([]);
+const metrics = ref<AvailableMetric[]>([]);
+const loading = ref(false);
 
 // 从 localStorage 加载最近搜索
 function loadRecentSearches(): string[] {
   try {
-    // SSR 兼容：检查 localStorage 是否存在
     const stored = typeof localStorage !== 'undefined'
       ? localStorage.getItem(RECENT_SEARCH_KEY)
       : null;
@@ -35,7 +41,6 @@ function loadRecentSearches(): string[] {
 // 保存最近搜索到 localStorage
 function saveRecentSearches(searches: string[]) {
   try {
-    // SSR 兼容：检查 localStorage 是否存在
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(searches));
     }
@@ -47,37 +52,71 @@ function saveRecentSearches(searches: string[]) {
 // 初始化加载最近搜索
 recentSearches.value = loadRecentSearches();
 
+// 加载指标列表
+async function loadMetrics() {
+  if (!props.collectId) return;
+  loading.value = true;
+  try {
+    const result = await getAvailableMetrics(props.collectId);
+    metrics.value = result.items;
+  } catch (error) {
+    console.error('加载指标列表失败:', error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 获取显示名称（优先使用中文翻译）
+function getDisplayLabel(metric: AvailableMetric): string {
+  if (metric.source === 'system') {
+    return metric.label; // 系统指标已有中文
+  }
+  // HWiNFO 指标尝试从配置文件获取中文翻译
+  const translated = getMetricLabel(metric.key);
+  return translated !== metric.key ? translated : metric.label;
+}
+
 // 过滤后的结果
 const filteredMetrics = computed(() => {
-  if (!searchKeyword.value.trim()) return props.metrics;
+  if (!searchKeyword.value.trim()) return metrics.value;
   const keyword = searchKeyword.value.trim().toLowerCase();
-  return props.metrics.filter(m =>
+  return metrics.value.filter(m =>
     m.key.toLowerCase().includes(keyword) ||
-    m.label.toLowerCase().includes(keyword)
+    m.label.toLowerCase().includes(keyword) ||
+    getDisplayLabel(m).toLowerCase().includes(keyword)
   );
 });
+
+// 分组显示：系统指标和 HWiNFO 指标
+const systemMetrics = computed(() =>
+  filteredMetrics.value.filter(m => m.source === 'system')
+);
+const hwinfoMetrics = computed(() =>
+  filteredMetrics.value.filter(m => m.source === 'hwinfo')
+);
 
 function handleClose() {
   emit('update:visible', false);
 }
 
-function handleSelect(metric: string) {
-  // 更新最近搜索列表
-  const recent = recentSearches.value.filter(m => m !== metric);
-  recentSearches.value = [metric, ...recent].slice(0, MAX_RECENT);
+function handleSelect(metricKey: string) {
+  const recent = recentSearches.value.filter(m => m !== metricKey);
+  recentSearches.value = [metricKey, ...recent].slice(0, MAX_RECENT);
   saveRecentSearches(recentSearches.value);
 
-  emit('select', metric);
+  emit('select', metricKey);
   emit('update:visible', false);
 }
 
-function handleRecentClick(metric: string) {
-  handleSelect(metric);
+function handleRecentClick(metricKey: string) {
+  handleSelect(metricKey);
 }
 
-// 弹窗关闭时清空搜索关键词
+// 弹窗打开时加载指标列表
 watch(() => props.visible, (newVal) => {
-  if (!newVal) {
+  if (newVal) {
+    loadMetrics();
+  } else {
     searchKeyword.value = '';
   }
 });
@@ -99,9 +138,12 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- 遮罩层 -->
+  <div v-if="visible" class="popup-overlay" @click="handleClose"></div>
+  <!-- 弹窗主体 -->
   <div v-if="visible" class="metric-search-popup">
     <div class="popup-header">
-      <span class="popup-title">选择指标</span>
+      <span class="popup-title">性能指标搜索</span>
       <el-icon class="close-icon" @click="handleClose">
         <Close />
       </el-icon>
@@ -119,184 +161,335 @@ onUnmounted(() => {
       <span class="recent-label">最近搜索:</span>
       <div class="recent-tags">
         <span
-          v-for="(metric, index) in recentSearches"
-          :key="metric"
+          v-for="(metricKey, index) in recentSearches"
+          :key="metricKey"
           class="recent-tag"
           :class="`recent-tag-${index + 1}`"
-          @click="handleRecentClick(metric)"
+          @click="handleRecentClick(metricKey)"
         >
-          {{ metrics.find(m => m.key === metric)?.label || metric }}
+          {{ metrics.find(m => m.key === metricKey)?.label || metricKey }}
         </span>
       </div>
     </div>
 
     <div class="popup-results">
-      <span class="results-label">搜索结果:</span>
-      <div class="results-list">
-        <div
-          v-for="metric in filteredMetrics"
-          :key="metric.key"
-          class="result-item"
-          @click="handleSelect(metric.key)"
-        >
-          <span class="result-label">{{ metric.label }}</span>
-          <span class="result-key">{{ metric.key }}</span>
+      <div v-if="loading" class="loading-state">
+        <span class="loading-text">加载中...</span>
+      </div>
+
+      <template v-else>
+        <!-- 系统指标 -->
+        <div v-if="systemMetrics.length > 0" class="metric-group">
+          <span class="group-label">系统指标</span>
+          <div class="results-list">
+            <div
+              v-for="metric in systemMetrics"
+              :key="metric.key"
+              class="result-item system-item"
+              @click="handleSelect(metric.key)"
+            >
+              <span class="result-label">{{ metric.label }}</span>
+              <span class="result-source">系统</span>
+            </div>
+          </div>
         </div>
-        <div v-if="filteredMetrics.length === 0" class="no-results">
+
+        <!-- HWiNFO 指标 -->
+        <div v-if="hwinfoMetrics.length > 0" class="metric-group">
+          <span class="group-label">HWiNFO 传感器 ({{ hwinfoMetrics.length }})</span>
+          <div class="results-list hwinfo-list">
+            <div
+              v-for="metric in hwinfoMetrics"
+              :key="metric.key"
+              class="result-item"
+              @click="handleSelect(metric.key)"
+            >
+              <span class="result-label">{{ getDisplayLabel(metric) }}</span>
+              <span class="result-key">{{ metric.key }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="filteredMetrics.length === 0 && searchKeyword.trim() && !loading" class="no-results">
           暂无匹配结果
         </div>
-      </div>
+
+        <div v-if="metrics.length === 0 && !loading" class="no-data-tip">
+          请先选择采集记录
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <style scoped>
-.metric-search-popup {
-  position: absolute;
-  top: 50px;
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
   right: 0;
+  bottom: 0;
+  z-index: 99;
+  background: rgb(0 0 0 / 40%);
+  backdrop-filter: blur(2px);
+}
+
+.metric-search-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 100;
-  width: 350px;
-  padding: 16px;
+  width: 420px;
+  max-height: 80vh;
+  padding: 20px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgb(0 0 0 / 15%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 20%);
+  border: 1px solid #e8e8e8;
 }
 
 .popup-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .popup-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: #1a1a1a;
 }
 
 .close-icon {
-  font-size: 18px;
+  font-size: 20px;
   color: #999;
   cursor: pointer;
-  transition: color 0.3s;
+  transition: all 0.3s;
+  padding: 4px;
+  border-radius: 4px;
 }
 
 .close-icon:hover {
-  color: #666;
+  color: #ff4d4f;
+  background: #fff1f0;
 }
 
 .popup-search {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .search-input {
   width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 10px 14px;
+  font-size: 14px;
   outline: none;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  transition: border-color 0.3s;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  transition: all 0.3s;
+  background: #fafafa;
 }
 
 .search-input:focus {
   border-color: #409eff;
+  background: white;
+  box-shadow: 0 0 0 2px rgb(64 158 255 / 20%);
+}
+
+.search-input::placeholder {
+  color: #bfbfbf;
 }
 
 .popup-recent {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
 .recent-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 12px;
-  color: #999;
+  color: #8c8c8c;
+  font-weight: 500;
 }
 
 .recent-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .recent-tag {
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 6px 12px;
+  font-size: 13px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.3s;
+  font-weight: 500;
 }
 
 .recent-tag-1 {
   color: #1890ff;
   background: #e6f7ff;
+  border: 1px solid #91d5ff;
 }
 
 .recent-tag-2 {
   color: #52c41a;
   background: #f6ffed;
+  border: 1px solid #b7eb8f;
 }
 
 .recent-tag-3 {
   color: #fa8c16;
   background: #fff7e6;
+  border: 1px solid #ffd591;
+}
+
+.recent-tag-4 {
+  color: #722ed1;
+  background: #f9f0ff;
+  border: 1px solid #d3adf7;
+}
+
+.recent-tag-5 {
+  color: #13c2c2;
+  background: #e6fffb;
+  border: 1px solid #87e8de;
 }
 
 .recent-tag:hover {
-  opacity: 0.8;
+  opacity: 0.85;
   transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .popup-results {
-  padding-top: 12px;
-  border-top: 1px solid #eee;
+  padding-top: 16px;
 }
 
-.results-label {
+.metric-group {
+  margin-bottom: 16px;
+}
+
+.group-label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 12px;
-  color: #999;
+  color: #8c8c8c;
+  font-weight: 500;
 }
 
 .results-list {
-  max-height: 180px;
+  max-height: 200px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+}
+
+.results-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.results-list::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.results-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hwinfo-list {
+  max-height: 280px;
 }
 
 .result-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 10px 14px;
+  font-size: 14px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  border-radius: 8px;
+  transition: all 0.3s;
+  margin-bottom: 4px;
 }
 
 .result-item:hover {
-  background: #f5f5f5;
+  background: #f5f7fa;
+  transform: translateX(2px);
+}
+
+.system-item {
+  background: #f0f5ff;
+}
+
+.system-item:hover {
+  background: #e6f0ff;
 }
 
 .result-label {
   flex: 1;
-  color: #333;
+  color: #1a1a1a;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-source {
+  margin-left: 12px;
+  font-size: 11px;
+  color: #1890ff;
+  background: #e6f7ff;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .result-key {
   margin-left: 12px;
   font-size: 11px;
-  color: #999;
+  color: #bfbfbf;
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading-state {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.loading-text {
+  color: #409eff;
+  font-size: 14px;
 }
 
 .no-results {
-  padding: 16px;
-  font-size: 13px;
-  color: #999;
+  padding: 24px 16px;
+  font-size: 14px;
+  color: #bfbfbf;
   text-align: center;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.no-data-tip {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: #8c8c8c;
+  text-align: center;
+  background: #fafafa;
+  border-radius: 8px;
 }
 </style>

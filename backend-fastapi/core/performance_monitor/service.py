@@ -281,6 +281,44 @@ class PerformanceDataService(BaseService):
         return list(reversed(items))
 
     @classmethod
+    async def get_available_metrics(cls, db: AsyncSession, collect_id: str) -> List[Dict[str, Any]]:
+        """
+        获取采集记录可用的指标列表
+
+        Args:
+            db: 数据库会话
+            collect_id: 采集记录ID
+
+        Returns:
+            指标列表 [{"key": "键名", "label": "显示名称", "source": "hwinfo/process"}]
+        """
+        metrics = []
+
+        # 固定的非 HWiNFO 指标（从性能数据表中获取，排除重复的 CPU/GPU/内存）
+        fixed_metrics = [
+            {"key": "process_handles", "label": "系统句柄数", "source": "system"},
+        ]
+        metrics.extend(fixed_metrics)
+
+        # 从 hwinfo_raw 中动态提取键名
+        stmt = select(PerformanceData).where(
+            PerformanceData.collect_id == collect_id,
+            PerformanceData.hwinfo_raw.isnot(None)
+        ).limit(1)
+        result = await db.execute(stmt)
+        data = result.scalar_one_or_none()
+
+        if data and data.hwinfo_raw:
+            for key in sorted(data.hwinfo_raw.keys()):
+                metrics.append({
+                    "key": key,
+                    "label": key,  # 默认使用原键名，前端可以翻译
+                    "source": "hwinfo"
+                })
+
+        return metrics
+
+    @classmethod
     async def query_advanced_metrics(
         cls, db: AsyncSession, request: AdvancedMetricsQuery
     ) -> Dict[str, Any]:

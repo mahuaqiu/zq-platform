@@ -366,6 +366,20 @@ export function batchImportMappings(collectId: string) {
 }
 
 // 高级指标查询
+export function getAvailableMetrics(collectId: string) {
+  return requestClient.get<{ items: AvailableMetric[] }>(
+    `/api/core/performance-monitor/metrics/list`,
+    { params: { collect_id: collectId } }
+  );
+}
+
 export function queryAdvancedMetrics(data: AdvancedMetricsQuery) {
   return requestClient.post<AdvancedMetricsResponse>(`/api/core/performance-monitor/metrics/query`, data);
+}
+
+// 可用指标类型
+export interface AvailableMetric {
+  key: string;
+  label: string;
+  source: 'system' | 'hwinfo';
 }

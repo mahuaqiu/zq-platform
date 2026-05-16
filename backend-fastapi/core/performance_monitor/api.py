@@ -351,11 +351,22 @@ async def delete_marker(marker_id: str, db: AsyncSession = Depends(get_db)):
 
 # ===== 高级指标查询 =====
 
+@router.get("/metrics/list")
+async def get_available_metrics(collect_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    获取采集记录可用的指标列表
+
+    从 hwinfo_raw 中动态提取所有键名，加上固定的非 HWiNFO 指标
+    """
+    metrics = await PerformanceDataService.get_available_metrics(db, collect_id)
+    return {"items": metrics}
+
+
 @router.post("/metrics/query")
 async def query_advanced_metrics(request: AdvancedMetricsQuery, db: AsyncSession = Depends(get_db)):
     """查询高级指标"""
     result = await PerformanceDataService.query_advanced_metrics(db, request)
-    return result
+    return {"metrics": result}
 
 
 # ===== 版本导出（v0.3.0）=====

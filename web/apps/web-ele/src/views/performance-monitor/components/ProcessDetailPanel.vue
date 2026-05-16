@@ -7,7 +7,7 @@ interface Props {
   visible: boolean;
   data: PerformanceData | null;
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
   clickPosition?: { x: number; y: number } | null;  // 点击位置
   containerWidth?: number;  // 图表容器宽度
 }

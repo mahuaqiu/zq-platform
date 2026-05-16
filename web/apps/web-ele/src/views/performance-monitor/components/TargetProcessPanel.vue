@@ -5,7 +5,7 @@ import type { PerformanceData, ProcessData, ProcessInstance } from '#/api/core/p
 interface Props {
   data: PerformanceData[];
   clickedTime?: number;
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
 }
 
 const props = withDefaults(defineProps<Props>(), {
