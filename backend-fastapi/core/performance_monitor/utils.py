@@ -152,11 +152,11 @@ def convert_top_n_to_top10(
 
     result = []
     for p in top_n:
-        item = {"name": p.get("name", "")}
+        item = {"name": p.name}
         if metric_type == "cpu":
-            item["cpu"] = p.get("cpu_percent", 0)
+            item["cpu"] = p.cpu_percent
         else:
-            item["gpu"] = p.get("gpu_percent", 0)
+            item["gpu"] = p.gpu_percent
         result.append(item)
 
     return result
