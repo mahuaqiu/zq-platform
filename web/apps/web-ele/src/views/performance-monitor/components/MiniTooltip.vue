@@ -17,13 +17,24 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // fixed 定位，基于视窗位置（containerRect + 鼠标相对位置）
+// 边界检测：超出屏幕右侧时显示在左边
 const tooltipPosition = computed(() => {
   if (!props.position || !props.containerRect) {
     return { left: 0, top: 0 };
   }
 
-  // 视窗位置 = 图表容器视窗位置 + 鼠标相对位置 + 偏移
-  const left = props.containerRect.left + props.position.x + 30;
+  // Tooltip 宽度约 180px
+  const tooltipWidth = 180;
+  const screenWidth = window.innerWidth;
+
+  // 默认显示在鼠标右侧
+  let left = props.containerRect.left + props.position.x + 30;
+
+  // 边界检测：如果超出屏幕右侧，则显示在鼠标左侧
+  if (left + tooltipWidth > screenWidth - 10) {
+    left = props.containerRect.left + props.position.x - tooltipWidth - 30;
+  }
+
   const top = props.containerRect.top + props.position.y + 10;
 
   return { left, top };

@@ -713,6 +713,11 @@ function handleMiniTooltipHide() {
 
 // 大面板点击事件处理
 function handleDetailClick(data: DetailPanelState, chartKey: string) {
+  // 更新 clickedTime 用于底部面板联动
+  if (data.data?.relative_time) {
+    clickedTime.value = data.data.relative_time;
+  }
+
   if (detailPanelState.value?.data?.relative_time === data.data?.relative_time
       && activeChartKey.value === chartKey) {
     detailPanelState.value = null;
