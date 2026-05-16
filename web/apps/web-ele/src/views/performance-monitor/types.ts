@@ -125,3 +125,13 @@ export interface TagSummary {
   duration: number;
   metrics: Record<string, number>;
 }
+
+// 对比标签（跨版本共享）
+export interface CompareTag {
+  id: string;
+  name: string;
+  type: 'peak' | 'stable'; // 冲高 / 稳态（区别于 TagType 'peak' | 'mean'）
+  start_time: string; // ISO 格式绝对时间
+  end_time: string;
+  note?: string;
+}
