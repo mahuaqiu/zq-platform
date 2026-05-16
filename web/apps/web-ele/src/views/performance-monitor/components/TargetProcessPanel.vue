@@ -160,7 +160,7 @@ const formattedTimestamp = computed(() => {
 }
 
 .processes-list {
-  height: 260px;
+  max-height: 260px;
   overflow-y: auto;
 }
 

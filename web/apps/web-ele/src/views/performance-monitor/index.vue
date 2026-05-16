@@ -916,7 +916,6 @@ function handleRangeChange(range: [number, number]) {
           @update:visible="showMorePopup = $event"
           @select="handleHwinfoMetricSelect"
         />
-        />
       </div>
     </div>
 
@@ -1313,19 +1312,22 @@ function handleRangeChange(range: [number, number]) {
 .bottom-panels {
   display: flex;
   gap: 16px;
-  max-width: 67%;
 }
 
 .panel-wrapper {
   flex: 1;
+  min-width: 300px;
+  max-width: 400px;
 }
 
 .target-process-wrapper {
-  flex: 0.8;
+  flex: 0 0 320px;
+  max-width: 320px;
 }
 
 .top10-panel-wrapper {
-  flex: 1.2;
+  flex: 1 1 400px;
+  max-width: 400px;
 }
 
 .target-process-wrapper,
