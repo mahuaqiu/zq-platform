@@ -626,18 +626,18 @@ async function loadCollectData(collectId: string) {
       return;
     }
 
-    const totalDuration = latestResult.items[0].relative_time;
-    totalDuration.value = totalDuration; // 记录总时长
+    const durationFromData = latestResult.items[0].relative_time;
+    totalDuration.value = durationFromData; // 记录总时长
 
     // 2. 加载最近12小时的数据（最大显示范围，large模式可处理）
     const maxLoadDuration = 12 * 3600; // 12小时 = 43200秒
     let startTime = 0;
-    let endTime = totalDuration;
+    let endTime = durationFromData;
 
-    if (totalDuration > maxLoadDuration) {
+    if (durationFromData > maxLoadDuration) {
       // 超过12小时：只加载最近12小时的数据
-      startTime = totalDuration - maxLoadDuration;
-      endTime = totalDuration;
+      startTime = durationFromData - maxLoadDuration;
+      endTime = durationFromData;
     }
 
     // 3. 按时间范围请求详细数据
@@ -657,8 +657,8 @@ async function loadCollectData(collectId: string) {
 
       // 默认显示最近15分钟（前端过滤）
       const defaultDisplayDuration = 15 * 60;
-      if (totalDuration > defaultDisplayDuration) {
-        selectedRelativeTimeRange.value = [totalDuration - defaultDisplayDuration, totalDuration];
+      if (totalDuration.value > defaultDisplayDuration) {
+        selectedRelativeTimeRange.value = [totalDuration.value - defaultDisplayDuration, totalDuration.value];
       } else {
         selectedRelativeTimeRange.value = null;
       }
