@@ -158,6 +158,15 @@ let isMounted = false; // 组件挂载状态
 // 用户选择的时间窗口范围（相对时间，秒）- 由 TimeNavigator 控制
 const selectedRelativeTimeRange = ref<[number, number] | null>(null);
 
+// 已加载的数据时间范围（用于判断是否需要动态加载更多数据）
+const loadedTimeRange = ref<{ min: number; max: number } | null>(null);
+
+// 总时长（采集记录的完整时长，不受加载范围限制）
+const totalDuration = ref<number>(0);
+
+// 正在加载更多数据的标记（避免重复请求）
+const isLoadingMoreData = ref(false);
+
 // 根据时间窗口过滤后的数据
 const filteredPerformanceData = computed(() => {
   const data = performanceData.value;
@@ -618,6 +627,7 @@ async function loadCollectData(collectId: string) {
     }
 
     const totalDuration = latestResult.items[0].relative_time;
+    totalDuration.value = totalDuration; // 记录总时长
 
     // 2. 加载最近12小时的数据（最大显示范围，large模式可处理）
     const maxLoadDuration = 12 * 3600; // 12小时 = 43200秒
@@ -639,6 +649,11 @@ async function loadCollectData(collectId: string) {
     if (result?.items?.length) {
       performanceData.value = result.items;
       historyData.value = result.items.slice(-50);
+
+      // 记录已加载的时间范围
+      const loadedStartTime = result.items[0]?.relative_time || startTime;
+      const loadedEndTime = result.items[result.items.length - 1]?.relative_time || endTime;
+      loadedTimeRange.value = { min: loadedStartTime, max: loadedEndTime };
 
       // 默认显示最近15分钟（前端过滤）
       const defaultDisplayDuration = 15 * 60;
@@ -736,7 +751,10 @@ function handleCollectStarted(collectId: string) {
   stopPolling();
   performanceData.value = [];
   historyData.value = [];
-  // 重置时间范围选择
+  // 重置时间范围选择和加载状态
+  selectedRelativeTimeRange.value = null;
+  loadedTimeRange.value = null;
+  totalDuration.value = 0;
   selectedRelativeTimeRange.value = null;
   currentCollectId.value = collectId;
   refreshStatus();
@@ -1048,6 +1066,49 @@ function handleGlobalClick(e: MouseEvent) {
 // 处理时间导航条范围变化
 function handleRangeChange(range: [number, number]) {
   selectedRelativeTimeRange.value = range;
+
+  // 检查是否需要动态加载更早的数据
+  if (loadedTimeRange.value && range[0] < loadedTimeRange.value.min) {
+    loadMoreData(range[0], loadedTimeRange.value.min);
+  }
+}
+
+// 动态加载更早的数据（用户拖动到早期时间时触发）
+async function loadMoreData(start_time: number, end_time: number) {
+  if (!currentCollectId.value || isLoadingMoreData.value) return;
+
+  // 防止加载无效范围
+  if (start_time < 0 || start_time >= end_time) return;
+
+  isLoadingMoreData.value = true;
+
+  try {
+    const result = await getCollectDataByRange(currentCollectId.value, {
+      start_time: Math.max(0, start_time),
+      end_time: end_time,
+    });
+
+    if (result?.items?.length) {
+      // 合并数据：新数据插入到开头，保持时间顺序
+      const existingIds = new Set(performanceData.value.map(d => d.id));
+      const newData = result.items.filter(d => !existingIds.has(d.id));
+
+      if (newData.length > 0) {
+        // 按时间顺序合并
+        performanceData.value = [...newData, ...performanceData.value].sort(
+          (a, b) => a.relative_time - b.relative_time
+        );
+
+        // 更新已加载的时间范围
+        const newMinTime = Math.min(loadedTimeRange.value?.min || 0, newData[0].relative_time);
+        loadedTimeRange.value = { min: newMinTime, max: loadedTimeRange.value?.max || 0 };
+      }
+    }
+  } catch (error) {
+    console.error('动态加载更多数据失败:', error);
+  } finally {
+    isLoadingMoreData.value = false;
+  }
 }
 </script>
 
@@ -1121,9 +1182,9 @@ function handleRangeChange(range: [number, number]) {
     <!-- 时间导航条 -->
     <TimeNavigator
       v-if="performanceData.length > 0"
-      :duration="performanceData[performanceData.length - 1]?.relative_time || 0"
+      :duration="totalDuration"
       :start-time="selectedRelativeTimeRange?.[0] || 0"
-      :end-time="selectedRelativeTimeRange?.[1] || performanceData[performanceData.length - 1]?.relative_time || 0"
+      :end-time="selectedRelativeTimeRange?.[1] || totalDuration"
       :collect-id="currentCollectId"
       :markers="markers"
       @range-change="handleRangeChange"
