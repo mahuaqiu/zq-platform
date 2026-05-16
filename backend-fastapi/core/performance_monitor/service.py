@@ -279,6 +279,24 @@ class PerformanceDataService(BaseService):
         return list(reversed(items))
 
     @classmethod
+    async def get_collect_data_by_range(
+        cls, db: AsyncSession, collect_id: str, start_time: int, end_time: int
+    ) -> List[PerformanceData]:
+        """按时间范围获取采集数据（用于查看特定时间窗口）"""
+        conditions = [PerformanceData.collect_id == collect_id]
+        if start_time > 0:
+            conditions.append(PerformanceData.relative_time >= start_time)
+        if end_time > 0:
+            conditions.append(PerformanceData.relative_time <= end_time)
+
+        stmt = select(PerformanceData).where(
+            and_(*conditions)
+        ).order_by(PerformanceData.relative_time)
+        result = await db.execute(stmt)
+        items = result.scalars().all()
+        return items
+
+    @classmethod
     async def get_available_metrics(cls, db: AsyncSession, collect_id: str) -> List[Dict[str, Any]]:
         """
         获取采集记录可用的指标列表

@@ -240,6 +240,17 @@ export async function getCollectData(
   );
 }
 
+// 按时间范围获取采集数据（用于查看特定时间窗口）
+export async function getCollectDataByRange(
+  collectId: string,
+  params: { start_time: number; end_time: number },
+) {
+  return requestClient.get<{ items: PerformanceData[] }>(
+    `/api/core/performance-monitor/collect/${collectId}/data/range`,
+    { params },
+  );
+}
+
 export async function getLatestData(collectId: string, limit: number = 10) {
   return requestClient.get<{ items: PerformanceData[] }>(
     `/api/core/performance-monitor/collect/${collectId}/latest?limit=${limit}`,

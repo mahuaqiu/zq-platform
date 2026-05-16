@@ -175,11 +175,24 @@ async def get_collect_data(
     page_size: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取采集数据"""
+    """获取采集数据（分页，从最老数据开始）"""
     result = await PerformanceDataService.get_collect_data(db, collect_id, page, page_size)
     # 使用 Response Schema 包装数据，确保 datetime 序列化带 UTC 标识
     items = [DataResponse.model_validate(item) for item in result["items"]]
     return {"total": result["total"], "items": items}
+
+
+@router.get("/collect/{collect_id}/data/range")
+async def get_collect_data_by_range(
+    collect_id: str,
+    start_time: int = Query(0, ge=0, description="开始时间（相对秒数）"),
+    end_time: int = Query(0, ge=0, description="结束时间（相对秒数）"),
+    db: AsyncSession = Depends(get_db)
+):
+    """按时间范围获取采集数据（用于查看特定时间窗口，如最近15分钟）"""
+    items = await PerformanceDataService.get_collect_data_by_range(db, collect_id, start_time, end_time)
+    validated_items = [DataResponse.model_validate(item) for item in items]
+    return {"items": validated_items}
 
 
 @router.get("/collect/{collect_id}/latest")

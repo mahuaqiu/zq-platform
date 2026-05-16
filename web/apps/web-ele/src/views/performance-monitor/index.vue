@@ -18,6 +18,7 @@ import {
   stopCollect,
   getLatestData,
   getCollectData,
+  getCollectDataByRange,
   getCollectList,
   getVersions,
   createVersion,
@@ -609,20 +610,41 @@ async function fetchCollectHistory() {
 // 加载采集的全部数据（用于历史采集查看）
 async function loadCollectData(collectId: string) {
   try {
-    const result = await getCollectData(collectId, { page: 1, page_size: 500 });
+    // 1. 先获取最新1条数据，确定总时长
+    const latestResult = await getLatestData(collectId, 1);
+    if (!latestResult?.items?.length) {
+      console.warn('采集记录无数据');
+      return;
+    }
+
+    const totalDuration = latestResult.items[0].relative_time;
+
+    // 2. 加载最近12小时的数据（最大显示范围，large模式可处理）
+    const maxLoadDuration = 12 * 3600; // 12小时 = 43200秒
+    let startTime = 0;
+    let endTime = totalDuration;
+
+    if (totalDuration > maxLoadDuration) {
+      // 超过12小时：只加载最近12小时的数据
+      startTime = totalDuration - maxLoadDuration;
+      endTime = totalDuration;
+    }
+
+    // 3. 按时间范围请求详细数据
+    const result = await getCollectDataByRange(collectId, {
+      start_time: startTime,
+      end_time: endTime,
+    });
+
     if (result?.items?.length) {
       performanceData.value = result.items;
       historyData.value = result.items.slice(-50);
 
-      // 设置默认时间范围：最近15分钟
-      const totalDuration = result.items[result.items.length - 1]?.relative_time || 0;
-      const defaultDisplayDuration = 15 * 60; // 15分钟 = 900秒
-
+      // 默认显示最近15分钟（前端过滤）
+      const defaultDisplayDuration = 15 * 60;
       if (totalDuration > defaultDisplayDuration) {
-        // 超过15分钟：默认显示最近15分钟
         selectedRelativeTimeRange.value = [totalDuration - defaultDisplayDuration, totalDuration];
       } else {
-        // 不超过15分钟：显示全部
         selectedRelativeTimeRange.value = null;
       }
 
