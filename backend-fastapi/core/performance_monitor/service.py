@@ -223,6 +223,12 @@ class PerformanceDataService(BaseService):
             process_memory = core_metrics.get("process_memory")
             process_committed_memory = core_metrics.get("process_committed_memory")
 
+            # 计算进程总句柄数（从 aggregated 数据汇总）
+            total_handles = 0
+            if aggregated_dict:
+                for proc in aggregated_dict:
+                    total_handles += proc.get("handle_count_total", 0)
+
             # 转换为前端兼容的 target_processes 格式
             target_processes_raw = convert_aggregated_to_target_processes(aggregated_dict, processes_dict)
             top10_cpu_raw = convert_top_n_to_top10(top_n_cpu_dict, "cpu")
@@ -239,7 +245,7 @@ class PerformanceDataService(BaseService):
                 power=None,
                 cpu_speed=None,
                 cpu_temp=None,
-                process_handles=None,
+                process_handles=total_handles if total_handles > 0 else None,
                 upload_speed=None,
                 download_speed=None,
                 target_processes=target_processes_raw,
@@ -294,9 +300,14 @@ class PerformanceDataService(BaseService):
         """
         metrics = []
 
-        # 固定的非 HWiNFO 指标（从性能数据表中获取，排除重复的 CPU/GPU/内存）
+        # 固定的非 HWiNFO 指标（从性能数据表中获取，包含单位）
         fixed_metrics = [
-            {"key": "process_handles", "label": "系统句柄数", "source": "system"},
+            {"key": "process_handles", "label": "系统句柄数", "source": "system", "unit": "个"},
+            {"key": "upload_speed", "label": "上传速度", "source": "system", "unit": "MB/s"},
+            {"key": "download_speed", "label": "下载速度", "source": "system", "unit": "MB/s"},
+            {"key": "cpu_temp", "label": "CPU温度", "source": "system", "unit": "°C"},
+            {"key": "cpu_speed", "label": "CPU速度", "source": "system", "unit": "GHz"},
+            {"key": "power", "label": "功耗", "source": "system", "unit": "W"},
         ]
         metrics.extend(fixed_metrics)
 
@@ -353,35 +364,67 @@ class PerformanceDataService(BaseService):
         mapping_result = await db.execute(mapping_stmt)
         mappings = {m.hwinfo_key: m for m in mapping_result.scalars().all()}
 
+        # 系统指标字段映射（包含显示名称和单位）
+        system_metric_fields = {
+            "process_handles": ("process_handles", "系统句柄数", "个"),
+            "upload_speed": ("upload_speed", "上传速度", "MB/s"),
+            "download_speed": ("download_speed", "下载速度", "MB/s"),
+            "cpu_temp": ("cpu_temp", "CPU温度", "°C"),
+            "cpu_speed": ("cpu_speed", "CPU速度", "GHz"),
+            "power": ("power", "功耗", "W"),
+        }
+
         # 按指标键名分组数据
         metrics_data: Dict[str, Dict[str, Any]] = {}
         for key in request.metric_keys:
-            mapping = mappings.get(key)
-            metrics_data[key] = {
-                "hwinfo_key": key,
-                "display_name": mapping.display_name if mapping else key,
-                "unit": mapping.unit if mapping else None,
-                "data": []
-            }
+            # 检查是否是系统指标
+            if key in system_metric_fields:
+                field_name, display_name, unit = system_metric_fields[key]
+                metrics_data[key] = {
+                    "hwinfo_key": key,
+                    "display_name": display_name,
+                    "unit": unit,
+                    "data": []
+                }
+            else:
+                # HWiNFO 指标
+                mapping = mappings.get(key)
+                metrics_data[key] = {
+                    "hwinfo_key": key,
+                    "display_name": mapping.display_name if mapping else key,
+                    "unit": mapping.unit if mapping else None,
+                    "data": []
+                }
 
-        # 遍历数据，提取每个指标的值（并从原始数据中提取单位）
+        # 遍历数据，提取每个指标的值
         for item in items:
-            hwinfo_raw = item.hwinfo_raw or {}
             for key in request.metric_keys:
-                if key in hwinfo_raw:
-                    value_info = hwinfo_raw.get(key, {})
-                    if isinstance(value_info, dict):
-                        value = value_info.get("value")
-                        # 从原始数据中提取单位（如果 mapping 中没有配置）
-                        raw_unit = value_info.get("unit")
-                        if raw_unit and not metrics_data[key]["unit"]:
-                            metrics_data[key]["unit"] = raw_unit
-                    else:
-                        value = value_info
-                    metrics_data[key]["data"].append({
-                        "relative_time": item.relative_time,
-                        "value": value
-                    })
+                # 系统指标从数据库字段获取
+                if key in system_metric_fields:
+                    field_name = system_metric_fields[key][0]
+                    value = getattr(item, field_name, None)
+                    if value is not None:
+                        metrics_data[key]["data"].append({
+                            "relative_time": item.relative_time,
+                            "value": value
+                        })
+                else:
+                    # HWiNFO 指标从 hwinfo_raw 获取
+                    hwinfo_raw = item.hwinfo_raw or {}
+                    if key in hwinfo_raw:
+                        value_info = hwinfo_raw.get(key, {})
+                        if isinstance(value_info, dict):
+                            value = value_info.get("value")
+                            # 从原始数据中提取单位（如果 mapping 中没有配置）
+                            raw_unit = value_info.get("unit")
+                            if raw_unit and not metrics_data[key]["unit"]:
+                                metrics_data[key]["unit"] = raw_unit
+                        else:
+                            value = value_info
+                        metrics_data[key]["data"].append({
+                            "relative_time": item.relative_time,
+                            "value": value
+                        })
 
         # 检查是否有有效数据
         has_data = any(len(m["data"]) > 0 for m in metrics_data.values())
