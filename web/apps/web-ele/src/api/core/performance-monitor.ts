@@ -92,6 +92,17 @@ export interface PerformanceVersion {
   is_protected: boolean;
 }
 
+// 对比标签类型（跨版本共享）
+export interface CompareTag {
+  id: string;
+  name: string;
+  type: 'peak' | 'stable'; // 冲高 / 稳态
+  start_time: string; // ISO 格式绝对时间
+  end_time: string;
+  note?: string;
+  type_display?: string;
+}
+
 export interface CollectStatus {
   is_collecting: boolean;
   collect_id?: string;
@@ -322,10 +333,11 @@ export async function createVersion(params: {
   );
 }
 
-export async function getVersions(deviceId: string) {
-  return requestClient.get<{ items: PerformanceVersion[] }>(
-    `/api/core/performance-monitor/version/list?device_id=${deviceId}`,
-  );
+export async function getVersions(deviceId?: string) {
+  const url = deviceId
+    ? `/api/core/performance-monitor/version/list?device_id=${deviceId}`
+    : '/api/core/performance-monitor/version/list';
+  return requestClient.get<{ items: PerformanceVersion[] }>(url);
 }
 
 export async function getCompareData(versionIds: string[]) {
@@ -388,6 +400,41 @@ export function getAvailableMetrics(collectId: string) {
 
 export function queryAdvancedMetrics(data: AdvancedMetricsQuery) {
   return requestClient.post<AdvancedMetricsResponse>(`/api/core/performance-monitor/metrics/query`, data);
+}
+
+// 对比标签 API（版本对比页面专用）
+export interface CompareTagCreate {
+  name: string;
+  type: 'peak' | 'stable';
+  start_time: string;
+  end_time: string;
+  note?: string;
+}
+
+export async function createCompareTag(data: CompareTagCreate) {
+  return requestClient.post<{ id: string; status: string }>(
+    '/api/core/performance-monitor/compare/tag',
+    data,
+  );
+}
+
+export async function getCompareTags() {
+  return requestClient.get<{ items: CompareTag[] }>(
+    '/api/core/performance-monitor/compare/tags',
+  );
+}
+
+export async function updateCompareTag(tagId: string, data: Partial<CompareTagCreate>) {
+  return requestClient.put<{ status: string }>(
+    `/api/core/performance-monitor/compare/tag/${tagId}`,
+    data,
+  );
+}
+
+export async function deleteCompareTag(tagId: string) {
+  return requestClient.delete<{ status: string }>(
+    `/api/core/performance-monitor/compare/tag/${tagId}`,
+  );
 }
 
 // 可用指标类型
