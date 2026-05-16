@@ -7,7 +7,6 @@ import ChartPanel from './components/ChartPanel.vue';
 import Top10Panel from './components/Top10Panel.vue';
 import CollectDialog from './components/CollectDialog.vue';
 import TimeNavigator from './components/TimeNavigator.vue';
-import MarkerManager from './components/MarkerManager.vue';
 import MetricSelector from './components/MetricSelector.vue';
 import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import MiniTooltip from './components/MiniTooltip.vue';
@@ -823,15 +822,10 @@ function handleRangeChange(range: [number, number]) {
       :duration="performanceData[performanceData.length - 1]?.relative_time || 0"
       :start-time="selectedRelativeTimeRange?.[0] || 0"
       :end-time="selectedRelativeTimeRange?.[1] || performanceData[performanceData.length - 1]?.relative_time || 0"
-      @range-change="handleRangeChange"
-    />
-
-    <!-- 标记管理 -->
-    <MarkerManager
-      v-if="currentCollectId"
       :collect-id="currentCollectId"
       :markers="markers"
-      @refresh="loadMarkers"
+      @range-change="handleRangeChange"
+      @refresh-markers="loadMarkers"
     />
 
     <!-- 主内容区 - 单图表主导布局 -->

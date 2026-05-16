@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as echarts from 'echarts';
+import { ElDialog, ElInput, ElButton, ElColorPicker } from 'element-plus';
+import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
+import type { MarkerResponse } from '#/api/core/performance-monitor';
 
 interface Props {
   duration: number; // 总时长（秒）
@@ -8,6 +11,8 @@ interface Props {
   endTime?: number; // 选中的结束时间（相对于采集开始的偏移秒数）
   collectionStartTime?: Date | number | string; // 采集开始时间戳
   previewData?: number[]; // 数据预览（可选，显示在导航条背景）
+  collectId?: string; // 采集ID（用于标记操作）
+  markers?: MarkerResponse[]; // 标记列表
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -15,17 +20,18 @@ const props = withDefaults(defineProps<Props>(), {
   endTime: 0,
   collectionStartTime: () => new Date(),
   previewData: () => [],
+  markers: () => [],
 });
 
 const emit = defineEmits<{
   (e: 'rangeChange', range: [number, number]): void;
+  (e: 'refreshMarkers'): void;
 }>();
 
-// 快速选择按钮配置
+// 快速选择按钮配置 - 删除30分钟，保留全部、15分钟、60分钟
 const quickButtons = [
   { label: '全部', value: 0 },
-  { label: '5分钟', value: 5 * 60 },
-  { label: '30分钟', value: 30 * 60 },
+  { label: '15分钟', value: 15 * 60 },
   { label: '60分钟', value: 60 * 60 },
 ];
 
@@ -34,23 +40,38 @@ function getActiveButtonFromRange(start: number, end: number, duration: number):
   if (duration <= 0) return 0;
   if (start === 0 && end === duration) return 0;
   const range = end - start;
-  if (end === duration && range === 5 * 60) return 5 * 60;
-  if (end === duration && range === 30 * 60) return 30 * 60;
+  if (end === duration && range === 15 * 60) return 15 * 60;
   if (end === duration && range === 60 * 60) return 60 * 60;
   return -1;
 }
 
 const activeButton = ref(getActiveButtonFromRange(props.startTime, props.endTime, props.duration));
 const chartRef = ref<HTMLDivElement>();
-const trackRef = ref<HTMLDivElement>(); // 轨道容器引用
+const trackRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;
 
-// 当前选中的时间（秒）- 用于时间标签显示
+// 当前选中的时间（秒）
 const currentStartTime = ref(props.startTime);
 const currentEndTime = ref(props.endTime);
 
-// 格式化时间戳为 YYYY-MM-DD HH:MM:SS
-function formatTime(offsetSeconds: number): string {
+// 标记相关
+const showAddDialog = ref(false);
+const newMarker = ref({
+  name: '',
+  start_time: 0,
+  end_time: 0,
+  color: '#409eff',
+  note: '',
+});
+
+// 过滤有效标记
+const validMarkers = computed(() => {
+  if (!props.markers || !Array.isArray(props.markers)) return [];
+  return props.markers.filter((m) => m.name && m.name.trim() !== '');
+});
+
+// 格式化时间戳为 YYYY-MM-DD HH:MM:SS 或 HH:MM:SS
+function formatTime(offsetSeconds: number, short: boolean = false): string {
   const baseTime = new Date(props.collectionStartTime);
   const time = new Date(baseTime.getTime() + offsetSeconds * 1000);
   const year = time.getFullYear();
@@ -59,7 +80,17 @@ function formatTime(offsetSeconds: number): string {
   const hour = String(time.getHours()).padStart(2, '0');
   const minute = String(time.getMinutes()).padStart(2, '0');
   const second = String(time.getSeconds()).padStart(2, '0');
+  if (short) {
+    return `${hour}:${minute}:${second}`;
+  }
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+}
+
+// 格式化时间范围（结束时间只显示时分秒）
+function formatTimeRange(): string {
+  const startTimeStr = formatTime(currentStartTime.value);
+  const endTimeStr = formatTime(currentEndTime.value, true);
+  return `${startTimeStr} ~ ${endTimeStr}`;
 }
 
 // 计算时间标签位置百分比
@@ -70,23 +101,6 @@ function getStartPercent(): number {
 function getEndPercent(): number {
   if (props.duration <= 0) return 100;
   return (currentEndTime.value / props.duration) * 100;
-}
-
-// 判断是否需要合并显示（距离小于 15%）
-const isMergedMode = computed(() => {
-  return getEndPercent() - getStartPercent() < 15;
-});
-
-// 格式化合并时间范围
-function formatMergedTime(): string {
-  const start = formatTime(currentStartTime.value);
-  const endTime = new Date(
-    new Date(props.collectionStartTime).getTime() + currentEndTime.value * 1000,
-  );
-  const hour = String(endTime.getHours()).padStart(2, '0');
-  const minute = String(endTime.getMinutes()).padStart(2, '0');
-  const second = String(endTime.getSeconds()).padStart(2, '0');
-  return `${start} ~ ${hour}:${minute}:${second}`;
 }
 
 // 快速选择
@@ -101,7 +115,6 @@ function handleQuickSelect(value: number) {
     currentEndTime.value = props.duration;
     emit('rangeChange', [currentStartTime.value, props.duration]);
   }
-  // 同步更新图表
   if (chartInstance) {
     chartInstance.setOption({
       dataZoom: [{
@@ -112,27 +125,51 @@ function handleQuickSelect(value: number) {
   }
 }
 
+// 添加标记
+function handleOpenAddMarker() {
+  newMarker.value = {
+    name: '',
+    start_time: currentStartTime.value,
+    end_time: currentEndTime.value,
+    color: '#409eff',
+    note: '',
+  };
+  showAddDialog.value = true;
+}
+
+async function handleAddMarker() {
+  if (!newMarker.value.name || !props.collectId) {
+    return;
+  }
+  await createMarker({
+    collect_id: props.collectId,
+    name: newMarker.value.name,
+    start_time: newMarker.value.start_time,
+    end_time: newMarker.value.end_time || undefined,
+    color: newMarker.value.color,
+    note: newMarker.value.note || undefined,
+  });
+  showAddDialog.value = false;
+  emit('refreshMarkers');
+}
+
+async function handleDeleteMarker(markerId: string) {
+  await deleteMarker(markerId);
+  emit('refreshMarkers');
+}
+
 function initChart() {
   if (!chartRef.value) return;
   chartInstance = echarts.init(chartRef.value);
 
-  // 监听 dataZoom 事件
   chartInstance.on('datazoom', (params: any) => {
-    // 取消快速选择按钮激活状态
     activeButton.value = -1;
-
-    // 获取百分比范围
     const startPercent = params.start;
     const endPercent = params.end;
-
-    // 计算实际时间范围（秒）
     const start = Math.round((startPercent / 100) * props.duration);
     const end = Math.round((endPercent / 100) * props.duration);
-
-    // 更新本地时间显示
     currentStartTime.value = start;
     currentEndTime.value = end;
-
     emit('rangeChange', [start, end]);
   });
 
@@ -142,16 +179,13 @@ function initChart() {
 function updateChart() {
   if (!chartInstance) return;
 
-  // 生成 X 轴数据（时间刻度）
   const xAxisData: number[] = [];
   for (let i = 0; i <= props.duration; i += Math.max(1, Math.floor(props.duration / 100))) {
     xAxisData.push(i);
   }
 
-  // 生成预览数据（如果没有传入，生成模拟数据）
   let previewData = props.previewData;
   if (previewData.length === 0) {
-    // 模拟随机数据用于预览
     previewData = xAxisData.map(() => 30 + Math.random() * 40);
   }
 
@@ -198,8 +232,8 @@ function updateChart() {
         xAxisIndex: 0,
         start: getStartPercent(),
         end: getEndPercent(),
-        height: 20,
-        bottom: 0,
+        height: 18,
+        bottom: 2,
         borderColor: '#ddd',
         backgroundColor: '#e8e8e8',
         fillerColor: 'rgba(64, 158, 255, 0.15)',
@@ -220,7 +254,7 @@ function updateChart() {
           lineStyle: { color: '#ccc' },
           areaStyle: { color: '#eee' },
         },
-        textStyle: { show: false }, // 不显示内置的文字
+        textStyle: { show: false },
         brushSelect: false,
         zoomLock: false,
       },
@@ -230,7 +264,6 @@ function updateChart() {
   chartInstance.setOption(option);
 }
 
-// 监听 props 变化
 watch(() => props.duration, () => {
   currentStartTime.value = props.startTime;
   currentEndTime.value = props.endTime;
@@ -272,7 +305,19 @@ onUnmounted(() => {
 <template>
   <div class="time-navigator">
     <div class="navigator-container">
-      <!-- 左侧快速选择按钮 -->
+      <!-- 左侧：时间显示 -->
+      <div class="time-display">
+        <span class="time-range">{{ formatTimeRange() }}</span>
+      </div>
+
+      <!-- 中间左侧：ECharts 导航条 -->
+      <div class="navigator-wrapper">
+        <div ref="trackRef" class="navigator-track">
+          <div ref="chartRef" class="chart-container"></div>
+        </div>
+      </div>
+
+      <!-- 中间右侧：快速选择按钮 -->
       <div class="quick-buttons">
         <button
           v-for="btn in quickButtons"
@@ -285,67 +330,121 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- 右侧 ECharts 导航条 -->
-      <div class="navigator-wrapper">
-        <div ref="trackRef" class="navigator-track">
-          <!-- 合并模式：居中显示时间范围 -->
-          <div v-if="isMergedMode" class="merged-time-label">
-            {{ formatMergedTime() }}
-          </div>
-          <!-- 分开模式：两个时间标签跟随把手 -->
-          <template v-else>
-            <div
-              class="time-tag-left"
-              :class="{ 'at-boundary': getStartPercent() < 8 }"
-              :style="{ left: getStartPercent() + '%' }"
-            >
-              {{ formatTime(currentStartTime) }}
-            </div>
-            <div
-              class="time-tag-right"
-              :class="{ 'at-boundary': getEndPercent() > 92 }"
-              :style="{ left: getEndPercent() + '%' }"
-            >
-              {{ formatTime(currentEndTime) }}
-            </div>
-          </template>
-          <!-- ECharts 容器 -->
-          <div ref="chartRef" class="chart-container"></div>
-        </div>
+      <!-- 右侧：标记区域 -->
+      <div v-if="collectId" class="marker-area">
+        <span
+          v-for="marker in validMarkers"
+          :key="marker.id"
+          class="marker-tag"
+          :style="{
+            borderColor: marker.color,
+            color: marker.color,
+            background: marker.color + '15',
+          }"
+        >
+          {{ marker.name }}
+          <button class="marker-delete" @click="handleDeleteMarker(marker.id)">×</button>
+        </span>
+        <button class="add-marker-btn" @click="handleOpenAddMarker">+标记</button>
       </div>
     </div>
+
+    <!-- 添加标记弹窗 -->
+    <ElDialog v-model="showAddDialog" title="添加标记" width="400px">
+      <div class="form-item">
+        <label>标记名称</label>
+        <ElInput v-model="newMarker.name" placeholder="如：发起共享" />
+      </div>
+      <div class="form-item">
+        <label>开始时间（秒）</label>
+        <ElInput v-model.number="newMarker.start_time" type="number" placeholder="0" />
+      </div>
+      <div class="form-item">
+        <label>结束时间（秒）</label>
+        <ElInput v-model.number="newMarker.end_time" type="number" placeholder="可选" />
+      </div>
+      <div class="form-item">
+        <label>颜色</label>
+        <ElColorPicker v-model="newMarker.color" />
+      </div>
+      <div class="form-item">
+        <label>备注</label>
+        <ElInput v-model="newMarker.note" placeholder="可选" />
+      </div>
+      <template #footer>
+        <ElButton @click="showAddDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="handleAddMarker">确定</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
 <style scoped>
 .time-navigator {
-  padding: 16px;
+  padding: 8px 12px;
   background: white;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .navigator-container {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
+  height: 28px;
+}
+
+/* 左侧时间显示 */
+.time-display {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.time-range {
+  font-size: 11px;
+  font-weight: 500;
+  color: #409eff;
+  white-space: nowrap;
+}
+
+/* 导航条容器 */
+.navigator-wrapper {
+  display: flex;
+  flex: 0 0 30%;
+  min-width: 150px;
+}
+
+.navigator-track {
+  position: relative;
+  width: 100%;
+  height: 20px;
+}
+
+.chart-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 20px;
 }
 
 /* 快速选择按钮样式 */
 .quick-buttons {
   display: flex;
   flex-shrink: 0;
-  gap: 8px;
+  gap: 6px;
 }
 
 .quick-btn {
-  padding: 6px 16px;
-  font-size: 13px;
+  padding: 3px 10px;
+  font-size: 12px;
   color: #666;
   white-space: nowrap;
   cursor: pointer;
   background: #fff;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 3px;
   transition: all 0.2s;
 }
 
@@ -360,68 +459,65 @@ onUnmounted(() => {
   border-color: #409eff;
 }
 
-/* 导航条容器 */
-.navigator-wrapper {
+/* 右侧标记区域 */
+.marker-area {
   display: flex;
   flex: 1;
-  min-width: 0;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  min-width: 100px;
 }
 
-.navigator-track {
-  position: relative;
-  width: 100%;
-  height: 42px;
-}
-
-/* 合并时间标签 */
-.merged-time-label {
-  position: absolute;
-  top: 0;
-  left: 50%;
+.marker-tag {
   padding: 2px 8px;
-  font-size: 11px;
-  color: #409eff;
-  background: #fff;
   border-radius: 3px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
-  transform: translateX(-50%);
-  z-index: 10;
-  white-space: nowrap;
+  font-size: 11px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* 时间标签 - 跟随把手 */
-.time-tag-left,
-.time-tag-right {
-  position: absolute;
-  top: 0;
+.marker-delete {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.marker-delete:hover {
+  opacity: 1;
+}
+
+.add-marker-btn {
+  background: white;
+  border: 1px solid #409eff;
+  color: #409eff;
   padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #409eff;
-  white-space: nowrap;
-  background: #fff;
   border-radius: 3px;
-  transform: translateX(-50%);
-  z-index: 10;
+  font-size: 11px;
+  cursor: pointer;
 }
 
-/* 边界处理：左标签靠近左边界时，左对齐 */
-.time-tag-left.at-boundary {
-  transform: translateX(0);
-  left: 0;
+.add-marker-btn:hover {
+  background: #409eff;
+  color: white;
 }
 
-/* 边界处理：右标签靠近右边界时，右对齐 */
-.time-tag-right.at-boundary {
-  transform: translateX(-100%);
+/* 弹窗表单 */
+.form-item {
+  margin-bottom: 15px;
 }
 
-.chart-container {
-  position: absolute;
-  top: 22px;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 20px;
+.form-item label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+  color: #666;
 }
 </style>
