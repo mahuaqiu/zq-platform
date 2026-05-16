@@ -91,6 +91,8 @@ const historySearchDate = ref<[Date, Date] | null>(null);
 const historySearchProcess = ref('');
 const historyLoading = ref(false);
 const historyDeleting = ref<string | null>(null);
+const selectedCollectIds = ref<Set<string>>(new Set()); // 多选状态
+const batchDeleting = ref(false); // 批量删除loading
 
 // 小 Tooltip 状态（hover 触发）
 interface MiniTooltipState {
@@ -737,6 +739,7 @@ function handleVersionClick(versionId: string) {
 function handleHistoryClick() {
   historySearchDate.value = null;
   historySearchProcess.value = '';
+  selectedCollectIds.value = new Set(); // 清空选中状态
   fetchCollectHistory();
   showHistoryDialog.value = true;
 }
@@ -803,6 +806,88 @@ async function handleToggleProtected(collect: PerformanceCollect) {
     ElMessage.success(newStatus ? '已设置为永久保留' : '已取消永久保留');
   } catch (error) {
     ElMessage.error('操作失败');
+  }
+}
+
+// 可删除的筛选记录（排除running和protected）
+const deletableFilteredCollects = computed(() => {
+  return filteredCollectHistory.value.filter(c => c.status !== 'running' && !c.is_protected);
+});
+
+// 全选可删除记录
+function handleSelectAllDeletable() {
+  const ids = deletableFilteredCollects.value.map(c => c.id);
+  selectedCollectIds.value = new Set(ids);
+}
+
+// 取消全选
+function handleClearSelection() {
+  selectedCollectIds.value = new Set();
+}
+
+// 切换单条记录选中状态
+function handleToggleSelect(collectId: string) {
+  const newSet = new Set(selectedCollectIds.value);
+  if (newSet.has(collectId)) {
+    newSet.delete(collectId);
+  } else {
+    newSet.add(collectId);
+  }
+  selectedCollectIds.value = newSet;
+}
+
+// 批量删除选中记录
+async function handleBatchDelete() {
+  const ids = Array.from(selectedCollectIds.value);
+  if (ids.length === 0) {
+    ElMessage.warning('请先选择要删除的记录');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${ids.length} 条采集记录吗？删除后数据将无法恢复。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    batchDeleting.value = true;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of ids) {
+      try {
+        await deleteCollect(id);
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    batchDeleting.value = false;
+    selectedCollectIds.value = new Set();
+
+    if (failCount === 0) {
+      ElMessage.success(`成功删除 ${successCount} 条记录`);
+    } else {
+      ElMessage.warning(`成功删除 ${successCount} 条，失败 ${failCount} 条`);
+    }
+
+    // 刷新历史列表
+    await fetchCollectHistory();
+
+    // 如果删除了当前显示的采集，清空数据
+    if (ids.includes(currentCollectId.value)) {
+      performanceData.value = [];
+      historyData.value = [];
+      currentCollectId.value = '';
+    }
+  } catch {
+    // 用户取消
   }
 }
 
@@ -1087,6 +1172,27 @@ function handleRangeChange(range: [number, number]) {
             (筛选出 {{ filteredCollectHistory.length }} 条)
           </span>
         </div>
+
+        <!-- 批量操作区域 -->
+        <div class="batch-actions">
+          <span class="selected-count">
+            已选 {{ selectedCollectIds.size }} 条
+            <span v-if="deletableFilteredCollects.length > 0" style="color: #999">
+              (可删除 {{ deletableFilteredCollects.length }} 条)
+            </span>
+          </span>
+          <el-button size="small" @click="handleSelectAllDeletable">全选可删除</el-button>
+          <el-button size="small" @click="handleClearSelection">取消全选</el-button>
+          <el-button
+            size="small"
+            type="danger"
+            :disabled="selectedCollectIds.size === 0"
+            :loading="batchDeleting"
+            @click="handleBatchDelete"
+          >
+            批量删除 {{ selectedCollectIds.size > 0 ? `(${selectedCollectIds.size})` : '' }}
+          </el-button>
+        </div>
       </div>
 
       <!-- 历史采集列表 -->
@@ -1094,10 +1200,19 @@ function handleRangeChange(range: [number, number]) {
         <div
           v-for="c in filteredCollectHistory"
           :key="c.id"
-          :class="['history-card', currentCollectId === c.id ? 'active' : '', c.is_protected ? 'protected' : '', c.status === 'running' ? 'running' : '']"
+          :class="['history-card', currentCollectId === c.id ? 'active' : '', c.is_protected ? 'protected' : '', c.status === 'running' ? 'running' : '', selectedCollectIds.has(c.id) ? 'selected' : '']"
         >
           <!-- 卡片头部 -->
           <div class="card-header">
+            <div class="card-checkbox">
+              <input
+                type="checkbox"
+                :checked="selectedCollectIds.has(c.id)"
+                :disabled="c.status === 'running' || c.is_protected"
+                @change="handleToggleSelect(c.id)"
+                @click.stop
+              />
+            </div>
             <div class="card-status">
               <span v-if="c.status === 'running'" class="status-running">
                 <span class="running-dot"></span> 采集中
@@ -1115,13 +1230,13 @@ function handleRangeChange(range: [number, number]) {
                 {{ c.is_protected ? '🔒 已保留' : '🔓 保留' }}
               </button>
               <button
-                    class="action-btn delete-btn"
-                    :disabled="c.status === 'running' || c.is_protected || historyDeleting === c.id"
-                    @click.stop="confirmDeleteCollect(c)"
-                  >
-                    <span v-if="historyDeleting === c.id">删除中...</span>
-                    <span v-else>🗑️ 删除</span>
-                  </button>
+                class="action-btn delete-btn"
+                :disabled="c.status === 'running' || c.is_protected || historyDeleting === c.id"
+                @click.stop="confirmDeleteCollect(c)"
+              >
+                <span v-if="historyDeleting === c.id">删除中...</span>
+                <span v-else>🗑️ 删除</span>
+              </button>
             </div>
           </div>
 
@@ -1391,6 +1506,24 @@ function handleRangeChange(range: [number, number]) {
   color: #666;
 }
 
+/* 批量操作区域 */
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #f0f5ff;
+  border-radius: 6px;
+  border: 1px solid #d6e4ff;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: #1890ff;
+  font-weight: 500;
+}
+
 .history-list {
   max-height: 450px;
   overflow-y: auto;
@@ -1425,6 +1558,11 @@ function handleRangeChange(range: [number, number]) {
   background: #fdf6ec;
 }
 
+.history-card.selected {
+  border-color: #409eff;
+  background: #f0f5ff;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -1432,6 +1570,22 @@ function handleRangeChange(range: [number, number]) {
   padding: 12px 16px;
   background: #fafafa;
   border-bottom: 1px solid #eee;
+}
+
+.card-checkbox {
+  margin-right: 8px;
+}
+
+.card-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #409eff;
+}
+
+.card-checkbox input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .card-status {
