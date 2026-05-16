@@ -7,7 +7,7 @@ interface Props {
   visible: boolean;
   data: PerformanceData | null;
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
   clickPosition?: { x: number; y: number } | null;  // 点击位置
   containerWidth?: number;  // 图表容器宽度
 }
@@ -33,6 +33,8 @@ function getInstanceValue(instance: ProcessInstance, chartType: string): number 
       return instance.memory || 0;
     case 'commitMemory':
       return instance.committed_memory || 0;
+    case 'handles':
+      return instance.handles || 0;
     default:
       return instance.cpu;
   }
@@ -42,6 +44,9 @@ function getInstanceValue(instance: ProcessInstance, chartType: string): number 
 function formatValue(value: number, chartType: string): string {
   if (chartType === 'memory' || chartType === 'commitMemory') {
     return `${Math.round(value)} MB`;
+  }
+  if (chartType === 'handles') {
+    return `${Math.round(value)} 个`;
   }
   return `${value.toFixed(1)}%`;
 }

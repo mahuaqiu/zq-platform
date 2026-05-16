@@ -9,7 +9,7 @@ interface Props {
   containerRect: DOMRect | null;
   data: PerformanceData | undefined;
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
 }
 
 const props = withDefaults(defineProps<Props>(), {

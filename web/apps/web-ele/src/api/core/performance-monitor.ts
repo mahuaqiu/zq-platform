@@ -54,6 +54,7 @@ export interface ProcessData {
   total_memory: number;
   total_committed_memory?: number;
   total_gpu: number;
+  total_handles?: number;
   instances: ProcessInstance[];
 }
 
@@ -63,6 +64,7 @@ export interface ProcessInstance {
   memory: number;
   committed_memory?: number;
   gpu: number;
+  handles?: number;
 }
 
 export interface Top10Process {

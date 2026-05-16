@@ -91,8 +91,9 @@ def convert_aggregated_to_target_processes(
                 "total_gpu": 总GPU使用率,
                 "total_memory": 总物理内存 MB,
                 "total_committed_memory": 总虚拟内存 MB,
+                "total_handles": 总句柄数,
                 "instances": [
-                    {"pid": PID, "cpu": CPU使用率, "memory": 物理内存MB, "gpu": GPU使用率, "committed_memory": 虚拟内存MB}
+                    {"pid": PID, "cpu": CPU使用率, "memory": 物理内存MB, "gpu": GPU使用率, "committed_memory": 拟内存MB, "handles": 句柄数}
                 ]
             }
         ]
@@ -113,6 +114,7 @@ def convert_aggregated_to_target_processes(
                 "memory": p.get("working_set_mb", 0),
                 "gpu": p.get("gpu_percent", 0),
                 "committed_memory": p.get("committed_memory_mb", 0),
+                "handles": p.get("handle_count", 0),
             })
 
     # 构建 target_processes 格式
@@ -125,6 +127,7 @@ def convert_aggregated_to_target_processes(
             "total_gpu": agg.get("gpu_percent_total", 0),
             "total_memory": agg.get("working_set_mb_total", 0),
             "total_committed_memory": agg.get("committed_memory_mb_total", 0),
+            "total_handles": agg.get("handle_count_total", 0),
             "instances": instances_map.get(name, []),
         }
         result.append(proc_data)

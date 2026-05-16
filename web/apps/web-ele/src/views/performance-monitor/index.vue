@@ -200,7 +200,7 @@ const processTooltipContent = computed(() => {
 });
 
 // 当前选中的指标
-type MetricKey = 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
+type MetricKey = 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
 const currentMetric = ref<MetricKey>('cpu');
 const showMorePopup = ref(false);
 
@@ -254,6 +254,7 @@ const allMetrics = computed(() => {
     { key: 'gpu' as MetricKey, label: 'GPU使用率' },
     { key: 'memory' as MetricKey, label: '进程内存' },
     { key: 'commitMemory' as MetricKey, label: '提交内存' },
+    { key: 'handles' as MetricKey, label: '进程句柄' },
   ];
 
   // 如果选择了 HWiNFO 指标，添加到列表
@@ -286,6 +287,7 @@ const chartSeriesMap: Record<MetricKey, () => ChartSeries[]> = {
   gpu: () => gpuChartSeries.value,
   memory: () => memoryChartSeries.value,
   commitMemory: () => commitMemoryChartSeries.value,
+  handles: () => handlesChartSeries.value,
   hwinfo: () => hwinfoChartSeries.value,
 };
 
@@ -313,7 +315,7 @@ const currentChartTitle = computed(() => {
     return name;
   }
 
-  // CPU/GPU/内存/提交内存加单位
+  // CPU/GPU/内存/提交内存/句柄加单位
   const metric = allMetrics.value.find(m => m.key === currentMetric.value);
   const baseLabel = metric?.label || currentMetric.value;
 
@@ -324,6 +326,8 @@ const currentChartTitle = computed(() => {
     return `${baseLabel} (MB)`;
   } else if (currentMetric.value === 'commitMemory') {
     return `${baseLabel} (MB)`;
+  } else if (currentMetric.value === 'handles') {
+    return `${baseLabel} (个)`;
   }
 
   return baseLabel;
@@ -426,6 +430,21 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
   });
   return [
     { name: '进程内存', data: processData, color: '#409eff', unit: 'MB' },
+  ];
+});
+
+// 进程句柄图表 - 显示进程句柄总和
+const handlesChartSeries = computed<ChartSeries[]>(() => {
+  const data = filteredPerformanceData.value;
+  if (!data.length) return [];
+  // 显示进程句柄总和
+  const processData = data.map((d) => {
+    const totalHandles =
+      d.target_processes?.reduce((sum, p) => sum + (p.total_handles || 0), 0) || 0;
+    return { time: d.relative_time, value: totalHandles };
+  });
+  return [
+    { name: '进程句柄', data: processData, color: '#409eff', unit: '个' },
   ];
 });
 

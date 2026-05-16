@@ -5,7 +5,7 @@ import type { PerformanceData, ProcessData, ProcessInstance } from '#/api/core/p
 interface Props {
   data: PerformanceData[];
   clickedTime?: number;
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo' | 'handles';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,6 +23,8 @@ function getInstanceValue(instance: ProcessInstance, chartType: string): number 
       return instance.memory || 0;
     case 'commitMemory':
       return instance.committed_memory || 0;
+    case 'handles':
+      return instance.handles || 0;
     default:
       return instance.cpu;
   }
@@ -32,6 +34,9 @@ function getInstanceValue(instance: ProcessInstance, chartType: string): number 
 function formatValue(value: number, chartType: string): string {
   if (chartType === 'memory' || chartType === 'commitMemory') {
     return `${Math.round(value)} MB`;
+  }
+  if (chartType === 'handles') {
+    return `${Math.round(value)} 个`;
   }
   return `${value.toFixed(1)}%`;
 }
