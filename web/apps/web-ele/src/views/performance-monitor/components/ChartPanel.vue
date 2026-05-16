@@ -485,7 +485,6 @@ onUnmounted(() => {
       }
     } catch (e) {
       // 忽略 dispose 错误
-      console.warn('Chart dispose error:', e);
     }
     chartInstance = null;
   }
