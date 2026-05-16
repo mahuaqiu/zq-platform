@@ -108,15 +108,16 @@ class AggregatedProcessInfoReport(BaseModel):
 
 
 class TopNProcessReport(BaseModel):
-    """TOP N 进程上报 Schema"""
-    pid: int = Field(..., description="进程ID")
+    """TOP N 进程上报 Schema（聚合格式）"""
     name: str = Field(..., description="进程名")
-    cpu_percent: float = Field(default=0, ge=0, le=100, description="CPU使用率 %")
-    working_set_mb: float = Field(default=0, ge=0, description="物理内存 MB")
-    committed_memory_mb: float = Field(default=0, ge=0, description="虚拟内存 MB")
-    gpu_percent: float = Field(default=0, ge=0, le=100, description="GPU使用率 %")
-    gpu_memory_mb: float = Field(default=0, ge=0, description="GPU显存 MB")
-    handle_count: int = Field(default=0, ge=0, description="句柄数")
+    pids: List[int] = Field(default_factory=list, description="进程ID列表")
+    cpu_percent_total: float = Field(default=0, ge=0, le=100, description="总CPU使用率 %")
+    working_set_mb_total: float = Field(default=0, ge=0, description="总物理内存 MB")
+    committed_memory_mb_total: float = Field(default=0, ge=0, description="总虚拟内存 MB")
+    gpu_percent_total: float = Field(default=0, ge=0, le=100, description="总GPU使用率 %")
+    gpu_memory_mb_total: float = Field(default=0, ge=0, description="总GPU显存 MB")
+    handle_count_total: int = Field(default=0, ge=0, description="总句柄数")
+    process_count: int = Field(default=0, ge=0, description="实例数量")
 
 
 class PerformanceSampleReportV3(BaseModel):

@@ -211,6 +211,8 @@ class PerformanceDataService(BaseService):
             # 将字段转换为字典格式
             aggregated_dict = [p.model_dump() for p in aggregated] if aggregated else []
             processes_dict = [p.model_dump() for p in processes] if processes else []
+            top_n_cpu_dict = [p.model_dump() for p in top_n_cpu] if top_n_cpu else []
+            top_n_gpu_dict = [p.model_dump() for p in top_n_gpu] if top_n_gpu else []
 
             # 提取核心指标
             core_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
@@ -223,8 +225,8 @@ class PerformanceDataService(BaseService):
 
             # 转换为前端兼容的 target_processes 格式
             target_processes_raw = convert_aggregated_to_target_processes(aggregated_dict, processes_dict)
-            top10_cpu_raw = convert_top_n_to_top10(top_n_cpu, "cpu")
-            top10_gpu_raw = convert_top_n_to_top10(top_n_gpu, "gpu")
+            top10_cpu_raw = convert_top_n_to_top10(top_n_cpu_dict, "cpu")
+            top10_gpu_raw = convert_top_n_to_top10(top_n_gpu_dict, "gpu")
 
             data = PerformanceData(
                 collect_id=request.collect_id,
