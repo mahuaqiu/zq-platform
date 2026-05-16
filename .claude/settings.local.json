@@ -152,7 +152,9 @@
       "Bash(del layout-options.html layout-cpu-detail.html layout-corrected.html layout-full-top10.html layout-final.html layout-realtime-sync.html layout-dynamic-areas.html layout-tooltip-keep.html layout-uniform-style.html layout-width-limit.html layout-final-v2.html layout-final-v3.html layout-more-metrics-popup.html layout-tooltip-simple.html layout-final-approved.html layout-width-adjusted.html layout-fixed-width.html time-navigator.html time-navigator-precise.html time-navigator-overlap-fix.html)",
       "Bash(Remove-Item *)",
       "Bash(.venv\\\\Scripts\\\\Activate.ps1)",
-      "Bash(del *)"
+      "Bash(del *)",
+      "PowerShell(.venv\\\\Scripts\\\\Activate.ps1)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"from core.performance_monitor.utils import convert_top_n_to_top10; print\\('Import successful'\\)\")"
     ]
   }
 }
