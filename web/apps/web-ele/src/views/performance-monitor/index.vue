@@ -292,8 +292,17 @@ const currentChartSeries = computed<ChartSeries[]>(() => {
   return chartSeriesMap[currentMetric.value]?.() || [];
 });
 
-// 当前图表标题
+// 当前图表标题（HWiNFO 指标显示单位）
 const currentChartTitle = computed(() => {
+  if (currentMetric.value === 'hwinfo') {
+    const name = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const unit = hwinfoMetricInfo.value.unit;
+    // 有单位时显示 "名称 (单位)"
+    if (unit) {
+      return `${name} (${unit})`;
+    }
+    return name;
+  }
   const metric = allMetrics.value.find(m => m.key === currentMetric.value);
   return metric?.label || currentMetric.value;
 });

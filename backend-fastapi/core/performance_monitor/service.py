@@ -364,13 +364,20 @@ class PerformanceDataService(BaseService):
                 "data": []
             }
 
-        # 遍历数据，提取每个指标的值
+        # 遍历数据，提取每个指标的值（并从原始数据中提取单位）
         for item in items:
             hwinfo_raw = item.hwinfo_raw or {}
             for key in request.metric_keys:
                 if key in hwinfo_raw:
                     value_info = hwinfo_raw.get(key, {})
-                    value = value_info.get("value") if isinstance(value_info, dict) else None
+                    if isinstance(value_info, dict):
+                        value = value_info.get("value")
+                        # 从原始数据中提取单位（如果 mapping 中没有配置）
+                        raw_unit = value_info.get("unit")
+                        if raw_unit and not metrics_data[key]["unit"]:
+                            metrics_data[key]["unit"] = raw_unit
+                    else:
+                        value = value_info
                     metrics_data[key]["data"].append({
                         "relative_time": item.relative_time,
                         "value": value
