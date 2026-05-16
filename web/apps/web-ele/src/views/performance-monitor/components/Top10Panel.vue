@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-
-interface ProcessItem {
-  name: string;
-  value: number;
-}
+import type { PerformanceData } from '#/api/core/performance-monitor';
 
 interface Props {
-  data: ProcessItem[];
-  timestamp: string;
-  metric: 'cpu' | 'gpu';
+  data: PerformanceData[];
+  clickedTime?: number;
+  metricType: 'cpu' | 'gpu';
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  clickedTime: 0,
+});
 
 // 排名颜色：1-4 使用彩色，5-10 使用灰色
 const rankColors: string[] = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c'];
@@ -23,10 +21,50 @@ function getRankColor(rank: number): string {
   return grayColor;
 }
 
+// 根据点击时间获取对应数据点
+const selectedDataPoint = computed(() => {
+  if (!props.data.length) return null;
+
+  // 如果有点击时间，找到对应数据点
+  if (props.clickedTime > 0) {
+    const point = props.data.find(d => d.relative_time === props.clickedTime);
+    if (point) return point;
+  }
+
+  // 默认返回最后一个数据点
+  return props.data[props.data.length - 1];
+});
+
+// 从数据点提取系统 TOP10 进程
+const top10Processes = computed(() => {
+  const point = selectedDataPoint.value;
+  if (!point) return [];
+
+  // 根据 metricType 选择数据
+  const top10Data = props.metricType === 'cpu' ? point.top10_cpu : point.top10_gpu;
+  if (!top10Data) return [];
+
+  // 转换为统一格式
+  return top10Data.map(p => {
+    const value = props.metricType === 'cpu' ? (p.cpu || 0) : (p.gpu || 0);
+    return { name: p.name, value };
+  }).sort((a, b) => b.value - a.value);
+});
+
 // 计算最大值用于进度条
 const maxValue = computed(() => {
-  if (!props.data.length) return 100;
-  return Math.max(...props.data.map(d => d.value), 1);
+  if (!top10Processes.value.length) return 100;
+  return Math.max(...top10Processes.value.map(d => d.value), 1);
+});
+
+// 时间戳格式化
+const formattedTimestamp = computed(() => {
+  if (!selectedDataPoint.value) return '';
+  const date = new Date(selectedDataPoint.value.timestamp);
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${hour}:${minute}:${second}`;
 });
 </script>
 
@@ -34,10 +72,10 @@ const maxValue = computed(() => {
   <div class="top10-panel">
     <div class="panel-header">
       <span class="panel-title">系统TOP10进程</span>
-      <span class="panel-time">{{ timestamp }}</span>
+      <span class="panel-time">{{ formattedTimestamp }}</span>
     </div>
-    <div class="top10-list">
-      <div v-for="(item, index) in data" :key="item.name" class="top10-item">
+    <div v-if="top10Processes.length > 0" class="top10-list">
+      <div v-for="(item, index) in top10Processes" :key="item.name" class="top10-item">
         <span class="rank" :style="{ color: getRankColor(index + 1) }">{{ index + 1 }}</span>
         <div class="progress-bar-bg">
           <div
@@ -48,18 +86,21 @@ const maxValue = computed(() => {
             }"
           ></div>
         </div>
-        <span class="process-name">{{ item.name }}</span>
+        <span class="process-name">{{ item.name.replace('.exe', '').replace('.EXE', '') }}</span>
         <span class="process-value" :style="{ color: getRankColor(index + 1) }">
           {{ item.value.toFixed(1) }}%
         </span>
       </div>
+    </div>
+    <div v-else class="no-data">
+      <span>暂无数据</span>
     </div>
   </div>
 </template>
 
 <style scoped>
 .top10-panel {
-  width: 500px;
+  width: 100%;
   background: #fff;
   border-radius: 8px;
   padding: 16px;
@@ -71,7 +112,7 @@ const maxValue = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .panel-title {
@@ -86,26 +127,32 @@ const maxValue = computed(() => {
 }
 
 .top10-list {
-  font-size: 11px;
+  font-size: 12px;
+  height: 260px;
+  overflow-y: auto;
 }
 
 .top10-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  padding: 4px 8px;
+  margin-bottom: 2px;
+  background: #f9f9f9;
+  border-radius: 4px;
 }
 
 .rank {
-  width: 16px;
+  width: 18px;
   font-weight: 600;
+  font-size: 12px;
   text-align: center;
 }
 
 .progress-bar-bg {
   flex: 1;
-  height: 6px;
-  background: #f5f5f5;
+  height: 5px;
+  background: #e5e5e5;
   border-radius: 2px;
 }
 
@@ -117,6 +164,7 @@ const maxValue = computed(() => {
 
 .process-name {
   font-weight: 500;
+  font-size: 12px;
   color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -125,8 +173,16 @@ const maxValue = computed(() => {
 }
 
 .process-value {
+  font-weight: 600;
+  font-size: 12px;
   white-space: nowrap;
-  min-width: 40px;
+  min-width: 45px;
   text-align: right;
+}
+
+.no-data {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
 }
 </style>

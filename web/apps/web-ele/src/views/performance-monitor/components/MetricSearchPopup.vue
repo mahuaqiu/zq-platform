@@ -154,7 +154,7 @@ onUnmounted(() => {
 .metric-search-popup {
   position: absolute;
   top: 50px;
-  left: 340px;
+  right: 0;
   z-index: 100;
   width: 350px;
   padding: 16px;

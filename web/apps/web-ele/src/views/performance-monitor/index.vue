@@ -11,6 +11,7 @@ import MetricSelector from './components/MetricSelector.vue';
 import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import MiniTooltip from './components/MiniTooltip.vue';
 import ProcessDetailPanel from './components/ProcessDetailPanel.vue';
+import TargetProcessPanel from './components/TargetProcessPanel.vue';
 import {
   getCollectStatus,
   stopCollect,
@@ -297,8 +298,8 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
     return { time: d.relative_time, value: totalGpu };
   });
   return [
-    { name: '系统', data: systemData, color: '#e6a23c', unit: '%' },
-    { name: '进程', data: processData, color: '#f56c6c', unit: '%' },
+    { name: '系统', data: systemData, color: '#409eff', unit: '%' },
+    { name: '进程', data: processData, color: '#67c23a', unit: '%' },
   ];
 });
 
@@ -313,7 +314,7 @@ const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
     return { time: d.relative_time, value: totalCommittedMB };
   });
   return [
-    { name: '提交内存', data: processData, color: '#f56c6c', unit: 'MB' },
+    { name: '提交内存', data: processData, color: '#409eff', unit: 'MB' },
   ];
 });
 
@@ -327,7 +328,7 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
     return { time: d.relative_time, value: totalMemMB };
   });
   return [
-    { name: '进程内存', data: processData, color: '#909399', unit: 'MB' },
+    { name: '进程内存', data: processData, color: '#409eff', unit: 'MB' },
   ];
 });
 
@@ -800,20 +801,19 @@ function handleRangeChange(range: [number, number]) {
 
         <!-- 指标选择器 -->
     <div v-if="performanceData.length > 0" class="metric-selector-area">
-      <MetricSelector
-        :current-metric="currentMetric"
-        :metrics="allMetrics"
-        :current-data="currentMetrics"
-        @change="handleMetricChange"
-        @show-more="showMorePopup = true"
-      />
-      <MetricSearchPopup
-        v-model:visible="showMorePopup"
-        :current-metric="currentMetric"
-        :metrics="allMetrics"
-        :data="filteredPerformanceData"
-        @change="handleMetricChange"
-      />
+      <div class="metric-selector-wrapper">
+        <MetricSelector
+          :current-metric="currentMetric"
+          @change="handleMetricChange"
+          @more="showMorePopup = true"
+        />
+        <MetricSearchPopup
+          :visible="showMorePopup"
+          :metrics="allMetrics"
+          @update:visible="showMorePopup = $event"
+          @select="handleMetricChange"
+        />
+      </div>
     </div>
 
     <!-- 时间导航条 -->
@@ -859,17 +859,12 @@ function handleRangeChange(range: [number, number]) {
 
       <!-- 底部面板区域 - 双面板布局 -->
       <div class="bottom-panels">
-        <!-- 进程详情面板 -->
-        <div class="panel-wrapper detail-panel-wrapper">
-          <ProcessDetailPanel
-            v-if="detailPanelState"
-            :visible="detailPanelState !== null"
-            :data="detailPanelState.data"
-            :seriesData="detailPanelState.seriesData"
-            :chartType="detailPanelState.chartType"
-            :clickPosition="detailPanelState.position"
-            :containerWidth="detailPanelState.containerWidth"
-            @close="handlePanelClose"
+        <!-- 目标进程明细面板 -->
+        <div class="panel-wrapper target-process-wrapper">
+          <TargetProcessPanel
+            :data="filteredPerformanceData"
+            :clicked-time="clickedTime"
+            :chart-type="currentChartType"
           />
         </div>
 
@@ -1203,19 +1198,33 @@ function handleRangeChange(range: [number, number]) {
   margin-bottom: 12px;
 }
 
+.metric-selector-wrapper {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+}
+
 /* 底部面板区域 - 双面板布局 */
 .bottom-panels {
   display: flex;
   gap: 16px;
-  min-height: 500px;
+  max-width: 67%;
 }
 
 .panel-wrapper {
   flex: 1;
-  min-width: 500px;
 }
 
-.detail-panel-wrapper,
+.target-process-wrapper {
+  flex: 0.8;
+}
+
+.top10-panel-wrapper {
+  flex: 1.2;
+}
+
+.target-process-wrapper,
 .top10-panel-wrapper {
   background: #fff;
   border-radius: 6px;
