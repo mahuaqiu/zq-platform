@@ -93,7 +93,7 @@ function formatDateTime(timestamp: string): string {
           <span>{{ s.name }}</span>
         </div>
         <span class="series-value" :style="{ color: s.color }">
-          {{ s.value.toFixed(1) }}{{ s.unit }}
+          {{ s.unit === '个' ? Math.round(s.value) : s.value.toFixed(1) }}{{ s.unit }}
         </span>
       </div>
     </div>

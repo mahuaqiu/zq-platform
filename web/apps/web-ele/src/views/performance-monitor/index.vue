@@ -99,7 +99,7 @@ interface MiniTooltipState {
   position: { x: number; y: number };
   data: PerformanceData | undefined;
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
   containerRect: DOMRect;
   chartKey: string;  // 标识当前hover的图表
 }
@@ -109,8 +109,8 @@ const miniTooltipState = ref<MiniTooltipState | null>(null);
 interface DetailPanelState {
   data: PerformanceData;  // 点击的数据点完整数据
   seriesData: { name: string; value: number; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo';
-  chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory/hwinfo）
+  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
+  chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory/handles/hwinfo）
   position?: { x: number; y: number };  // 点击位置
   containerWidth?: number;  // 图表容器宽度
 }
