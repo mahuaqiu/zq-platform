@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as echarts from 'echarts';
-import { ElDialog, ElInput, ElButton, ElColorPicker } from 'element-plus';
+import { ElDialog, ElInput, ElButton, ElColorPicker, ElDatePicker } from 'element-plus';
 import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 import type { MarkerResponse } from '#/api/core/performance-monitor';
 
@@ -63,11 +63,24 @@ const currentEndTime = ref(props.endTime);
 const showAddDialog = ref(false);
 const newMarker = ref({
   name: '',
-  start_time: 0,
-  end_time: 0,
+  start_time: null as Date | null,  // 绝对时间
+  end_time: null as Date | null,    // 绝对时间
   color: '#409eff',
   note: '',
 });
+
+// 计算采集时间范围（用于限制日期选择）
+const collectionTimeRange = computed(() => {
+  const baseTime = new Date(props.collectionStartTime);
+  const endTime = new Date(baseTime.getTime() + props.duration * 1000);
+  return { start: baseTime, end: endTime };
+});
+
+// 禁用不在采集时间范围内的日期
+function getDisabledDate(date: Date): boolean {
+  const { start, end } = collectionTimeRange.value;
+  return date < start || date > end;
+}
 
 // 过滤有效标记
 const validMarkers = computed(() => {
@@ -124,12 +137,27 @@ function handleQuickSelect(value: number) {
   }
 }
 
+// 相对时间转换为绝对时间
+function relativeToAbsolute(relativeSeconds: number): Date {
+  const baseTime = new Date(props.collectionStartTime);
+  return new Date(baseTime.getTime() + relativeSeconds * 1000);
+}
+
+// 绝对时间转换为相对时间（秒）
+function absoluteToRelative(absoluteTime: Date): number {
+  const baseTime = new Date(props.collectionStartTime);
+  return Math.round((absoluteTime.getTime() - baseTime.getTime()) / 1000);
+}
+
 // 添加标记
 function handleOpenAddMarker() {
+  const startAbsolute = relativeToAbsolute(currentStartTime.value);
+  const endAbsolute = relativeToAbsolute(currentEndTime.value);
+
   newMarker.value = {
     name: '',
-    start_time: currentStartTime.value,
-    end_time: currentEndTime.value,
+    start_time: startAbsolute,
+    end_time: endAbsolute,
     color: '#409eff',
     note: '',
   };
@@ -137,14 +165,18 @@ function handleOpenAddMarker() {
 }
 
 async function handleAddMarker() {
-  if (!newMarker.value.name || !props.collectId) {
+  if (!newMarker.value.name || !props.collectId || !newMarker.value.start_time) {
     return;
   }
+  // 将绝对时间转换为相对时间（秒）
+  const startRelative = absoluteToRelative(newMarker.value.start_time);
+  const endRelative = newMarker.value.end_time ? absoluteToRelative(newMarker.value.end_time) : undefined;
+
   await createMarker({
     collect_id: props.collectId,
     name: newMarker.value.name,
-    start_time: newMarker.value.start_time,
-    end_time: newMarker.value.end_time || undefined,
+    start_time: startRelative,
+    end_time: endRelative,
     color: newMarker.value.color,
     note: newMarker.value.note || undefined,
   });
@@ -365,12 +397,26 @@ onUnmounted(() => {
         <ElInput v-model="newMarker.name" placeholder="如：发起共享" />
       </div>
       <div class="form-item">
-        <label>开始时间（秒）</label>
-        <ElInput v-model.number="newMarker.start_time" type="number" placeholder="0" />
+        <label>开始时间</label>
+        <ElDatePicker
+          v-model="newMarker.start_time"
+          type="datetime"
+          placeholder="选择开始时间"
+          format="YYYY-MM-DD HH:mm:ss"
+          :disabled-date="getDisabledDate"
+          style="width: 100%"
+        />
       </div>
       <div class="form-item">
-        <label>结束时间（秒）</label>
-        <ElInput v-model.number="newMarker.end_time" type="number" placeholder="可选" />
+        <label>结束时间</label>
+        <ElDatePicker
+          v-model="newMarker.end_time"
+          type="datetime"
+          placeholder="选择结束时间（可选）"
+          format="YYYY-MM-DD HH:mm:ss"
+          :disabled-date="getDisabledDate"
+          style="width: 100%"
+        />
       </div>
       <div class="form-item">
         <label>颜色</label>

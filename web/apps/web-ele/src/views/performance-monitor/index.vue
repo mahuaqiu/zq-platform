@@ -1181,10 +1181,11 @@ async function loadMoreData(start_time: number, end_time: number) {
 
     <!-- 时间导航条 -->
     <TimeNavigator
-      v-if="performanceData.length > 0"
+      v-if="performanceData.length > 0 && currentCollectStartTime"
       :duration="totalDuration"
       :start-time="selectedRelativeTimeRange?.[0] || 0"
       :end-time="selectedRelativeTimeRange?.[1] || totalDuration"
+      :collection-start-time="currentCollectStartTime"
       :collect-id="currentCollectId"
       :markers="markers"
       @range-change="handleRangeChange"
