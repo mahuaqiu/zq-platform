@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import * as echarts from 'echarts';
 
 interface Props {
   duration: number; // 总时长（秒）
   startTime?: number; // 选中的开始时间（相对于采集开始的偏移秒数）
   endTime?: number; // 选中的结束时间（相对于采集开始的偏移秒数）
   collectionStartTime?: Date | number | string; // 采集开始时间戳
+  previewData?: number[]; // 数据预览（可选，显示在导航条背景）
 }
 
 const props = withDefaults(defineProps<Props>(), {
   startTime: 0,
   endTime: 0,
   collectionStartTime: () => new Date(),
+  previewData: () => [],
 });
 
 const emit = defineEmits<{
@@ -38,26 +41,13 @@ function getActiveButtonFromRange(start: number, end: number, duration: number):
 }
 
 const activeButton = ref(getActiveButtonFromRange(props.startTime, props.endTime, props.duration));
-const navigatorRef = ref<HTMLDivElement>();
-const isDraggingLeft = ref(false);
-const isDraggingRight = ref(false);
-const isDraggingRange = ref(false); // 拖拽整个选区
-const localStartTime = ref(props.startTime);
-const localEndTime = ref(props.endTime);
-const dragStartX = ref(0);
-const dragStartLeft = ref(0);
-const dragStartRight = ref(0);
+const chartRef = ref<HTMLDivElement>();
+const trackRef = ref<HTMLDivElement>(); // 轨道容器引用
+let chartInstance: echarts.ECharts | null = null;
 
-// 计算选中区间宽度百分比
-const rangePercent = computed(() => {
-  if (props.duration <= 0) return 0;
-  return ((localEndTime.value - localStartTime.value) / props.duration) * 100;
-});
-
-// 是否使用合并显示模式（把手距离 < 10%）
-const isMergedMode = computed(() => {
-  return rangePercent.value < 10;
-});
+// 当前选中的时间（秒）- 用于时间标签显示
+const currentStartTime = ref(props.startTime);
+const currentEndTime = ref(props.endTime);
 
 // 格式化时间戳为 YYYY-MM-DD HH:MM:SS
 function formatTime(offsetSeconds: number): string {
@@ -72,153 +62,211 @@ function formatTime(offsetSeconds: number): string {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-// 格式化合并时间范围
-function formatMergedTime(): string {
-  const start = formatTime(localStartTime.value);
-  const end = new Date(
-    new Date(props.collectionStartTime).getTime() + localEndTime.value * 1000,
-  );
-  const hour = String(end.getHours()).padStart(2, '0');
-  const minute = String(end.getMinutes()).padStart(2, '0');
-  const second = String(end.getSeconds()).padStart(2, '0');
-  return `${start} ~ ${hour}:${minute}:${second}`;
+// 计算时间标签位置百分比
+function getStartPercent(): number {
+  if (props.duration <= 0) return 0;
+  return (currentStartTime.value / props.duration) * 100;
+}
+function getEndPercent(): number {
+  if (props.duration <= 0) return 100;
+  return (currentEndTime.value / props.duration) * 100;
 }
 
-// 计算选中区间位置（百分比）
-const leftPercent = computed(() => {
-  if (props.duration <= 0) return 0;
-  return (localStartTime.value / props.duration) * 100;
+// 判断是否需要合并显示（距离小于 15%）
+const isMergedMode = computed(() => {
+  return getEndPercent() - getStartPercent() < 15;
 });
-const rightPercent = computed(() => {
-  if (props.duration <= 0) return 100;
-  return (localEndTime.value / props.duration) * 100;
-});
+
+// 格式化合并时间范围
+function formatMergedTime(): string {
+  const start = formatTime(currentStartTime.value);
+  const endTime = new Date(
+    new Date(props.collectionStartTime).getTime() + currentEndTime.value * 1000,
+  );
+  const hour = String(endTime.getHours()).padStart(2, '0');
+  const minute = String(endTime.getMinutes()).padStart(2, '0');
+  const second = String(endTime.getSeconds()).padStart(2, '0');
+  return `${start} ~ ${hour}:${minute}:${second}`;
+}
 
 // 快速选择
 function handleQuickSelect(value: number) {
   activeButton.value = value;
   if (value === 0) {
-    // 全部
-    localStartTime.value = 0;
-    localEndTime.value = props.duration;
+    currentStartTime.value = 0;
+    currentEndTime.value = props.duration;
+    emit('rangeChange', [0, props.duration]);
   } else {
-    // 最近N秒
-    localEndTime.value = props.duration;
-    localStartTime.value = Math.max(0, props.duration - value);
+    currentStartTime.value = Math.max(0, props.duration - value);
+    currentEndTime.value = props.duration;
+    emit('rangeChange', [currentStartTime.value, props.duration]);
   }
-  emit('rangeChange', [localStartTime.value, localEndTime.value]);
-}
-
-// 拖拽处理
-function handleMouseDown(e: MouseEvent, side: 'left' | 'range' | 'right') {
-  e.preventDefault();
-  if (side === 'left') {
-    isDraggingLeft.value = true;
-  } else if (side === 'right') {
-    isDraggingRight.value = true;
-  } else {
-    isDraggingRange.value = true;
-    dragStartX.value = e.clientX;
-    dragStartLeft.value = localStartTime.value;
-    dragStartRight.value = localEndTime.value;
+  // 同步更新图表
+  if (chartInstance) {
+    chartInstance.setOption({
+      dataZoom: [{
+        start: getStartPercent(),
+        end: getEndPercent(),
+      }],
+    });
   }
 }
 
-function handleMouseMove(e: MouseEvent) {
-  if (!navigatorRef.value) return;
-  if (
-    !isDraggingLeft.value &&
-    !isDraggingRight.value &&
-    !isDraggingRange.value
-  ) {
-    return;
-  }
+function initChart() {
+  if (!chartRef.value) return;
+  chartInstance = echarts.init(chartRef.value);
 
-  const rect = navigatorRef.value.getBoundingClientRect();
-  const trackWidth = rect.width;
-  const x = e.clientX - rect.left;
-  const percent = Math.max(0, Math.min(100, (x / trackWidth) * 100));
-  const time = Math.round((percent / 100) * props.duration);
+  // 监听 dataZoom 事件
+  chartInstance.on('datazoom', (params: any) => {
+    // 取消快速选择按钮激活状态
+    activeButton.value = -1;
 
-  // 严格边界保护：确保时间值在有效范围内
-  const minTime = 0;
-  const maxTime = props.duration;
-  const minGap = 5; // 最小间隔（秒）
+    // 获取百分比范围
+    const startPercent = params.start;
+    const endPercent = params.end;
 
-  if (isDraggingLeft.value) {
-    // 左边界：不能小于0，不能超过endTime-5
-    const maxAllowed = Math.max(minTime, localEndTime.value - minGap);
-    localStartTime.value = Math.max(minTime, Math.min(time, maxAllowed));
-    activeButton.value = -1; // 取消快速选择
-  } else if (isDraggingRight.value) {
-    // 右边界：不能超过duration，不能小于startTime+5
-    const minAllowed = Math.min(maxTime, localStartTime.value + minGap);
-    localEndTime.value = Math.min(maxTime, Math.max(time, minAllowed));
-    activeButton.value = -1; // 取消快速选择
-  } else if (isDraggingRange.value) {
-    // 拖拽整个选区
-    const deltaX = e.clientX - dragStartX.value;
-    const deltaTime = Math.round((deltaX / trackWidth) * props.duration);
-    const rangeWidth = dragStartRight.value - dragStartLeft.value;
+    // 计算实际时间范围（秒）
+    const start = Math.round((startPercent / 100) * props.duration);
+    const end = Math.round((endPercent / 100) * props.duration);
 
-    let newStart = dragStartLeft.value + deltaTime;
-    let newEnd = dragStartRight.value + deltaTime;
+    // 更新本地时间显示
+    currentStartTime.value = start;
+    currentEndTime.value = end;
 
-    // 边界保护
-    if (newStart < minTime) {
-      newStart = minTime;
-      newEnd = minTime + rangeWidth;
-    }
-    if (newEnd > maxTime) {
-      newEnd = maxTime;
-      newStart = maxTime - rangeWidth;
-    }
+    emit('rangeChange', [start, end]);
+  });
 
-    localStartTime.value = newStart;
-    localEndTime.value = newEnd;
-    activeButton.value = -1; // 取消快速选择
-  }
+  updateChart();
 }
 
-function handleMouseUp() {
-  if (isDraggingLeft.value || isDraggingRight.value || isDraggingRange.value) {
-    emit('rangeChange', [localStartTime.value, localEndTime.value]);
-    isDraggingLeft.value = false;
-    isDraggingRight.value = false;
-    isDraggingRange.value = false;
+function updateChart() {
+  if (!chartInstance) return;
+
+  // 生成 X 轴数据（时间刻度）
+  const xAxisData: number[] = [];
+  for (let i = 0; i <= props.duration; i += Math.max(1, Math.floor(props.duration / 100))) {
+    xAxisData.push(i);
   }
+
+  // 生成预览数据（如果没有传入，生成模拟数据）
+  let previewData = props.previewData;
+  if (previewData.length === 0) {
+    // 模拟随机数据用于预览
+    previewData = xAxisData.map(() => 30 + Math.random() * 40);
+  }
+
+  const option: echarts.EChartsOption = {
+    animation: false,
+    grid: {
+      left: 5,
+      right: 5,
+      top: 5,
+      bottom: 5,
+    },
+    xAxis: {
+      type: 'category',
+      data: xAxisData,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+      splitLine: { show: false },
+    },
+    series: [
+      {
+        type: 'line',
+        data: previewData,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: {
+          color: '#ccc',
+          width: 1,
+        },
+        areaStyle: {
+          color: '#eee',
+        },
+      },
+    ],
+    dataZoom: [
+      {
+        type: 'slider',
+        xAxisIndex: 0,
+        start: getStartPercent(),
+        end: getEndPercent(),
+        height: 20,
+        bottom: 0,
+        borderColor: '#ddd',
+        backgroundColor: '#e8e8e8',
+        fillerColor: 'rgba(64, 158, 255, 0.15)',
+        handleStyle: {
+          color: '#fff',
+          borderColor: '#409eff',
+          borderWidth: 1,
+        },
+        moveHandleStyle: {
+          color: '#409eff',
+          opacity: 0.3,
+        },
+        selectedDataBackground: {
+          lineStyle: { color: '#409eff' },
+          areaStyle: { color: 'rgba(64, 158, 255, 0.2)' },
+        },
+        dataBackground: {
+          lineStyle: { color: '#ccc' },
+          areaStyle: { color: '#eee' },
+        },
+        textStyle: { show: false }, // 不显示内置的文字
+        brushSelect: false,
+        zoomLock: false,
+      },
+    ],
+  };
+
+  chartInstance.setOption(option);
 }
 
-// 全局事件监听
+// 监听 props 变化
+watch(() => props.duration, () => {
+  currentStartTime.value = props.startTime;
+  currentEndTime.value = props.endTime;
+  updateChart();
+});
+
+watch(() => props.startTime, (v) => {
+  currentStartTime.value = v;
+  if (chartInstance) {
+    chartInstance.setOption({
+      dataZoom: [{ start: getStartPercent() }],
+    });
+  }
+});
+
+watch(() => props.endTime, (v) => {
+  currentEndTime.value = v;
+  if (chartInstance) {
+    chartInstance.setOption({
+      dataZoom: [{ end: getEndPercent() }],
+    });
+  }
+});
+
+watch(() => props.previewData, updateChart, { deep: true });
+
 onMounted(() => {
-  document.addEventListener('mousemove', handleMouseMove);
-  document.addEventListener('mouseup', handleMouseUp);
+  initChart();
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousemove', handleMouseMove);
-  document.removeEventListener('mouseup', handleMouseUp);
+  if (chartInstance) {
+    chartInstance.dispose();
+    chartInstance = null;
+  }
 });
-
-// 同步 props
-watch(
-  () => props.startTime,
-  (v) => (localStartTime.value = v),
-);
-watch(
-  () => props.endTime,
-  (v) => (localEndTime.value = v),
-);
-watch(
-  () => props.duration,
-  () => {
-    // duration 变化时重置到全部
-    if (activeButton.value === 0) {
-      localStartTime.value = 0;
-      localEndTime.value = props.duration;
-    }
-  },
-);
 </script>
 
 <template>
@@ -237,60 +285,32 @@ watch(
         </button>
       </div>
 
-      <!-- 右侧导航条 -->
+      <!-- 右侧 ECharts 导航条 -->
       <div class="navigator-wrapper">
-        <div class="navigator-track" :class="{ 'merged-mode': isMergedMode }">
-          <!-- 合并模式：顶部时间范围标签 -->
+        <div ref="trackRef" class="navigator-track">
+          <!-- 合并模式：居中显示时间范围 -->
           <div v-if="isMergedMode" class="merged-time-label">
             {{ formatMergedTime() }}
           </div>
-
-          <!-- 内部轨道容器（左右留出空间给时间标签） -->
-          <div ref="navigatorRef" class="track-inner">
-            <!-- 背景轨道 -->
-            <div class="track-background"></div>
-
-            <!-- 选中区间 -->
+          <!-- 分开模式：两个时间标签跟随把手 -->
+          <template v-else>
             <div
-              class="selected-range"
-              :style="{
-                left: `${leftPercent}%`,
-                width: `${rightPercent - leftPercent}%`,
-              }"
-              @mousedown="handleMouseDown($event, 'range')"
+              class="time-tag-left"
+              :class="{ 'at-boundary': getStartPercent() < 8 }"
+              :style="{ left: getStartPercent() + '%' }"
             >
-              <!-- 左把手 -->
-              <div
-                class="handle left"
-                @mousedown.stop="handleMouseDown($event, 'left')"
-              >
-                <div class="handle-inner"></div>
-              </div>
-              <!-- 右把手 -->
-              <div
-                class="handle right"
-                @mousedown.stop="handleMouseDown($event, 'right')"
-              >
-                <div class="handle-inner"></div>
-              </div>
+              {{ formatTime(currentStartTime) }}
             </div>
-
-            <!-- 分开模式：把手上方的时间标签 -->
-            <template v-if="!isMergedMode">
-              <div
-                class="time-tag time-tag-left"
-                :style="{ left: `${leftPercent}%` }"
-              >
-                {{ formatTime(localStartTime) }}
-              </div>
-              <div
-                class="time-tag time-tag-right"
-                :style="{ left: `${rightPercent}%` }"
-              >
-                {{ formatTime(localEndTime) }}
-              </div>
-            </template>
-          </div>
+            <div
+              class="time-tag-right"
+              :class="{ 'at-boundary': getEndPercent() > 92 }"
+              :style="{ left: getEndPercent() + '%' }"
+            >
+              {{ formatTime(currentEndTime) }}
+            </div>
+          </template>
+          <!-- ECharts 容器 -->
+          <div ref="chartRef" class="chart-container"></div>
         </div>
       </div>
     </div>
@@ -347,6 +367,12 @@ watch(
   min-width: 0;
 }
 
+.navigator-track {
+  position: relative;
+  width: 100%;
+  height: 42px;
+}
+
 /* 合并时间标签 */
 .merged-time-label {
   position: absolute;
@@ -363,79 +389,9 @@ watch(
   white-space: nowrap;
 }
 
-/* 导航条轨道（外层） */
-.navigator-track {
-  position: relative;
-  width: 100%;
-  height: 50px;
-  padding: 0 75px;
-  cursor: default;
-}
-
-.navigator-track.merged-mode {
-  height: 60px;
-}
-
-/* 内部轨道容器 */
-.track-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-/* 背景轨道 */
-.track-background {
-  position: absolute;
-  top: 22px;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: #e8e8e8;
-  border-radius: 3px;
-}
-
-/* 选中区间 */
-.selected-range {
-  position: absolute;
-  top: 22px;
-  height: 6px;
-  cursor: move;
-  background: #409eff;
-  border-radius: 3px;
-}
-
-/* 把手 */
-.handle {
-  position: absolute;
-  top: 17px;
-  width: 14px;
-  height: 16px;
-  cursor: ew-resize;
-  background: white;
-  border: 2px solid #409eff;
-  border-radius: 4px;
-}
-
-.handle.left {
-  left: 0;
-  transform: translateX(-50%);
-}
-
-.handle.right {
-  left: 100%;
-  transform: translateX(-50%);
-}
-
-.handle-inner {
-  width: 4px;
-  height: 8px;
-  margin: 2px auto 0;
-  background: #409eff;
-  border-radius: 2px;
-}
-
-/* 时间标签（分开模式） */
-.time-tag {
+/* 时间标签 - 跟随把手 */
+.time-tag-left,
+.time-tag-right {
   position: absolute;
   top: 0;
   padding: 2px 8px;
@@ -443,29 +399,29 @@ watch(
   font-weight: 500;
   color: #409eff;
   white-space: nowrap;
-  background: transparent;
+  background: #fff;
   border-radius: 3px;
   transform: translateX(-50%);
+  z-index: 10;
 }
 
-.time-tag-left {
+/* 边界处理：左标签靠近左边界时，左对齐 */
+.time-tag-left.at-boundary {
+  transform: translateX(0);
   left: 0;
 }
 
-.time-tag-right {
-  left: 100%;
+/* 边界处理：右标签靠近右边界时，右对齐 */
+.time-tag-right.at-boundary {
+  transform: translateX(-100%);
 }
 
-/* 合并模式样式 */
-.navigator-track.merged-mode .track-background {
-  top: 32px;
-}
-
-.navigator-track.merged-mode .selected-range {
-  top: 32px;
-}
-
-.navigator-track.merged-mode .handle {
-  top: 27px;
+.chart-container {
+  position: absolute;
+  top: 22px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 20px;
 }
 </style>
