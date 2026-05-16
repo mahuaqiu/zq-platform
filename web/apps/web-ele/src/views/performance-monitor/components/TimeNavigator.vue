@@ -239,59 +239,58 @@ watch(
 
       <!-- 右侧导航条 -->
       <div class="navigator-wrapper">
-        <div
-          ref="navigatorRef"
-          class="navigator-track"
-          :class="{ 'merged-mode': isMergedMode }"
-        >
-          <!-- 合并模式：顶部时间范围标签（在轨道区域内） -->
+        <div class="navigator-track" :class="{ 'merged-mode': isMergedMode }">
+          <!-- 合并模式：顶部时间范围标签 -->
           <div v-if="isMergedMode" class="merged-time-label">
             {{ formatMergedTime() }}
           </div>
 
-          <!-- 背景轨道 -->
-          <div class="track-background"></div>
+          <!-- 内部轨道容器（左右留出空间给时间标签） -->
+          <div ref="navigatorRef" class="track-inner">
+            <!-- 背景轨道 -->
+            <div class="track-background"></div>
 
-          <!-- 选中区间 -->
-          <div
-            class="selected-range"
-            :style="{
-              left: `${leftPercent}%`,
-              width: `${rightPercent - leftPercent}%`,
-            }"
-            @mousedown="handleMouseDown($event, 'range')"
-          >
-            <!-- 左把手 -->
+            <!-- 选中区间 -->
             <div
-              class="handle left"
-              @mousedown.stop="handleMouseDown($event, 'left')"
+              class="selected-range"
+              :style="{
+                left: `${leftPercent}%`,
+                width: `${rightPercent - leftPercent}%`,
+              }"
+              @mousedown="handleMouseDown($event, 'range')"
             >
-              <div class="handle-inner"></div>
+              <!-- 左把手 -->
+              <div
+                class="handle left"
+                @mousedown.stop="handleMouseDown($event, 'left')"
+              >
+                <div class="handle-inner"></div>
+              </div>
+              <!-- 右把手 -->
+              <div
+                class="handle right"
+                @mousedown.stop="handleMouseDown($event, 'right')"
+              >
+                <div class="handle-inner"></div>
+              </div>
             </div>
-            <!-- 右把手 -->
-            <div
-              class="handle right"
-              @mousedown.stop="handleMouseDown($event, 'right')"
-            >
-              <div class="handle-inner"></div>
-            </div>
+
+            <!-- 分开模式：把手上方的时间标签 -->
+            <template v-if="!isMergedMode">
+              <div
+                class="time-tag time-tag-left"
+                :style="{ left: `${leftPercent}%` }"
+              >
+                {{ formatTime(localStartTime) }}
+              </div>
+              <div
+                class="time-tag time-tag-right"
+                :style="{ left: `${rightPercent}%` }"
+              >
+                {{ formatTime(localEndTime) }}
+              </div>
+            </template>
           </div>
-
-          <!-- 分开模式：把手上方的时间标签 -->
-          <template v-if="!isMergedMode">
-            <div
-              class="time-tag time-tag-left"
-              :style="{ left: `${leftPercent}%` }"
-            >
-              {{ formatTime(localStartTime) }}
-            </div>
-            <div
-              class="time-tag time-tag-right"
-              :style="{ left: `${rightPercent}%` }"
-            >
-              {{ formatTime(localEndTime) }}
-            </div>
-          </template>
         </div>
       </div>
     </div>
@@ -348,7 +347,7 @@ watch(
   min-width: 0;
 }
 
-/* 合并时间标签 - 在轨道区域内 */
+/* 合并时间标签 */
 .merged-time-label {
   position: absolute;
   top: 0;
@@ -361,13 +360,15 @@ watch(
   box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
   transform: translateX(-50%);
   z-index: 10;
+  white-space: nowrap;
 }
 
-/* 导航条轨道 */
+/* 导航条轨道（外层） */
 .navigator-track {
   position: relative;
   width: 100%;
   height: 50px;
+  padding: 0 75px;
   cursor: default;
 }
 
@@ -375,12 +376,19 @@ watch(
   height: 60px;
 }
 
+/* 内部轨道容器 */
+.track-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 /* 背景轨道 */
 .track-background {
   position: absolute;
   top: 22px;
-  right: 0;
   left: 0;
+  right: 0;
   height: 6px;
   background: #e8e8e8;
   border-radius: 3px;
