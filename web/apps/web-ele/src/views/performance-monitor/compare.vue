@@ -1,33 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { ElMessage, ElButton, ElSelect, ElOption, ElTag, ElTable, ElTableColumn, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElEmpty, ElRadioGroup, ElRadio } from 'element-plus';
+import { ref, computed, onMounted, watch } from 'vue';
+import { ElMessage, ElButton, ElEmpty } from 'element-plus';
 import { useRoute } from 'vue-router';
-import ChartPanel from './components/ChartPanel.vue';
+import VersionSelector from './components/VersionSelector.vue';
+import CompareChartPanel from './components/CompareChartPanel.vue';
+import CompareTimeNavigator from './components/CompareTimeNavigator.vue';
+import CompareSummaryTable from './components/CompareSummaryTable.vue';
+import VersionProcessPanel from './components/VersionProcessPanel.vue';
+import MetricSelector from './components/MetricSelector.vue';
 import {
   getVersions,
   getCompareData,
-  createTag,
-  getTags,
-  deleteTag,
+  createCompareTag,
+  getCompareTags,
+  deleteCompareTag,
 } from '#/api/core/performance-monitor';
-import type {
-  PerformanceVersion,
-  PerformanceCollect,
-  PerformanceData,
-  PerformanceTag,
-} from '#/api/core/performance-monitor';
+import type { PerformanceVersion, PerformanceCollect, PerformanceData } from '#/api/core/performance-monitor';
+import type { CompareTag, ChartSeries, SummaryRow } from './types';
 import { VERSION_COLORS } from './types';
-import type { ChartSeries, ChartTag, SummaryRow } from './types';
 
 const route = useRoute();
 
-// 设备ID
-const deviceId = ref('');
-
 // 版本列表
 const versions = ref<PerformanceVersion[]>([]);
-const selectedVersions = ref<string[]>([]);
-const maxVersions = 6;
+const selectedVersionIds = ref<string[]>([]);
+const loadingVersions = ref(false);
 
 // 对比数据
 const compareData = ref<{
@@ -36,594 +33,299 @@ const compareData = ref<{
     collects: Array<{
       collect: PerformanceCollect;
       data: PerformanceData[];
-      tags: PerformanceTag[];
     }>;
   }>;
 }>({ versions: [] });
+const loadingCompare = ref(false);
 
-// 标签弹窗
-const showTagDialog = ref(false);
-const tagForm = ref({
-  collect_id: '',
-  name: '',
-  start_relative_time: 0,
-  duration: 60,
-  type: 'peak' as 'peak' | 'mean',
+// 当前指标
+const currentMetric = ref('cpu_usage');
+const metricOptions = [
+  { key: 'cpu_usage', label: 'CPU' },
+  { key: 'gpu_usage', label: 'GPU' },
+  { key: 'memory_usage', label: '内存' },
+  { key: 'commit_memory', label: '提交内存' },
+];
+
+// 时间范围
+const timeRange = ref<{ start: Date; end: Date }>({
+  start: new Date(),
+  end: new Date(),
 });
-const durationOptions = [30, 60, 120, 300];
 
-// 当前选中的采集ID（用于标签操作）
-const activeCollectId = ref<string>('');
+// 对比标签
+const compareTags = ref<CompareTag[]>([]);
+const loadingTags = ref(false);
+
+// 进程详情（悬停数据）
+const processData = ref<Array<{
+  versionName: string;
+  versionColor: string;
+  processName: string;
+  pid: number;
+  currentValue: number;
+  unit: string;
+}>>([]);
 
 // 版本颜色映射
 function getVersionColor(index: number): string {
   return VERSION_COLORS[index % VERSION_COLORS.length] || '#67c23a';
 }
 
-// 获取每个采集的标签
-const collectTags = ref<Map<string, PerformanceTag[]>>(new Map());
-
-// 转换为 ChartTag 格式
-function getChartTags(collectId: string): ChartTag[] {
-  const tags = collectTags.value.get(collectId) || [];
-  return tags.map((tag) => ({
-    name: tag.name,
-    start: tag.start_relative_time,
-    duration: tag.duration,
-    type: tag.type,
-    color: tag.type === 'peak' ? '#67c23a' : '#f56c6c',
-  }));
-}
-
-// 曲线图数据（相对时间）- 包含原始数据用于 Tooltip
-const cpuChartSeries = computed<ChartSeries[]>(() => {
+// 图表数据
+const chartSeries = computed<ChartSeries[]>(() => {
   return compareData.value.versions.map((v, i) => {
     const allData = v.collects.flatMap((c) => c.data);
     return {
       name: v.version.name,
       data: allData.map((d) => ({
         time: d.relative_time,
-        value: d.cpu_usage || 0,
+        value: d[currentMetric.value as keyof PerformanceData] as number || 0,
       })),
       color: getVersionColor(i),
     };
   });
 });
 
-const gpuChartSeries = computed<ChartSeries[]>(() => {
+// 数据摘要
+const summaryData = computed<SummaryRow[]>(() => {
   return compareData.value.versions.map((v, i) => {
     const allData = v.collects.flatMap((c) => c.data);
-    return {
-      name: v.version.name,
-      data: allData.map((d) => ({
-        time: d.relative_time,
-        value: d.gpu_usage || 0,
-      })),
-      color: getVersionColor(i),
-    };
-  });
-});
-
-const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
-  return compareData.value.versions.map((v, i) => {
-    const allData = v.collects.flatMap((c) => c.data);
-    return {
-      name: v.version.name,
-      data: allData.map((d) => ({
-        time: d.relative_time,
-        value: d.commit_memory || 0,
-      })),
-      color: getVersionColor(i),
-    };
-  });
-});
-
-const memoryChartSeries = computed<ChartSeries[]>(() => {
-  return compareData.value.versions.map((v, i) => {
-    const allData = v.collects.flatMap((c) => c.data);
-    return {
-      name: v.version.name,
-      data: allData.map((d) => ({
-        time: d.relative_time,
-        value: d.memory_usage || 0,
-      })),
-      color: getVersionColor(i),
-    };
-  });
-});
-
-// 获取原始数据用于 Tooltip
-const allRawData = computed<PerformanceData[]>(() => {
-  return compareData.value.versions.flatMap((v) =>
-    v.collects.flatMap((c) => c.data),
-  );
-});
-
-// 合并区间计算
-function getMergedInterval(): { start: number; end: number } | null {
-  // 获取所有标签
-  const allTags = Array.from(collectTags.value.values()).flat();
-
-  if (allTags.length === 0) return null;
-
-  // 找最小起始和最大结束
-  const starts = allTags.map((t) => t.start_relative_time);
-  const ends = allTags.map((t) => t.start_relative_time + t.duration);
-
-  return {
-    start: Math.min(...starts),
-    end: Math.max(...ends),
-  };
-}
-
-// 数据摘要表 - 按区间计算
-const summaryTable = computed<SummaryRow[]>(() => {
-  const interval = getMergedInterval();
-
-  return compareData.value.versions.map((v, i) => {
-    const allData = v.collects.flatMap((c) => c.data);
-
-    // 根据区间筛选数据
-    let intervalData = allData;
-    if (interval) {
-      intervalData = allData.filter(
-        (d) =>
-          d.relative_time >= interval.start && d.relative_time < interval.end,
-      );
-    }
-
-    // 如果没有数据，返回空行
-    if (intervalData.length === 0) {
-      return {
-        version_name: v.version.name,
-        color: getVersionColor(i),
-      };
-    }
-
-    // 计算各指标
-    const cpuValues = intervalData.map((d) => d.cpu_usage || 0);
-    const gpuValues = intervalData.map((d) => d.gpu_usage || 0);
-    const memValues = intervalData.map((d) => d.memory_usage || 0);
-    const commitValues = intervalData.map((d) => d.commit_memory || 0);
-    const processCpuValues = intervalData.map((d) =>
-      d.target_processes?.reduce((s, p) => s + p.total_cpu, 0) || 0,
-    );
-
-    // 默认计算峰值和均值
     return {
       version_name: v.version.name,
       color: getVersionColor(i),
-      // 峰值（最大值）
-      peak_cpu: Math.max(...cpuValues),
-      peak_process_cpu: Math.max(...processCpuValues),
-      peak_gpu: Math.max(...gpuValues),
-      peak_commit_memory: Math.max(...commitValues),
-      peak_memory_usage: Math.max(...memValues),
-      // 均值
-      mean_cpu:
-        cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length || 0,
-      mean_process_cpu:
-        processCpuValues.reduce((a, b) => a + b, 0) / processCpuValues.length || 0,
-      mean_gpu:
-        gpuValues.reduce((a, b) => a + b, 0) / gpuValues.length || 0,
-      mean_commit_memory:
-        commitValues.reduce((a, b) => a + b, 0) / commitValues.length || 0,
-      mean_memory_usage:
-        memValues.reduce((a, b) => a + b, 0) / memValues.length || 0,
+      peak_cpu: Math.max(...allData.map(d => d.cpu_usage || 0)),
+      peak_process_cpu: Math.max(...allData.map(d =>
+        d.target_processes?.reduce((s, p) => s + p.total_cpu, 0) || 0
+      )),
+      peak_gpu: Math.max(...allData.map(d => d.gpu_usage || 0)),
+      peak_commit_memory: Math.max(...allData.map(d => d.commit_memory || 0)),
+      peak_memory_usage: Math.max(...allData.map(d => d.memory_usage || 0)),
     };
   });
 });
 
-// 找出最优和最差值
-function isBest(key: keyof SummaryRow, value: number): boolean {
-  const values = summaryTable.value
-    .map((r) => r[key] as number)
-    .filter((v) => v !== undefined && v > 0);
-  if (values.length === 0) return false;
-  return value === Math.min(...values);
-}
-
-function isWorst(key: keyof SummaryRow, value: number): boolean {
-  const values = summaryTable.value
-    .map((r) => r[key] as number)
-    .filter((v) => v !== undefined && v > 0);
-  if (values.length === 0) return false;
-  return value === Math.max(...values);
-}
-
-// 区间描述
-const intervalDescription = computed(() => {
-  const interval = getMergedInterval();
-  if (!interval) return '全部数据区间';
-  return `相对时间 ${interval.start}秒 - ${interval.end}秒`;
-});
-
 onMounted(async () => {
-  // 从路由参数获取 deviceId
-  deviceId.value = route.query.device_id as string || 'device-001';
   await fetchVersions();
 
   // 如果有 version_ids 参数，自动对比
   const versionIds = route.query.version_ids as string;
   if (versionIds) {
-    selectedVersions.value = versionIds.split(',');
+    selectedVersionIds.value = versionIds.split(',');
     await handleCompare();
   }
 });
 
+// 获取版本列表（不需要 device_id）
 async function fetchVersions() {
+  loadingVersions.value = true;
   try {
-    const result = await getVersions(deviceId.value);
+    const result = await getVersions();
     versions.value = result.items;
   } catch (error) {
-    console.error('获取版本列表失败', error);
+    ElMessage.error('获取版本列表失败');
+  } finally {
+    loadingVersions.value = false;
   }
 }
 
+// 开始对比
 async function handleCompare() {
-  if (selectedVersions.value.length < 2) {
+  if (selectedVersionIds.value.length < 2) {
     ElMessage.warning('请至少选择2个版本进行对比');
     return;
   }
+
+  loadingCompare.value = true;
   try {
-    const result = await getCompareData(selectedVersions.value);
+    const result = await getCompareData(selectedVersionIds.value);
     compareData.value = result;
 
-    // 加载每个采集的标签
-    for (const v of result.versions) {
-      for (const c of v.collects) {
-        await fetchTagsForCollect(c.collect.id);
-      }
+    // 加载对比标签
+    await fetchCompareTags();
+
+    // 初始化时间范围
+    const allData = result.versions.flatMap(v => v.collects.flatMap(c => c.data));
+    if (allData.length > 0) {
+      const minTime = Math.min(...allData.map(d => d.relative_time));
+      const maxTime = Math.max(...allData.map(d => d.relative_time));
+      // 假设第一个采集的开始时间为基准
+      const baseTime = new Date(result.versions[0]?.collects[0]?.collect.sys_create_datetime || Date.now());
+      timeRange.value = {
+        start: new Date(baseTime.getTime() + minTime * 1000),
+        end: new Date(baseTime.getTime() + maxTime * 1000),
+      };
     }
   } catch (error) {
     ElMessage.error('获取对比数据失败');
+  } finally {
+    loadingCompare.value = false;
   }
 }
 
-async function fetchTagsForCollect(collectId: string) {
+// 获取对比标签
+async function fetchCompareTags() {
+  loadingTags.value = true;
   try {
-    const result = await getTags(collectId);
-    collectTags.value.set(collectId, result.items);
+    // TODO: 需要从后端 API 获取对比标签
+    // const result = await getCompareTags();
+    // compareTags.value = result.items;
+    compareTags.value = []; // 暂时为空，等待后端 API
   } catch (error) {
-    console.error('获取标签失败', error);
+    console.error('获取对比标签失败', error);
+  } finally {
+    loadingTags.value = false;
   }
 }
 
-function handleVersionChange() {
-  if (selectedVersions.value.length >= 2) {
-    handleCompare();
-  }
-}
-
-// 标签操作
-function handlePointClick(data: { time: number; collectId: string }) {
-  // 设置第一个采集作为默认目标（实际应该让用户选择）
-  const firstCollect = compareData.value.versions[0]?.collects[0]?.collect.id;
-  if (!firstCollect) {
-    ElMessage.warning('没有可用的采集数据');
-    return;
-  }
-
-  tagForm.value = {
-    collect_id: data.collectId || firstCollect,
-    name: '',
-    start_relative_time: data.time,
-    duration: 60,
-    type: 'peak',
-  };
-  activeCollectId.value = data.collectId || firstCollect;
-  showTagDialog.value = true;
-}
-
-async function handleCreateTag() {
-  if (!tagForm.value.name) {
-    ElMessage.warning('请输入标签名称');
-    return;
-  }
+// 添加对比标签
+async function handleAddTag(data: { name: string; type: 'peak' | 'stable'; start_time: string; end_time: string; note?: string }) {
   try {
-    await createTag({
-      collect_id: tagForm.value.collect_id,
-      name: tagForm.value.name,
-      start_relative_time: tagForm.value.start_relative_time,
-      duration: tagForm.value.duration,
-      type: tagForm.value.type,
-    });
-    ElMessage.success('标签创建成功');
-    showTagDialog.value = false;
-    await fetchTagsForCollect(tagForm.value.collect_id);
+    await createCompareTag(data);
+    ElMessage.success('标签添加成功');
+    await fetchCompareTags();
   } catch (error) {
-    ElMessage.error('创建标签失败');
+    ElMessage.error('添加标签失败');
   }
 }
 
-async function handleTagDelete(tagName: string) {
-  // 需要找到对应的标签ID
-  const tags = collectTags.value.get(activeCollectId.value) || [];
-  const tag = tags.find((t) => t.name === tagName);
-  if (!tag) return;
-
+// 删除对比标签
+async function handleRemoveTag(tagId: string) {
   try {
-    await deleteTag(tag.id);
+    await deleteCompareTag(tagId);
     ElMessage.success('标签删除成功');
-    await fetchTagsForCollect(activeCollectId.value);
+    await fetchCompareTags();
   } catch (error) {
     ElMessage.error('删除标签失败');
   }
 }
 
-// 导出功能
-function handleExportHtml() {
-  ElMessage.info('导出 HTML 功能待实现');
+// 时间范围变化
+function handleTimeRangeChange(range: { start: Date; end: Date }) {
+  timeRange.value = range;
 }
 
-function handleExportExcel() {
-  ElMessage.info('导出 Excel 功能待实现');
+// 悬停数据更新
+function handleHoverChange(data: { time: number; values: Record<string, number> }) {
+  processData.value = compareData.value.versions.map((v, i) => {
+    const collect = v.collects[0];
+    const process = collect?.data[0]?.target_processes?.[0];
+    return {
+      versionName: v.version.name,
+      versionColor: getVersionColor(i),
+      processName: process?.name || 'N/A',
+      pid: process?.pid || 0,
+      currentValue: data.values[v.version.name] || 0,
+      unit: currentMetric.value.includes('memory') ? 'GB' : '%',
+    };
+  });
 }
+
+// 导出报告
+function handleExport() {
+  ElMessage.info('导出报告功能待实现');
+}
+
+// 监听版本选择变化
+watch(selectedVersionIds, (newIds) => {
+  if (newIds.length >= 2) {
+    handleCompare();
+  }
+});
 </script>
 
 <template>
-  <div class="performance-compare">
-    <!-- 版本选择 -->
-    <div class="version-selector">
-      <div class="selector-header">
-        <h3>版本对比</h3>
-        <div class="export-buttons">
-          <el-button size="small" @click="handleExportHtml">导出 HTML</el-button>
-          <el-button size="small" @click="handleExportExcel">导出 Excel</el-button>
-        </div>
-      </div>
-      <el-select
-        v-model="selectedVersions"
-        multiple
-        placeholder="选择版本（最多6个）"
-        style="width: 100%"
-        :max-collapse-tags="maxVersions"
-        @change="handleVersionChange"
-      >
-        <el-option
-          v-for="v in versions"
-          :key="v.id"
-          :label="v.name"
-          :value="v.id"
-        />
-      </el-select>
-      <div class="selected-tags">
-        <el-tag
-          v-for="(id, i) in selectedVersions"
-          :key="id"
-          :color="getVersionColor(i)"
-          effect="dark"
-          closable
-          @close="selectedVersions.splice(i, 1)"
-        >
-          {{ versions.find(v => v.id === id)?.name }}
-        </el-tag>
+  <div class="version-compare">
+    <!-- 顶部控制栏 -->
+    <div class="control-bar">
+      <h3>版本对比</h3>
+      <VersionSelector
+        :versions="versions"
+        :selected-ids="selectedVersionIds"
+        @update:selected-ids="selectedVersionIds = $event"
+      />
+      <div class="action-buttons">
+        <ElButton type="success" :disabled="selectedVersionIds.length < 2" @click="handleCompare">
+          开始对比
+        </ElButton>
+        <ElButton type="warning" @click="handleExport">
+          导出报告
+        </ElButton>
       </div>
     </div>
 
-    <!-- 曲线图区 -->
-    <div class="charts-area" v-if="compareData.versions.length > 0">
-      <!-- 简化版：只显示对比图表 -->
-      <ChartPanel
-        title="CPU 使用率对比"
-        :series="cpuChartSeries"
-        :height="200"
-        :raw-data="allRawData"
-        :show-actual-time="true"
-        :enable-tag-click="true"
-        :collect-id="compareData.versions[0]?.collects[0]?.collect.id"
-        :tags="getChartTags(compareData.versions[0]?.collects[0]?.collect.id || '')"
-        @point-click="handlePointClick"
-        @tag-delete="handleTagDelete"
-      />
-      <ChartPanel
-        title="GPU 使用率对比"
-        :series="gpuChartSeries"
-        :height="160"
-        :raw-data="allRawData"
-        :show-actual-time="true"
-      />
-      <ChartPanel
-        title="提交内存对比"
-        :series="commitMemoryChartSeries"
-        :height="160"
-        :raw-data="allRawData"
-        :show-actual-time="true"
-      />
-      <ChartPanel
-        title="内存使用对比"
-        :series="memoryChartSeries"
-        :height="160"
-        :raw-data="allRawData"
-        :show-actual-time="true"
-      />
-    </div>
+    <!-- 指标选择器 -->
+    <MetricSelector
+      :current-metric="currentMetric"
+      :metrics="metricOptions"
+      @change="currentMetric = $event"
+    />
 
-    <!-- 数据摘要表 -->
-    <div class="summary-table" v-if="summaryTable.length > 0">
-      <div class="summary-header">
-        <h3>数据摘要对比（峰值区间）</h3>
-      </div>
-      <el-table :data="summaryTable" border stripe size="small">
-        <el-table-column prop="version_name" label="版本" width="80">
-          <template #default="{ row }">
-            <span :style="{ color: row.color, fontWeight: '600' }">
-              {{ row.version_name }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="系统CPU" align="center">
-          <template #default="{ row }">
-            <span :class="{ 'best-value': isBest('peak_cpu', row.peak_cpu), 'worst-value': isWorst('peak_cpu', row.peak_cpu) }">
-              {{ row.peak_cpu?.toFixed(1) }}%
-              <span v-if="isBest('peak_cpu', row.peak_cpu)"> ✓</span>
-              <span v-if="isWorst('peak_cpu', row.peak_cpu)"> ✗</span>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="进程CPU" align="center">
-          <template #default="{ row }">
-            <span :class="{ 'best-value': isBest('peak_process_cpu', row.peak_process_cpu), 'worst-value': isWorst('peak_process_cpu', row.peak_process_cpu) }">
-              {{ row.peak_process_cpu?.toFixed(1) }}%
-              <span v-if="isBest('peak_process_cpu', row.peak_process_cpu)"> ✓</span>
-              <span v-if="isWorst('peak_process_cpu', row.peak_process_cpu)"> ✗</span>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="GPU" align="center">
-          <template #default="{ row }">
-            <span :class="{ 'best-value': isBest('peak_gpu', row.peak_gpu), 'worst-value': isWorst('peak_gpu', row.peak_gpu) }">
-              {{ row.peak_gpu?.toFixed(1) }}%
-              <span v-if="isBest('peak_gpu', row.peak_gpu)"> ✓</span>
-              <span v-if="isWorst('peak_gpu', row.peak_gpu)"> ✗</span>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="提交内存" align="center">
-          <template #default="{ row }">
-            <span :class="{ 'best-value': isBest('peak_commit_memory', row.peak_commit_memory), 'worst-value': isWorst('peak_commit_memory', row.peak_commit_memory) }">
-              {{ row.peak_commit_memory?.toFixed(1) }} GB
-              <span v-if="isBest('peak_commit_memory', row.peak_commit_memory)"> ✓</span>
-              <span v-if="isWorst('peak_commit_memory', row.peak_commit_memory)"> ✗</span>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="内存使用" align="center">
-          <template #default="{ row }">
-            <span :class="{ 'best-value': isBest('peak_memory_usage', row.peak_memory_usage), 'worst-value': isWorst('peak_memory_usage', row.peak_memory_usage) }">
-              {{ row.peak_memory_usage?.toFixed(1) }} GB
-              <span v-if="isBest('peak_memory_usage', row.peak_memory_usage)"> ✓</span>
-              <span v-if="isWorst('peak_memory_usage', row.peak_memory_usage)"> ✗</span>
-            </span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="table-note">
-        <span class="best-value">✓ 最优</span> |
-        <span class="worst-value">✗ 最差</span> |
-        <span>区间：{{ intervalDescription }}</span>
-      </div>
+    <!-- 时间导航条 -->
+    <CompareTimeNavigator
+      :time-range="timeRange"
+      :tags="compareTags"
+      @time-range-change="handleTimeRangeChange"
+      @add-tag="handleAddTag"
+      @remove-tag="handleRemoveTag"
+    />
+
+    <!-- 图表区 -->
+    <CompareChartPanel
+      v-if="compareData.versions.length > 0"
+      :series="chartSeries"
+      :tags="compareTags"
+      :loading="loadingCompare"
+      @hover-change="handleHoverChange"
+    />
+
+    <!-- 底部面板 -->
+    <div class="bottom-panel" v-if="compareData.versions.length > 0">
+      <CompareSummaryTable :summary-data="summaryData" />
+      <VersionProcessPanel :process-data="processData" />
     </div>
 
     <!-- 无数据提示 -->
-    <div class="no-data" v-if="selectedVersions.length < 2">
-      <el-empty description="请选择至少2个版本进行对比" />
-    </div>
-
-    <!-- 标签配置弹窗 -->
-    <el-dialog v-model="showTagDialog" title="添加区间标签" width="400px">
-      <el-form label-width="80px">
-        <el-form-item label="起始时间">
-          <span>{{ tagForm.start_relative_time }}秒</span>
-        </el-form-item>
-        <el-form-item label="标签名称">
-          <el-input
-            v-model="tagForm.name"
-            placeholder="如：发起共享、场景加载"
-          />
-        </el-form-item>
-        <el-form-item label="时间长度">
-          <el-input-number v-model="tagForm.duration" :min="10" :max="600" />
-          <span style="margin-left: 8px">秒</span>
-          <div style="margin-top: 8px; display: flex; gap: 4px">
-            <el-button
-              v-for="opt in durationOptions"
-              :key="opt"
-              size="small"
-              :type="tagForm.duration === opt ? 'primary' : 'default'"
-              @click="tagForm.duration = opt"
-            >
-              {{ opt }}秒
-            </el-button>
-          </div>
-        </el-form-item>
-        <el-form-item label="区间类型">
-          <el-radio-group v-model="tagForm.type">
-            <el-radio value="peak">峰值区间（绿色）</el-radio>
-            <el-radio value="mean">均值区间（红色）</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showTagDialog = false">取消</el-button>
-        <el-button type="success" @click="handleCreateTag">确认添加</el-button>
-      </template>
-    </el-dialog>
+    <ElEmpty v-if="selectedVersionIds.length < 2" description="请选择至少2个版本进行对比" />
   </div>
 </template>
 
 <style scoped>
-.performance-compare {
+.version-compare {
   padding: 16px;
   background: #f5f5f5;
   min-height: 100vh;
 }
-.version-selector {
+
+.control-bar {
   background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-.selector-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 12px;
+  border-radius: 6px;
   margin-bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
-.selector-header h3 {
-  margin: 0;
+
+.control-bar h3 {
   font-size: 16px;
+  font-weight: 600;
+  color: #333;
 }
-.export-buttons {
+
+.action-buttons {
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }
-.selected-tags {
+
+.bottom-panel {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   margin-top: 12px;
 }
-.charts-area {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.summary-table {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-}
-.summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.summary-header h3 {
-  margin: 0;
-  font-size: 14px;
-}
-.interval-note {
-  font-size: 12px;
-  color: #666;
-}
-.table-note {
-  margin-top: 8px;
-  font-size: 11px;
-  color: #666;
-}
-.best-value {
-  color: #67c23a;
-  font-weight: 600;
-}
-.worst-value {
-  color: #f56c6c;
-  font-weight: 600;
-}
-.no-data {
-  background: #fff;
-  border-radius: 8px;
-  padding: 32px;
+
+.bottom-panel > :first-child {
+  flex: 1;
 }
 </style>
