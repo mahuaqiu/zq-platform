@@ -56,7 +56,6 @@ const processSummary = computed(() => {
 
 // 格式化时间戳
 function formatDateTime(timestamp: string): string {
-  // HWiNFO 数据可能没有有效 timestamp，返回空
   if (!timestamp) return '';
 
   const date = new Date(timestamp);
@@ -67,15 +66,6 @@ function formatDateTime(timestamp: string): string {
   const minute = String(date.getMinutes()).padStart(2, '0');
   const second = String(date.getSeconds()).padStart(2, '0');
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-}
-
-// 获取时间显示文本
-function getTimeDisplay(): string {
-  if (props.chartType === 'hwinfo') {
-    // HWiNFO 显示相对时间
-    return `${props.data?.relative_time || 0}秒`;
-  }
-  return formatDateTime(props.data?.timestamp || '');
 }
 </script>
 
@@ -90,7 +80,7 @@ function getTimeDisplay(): string {
   >
     <!-- 时间 -->
     <div class="tooltip-time">
-      {{ getTimeDisplay() }}
+      {{ formatDateTime(data.timestamp) }}
     </div>
 
     <!-- 主曲线数据 -->

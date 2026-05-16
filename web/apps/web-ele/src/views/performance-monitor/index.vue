@@ -456,14 +456,28 @@ const handlesChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
+// 当前采集记录的start_time（用于HWiNFO计算绝对时间）
+const currentCollectStartTime = computed(() => {
+  // 采集中时优先使用collectStatus的start_time
+  if (collectStatus.value.is_collecting && collectStatus.value.start_time) {
+    return collectStatus.value.start_time;
+  }
+  // 否则从collectHistory中查找
+  if (!currentCollectId.value) return null;
+  const collect = collectHistory.value.find(c => c.id === currentCollectId.value);
+  return collect?.start_time || null;
+});
+
 // HWiNFO 指标的 rawData（构造符合 PerformanceData 结构的数据）
 const hwinfoRawData = computed(() => {
-  if (!hwinfoMetricData.value.length) return [];
+  if (!hwinfoMetricData.value.length || !currentCollectStartTime.value) return [];
 
-  // 构造简化的数据结构，只包含必要的时间信息
+  const startTime = new Date(currentCollectStartTime.value).getTime();
+
+  // 根据relative_time计算出绝对时间timestamp
   return hwinfoMetricData.value.map(d => ({
     relative_time: d.relative_time,
-    timestamp: '',  // HWiNFO数据没有原始timestamp，MiniTooltip会显示relative_time
+    timestamp: new Date(startTime + d.relative_time * 1000).toISOString(),
   })) as PerformanceData[];
 });
 
