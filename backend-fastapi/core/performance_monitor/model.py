@@ -248,3 +248,7 @@ class PerformanceMarker(BaseModel):
 
     # 备注
     note = Column(String(200), nullable=True, comment="备注信息")
+
+
+# 导入对比标签模型
+from core.performance_monitor.compare_model import CompareTag

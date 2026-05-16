@@ -15,6 +15,7 @@ from core.performance_monitor.model import (
     PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion,
     PerformanceMetricMapping, PerformanceMarker
 )
+from core.performance_monitor.compare_model import CompareTag
 from core.performance_monitor.utils import (
     extract_core_metrics,
     convert_aggregated_to_target_processes,
@@ -26,6 +27,7 @@ from core.performance_monitor.schema import (
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery
 )
+from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -521,11 +523,14 @@ class PerformanceVersionService(BaseService):
         return version.id
 
     @classmethod
-    async def get_versions(cls, db: AsyncSession, device_id: str) -> List[PerformanceVersion]:
+    async def get_versions(cls, db: AsyncSession, device_id: Optional[str] = None) -> List[PerformanceVersion]:
         """获取版本列表"""
-        stmt = select(PerformanceVersion).where(PerformanceVersion.device_id == device_id)
+        stmt = select(PerformanceVersion).where(PerformanceVersion.is_deleted == False)
+        if device_id:
+            stmt = stmt.where(PerformanceVersion.device_id == device_id)
+        stmt = stmt.order_by(PerformanceVersion.sys_create_datetime.desc())
         result = await db.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def get_compare_data(cls, db: AsyncSession, version_ids: List[str]) -> Dict[str, Any]:
@@ -820,5 +825,61 @@ class MarkerService(BaseService):
         if not marker:
             return False
         await db.delete(marker)
+        await db.commit()
+        return True
+
+
+class CompareTagService(BaseService):
+    """对比标签服务"""
+    model = CompareTag
+
+    @classmethod
+    async def create_tag(cls, db: AsyncSession, request: CompareTagCreate) -> str:
+        """创建对比标签"""
+        tag = CompareTag(
+            name=request.name,
+            type=request.type,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            note=request.note,
+        )
+        db.add(tag)
+        await db.commit()
+        await db.refresh(tag)
+        return str(tag.id)
+
+    @classmethod
+    async def get_tags(cls, db: AsyncSession) -> List[CompareTag]:
+        """获取所有对比标签"""
+        stmt = select(CompareTag).where(CompareTag.is_deleted == False).order_by(CompareTag.sys_create_datetime.desc())
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def update_tag(cls, db: AsyncSession, tag_id: str, request: CompareTagUpdate) -> bool:
+        """更新对比标签"""
+        tag = await db.get(CompareTag, tag_id)
+        if not tag or tag.is_deleted:
+            return False
+        if request.name is not None:
+            tag.name = request.name
+        if request.type is not None:
+            tag.type = request.type
+        if request.start_time is not None:
+            tag.start_time = request.start_time
+        if request.end_time is not None:
+            tag.end_time = request.end_time
+        if request.note is not None:
+            tag.note = request.note
+        await db.commit()
+        return True
+
+    @classmethod
+    async def delete_tag(cls, db: AsyncSession, tag_id: str) -> bool:
+        """删除对比标签（软删除）"""
+        tag = await db.get(CompareTag, tag_id)
+        if not tag or tag.is_deleted:
+            return False
+        tag.is_deleted = True
         await db.commit()
         return True

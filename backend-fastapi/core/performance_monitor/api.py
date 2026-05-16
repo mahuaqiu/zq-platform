@@ -23,11 +23,14 @@ from core.performance_monitor.schema import (
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
     MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse
 )
+from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate, CompareTagResponse
 from core.performance_monitor.service import (
     PerformanceCollectService, PerformanceDataService,
     PerformanceTagService, PerformanceVersionService,
     # v0.3.0 新增
-    MetricMappingService, MarkerService
+    MetricMappingService, MarkerService,
+    # v0.3.2 新增
+    CompareTagService
 )
 
 router = APIRouter(prefix="/performance-monitor", tags=["性能监控"])
@@ -274,7 +277,10 @@ async def create_version(request: VersionCreateRequest, db: AsyncSession = Depen
 
 
 @router.get("/version/list")
-async def get_versions(device_id: str, db: AsyncSession = Depends(get_db)):
+async def get_versions(
+    device_id: Optional[str] = Query(None, description="设备ID（可选，不传则返回所有）"),
+    db: AsyncSession = Depends(get_db)
+):
     """获取版本列表"""
     versions = await PerformanceVersionService.get_versions(db, device_id)
     return {"items": versions}
@@ -435,3 +441,48 @@ async def export_excel_data(
 
     raise HTTPException(status_code=501, detail="导出Excel功能待实现")
     return result
+
+
+# ===== 对比标签管理（v0.3.2）=====
+
+@router.post("/compare/tag")
+async def create_compare_tag(
+    request: CompareTagCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """创建对比标签"""
+    tag_id = await CompareTagService.create_tag(db, request)
+    return {"id": tag_id, "status": "created"}
+
+
+@router.get("/compare/tags")
+async def get_compare_tags(db: AsyncSession = Depends(get_db)):
+    """获取对比标签列表"""
+    tags = await CompareTagService.get_tags(db)
+    items = []
+    for t in tags:
+        item = CompareTagResponse.model_validate(t)
+        item.type_display = t.get_type_display()
+        items.append(item)
+    return {"items": items}
+
+
+@router.put("/compare/tag/{tag_id}")
+async def update_compare_tag(
+    tag_id: str,
+    request: CompareTagUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """更新对比标签"""
+    success = await CompareTagService.update_tag(db, tag_id, request)
+    return {"status": "updated" if success else "not_found"}
+
+
+@router.delete("/compare/tag/{tag_id}")
+async def delete_compare_tag(
+    tag_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """删除对比标签"""
+    success = await CompareTagService.delete_tag(db, tag_id)
+    return {"status": "deleted" if success else "not_found"}
