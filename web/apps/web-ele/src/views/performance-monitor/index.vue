@@ -613,8 +613,19 @@ async function loadCollectData(collectId: string) {
     if (result?.items?.length) {
       performanceData.value = result.items;
       historyData.value = result.items.slice(-50);
-      // 重置时间范围选择
-      selectedRelativeTimeRange.value = null;
+
+      // 设置默认时间范围：最近15分钟
+      const totalDuration = result.items[result.items.length - 1]?.relative_time || 0;
+      const defaultDisplayDuration = 15 * 60; // 15分钟 = 900秒
+
+      if (totalDuration > defaultDisplayDuration) {
+        // 超过15分钟：默认显示最近15分钟
+        selectedRelativeTimeRange.value = [totalDuration - defaultDisplayDuration, totalDuration];
+      } else {
+        // 不超过15分钟：显示全部
+        selectedRelativeTimeRange.value = null;
+      }
+
       // 加载标记
       await loadMarkers();
     }

@@ -365,6 +365,13 @@ function updateChart() {
     itemStyle: { color: s.color },
     smooth: false,
     symbol: 'none',
+    // 大数据模式优化（超过2000个点时自动启用）
+    large: true,
+    largeThreshold: 2000,
+    // 渐进式渲染（超过3000个点时启用，每帧渲染400个点）
+    progressive: 400,
+    progressiveThreshold: 3000,
+    progressiveChunkMode: 'mod',  // 交错渲染，体感更流畅
   }));
 
   // 标记圆点显示

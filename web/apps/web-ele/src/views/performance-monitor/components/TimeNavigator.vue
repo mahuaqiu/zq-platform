@@ -28,20 +28,25 @@ const emit = defineEmits<{
   (e: 'refreshMarkers'): void;
 }>();
 
-// 快速选择按钮配置 - 删除30分钟，保留全部、15分钟、60分钟
+// 快速选择按钮配置 - 15分钟、60分钟、12小时
 const quickButtons = [
-  { label: '全部', value: 0 },
   { label: '15分钟', value: 15 * 60 },
   { label: '60分钟', value: 60 * 60 },
+  { label: '12小时', value: 12 * 3600 },
 ];
 
-// 根据范围计算初始激活按钮
+// 根据范围计算初始激活按钮（允许±10秒的误差）
 function getActiveButtonFromRange(start: number, end: number, duration: number): number {
-  if (duration <= 0) return 0;
-  if (start === 0 && end === duration) return 0;
+  if (duration <= 0) return -1;
   const range = end - start;
-  if (end === duration && range === 15 * 60) return 15 * 60;
-  if (end === duration && range === 60 * 60) return 60 * 60;
+  const tolerance = 10; // 允许10秒误差
+
+  // 判断是否是从末尾开始的范围
+  const isEndRange = Math.abs(end - duration) <= tolerance;
+
+  if (isEndRange && Math.abs(range - 15 * 60) <= tolerance) return 15 * 60;
+  if (isEndRange && Math.abs(range - 60 * 60) <= tolerance) return 60 * 60;
+  if (isEndRange && Math.abs(range - 12 * 3600) <= tolerance) return 12 * 3600;
   return -1;
 }
 
@@ -106,15 +111,9 @@ function getEndPercent(): number {
 // 快速选择
 function handleQuickSelect(value: number) {
   activeButton.value = value;
-  if (value === 0) {
-    currentStartTime.value = 0;
-    currentEndTime.value = props.duration;
-    emit('rangeChange', [0, props.duration]);
-  } else {
-    currentStartTime.value = Math.max(0, props.duration - value);
-    currentEndTime.value = props.duration;
-    emit('rangeChange', [currentStartTime.value, props.duration]);
-  }
+  currentStartTime.value = Math.max(0, props.duration - value);
+  currentEndTime.value = props.duration;
+  emit('rangeChange', [currentStartTime.value, props.duration]);
   if (chartInstance) {
     chartInstance.setOption({
       dataZoom: [{
@@ -264,14 +263,22 @@ function updateChart() {
   chartInstance.setOption(option);
 }
 
-watch(() => props.duration, () => {
-  currentStartTime.value = props.startTime;
-  currentEndTime.value = props.endTime;
-  updateChart();
-});
+// 监听所有 props 变化，立即更新按钮状态
+watch(
+  () => [props.startTime, props.endTime, props.duration] as const,
+  ([start, end, duration]) => {
+    currentStartTime.value = start;
+    currentEndTime.value = end;
+    activeButton.value = getActiveButtonFromRange(start, end, duration);
+    updateChart();
+  },
+  { immediate: true }
+);
 
 watch(() => props.startTime, (v) => {
   currentStartTime.value = v;
+  // 更新按钮激活状态
+  activeButton.value = getActiveButtonFromRange(v, props.endTime, props.duration);
   if (chartInstance) {
     chartInstance.setOption({
       dataZoom: [{ start: getStartPercent() }],
@@ -281,6 +288,8 @@ watch(() => props.startTime, (v) => {
 
 watch(() => props.endTime, (v) => {
   currentEndTime.value = v;
+  // 更新按钮激活状态
+  activeButton.value = getActiveButtonFromRange(props.startTime, v, props.duration);
   if (chartInstance) {
     chartInstance.setOption({
       dataZoom: [{ end: getEndPercent() }],
