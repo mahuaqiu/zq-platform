@@ -237,26 +237,31 @@ const yAxisConfig = computed(() => {
   const allValues = props.series.flatMap((s) => s.data.map((d) => d.value));
 
   if (allValues.length === 0) {
-    return { min: 0, max: 100, interval: 20 };
+    return { min: 0, max: 100, interval: 20, gridLeft: 40 };
   }
 
   const maxValue = Math.max(...allValues);
   const minValue = Math.min(...allValues);
   const range = maxValue - minValue;
 
+  // 根据最大值位数动态计算 gridLeft
+  // 对于大数值（如句柄数），需要更多空间
+  const valueLength = Math.ceil(maxValue).toString().length;
+  const gridLeft = Math.max(40, valueLength * 8 + 5);
+
   if (unit === '%') {
     // 百分比：从0开始，根据最大值智能分段
     if (maxValue <= 10) {
-      return { min: 0, max: 10, interval: 2 };
+      return { min: 0, max: 10, interval: 2, gridLeft };
     } else if (maxValue <= 20) {
-      return { min: 0, max: 20, interval: 4 };
+      return { min: 0, max: 20, interval: 4, gridLeft };
     } else if (maxValue <= 50) {
-      return { min: 0, max: 50, interval: 10 };
+      return { min: 0, max: 50, interval: 10, gridLeft };
     } else if (maxValue <= 100) {
-      return { min: 0, max: 100, interval: 20 };
+      return { min: 0, max: 100, interval: 20, gridLeft };
     } else {
       const roundedMax = Math.ceil(maxValue / 20) * 20;
-      return { min: 0, max: roundedMax, interval: 20 };
+      return { min: 0, max: roundedMax, interval: 20, gridLeft };
     }
   } else if (unit === 'MB') {
     // MB单位：智能计算范围，数据集中在某个区间时不从0开始
@@ -276,30 +281,31 @@ const yAxisConfig = computed(() => {
       if (interval < 50) interval = 50;
       if (interval > 500) interval = Math.ceil(interval / 100) * 100;
 
-      return { min: baseMin, max: baseMax, interval };
+      return { min: baseMin, max: baseMax, interval, gridLeft };
     }
 
     // 数据波动大或最小值较小，从0开始
     if (maxValue <= 100) {
-      return { min: 0, max: 100, interval: 25 };
+      return { min: 0, max: 100, interval: 25, gridLeft };
     } else if (maxValue <= 200) {
-      return { min: 0, max: 200, interval: 50 };
+      return { min: 0, max: 200, interval: 50, gridLeft };
     } else if (maxValue <= 500) {
-      return { min: 0, max: 500, interval: 100 };
+      return { min: 0, max: 500, interval: 100, gridLeft };
     } else if (maxValue <= 1000) {
-      return { min: 0, max: 1000, interval: 200 };
+      return { min: 0, max: 1000, interval: 200, gridLeft };
     } else if (maxValue <= 2000) {
-      return { min: 0, max: 2000, interval: 400 };
+      return { min: 0, max: 2000, interval: 400, gridLeft };
     } else if (maxValue <= 5000) {
-      return { min: 0, max: 5000, interval: 1000 };
+      return { min: 0, max: 5000, interval: 1000, gridLeft };
     } else if (maxValue <= 10000) {
-      return { min: 0, max: 10000, interval: 2000 };
+      return { min: 0, max: 10000, interval: 2000, gridLeft };
     } else {
       const roundedMax = Math.ceil(maxValue / 2000) * 2000;
       return {
         min: 0,
         max: roundedMax,
         interval: Math.ceil(roundedMax / 5 / 100) * 100,
+        gridLeft,
       };
     }
   } else if (unit === 'GB') {
@@ -312,29 +318,31 @@ const yAxisConfig = computed(() => {
       const diff = baseMax - baseMin;
       let interval = Math.ceil((diff * 10) / 4) / 10;
       if (interval < 0.1) interval = 0.1;
-      return { min: baseMin, max: baseMax, interval };
+      return { min: baseMin, max: baseMax, interval, gridLeft };
     }
 
     if (maxValue <= 1) {
-      return { min: 0, max: 1, interval: 0.2 };
+      return { min: 0, max: 1, interval: 0.2, gridLeft };
     } else if (maxValue <= 2) {
-      return { min: 0, max: 2, interval: 0.5 };
+      return { min: 0, max: 2, interval: 0.5, gridLeft };
     } else if (maxValue <= 5) {
-      return { min: 0, max: 5, interval: 1 };
+      return { min: 0, max: 5, interval: 1, gridLeft };
     } else if (maxValue <= 10) {
-      return { min: 0, max: 10, interval: 2 };
+      return { min: 0, max: 10, interval: 2, gridLeft };
     } else if (maxValue <= 20) {
-      return { min: 0, max: 20, interval: 4 };
+      return { min: 0, max: 20, interval: 4, gridLeft };
     } else {
       const roundedMax = Math.ceil(maxValue / 4) * 4;
-      return { min: 0, max: roundedMax, interval: 4 };
+      return { min: 0, max: roundedMax, interval: 4, gridLeft };
     }
   }
 
+  // 其他单位（如"个"）：从0开始，大数值使用缩写
   return {
     min: 0,
     max: Math.ceil(maxValue * 1.2),
     interval: Math.ceil(maxValue / 5),
+    gridLeft,
   };
 });
 
@@ -422,7 +430,7 @@ function updateChart() {
       show: false,
     },
     grid: {
-      left: 40,
+      left: yAxisConfig.value.gridLeft,
       right: 15,
       top: 25,
       bottom: 25,
@@ -448,6 +456,10 @@ function updateChart() {
             return v.toFixed(v < 1 ? 1 : 0);
           } else if (mainUnit.value === 'MB') {
             return Math.round(v);
+          }
+          // 大数值（如句柄数）使用缩写格式
+          if (v >= 10000) {
+            return (v / 1000).toFixed(1) + 'k';
           }
           return v;
         },
