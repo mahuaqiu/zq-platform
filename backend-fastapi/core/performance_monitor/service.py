@@ -292,9 +292,9 @@ class PerformanceDataService(BaseService):
         """
         metrics = []
 
-        # 系统指标：只有 process_handles 是数据库字段，其他指标都从 hwinfo_raw 动态获取
+        # 进程指标：只有 process_handles 是数据库字段，其他指标都从 hwinfo_raw 动态获取
         system_metric_fields = {
-            "process_handles": {"label": "系统句柄数", "source": "system", "unit": "个"},
+            "process_handles": {"label": "进程句柄数", "source": "system", "unit": "个"},
         }
 
         # 检查是否有 process_handles 数据
@@ -365,9 +365,9 @@ class PerformanceDataService(BaseService):
         mapping_result = await db.execute(mapping_stmt)
         mappings = {m.hwinfo_key: m for m in mapping_result.scalars().all()}
 
-        # 系统指标字段映射（只有 process_handles 是数据库字段）
+        # 进程指标字段映射（只有 process_handles 是数据库字段）
         system_metric_fields = {
-            "process_handles": ("process_handles", "系统句柄数", "个"),
+            "process_handles": ("process_handles", "进程句柄数", "个"),
         }
 
         # 按指标键名分组数据
