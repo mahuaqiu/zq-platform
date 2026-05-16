@@ -72,15 +72,11 @@ class PerformanceData(BaseModel):
     - gpu_usage: GPU使用率 %
     - commit_memory: 提交内存 GB
     - memory_usage: 内存使用 GB
-    - power: 功耗 W
-    - cpu_speed: CPU速度 GHz
-    - cpu_temp: CPU温度 °C
     - process_handles: 进程句柄数
-    - upload_speed: 上传速度 MB/s
-    - download_speed: 下载速度 MB/s
     - target_processes: 目标进程数据（含实例明细）
     - top10_cpu: CPU TOP10
     - top10_gpu: GPU TOP10
+    - hwinfo_raw: HWiNFO原始传感器数据（完整）
     """
     __tablename__ = "performance_data"
 
@@ -107,23 +103,8 @@ class PerformanceData(BaseModel):
     # 内存使用 GB
     memory_usage = Column(Float, nullable=True, comment="内存使用 GB")
 
-    # 功耗 W
-    power = Column(Float, nullable=True, comment="功耗 W")
-
-    # CPU速度 GHz
-    cpu_speed = Column(Float, nullable=True, comment="CPU速度 GHz")
-
-    # CPU温度 °C
-    cpu_temp = Column(Float, nullable=True, comment="CPU温度 °C")
-
     # 进程句柄数
     process_handles = Column(Integer, nullable=True, comment="进程句柄数")
-
-    # 上传速度 MB/s
-    upload_speed = Column(Float, nullable=True, comment="上传速度 MB/s")
-
-    # 下载速度 MB/s
-    download_speed = Column(Float, nullable=True, comment="下载速度 MB/s")
 
     # ===== 进程数据 =====
 
@@ -136,7 +117,7 @@ class PerformanceData(BaseModel):
     # GPU TOP10
     top10_gpu = Column(JSON, nullable=True, comment="GPU TOP10")
 
-    # 新增：hwinfo_raw 完整数据（v0.3.0）
+    # HWiNFO原始传感器数据（完整）
     hwinfo_raw = Column(JSON, nullable=True, comment="HWiNFO原始传感器数据（完整）")
 
 

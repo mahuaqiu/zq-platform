@@ -239,12 +239,7 @@ class PerformanceDataService(BaseService):
                 gpu_usage=gpu_usage,
                 commit_memory=process_committed_memory / 1024 if process_committed_memory else None,
                 memory_usage=process_memory / 1024 if process_memory else None,
-                power=None,
-                cpu_speed=None,
-                cpu_temp=None,
                 process_handles=total_handles if total_handles > 0 else None,
-                upload_speed=None,
-                download_speed=None,
                 target_processes=target_processes_raw,
                 top10_cpu=top10_cpu_raw,
                 top10_gpu=top10_gpu_raw,
@@ -293,31 +288,40 @@ class PerformanceDataService(BaseService):
             collect_id: 采集记录ID
 
         Returns:
-            指标列表 [{"key": "键名", "label": "显示名称", "source": "hwinfo/process"}]
+            指标列表 [{"key": "键名", "label": "显示名称", "source": "hwinfo/system"}]
         """
         metrics = []
 
-        # 固定的非 HWiNFO 指标（从性能数据表中获取，包含单位）
-        fixed_metrics = [
-            {"key": "process_handles", "label": "系统句柄数", "source": "system", "unit": "个"},
-            {"key": "upload_speed", "label": "上传速度", "source": "system", "unit": "MB/s"},
-            {"key": "download_speed", "label": "下载速度", "source": "system", "unit": "MB/s"},
-            {"key": "cpu_temp", "label": "CPU温度", "source": "system", "unit": "°C"},
-            {"key": "cpu_speed", "label": "CPU速度", "source": "system", "unit": "GHz"},
-            {"key": "power", "label": "功耗", "source": "system", "unit": "W"},
-        ]
-        metrics.extend(fixed_metrics)
+        # 系统指标：只有 process_handles 是数据库字段，其他指标都从 hwinfo_raw 动态获取
+        system_metric_fields = {
+            "process_handles": {"label": "系统句柄数", "source": "system", "unit": "个"},
+        }
+
+        # 检查是否有 process_handles 数据
+        stmt = select(PerformanceData).where(
+            PerformanceData.collect_id == collect_id,
+            PerformanceData.process_handles.isnot(None)
+        ).limit(1)
+        result = await db.execute(stmt)
+        if result.scalar_one_or_none():
+            metric_info = system_metric_fields["process_handles"]
+            metrics.append({
+                "key": "process_handles",
+                "label": metric_info["label"],
+                "source": metric_info["source"],
+                "unit": metric_info["unit"]
+            })
 
         # 从 hwinfo_raw 中动态提取键名
-        stmt = select(PerformanceData).where(
+        hwinfo_stmt = select(PerformanceData).where(
             PerformanceData.collect_id == collect_id,
             PerformanceData.hwinfo_raw.isnot(None)
         ).limit(1)
-        result = await db.execute(stmt)
-        data = result.scalar_one_or_none()
+        hwinfo_result = await db.execute(hwinfo_stmt)
+        hwinfo_data = hwinfo_result.scalar_one_or_none()
 
-        if data and data.hwinfo_raw:
-            for key in sorted(data.hwinfo_raw.keys()):
+        if hwinfo_data and hwinfo_data.hwinfo_raw:
+            for key in sorted(hwinfo_data.hwinfo_raw.keys()):
                 metrics.append({
                     "key": key,
                     "label": key,  # 默认使用原键名，前端可以翻译
@@ -361,14 +365,9 @@ class PerformanceDataService(BaseService):
         mapping_result = await db.execute(mapping_stmt)
         mappings = {m.hwinfo_key: m for m in mapping_result.scalars().all()}
 
-        # 系统指标字段映射（包含显示名称和单位）
+        # 系统指标字段映射（只有 process_handles 是数据库字段）
         system_metric_fields = {
             "process_handles": ("process_handles", "系统句柄数", "个"),
-            "upload_speed": ("upload_speed", "上传速度", "MB/s"),
-            "download_speed": ("download_speed", "下载速度", "MB/s"),
-            "cpu_temp": ("cpu_temp", "CPU温度", "°C"),
-            "cpu_speed": ("cpu_speed", "CPU速度", "GHz"),
-            "power": ("power", "功耗", "W"),
         }
 
         # 按指标键名分组数据
