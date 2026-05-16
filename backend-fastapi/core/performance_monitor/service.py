@@ -119,23 +119,20 @@ class PerformanceCollectService(BaseService):
     @classmethod
     async def delete_collect(cls, db: AsyncSession, collect_id: str) -> bool:
         """删除采集记录及其所有数据"""
+        from sqlalchemy import delete
+
         collect = await db.get(PerformanceCollect, collect_id)
         if not collect:
             return False
 
-        # 先删除关联的性能数据
-        data_stmt = select(PerformanceData).where(PerformanceData.collect_id == collect_id)
-        data_result = await db.execute(data_stmt)
-        data_items = data_result.scalars().all()
-        for data_item in data_items:
-            await db.delete(data_item)
+        # 批量删除关联的性能数据
+        await db.execute(delete(PerformanceData).where(PerformanceData.collect_id == collect_id))
 
-        # 再删除关联的标签
-        tag_stmt = select(PerformanceTag).where(PerformanceTag.collect_id == collect_id)
-        tag_result = await db.execute(tag_stmt)
-        tag_items = tag_result.scalars().all()
-        for tag_item in tag_items:
-            await db.delete(tag_item)
+        # 批量删除关联的标签
+        await db.execute(delete(PerformanceTag).where(PerformanceTag.collect_id == collect_id))
+
+        # 批量删除关联的标记
+        await db.execute(delete(PerformanceMarker).where(PerformanceMarker.collect_id == collect_id))
 
         # 最后删除采集记录
         await db.delete(collect)
