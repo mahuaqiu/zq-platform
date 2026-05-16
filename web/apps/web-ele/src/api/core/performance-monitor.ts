@@ -340,8 +340,19 @@ export async function getVersions(deviceId?: string) {
   return requestClient.get<{ items: PerformanceVersion[] }>(url);
 }
 
+// 版本对比数据返回类型
+export interface CompareDataResponse {
+  versions: Array<{
+    version: PerformanceVersion;
+    collects: Array<{
+      collect: PerformanceCollect;
+      data: PerformanceData[];
+    }>;
+  }>;
+}
+
 export async function getCompareData(versionIds: string[]) {
-  return requestClient.get(
+  return requestClient.get<CompareDataResponse>(
     `/api/core/performance-monitor/version/compare?version_ids=${versionIds.join(',')}`,
   );
 }

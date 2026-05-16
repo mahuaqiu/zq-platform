@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { ElTable, ElTableColumn } from 'element-plus';
 import type { SummaryRow } from '../types';
 
-const props = defineProps<{
+defineProps<{
   summaryData: SummaryRow[];
 }>();
 

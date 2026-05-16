@@ -24,11 +24,41 @@ const initChart = () => {
   // Build markArea data from tags
   const peakAreas = props.tags
     .filter(t => t.type === 'peak')
-    .map(t => [{ xAxis: t.start_time }, { xAxis: t.end_time }]);
+    .map(t => [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: string }>);
 
   const stableAreas = props.tags
     .filter(t => t.type === 'stable')
-    .map(t => [{ xAxis: t.start_time }, { xAxis: t.end_time }]);
+    .map(t => [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: string }>);
+
+  const seriesData = props.series.map((s, index) => ({
+    name: s.name,
+    type: 'line',
+    data: s.data.map(d => [d.time, d.value]),
+    lineStyle: { color: s.color },
+    itemStyle: { color: s.color },
+    markArea: index === 0 ? {
+      silent: true,
+      itemStyle: {
+        color: 'rgba(245, 108, 108, 0.15)', // red for peak
+      },
+      data: peakAreas,
+    } : undefined,
+  })) as echarts.SeriesOption[];
+
+  // Add stable areas as separate series if needed
+  if (stableAreas.length > 0) {
+    seriesData.push({
+      type: 'line',
+      markArea: {
+        silent: true,
+        itemStyle: {
+          color: 'rgba(103, 194, 58, 0.15)', // green for stable
+        },
+        data: stableAreas,
+      },
+      data: [],
+    } as echarts.SeriesOption);
+  }
 
   const option: echarts.EChartsOption = {
     tooltip: {
@@ -57,48 +87,21 @@ const initChart = () => {
         type: 'inside',
       },
     ],
-    series: props.series.map((s, index) => ({
-      name: s.name,
-      type: 'line',
-      data: s.data.map(d => [d.time, d.value]),
-      lineStyle: { color: s.color },
-      itemStyle: { color: s.color },
-      markArea: index === 0 ? {
-        silent: true,
-        itemStyle: {
-          color: 'rgba(245, 108, 108, 0.15)', // red for peak
-        },
-        data: peakAreas,
-      } : undefined,
-    })),
+    series: seriesData,
   };
-
-  // Add stable areas as separate series if needed
-  if (stableAreas.length > 0) {
-    option.series.push({
-      type: 'line',
-      markArea: {
-        silent: true,
-        itemStyle: {
-          color: 'rgba(103, 194, 58, 0.15)', // green for stable
-        },
-        data: stableAreas,
-      },
-      data: [],
-    });
-  }
 
   chart.setOption(option);
 
   // Hover event
-  chart.on('axisSelect', (params: any) => {
-    if (params.dataTime) {
+  chart.on('axisSelect', (params: unknown) => {
+    const p = params as { dataTime?: number };
+    if (p.dataTime) {
       const values: Record<string, number> = {};
       props.series.forEach(s => {
-        const point = s.data.find(d => d.time === params.dataTime);
+        const point = s.data.find(d => d.time === p.dataTime);
         if (point) values[s.name] = point.value;
       });
-      emit('hover-change', { time: params.dataTime, values });
+      emit('hover-change', { time: p.dataTime, values });
     }
   });
 };

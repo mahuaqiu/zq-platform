@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { ElCard } from 'element-plus';
-
 interface ProcessInfo {
   versionName: string;
   versionColor: string;
@@ -10,7 +8,7 @@ interface ProcessInfo {
   unit: string;
 }
 
-const props = defineProps<{
+defineProps<{
   processData: ProcessInfo[];
 }>();
 </script>

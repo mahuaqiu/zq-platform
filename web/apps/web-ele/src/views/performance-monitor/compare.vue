@@ -12,10 +12,9 @@ import {
   getVersions,
   getCompareData,
   createCompareTag,
-  getCompareTags,
   deleteCompareTag,
 } from '#/api/core/performance-monitor';
-import type { PerformanceVersion, PerformanceCollect, PerformanceData } from '#/api/core/performance-monitor';
+import type { PerformanceVersion, PerformanceData, CompareDataResponse } from '#/api/core/performance-monitor';
 import type { CompareTag, ChartSeries, SummaryRow } from './types';
 import { VERSION_COLORS } from './types';
 
@@ -27,15 +26,7 @@ const selectedVersionIds = ref<string[]>([]);
 const loadingVersions = ref(false);
 
 // 对比数据
-const compareData = ref<{
-  versions: Array<{
-    version: PerformanceVersion;
-    collects: Array<{
-      collect: PerformanceCollect;
-      data: PerformanceData[];
-    }>;
-  }>;
-}>({ versions: [] });
+const compareData = ref<CompareDataResponse>({ versions: [] });
 const loadingCompare = ref(false);
 
 // 当前指标
@@ -150,7 +141,7 @@ async function handleCompare() {
       const minTime = Math.min(...allData.map(d => d.relative_time));
       const maxTime = Math.max(...allData.map(d => d.relative_time));
       // 假设第一个采集的开始时间为基准
-      const baseTime = new Date(result.versions[0]?.collects[0]?.collect.sys_create_datetime || Date.now());
+      const baseTime = new Date(result.versions[0]?.collects[0]?.collect.start_time || Date.now());
       timeRange.value = {
         start: new Date(baseTime.getTime() + minTime * 1000),
         end: new Date(baseTime.getTime() + maxTime * 1000),
@@ -209,12 +200,13 @@ function handleTimeRangeChange(range: { start: Date; end: Date }) {
 function handleHoverChange(data: { time: number; values: Record<string, number> }) {
   processData.value = compareData.value.versions.map((v, i) => {
     const collect = v.collects[0];
-    const process = collect?.data[0]?.target_processes?.[0];
+    const processData = collect?.data[0]?.target_processes?.[0];
+    const instance = processData?.instances?.[0];
     return {
       versionName: v.version.name,
       versionColor: getVersionColor(i),
-      processName: process?.name || 'N/A',
-      pid: process?.pid || 0,
+      processName: processData?.name || 'N/A',
+      pid: instance?.pid || 0,
       currentValue: data.values[v.version.name] || 0,
       unit: currentMetric.value.includes('memory') ? 'GB' : '%',
     };

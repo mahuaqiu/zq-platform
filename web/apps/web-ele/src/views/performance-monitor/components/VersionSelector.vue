@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { ElTag, ElDropdown, ElDropdownMenu, ElDropdownItem, ElButton } from 'element-plus';
-import type { PerformanceVersion } from '@/api/core/performance-monitor';
+import type { PerformanceVersion } from '#/api/core/performance-monitor';
 import { VERSION_COLORS } from '../types';
+
+interface SelectedVersion {
+  id: string;
+  name: string;
+  color: string;
+}
 
 const props = defineProps<{
   versions: PerformanceVersion[];
@@ -14,14 +20,16 @@ const emit = defineEmits<{
 }>();
 
 // 已选版本列表
-const selectedVersions = computed(() => {
+const selectedVersions = computed<SelectedVersion[]>(() => {
   return props.selectedIds.map((id, index) => {
     const version = props.versions.find(v => v.id === id);
+    if (!version) return null;
     return {
-      ...version,
+      id: version.id,
+      name: version.name,
       color: VERSION_COLORS[index % VERSION_COLORS.length],
     };
-  });
+  }).filter((v): v is SelectedVersion => v !== null);
 });
 
 // 可选版本（未选中的）
