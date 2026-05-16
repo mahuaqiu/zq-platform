@@ -366,6 +366,7 @@ watch(
 /* 导航条轨道 */
 .navigator-track {
   position: relative;
+  width: 100%;
   height: 50px;
   cursor: default;
 }
