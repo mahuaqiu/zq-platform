@@ -456,6 +456,17 @@ const handlesChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
+// HWiNFO 指标的 rawData（构造符合 PerformanceData 结构的数据）
+const hwinfoRawData = computed(() => {
+  if (!hwinfoMetricData.value.length) return [];
+
+  // 构造简化的数据结构，只包含必要的时间信息
+  return hwinfoMetricData.value.map(d => ({
+    relative_time: d.relative_time,
+    timestamp: '',  // HWiNFO数据没有原始timestamp，MiniTooltip会显示relative_time
+  })) as PerformanceData[];
+});
+
 // HWiNFO 指标图表数据
 const hwinfoChartSeries = computed<ChartSeries[]>(() => {
   if (!hwinfoMetricData.value.length) return [];
@@ -1081,7 +1092,7 @@ function handleRangeChange(range: [number, number]) {
             :title="currentChartTitle"
             :series="currentChartSeries"
             :height="500"
-            :raw-data="currentMetric === 'hwinfo' ? [] : filteredPerformanceData"
+            :raw-data="currentMetric === 'hwinfo' ? hwinfoRawData : filteredPerformanceData"
             :markers="markers"
             :chart-type="currentChartType"
             @point-click="handlePointClick"
