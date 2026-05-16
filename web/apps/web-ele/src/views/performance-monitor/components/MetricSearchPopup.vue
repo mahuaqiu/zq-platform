@@ -69,7 +69,7 @@ async function loadMetrics() {
 // 获取显示名称（优先使用中文翻译）
 function getDisplayLabel(metric: AvailableMetric): string {
   if (metric.source === 'system') {
-    return metric.label; // 系统指标已有中文
+    return metric.label; // 进程指标已有中文
   }
   // HWiNFO 指标尝试从配置文件获取中文翻译
   const translated = getMetricLabel(metric.key);
@@ -87,7 +87,7 @@ const filteredMetrics = computed(() => {
   );
 });
 
-// 分组显示：系统指标和 HWiNFO 指标
+// 分组显示：进程指标和 HWiNFO 指标
 const systemMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'system')
 );
@@ -178,9 +178,9 @@ onUnmounted(() => {
       </div>
 
       <template v-else>
-        <!-- 系统指标 -->
+        <!-- 进程指标 -->
         <div v-if="systemMetrics.length > 0" class="metric-group">
-          <span class="group-label">系统指标</span>
+          <span class="group-label">进程指标</span>
           <div class="results-list">
             <div
               v-for="metric in systemMetrics"
@@ -189,7 +189,7 @@ onUnmounted(() => {
               @click="handleSelect(metric.key)"
             >
               <span class="result-label">{{ metric.label }}</span>
-              <span class="result-source">系统</span>
+              <span class="result-source">进程</span>
             </div>
           </div>
         </div>
