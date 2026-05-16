@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as echarts from 'echarts';
-import { ElDialog, ElInput, ElButton, ElColorPicker, ElDatePicker } from 'element-plus';
+import { ElDialog, ElInput, ElButton, ElColorPicker, ElDatePicker, ElMessage, ElMessageBox } from 'element-plus';
 import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 import type { MarkerResponse } from '#/api/core/performance-monitor';
 
@@ -165,7 +165,11 @@ function handleOpenAddMarker() {
 }
 
 async function handleAddMarker() {
-  if (!newMarker.value.name || !props.collectId || !newMarker.value.start_time) {
+  if (!newMarker.value.name) {
+    ElMessage.warning('请输入标记名称');
+    return;
+  }
+  if (!props.collectId || !newMarker.value.start_time) {
     return;
   }
   // 将绝对时间转换为相对时间（秒）
@@ -180,13 +184,28 @@ async function handleAddMarker() {
     color: newMarker.value.color,
     note: newMarker.value.note || undefined,
   });
+  ElMessage.success('标记添加成功');
   showAddDialog.value = false;
   emit('refreshMarkers');
 }
 
-async function handleDeleteMarker(markerId: string) {
-  await deleteMarker(markerId);
-  emit('refreshMarkers');
+async function handleDeleteMarker(markerId: string, markerName: string) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除标记"${markerName}"吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+    await deleteMarker(markerId);
+    ElMessage.success('标记删除成功');
+    emit('refreshMarkers');
+  } catch {
+    // 用户点击取消，不做任何操作
+  }
 }
 
 function initChart() {
@@ -384,7 +403,7 @@ onUnmounted(() => {
           }"
         >
           {{ marker.name }}
-          <button class="marker-delete" @click="handleDeleteMarker(marker.id)">×</button>
+          <button class="marker-delete" @click="handleDeleteMarker(marker.id, marker.name)">×</button>
         </span>
         <button class="add-marker-btn" @click="handleOpenAddMarker">+标记</button>
       </div>
