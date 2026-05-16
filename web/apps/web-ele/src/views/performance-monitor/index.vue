@@ -209,13 +209,21 @@ const hwinfoMetricKey = ref<string>(''); // 具体的 HWiNFO 指标 key
 const hwinfoMetricData = ref<{ time: number; value: number }[]>([]); // HWiNFO 指标数据
 const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({ displayName: '', unit: '' });
 
-// 处理选择 HWiNFO 指标
+// 处理选择指标（区分 HWiNFO 指标和进程指标）
 async function handleHwinfoMetricSelect(metricKey: string) {
   if (!currentCollectId.value) {
     ElMessage.warning('请先选择采集记录');
     return;
   }
 
+  // process_handles 是进程指标，直接切换到 handles 类型
+  if (metricKey === 'process_handles') {
+    currentMetric.value = 'handles';
+    showMorePopup.value = false;
+    return;
+  }
+
+  // HWiNFO 指标需要查询数据
   try {
     const result = await queryAdvancedMetrics({
       collect_id: currentCollectId.value,

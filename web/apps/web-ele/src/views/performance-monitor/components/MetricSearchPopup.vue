@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ElIcon } from 'element-plus';
 import { Close } from '@element-plus/icons-vue';
 import { getAvailableMetrics, type AvailableMetric } from '#/api/core/performance-monitor';
 import { getMetricLabel } from '../hwinfo-metrics-config';
