@@ -292,19 +292,39 @@ const currentChartSeries = computed<ChartSeries[]>(() => {
   return chartSeriesMap[currentMetric.value]?.() || [];
 });
 
-// 当前图表标题（HWiNFO 指标显示单位）
+// 当前图表标题（HWiNFO 指标显示中文+单位）
 const currentChartTitle = computed(() => {
   if (currentMetric.value === 'hwinfo') {
-    const name = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const chineseName = getMetricLabel(hwinfoMetricKey.value);
     const unit = hwinfoMetricInfo.value.unit;
-    // 有单位时显示 "名称 (单位)"
+
+    // 有中文翻译时显示 "中文（英文）"，否则显示英文
+    let name = chineseName !== hwinfoMetricKey.value
+      ? `${chineseName}（${englishName}）`
+      : englishName;
+
+    // 有单位时添加单位
     if (unit) {
-      return `${name} (${unit})`;
+      name = `${name} (${unit})`;
     }
     return name;
   }
+
+  // CPU/GPU/内存/提交内存加单位
   const metric = allMetrics.value.find(m => m.key === currentMetric.value);
-  return metric?.label || currentMetric.value;
+  const baseLabel = metric?.label || currentMetric.value;
+
+  // 添加单位
+  if (currentMetric.value === 'cpu' || currentMetric.value === 'gpu') {
+    return `${baseLabel} (%)`;
+  } else if (currentMetric.value === 'memory') {
+    return `${baseLabel} (MB)`;
+  } else if (currentMetric.value === 'commitMemory') {
+    return `${baseLabel} (MB)`;
+  }
+
+  return baseLabel;
 });
 
 // 当前图表类型
