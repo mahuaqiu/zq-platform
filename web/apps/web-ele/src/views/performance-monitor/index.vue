@@ -889,7 +889,6 @@ function handleRangeChange(range: [number, number]) {
         </div>
       </div>
     </div>
-    </div>
 
     <!-- 开始采集弹窗 -->
     <CollectDialog
