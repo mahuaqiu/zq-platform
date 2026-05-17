@@ -1162,7 +1162,7 @@ class ExportReportService:
             metric_unit = ""
 
         for v in compare_data.get("versions", []):
-            version_name = v["version"]["name"]
+            version_name = v["version"].name  # version 是 ORM 对象
 
             # 获取所有数据点
             all_data = []
@@ -1306,7 +1306,7 @@ class ExportReportService:
         detail_data = {}
 
         for v in compare_data.get("versions", []):
-            version_name = v["version"]["name"]
+            version_name = v["version"].name  # version 是 ORM 对象
 
             for c in v.get("collects", []):
                 collect_start = c["collect"]["start_time"]
