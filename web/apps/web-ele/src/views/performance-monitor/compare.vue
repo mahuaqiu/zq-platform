@@ -18,12 +18,15 @@ import {
   getCompareData,
   getCompareTags,
   getVersions,
+  queryAdvancedMetrics,
 } from '#/api/core/performance-monitor';
+import { getMetricLabel } from './hwinfo-metrics-config';
 
 import AddTagDialog from './components/AddTagDialog.vue';
 import CompareChartPanel from './components/CompareChartPanel.vue';
 import CompareSummaryTable from './components/CompareSummaryTable.vue';
 import MetricSelector from './components/MetricSelector.vue';
+import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import VersionSelector from './components/VersionSelector.vue';
 import { VERSION_COLORS } from './types';
 
@@ -46,6 +49,15 @@ const metricOptions = [
   { key: 'memory_usage', label: '内存' },
   { key: 'commit_memory', label: '提交内存' },
 ];
+
+// 更多指标弹窗
+const showMorePopup = ref(false);
+
+// HWiNFO 指标状态
+const hwinfoMetricKey = ref<string>('');
+const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({ displayName: '', unit: '' });
+const hwinfoChartData = ref<ChartSeries[]>([]);
+const loadingHwinfoMetric = ref(false);
 
 // 对比标签
 const compareTags = ref<CompareTag[]>([]);
@@ -138,6 +150,20 @@ const processChartSeries = computed<ChartSeries[]>(() => {
 
 // 图表标题
 const systemChartTitle = computed(() => {
+  // HWiNFO 指标
+  if (currentMetric.value === 'hwinfo') {
+    const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const chineseName = getMetricLabel(hwinfoMetricKey.value);
+    const unit = hwinfoMetricInfo.value.unit;
+    let name = chineseName !== hwinfoMetricKey.value
+      ? `${chineseName}（${englishName}）`
+      : englishName;
+    if (unit) {
+      name = `${name} (${unit})`;
+    }
+    return name;
+  }
+
   const metric = metricOptions.find(m => m.key === currentMetric.value);
   const label = metric?.label || currentMetric.value;
   if (isCpuOrGpuMetric.value) {
@@ -153,6 +179,94 @@ const processChartTitle = computed(() => {
   const metric = metricOptions.find(m => m.key === currentMetric.value);
   const label = metric?.label || currentMetric.value;
   return `${label} - 进程使用率 (%)`;
+});
+
+// 判断是否使用 HWiNFO 数据
+const isHwinfoMetric = computed(() => currentMetric.value === 'hwinfo');
+
+// 最终图表数据（HWiNFO 或系统数据）
+const finalSystemChartSeries = computed(() => {
+  if (isHwinfoMetric.value) return hwinfoChartData.value;
+  return systemChartSeries.value;
+});
+
+// 处理选择 HWiNFO 指标
+async function handleHwinfoMetricSelect(metricKey: string) {
+  if (compareData.value.versions.length === 0) {
+    ElMessage.warning('请先进行版本对比');
+    return;
+  }
+
+  loadingHwinfoMetric.value = true;
+  hwinfoMetricKey.value = metricKey;
+
+  try {
+    // 为每个版本获取 HWiNFO 指标数据
+    const seriesList: ChartSeries[] = [];
+
+    for (const [index, v] of compareData.value.versions.entries()) {
+      // 遍历每个采集
+      const allData: Array<{ time: number; value: number }> = [];
+
+      for (const c of v.collects) {
+        // 获取第一个采集ID用于查询指标数据
+        const collectId = c.collect.id;
+        if (!collectId) continue;
+
+        const result = await queryAdvancedMetrics({
+          collect_id: collectId,
+          metric_keys: [metricKey],
+        });
+
+        const metricData = result.metrics[metricKey];
+        if (metricData?.data) {
+          // 保存指标信息（使用第一个版本的信息）
+          if (index === 0) {
+            hwinfoMetricInfo.value = {
+              displayName: metricData.display_name || metricKey,
+              unit: metricData.unit || '',
+            };
+          }
+
+          // 合并数据
+          metricData.data.forEach(d => {
+            allData.push({ time: d.relative_time, value: d.value });
+          });
+        }
+      }
+
+      // 按时间排序并归一化
+      allData.sort((a, b) => a.time - b.time);
+      const startTime = allData.length > 0 ? allData[0].time : 0;
+      const normalizedData = allData.map(d => ({
+        time: d.time - startTime,
+        value: d.value,
+      }));
+
+      seriesList.push({
+        name: v.version.name,
+        data: normalizedData,
+        color: getVersionColor(index),
+      });
+    }
+
+    hwinfoChartData.value = seriesList;
+    currentMetric.value = 'hwinfo';
+    ElMessage.success(`已加载指标: ${hwinfoMetricInfo.value.displayName}`);
+  } catch (error) {
+    console.error('获取 HWiNFO 指标数据失败:', error);
+    ElMessage.error('获取指标数据失败');
+  } finally {
+    loadingHwinfoMetric.value = false;
+  }
+}
+
+// 获取第一个采集ID（用于 MetricSearchPopup 加载指标列表）
+const firstCollectId = computed(() => {
+  if (compareData.value.versions.length === 0) return '';
+  const firstVersion = compareData.value.versions[0];
+  if (firstVersion.collects.length === 0) return '';
+  return firstVersion.collects[0].collect.id || '';
 });
 
 // 数据摘要
@@ -316,6 +430,13 @@ function handleExport() {
       <MetricSelector
         :current-metric="currentMetric"
         @change="currentMetric = $event"
+        @more="showMorePopup = true"
+      />
+      <MetricSearchPopup
+        :visible="showMorePopup"
+        :collect-id="firstCollectId"
+        @update:visible="showMorePopup = $event"
+        @select="handleHwinfoMetricSelect"
       />
       <!-- 标签列表 -->
       <div class="tag-area">
@@ -362,13 +483,13 @@ function handleExport() {
           :current-metric="currentMetric"
         />
       </div>
-      <!-- 其他指标: 单图表布局 -->
+      <!-- 其他指标/HWiNFO: 单图表布局 -->
       <CompareChartPanel
         v-else
         :title="systemChartTitle"
-        :series="systemChartSeries"
+        :series="finalSystemChartSeries"
         :tags="compareTags"
-        :loading="loadingCompare"
+        :loading="loadingCompare || loadingHwinfoMetric"
         :current-metric="currentMetric"
       />
     </div>
@@ -437,13 +558,13 @@ function handleExport() {
 }
 
 .dual-charts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .dual-charts .compare-chart-panel {
-  height: 100%;
+  width: 100%;
 }
 
 .bottom-panel {
