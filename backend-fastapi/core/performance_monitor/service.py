@@ -8,7 +8,7 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Type
 
-from sqlalchemy import select, and_, desc, func, or_, update
+from sqlalchemy import select, and_, desc, func, or_, update, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
@@ -971,9 +971,14 @@ class ExportTaskService(BaseService):
     @classmethod
     async def get_pending_task(cls, db: AsyncSession, params: ExportTaskCreate) -> Optional[ExportTask]:
         """获取相同参数的进行中任务"""
+        import json
+        from sqlalchemy import func
+
+        # PostgreSQL JSON 类型不能直接使用 = 比较，需要转换为文本
+        params_json = json.dumps(params.model_dump(), sort_keys=True)
         stmt = select(ExportTask).where(
             ExportTask.task_type == "compare_export",
-            ExportTask.params == params.model_dump(),
+            func.cast(ExportTask.params, String) == params_json,
             ExportTask.status.in_(["pending", "processing"]),
             ExportTask.is_deleted == False
         )
