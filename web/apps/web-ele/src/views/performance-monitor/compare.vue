@@ -568,6 +568,7 @@ function handleExport() {
           :tags="compareTags"
           :loading="loadingCompare"
           :current-metric="currentMetric"
+          chart-group="cpu-gpu-compare"
         />
         <CompareChartPanel
           :title="processChartTitle"
@@ -575,6 +576,8 @@ function handleExport() {
           :tags="compareTags"
           :loading="loadingCompare"
           :current-metric="currentMetric"
+          show-data-zoom
+          chart-group="cpu-gpu-compare"
         />
       </div>
       <!-- 其他指标/HWiNFO: 单图表布局 -->
@@ -586,6 +589,7 @@ function handleExport() {
         :loading="loadingCompare || loadingHwinfoMetric"
         :current-metric="currentMetric"
         :hwinfo-unit="hwinfoMetricInfo.unit"
+        show-data-zoom
       />
     </div>
 

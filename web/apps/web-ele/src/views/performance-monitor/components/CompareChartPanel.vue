@@ -11,6 +11,8 @@ const props = defineProps<{
   loading?: boolean;
   currentMetric?: string; // 当前指标类型
   hwinfoUnit?: string; // HWiNFO 指标单位
+  showDataZoom?: boolean; // 是否显示 dataZoom
+  chartGroup?: string; // 图表分组（用于联动）
 }>();
 
 // 判断是否是内存类指标
@@ -32,6 +34,7 @@ const unit = computed(() => {
 
 const emit = defineEmits<{
   (e: 'hover-change', data: { time: number; values: Record<string, number> }): void;
+  (e: 'datazoom-change', data: { start: number; end: number }): void;
 }>();
 
 const chartRef = ref<HTMLDivElement | null>(null);
@@ -126,7 +129,7 @@ const initChart = () => {
     grid: {
       left: 60,
       right: 40,
-      bottom: 40,
+      bottom: props.showDataZoom ? 60 : 40,
       top: 40,
     },
     xAxis: {
@@ -138,10 +141,44 @@ const initChart = () => {
     yAxis: {
       type: 'value',
     },
+    dataZoom: props.showDataZoom ? [
+      {
+        type: 'slider',
+        show: true,
+        xAxisIndex: 0,
+        start: 0,
+        end: 100,
+        height: 20,
+        bottom: 10,
+        borderColor: '#ddd',
+        fillerColor: 'rgba(64, 158, 255, 0.2)',
+        handleStyle: {
+          color: '#409eff',
+        },
+        textStyle: {
+          color: '#666',
+        },
+        labelFormatter: (value: number) => `${Math.round(value)}秒`,
+      },
+    ] : undefined,
     series: seriesData,
   };
 
   chart.setOption(option);
+
+  // 设置图表分组（用于联动）
+  if (props.chartGroup) {
+    chart.group = props.chartGroup;
+    echarts.connect(props.chartGroup);
+  }
+
+  // DataZoom 事件
+  chart.on('datazoom', (params: any) => {
+    emit('datazoom-change', {
+      start: params.start || 0,
+      end: params.end || 100,
+    });
+  });
 
   // Hover event
   chart.on('axisSelect', (params: unknown) => {
