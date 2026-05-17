@@ -68,7 +68,7 @@ const initChart = () => {
       markArea: index === 0 ? {
         silent: true,
         itemStyle: {
-          color: 'rgba(245, 108, 108, 0.15)', // red for peak
+          color: 'rgba(245, 108, 108, 0.08)', // 冲高区域更淡的红色
         },
         data: peakAreas,
       } : undefined,
@@ -82,7 +82,7 @@ const initChart = () => {
       markArea: {
         silent: true,
         itemStyle: {
-          color: 'rgba(103, 194, 58, 0.15)', // green for stable
+          color: 'rgba(103, 194, 58, 0.08)', // 稳态区域更淡的绿色
         },
         data: stableAreas,
       },
