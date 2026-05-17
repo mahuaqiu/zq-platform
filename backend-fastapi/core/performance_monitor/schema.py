@@ -280,6 +280,7 @@ class DataResponse(BaseModel):
     target_processes: Optional[List[Dict[str, Any]]] = Field(None, description="目标进程数据")
     top10_cpu: Optional[List[Dict[str, Any]]] = Field(None, description="CPU TOP10")
     top10_gpu: Optional[List[Dict[str, Any]]] = Field(None, description="GPU TOP10")
+    hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
     sort: int = Field(default=0, description="排序")
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
