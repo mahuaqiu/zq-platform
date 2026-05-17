@@ -1195,11 +1195,11 @@ class ExportReportService:
 
             # 计算峰值数据（冲高区间）- peak_tag 是 ORM 对象
             if peak_tag and all_data:
-                version_start_rel = min(d["relative_time"] for d in all_data)
+                version_start_rel = min(d.relative_time for d in all_data)  # DataResponse 是 Pydantic 对象
                 peak_start_orig = peak_tag.start_time + version_start_rel
                 peak_end_orig = peak_tag.end_time + version_start_rel
 
-                peak_data = [d for d in all_data if peak_start_orig <= d["relative_time"] <= peak_end_orig]
+                peak_data = [d for d in all_data if peak_start_orig <= d.relative_time <= peak_end_orig]
 
                 peak_abs_start = (start_time + timedelta(seconds=peak_start_orig)).strftime("%Y-%m-%d %H:%M:%S")
                 peak_abs_end = (start_time + timedelta(seconds=peak_end_orig)).strftime("%Y-%m-%d %H:%M:%S")
@@ -1211,25 +1211,25 @@ class ExportReportService:
                 }
 
                 if metric == "cpu_usage":
-                    peak_row["系统CPU峰值(%)"] = max((d.get("cpu_usage") or 0) for d in peak_data) if peak_data else 0
+                    peak_row["系统CPU峰值(%)"] = max((d.cpu_usage or 0) for d in peak_data) if peak_data else 0
                     peak_row["进程CPU峰值(%)"] = cls._calc_process_peak(peak_data, "cpu_usage")
                 elif metric == "gpu_usage":
-                    peak_row["系统GPU峰值(%)"] = max((d.get("gpu_usage") or 0) for d in peak_data) if peak_data else 0
+                    peak_row["系统GPU峰值(%)"] = max((d.gpu_usage or 0) for d in peak_data) if peak_data else 0
                     peak_row["进程GPU峰值(%)"] = cls._calc_process_peak(peak_data, "gpu_usage")
                 elif metric == "memory_usage":
-                    peak_row["内存峰值(GB)"] = max((d.get("memory_usage") or 0) for d in peak_data) if peak_data else 0
+                    peak_row["内存峰值(GB)"] = max((d.memory_usage or 0) for d in peak_data) if peak_data else 0
                 elif metric == "commit_memory":
-                    peak_row["提交内存峰值(GB)"] = max((d.get("commit_memory") or 0) for d in peak_data) if peak_data else 0
+                    peak_row["提交内存峰值(GB)"] = max((d.commit_memory or 0) for d in peak_data) if peak_data else 0
 
                 peak_range.append(peak_row)
 
             # 计算稳态数据（平均值）- stable_tag 是 ORM 对象
             if stable_tag and all_data:
-                version_start_rel = min(d["relative_time"] for d in all_data)
+                version_start_rel = min(d.relative_time for d in all_data)  # DataResponse 是 Pydantic 对象
                 steady_start_orig = stable_tag.start_time + version_start_rel
                 steady_end_orig = stable_tag.end_time + version_start_rel
 
-                steady_data = [d for d in all_data if steady_start_orig <= d["relative_time"] <= steady_end_orig]
+                steady_data = [d for d in all_data if steady_start_orig <= d.relative_time <= steady_end_orig]
 
                 steady_abs_start = (start_time + timedelta(seconds=steady_start_orig)).strftime("%Y-%m-%d %H:%M:%S")
                 steady_abs_end = (start_time + timedelta(seconds=steady_end_orig)).strftime("%Y-%m-%d %H:%M:%S")
@@ -1241,15 +1241,15 @@ class ExportReportService:
                 }
 
                 if metric == "cpu_usage":
-                    steady_row["系统CPU峰值(%)"] = sum((d.get("cpu_usage") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["系统CPU峰值(%)"] = sum((d.cpu_usage or 0) for d in steady_data) / len(steady_data) if steady_data else 0
                     steady_row["进程CPU峰值(%)"] = cls._calc_process_mean(steady_data, "cpu_usage")
                 elif metric == "gpu_usage":
-                    steady_row["系统GPU峰值(%)"] = sum((d.get("gpu_usage") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["系统GPU峰值(%)"] = sum((d.gpu_usage or 0) for d in steady_data) / len(steady_data) if steady_data else 0
                     steady_row["进程GPU峰值(%)"] = cls._calc_process_mean(steady_data, "gpu_usage")
                 elif metric == "memory_usage":
-                    steady_row["内存峰值(GB)"] = sum((d.get("memory_usage") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["内存峰值(GB)"] = sum((d.memory_usage or 0) for d in steady_data) / len(steady_data) if steady_data else 0
                 elif metric == "commit_memory":
-                    steady_row["提交内存峰值(GB)"] = sum((d.get("commit_memory") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["提交内存峰值(GB)"] = sum((d.commit_memory or 0) for d in steady_data) / len(steady_data) if steady_data else 0
 
                 steady_range.append(steady_row)
 
@@ -1262,13 +1262,13 @@ class ExportReportService:
         )
 
     @staticmethod
-    def _calc_process_peak(data: List[Dict], metric_type: str) -> float:
+    def _calc_process_peak(data, metric_type: str) -> float:
         """计算进程峰值"""
         if not data:
             return 0
         peaks = []
         for d in data:
-            processes = d.get("target_processes") or []
+            processes = d.target_processes or []  # DataResponse 是 Pydantic 对象
             total = sum(
                 p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0)
                 for p in processes
@@ -1277,13 +1277,13 @@ class ExportReportService:
         return max(peaks) if peaks else 0
 
     @staticmethod
-    def _calc_process_mean(data: List[Dict], metric_type: str) -> float:
+    def _calc_process_mean(data, metric_type: str) -> float:
         """计算进程平均值"""
         if not data:
             return 0
         totals = []
         for d in data:
-            processes = d.get("target_processes") or []
+            processes = d.target_processes or []  # DataResponse 是 Pydantic 对象
             total = sum(
                 p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0)
                 for p in processes
@@ -1318,9 +1318,9 @@ class ExportReportService:
                     system_columns = ["相对时间(秒)", "绝对时间", f"系统{metric.split('_')[0].upper()}使用率(%)"]
                     system_data = []
                     for d in c.get("data", []):
-                        rel_time = d["relative_time"]
+                        rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        value = d.get(metric) or 0
+                        value = getattr(d, metric, None) or 0
                         system_data.append([rel_time, abs_time, value])
 
                     detail_data[f"{version_name}-系统{metric.split('_')[0].upper()}详情"] = DetailData(
@@ -1333,9 +1333,9 @@ class ExportReportService:
                     process_columns = ["相对时间(秒)", "绝对时间", f"进程{metric.split('_')[0].upper()}使用率(%)"]
                     process_data = []
                     for d in c.get("data", []):
-                        rel_time = d["relative_time"]
+                        rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        processes = d.get("target_processes") or []
+                        processes = d.target_processes or []  # target_processes 是字典列表
                         total = sum(
                             p.get("total_cpu" if metric == "cpu_usage" else "total_gpu", 0)
                             for p in processes
@@ -1354,9 +1354,9 @@ class ExportReportService:
                     columns = ["相对时间(秒)", "绝对时间", f"{label}(GB)"]
                     data_rows = []
                     for d in c.get("data", []):
-                        rel_time = d["relative_time"]
+                        rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        value = d.get(metric) or 0
+                        value = getattr(d, metric, None) or 0
                         data_rows.append([rel_time, abs_time, value])
 
                     detail_data[f"{version_name}-{label}详情"] = DetailData(
@@ -1372,10 +1372,10 @@ class ExportReportService:
                     data_rows = []
 
                     for d in c.get("data", []):
-                        rel_time = d["relative_time"]
+                        rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        # 从 hwinfo_raw 中获取值（PerformanceData.hwinfo_raw 字段）
-                        hwinfo_raw = d.get("hwinfo_raw") or {}
+                        # 从 hwinfo_raw 中获取值（hwinfo_raw 是字典）
+                        hwinfo_raw = d.hwinfo_raw or {}
                         value = hwinfo_raw.get(hwinfo_key)
                         if value is not None:
                             data_rows.append([rel_time, abs_time, value])
