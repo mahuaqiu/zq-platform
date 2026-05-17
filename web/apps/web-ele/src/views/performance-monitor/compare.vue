@@ -3,6 +3,7 @@ import type { ChartSeries, CompareTag, SummaryRow } from './types';
 
 import type {
   CompareDataResponse,
+  ExportTaskCreate,
   PerformanceData,
   PerformanceVersion,
 } from '#/api/core/performance-monitor';
@@ -15,6 +16,7 @@ import { ElButton, ElEmpty, ElMessage, ElTag } from 'element-plus';
 
 import {
   createCompareTag,
+  createExportTask,
   deleteCompareTag,
   getCompareData,
   getCompareTags,
@@ -26,6 +28,7 @@ import { getMetricLabel } from './hwinfo-metrics-config';
 import AddTagDialog from './components/AddTagDialog.vue';
 import CompareChartPanel from './components/CompareChartPanel.vue';
 import CompareSummaryTable from './components/CompareSummaryTable.vue';
+import ExportProgressDialog from './components/ExportProgressDialog.vue';
 import MetricSelector from './components/MetricSelector.vue';
 import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import VersionSelector from './components/VersionSelector.vue';
@@ -577,9 +580,43 @@ const maxChartTime = computed(() => {
   return allTimes.length > 0 ? Math.max(...allTimes) : 0;
 });
 
+// 导出相关状态
+const showExportDialog = ref(false);
+const exportTaskId = ref('');
+const isExporting = ref(false);
+
 // 导出报告
-function handleExport() {
-  ElMessage.info('导出报告功能待实现');
+async function handleExport() {
+  if (selectedVersionIds.value.length < 2) {
+    ElMessage.warning('请至少选择2个版本');
+    return;
+  }
+
+  if (compareData.value.versions.length === 0) {
+    ElMessage.warning('请先进行版本对比');
+    return;
+  }
+
+  isExporting.value = true;
+
+  try {
+    const params: ExportTaskCreate = {
+      version_ids: selectedVersionIds.value.join(','),
+      metric: currentMetric.value as 'cpu_usage' | 'gpu_usage' | 'memory_usage' | 'commit_memory' | 'hwinfo',
+      hwinfo_key: currentMetric.value === 'hwinfo' ? hwinfoMetricKey.value : undefined,
+    };
+
+    const result = await createExportTask(params);
+
+    if ('task_id' in result) {
+      exportTaskId.value = result.task_id;
+      showExportDialog.value = true;
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '创建导出任务失败');
+  } finally {
+    isExporting.value = false;
+  }
 }
 
 // 注意：用户需要手动点击"开始对比"按钮，不自动触发
@@ -603,9 +640,18 @@ function handleExport() {
         >
           开始对比
         </ElButton>
-        <ElButton type="warning" @click="handleExport"> 导出报告 </ElButton>
+        <ElButton type="warning" :loading="isExporting" @click="handleExport">
+          导出报告
+        </ElButton>
       </div>
     </div>
+
+    <!-- 导出进度弹窗 -->
+    <ExportProgressDialog
+      :visible="showExportDialog"
+      :task-id="exportTaskId"
+      @update:visible="showExportDialog = $event"
+    />
 
     <!-- 指标选择器和标签区域 -->
     <div class="metric-bar" v-if="compareData.versions.length > 0">
