@@ -4,6 +4,7 @@
 性能监控 API 路由
 """
 import httpx
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -287,16 +288,39 @@ async def get_versions(
     # 计算每个版本的时间区间
     items = []
     for v in versions:
-        # 获取该版本关联的采集记录，计算时间区间
         start_time = None
         end_time = None
-        for cid in v.collect_ids:
-            collect = await db.get(PerformanceCollect, cid)
-            if collect:
-                if start_time is None or collect.start_time < start_time:
-                    start_time = collect.start_time
-                if collect.end_time and (end_time is None or collect.end_time > end_time):
-                    end_time = collect.end_time
+
+        # 如果有 time_ranges，根据标记的相对时间计算绝对时间
+        if v.time_ranges:
+            for cid, range_info in v.time_ranges.items():
+                collect = await db.get(PerformanceCollect, cid)
+                if collect and collect.start_time:
+                    # 根据采集开始时间 + 相对时间偏移计算绝对时间
+                    rel_start = range_info.get("start", 0)
+                    rel_end = range_info.get("end")
+
+                    abs_start = datetime.fromtimestamp(
+                        collect.start_time.timestamp() + rel_start
+                    )
+                    if start_time is None or abs_start < start_time:
+                        start_time = abs_start
+
+                    if rel_end is not None:
+                        abs_end = datetime.fromtimestamp(
+                            collect.start_time.timestamp() + rel_end
+                        )
+                        if end_time is None or abs_end > end_time:
+                            end_time = abs_end
+        else:
+            # 没有 time_ranges，使用采集记录的时间范围
+            for cid in v.collect_ids:
+                collect = await db.get(PerformanceCollect, cid)
+                if collect:
+                    if start_time is None or collect.start_time < start_time:
+                        start_time = collect.start_time
+                    if collect.end_time and (end_time is None or collect.end_time > end_time):
+                        end_time = collect.end_time
 
         items.append({
             "id": v.id,
@@ -307,6 +331,7 @@ async def get_versions(
             "sys_create_datetime": v.sys_create_datetime,
             "start_time": start_time,
             "end_time": end_time,
+            "time_ranges": v.time_ranges,
         })
 
     return {"items": items}
