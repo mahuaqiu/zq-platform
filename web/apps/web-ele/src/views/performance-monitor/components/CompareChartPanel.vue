@@ -10,6 +10,7 @@ const props = defineProps<{
   tags: CompareTag[];
   loading?: boolean;
   currentMetric?: string; // 当前指标类型
+  hwinfoUnit?: string; // HWiNFO 指标单位
 }>();
 
 // 判断是否是内存类指标
@@ -17,9 +18,16 @@ const isMemoryMetric = computed(() => {
   return props.currentMetric?.includes('memory') || false;
 });
 
+// 判断是否是 HWiNFO 指标
+const isHwinfoMetric = computed(() => {
+  return props.currentMetric === 'hwinfo';
+});
+
 // 单位
 const unit = computed(() => {
-  return isMemoryMetric.value ? 'GB' : '%';
+  if (isHwinfoMetric.value) return props.hwinfoUnit || '';
+  if (isMemoryMetric.value) return 'GB';
+  return '%';
 });
 
 const emit = defineEmits<{

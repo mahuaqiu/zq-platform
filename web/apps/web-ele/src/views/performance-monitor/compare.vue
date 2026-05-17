@@ -585,6 +585,7 @@ function handleExport() {
         :tags="compareTags"
         :loading="loadingCompare || loadingHwinfoMetric"
         :current-metric="currentMetric"
+        :hwinfo-unit="hwinfoMetricInfo.unit"
       />
     </div>
 
