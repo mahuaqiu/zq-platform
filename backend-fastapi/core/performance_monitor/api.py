@@ -5,14 +5,17 @@
 """
 import httpx
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from core.performance_monitor.model import PerformanceCollect
+from core.performance_monitor.model import PerformanceCollect, PerformanceVersion, ExportTask
 from core.env_machine.model import EnvMachine
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
@@ -22,7 +25,9 @@ from core.performance_monitor.schema import (
     CollectResponse, DataResponse, PaginatedResponse,
     # v0.3.1
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
-    MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse
+    MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse,
+    # 导出任务 Schema
+    ExportTaskCreate, ExportTaskStatus, ExportTaskCreateResponse
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate, CompareTagResponse
 from core.performance_monitor.service import (
@@ -31,8 +36,11 @@ from core.performance_monitor.service import (
     # v0.3.0 新增
     MetricMappingService, MarkerService,
     # v0.3.2 新增
-    CompareTagService
+    CompareTagService,
+    # 导出任务服务
+    ExportTaskService
 )
+from utils.excel import TEMP_EXPORTS_DIR
 
 router = APIRouter(prefix="/performance-monitor", tags=["性能监控"])
 
@@ -439,59 +447,110 @@ async def query_advanced_metrics(request: AdvancedMetricsQuery, db: AsyncSession
     return {"metrics": result}
 
 
-# ===== 版本导出（v0.3.0）=====
+# ===== 版本导出 =====
 
-@router.get("/version/export/html")
-async def export_html_report(
-    version_ids: str = Query(..., description="版本ID列表，逗号分隔，最多6个"),
+@router.post("/version/export/create")
+async def create_export_task(
+    request: ExportTaskCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    导出HTML报告
-
-    Args:
-        version_ids: 版本ID列表，逗号分隔
-
-    Returns:
-        HTML文件下载响应
-    """
-    ids = version_ids.split(",")
-    if len(ids) > 6:
+    """创建导出任务"""
+    # 1. 验证版本数量
+    version_ids = request.version_ids.split(",")
+    if len(version_ids) > 6:
         raise HTTPException(status_code=400, detail="最多支持6个版本对比")
 
-    # TODO: 实现HTML报告生成逻辑
-    # 1. 获取对比数据
-    # 2. 使用模板引擎生成HTML
-    # 3. 返回StreamingResponse
+    # 2. 验证 HWiNFO 参数
+    if request.metric == "hwinfo" and not request.hwinfo_key:
+        raise HTTPException(status_code=400, detail="请指定 HWiNFO 指标")
 
-    raise HTTPException(status_code=501, detail="导出HTML功能待实现")
+    # 3. 验证版本存在
+    for vid in version_ids:
+        version = await db.get(PerformanceVersion, vid)
+        if not version:
+            raise HTTPException(status_code=404, detail=f"版本 {vid} 不存在")
+
+    # 4. 检查重复任务
+    existing = await ExportTaskService.get_pending_task(db, request)
+    if existing:
+        return ExportTaskStatus(
+            task_id=existing.id,
+            status=existing.status,
+            progress=existing.progress,
+            message="已有相同任务正在进行"
+        )
+
+    # 5. 创建任务（TODO: 从认证获取用户ID，暂时使用 system）
+    task = await ExportTaskService.create_task(db, request, "system")
+
+    # 6. 启动后台任务
+    background_tasks.add_task(ExportTaskService.process_export_task, task.id)
+
+    return ExportTaskCreateResponse(
+        task_id=task.id,
+        status="pending",
+        message="任务已创建"
+    )
 
 
-@router.get("/version/export/excel")
-async def export_excel_data(
-    version_ids: str = Query(..., description="版本ID列表，逗号分隔，最多6个"),
+@router.get("/version/export/status/{task_id}")
+async def get_export_status(
+    task_id: str,
     db: AsyncSession = Depends(get_db)
 ):
+    """查询任务状态
+
+    权限验证：仅任务创建者可查询（暂时跳过，后续添加认证）
     """
-    导出Excel数据明细
+    task = await db.get(ExportTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
 
-    Args:
-        version_ids: 版本ID列表，逗号分隔
+    # TODO: 添加权限验证
+    # if task.sys_creator_id != current_user.id and not current_user.is_admin:
+    #     raise HTTPException(status_code=403, detail="无权访问该任务")
 
-    Returns:
-        Excel文件下载响应
+    return ExportTaskStatus(
+        task_id=task.id,
+        status=task.status,
+        progress=task.progress,
+        message=task.message or ""
+    )
+
+
+@router.get("/version/export/download/{task_id}")
+async def download_export_file(
+    task_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """下载导出文件
+
+    权限验证：仅任务创建者可下载（暂时跳过，后续添加认证）
     """
-    ids = version_ids.split(",")
-    if len(ids) > 6:
-        raise HTTPException(status_code=400, detail="最多支持6个版本对比")
+    task = await db.get(ExportTask, task_id)
 
-    # TODO: 实现Excel数据导出逻辑
-    # 1. 获取对比数据
-    # 2. 使用pandas/openpyxl生成Excel
-    # 3. 返回StreamingResponse
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
 
-    raise HTTPException(status_code=501, detail="导出Excel功能待实现")
-    return result
+    if task.status != "completed":
+        raise HTTPException(status_code=400, detail="任务未完成")
+
+    # TODO: 添加权限验证
+    # if task.sys_creator_id != current_user.id and not current_user.is_admin:
+    #     raise HTTPException(status_code=403, detail="无权下载该文件")
+
+    file_path = Path(task.file_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    filename = quote(file_path.name)
+
+    return StreamingResponse(
+        file_path.open("rb"),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
 
 
 # ===== 对比标签管理（v0.3.2）=====
