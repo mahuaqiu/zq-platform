@@ -540,9 +540,18 @@ async def download_export_file(
     # if task.sys_creator_id != current_user.id and not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="无权下载该文件")
 
-    file_path = Path(task.file_path)
+    # 处理文件路径（确保是绝对路径）
+    raw_path = task.file_path
+    if not raw_path:
+        raise HTTPException(status_code=404, detail="文件路径为空，导出可能失败")
+
+    # 如果是相对路径，转换为绝对路径（相对于 TEMP_EXPORTS_DIR）
+    file_path = Path(raw_path)
+    if not file_path.is_absolute():
+        file_path = TEMP_EXPORTS_DIR / raw_path
+
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="文件不存在")
+        raise HTTPException(status_code=404, detail=f"文件不存在: {file_path}")
 
     filename = quote(file_path.name)
 

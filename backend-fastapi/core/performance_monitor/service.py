@@ -1005,6 +1005,7 @@ class ExportTaskService(BaseService):
                 task.file_path = file_path
             if status == "completed":
                 task.completed_at = datetime.utcnow()
+                task.progress = 100  # 完成时设置进度为100%
             await db.commit()
 
     @classmethod

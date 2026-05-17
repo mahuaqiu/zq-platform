@@ -78,7 +78,14 @@ class ExcelHandler:
         """高亮最佳/最差值"""
         for col_idx, col_name in enumerate(metric_columns, start=4):
             values = [(row, ws.cell(row=row, column=col_idx).value) for row in range(start_row, end_row + 1)]
-            valid_values = [(row, v) for row, v in values if v is not None]
+            # 只保留可转换为数值的值
+            valid_values = []
+            for row, v in values:
+                if v is not None:
+                    try:
+                        valid_values.append((row, float(v)))
+                    except (ValueError, TypeError):
+                        pass  # 跳过无法转换为数值的值
 
             if not valid_values:
                 continue
@@ -161,7 +168,8 @@ class ExcelHandler:
         file_path = TEMP_EXPORTS_DIR / file_name
         wb.save(file_path)
 
-        return str(file_path)
+        # 返回绝对路径，确保下载时能正确找到文件
+        return str(file_path.resolve())
     
     @classmethod
     def export_to_excel(
