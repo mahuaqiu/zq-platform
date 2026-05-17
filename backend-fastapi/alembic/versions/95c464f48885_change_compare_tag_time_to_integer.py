@@ -293,8 +293,8 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=50),
                comment='修改人ID（逻辑外键关联core_user）',
                existing_nullable=True)
-    # 删除旧的 compare_tag 表，重建为新结构（使用相对秒数）
-    op.drop_table('performance_compare_tag')
+    # 删除旧的 compare_tag 表（如果存在），重建为新结构（使用相对秒数）
+    op.execute("DROP TABLE IF EXISTS performance_compare_tag CASCADE")
     op.create_table(
         'performance_compare_tag',
         sa.Column('id', sa.String(length=50), nullable=False, primary_key=True, comment='主键ID(NanoId)'),
@@ -948,8 +948,8 @@ def downgrade() -> None:
                comment=None,
                existing_comment='采集记录ID',
                existing_nullable=False)
-    # 删除新表，重建旧表（使用 DateTime）
-    op.drop_table('performance_compare_tag')
+    # 删除新表（如果存在），重建旧表（使用 DateTime）
+    op.execute("DROP TABLE IF EXISTS performance_compare_tag CASCADE")
     op.create_table(
         'performance_compare_tag',
         sa.Column('id', sa.String(length=50), nullable=False, primary_key=True, comment='主键ID(NanoId)'),
