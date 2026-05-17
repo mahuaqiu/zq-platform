@@ -1020,9 +1020,9 @@ class ExportTaskService(BaseService):
     @classmethod
     async def cleanup_export_files(cls):
         """清理过期导出文件和记录（定时任务）"""
-        from app.database import async_session_maker
+        from app.database import AsyncSessionLocal
 
-        async with async_session_maker() as db:
+        async with AsyncSessionLocal() as db:
             # 清理文件（超过24小时）
             cutoff_files = datetime.now() - timedelta(hours=24)
             for file in TEMP_EXPORTS_DIR.glob("*.xlsx"):
@@ -1037,11 +1037,11 @@ class ExportTaskService(BaseService):
     @classmethod
     async def process_export_task(cls, task_id: str):
         """后台任务执行（带超时检查）"""
-        from app.database import async_session_maker
+        from app.database import AsyncSessionLocal
 
         start_time = time.time()
 
-        async with async_session_maker() as db:
+        async with AsyncSessionLocal() as db:
             try:
                 await cls.update_progress(db, task_id, 0, "开始处理...")
 
