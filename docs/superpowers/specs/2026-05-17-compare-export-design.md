@@ -55,6 +55,31 @@ metadata:
 - 最差值：红色高亮 (#FFC7CE)
 - 无数据标注：版本名称后添加 "(无数据)"
 
+**最佳/最差值高亮逻辑**：
+```python
+def _highlight_extreme_values(cls, ws, data, metric_columns, start_row, end_row):
+    """高亮最佳/最差值（在同一列的所有版本间比较）"""
+    for col_idx, col_name in enumerate(metric_columns, start=4):  # 从第4列开始（指标列）
+        values = [(row, ws.cell(row=row, column=col_idx).value) for row in range(start_row, end_row + 1)]
+        valid_values = [(row, v) for row, v in values if v is not None]
+        
+        if not valid_values:
+            continue
+        
+        # 判断规则：CPU/GPU/内存/提交内存越小越好，其他指标根据实际情况
+        is_lower_better = any(kw in col_name for kw in ['CPU', 'GPU', '内存', '提交'])
+        
+        if is_lower_better:
+            best_row = min(valid_values, key=lambda x: x[1])[0]
+            worst_row = max(valid_values, key=lambda x: x[1])[0]
+        else:
+            best_row = max(valid_values, key=lambda x: x[1])[0]
+            worst_row = min(valid_values, key=lambda x: x[1])[0]
+        
+        ws.cell(row=best_row, column=col_idx).fill = cls.BEST_FILL
+        ws.cell(row=worst_row, column=col_idx).fill = cls.WORST_FILL
+```
+
 ### Sheet 2~N：详细数据页
 
 **页面命名规则**：
@@ -69,7 +94,7 @@ def sanitize_sheet_name(version_name: str, suffix: str) -> str:
     """截断版本名，确保总长度 ≤ 31 字符（Excel 限制）"""
     max_version_len = 31 - len(suffix) - 1  # -1 for dash
     if len(version_name) > max_version_len:
-        return f"{version_name[:max_version_len]}-{suffix}"
+        version_name = version_name[:max_version_len]
     return f"{version_name}-{suffix}"
 ```
 
@@ -126,7 +151,7 @@ CREATE INDEX idx_export_task_created_at ON export_task(created_at);
 - 需要持久化任务状态，支持多实例部署时的状态查询
 - 索引优化查询：按状态查询、按类型+状态查询、按创建时间清理
 
-**How to apply**: 在 `core/performance_monitor/model.py` 中添加 `ExportTask` 模型，继承 `BaseModel`。
+**How to apply**: 在 `core/performance_monitor/model.py` 中添加 `ExportTask` 模型，继承 `BaseModel`。BaseModel 自动包含 `id`, `sort`, `sys_create_datetime`, `sys_update_datetime`, `is_deleted` 字段。
 
 ### API 端点设计
 
@@ -137,6 +162,20 @@ CREATE INDEX idx_export_task_created_at ON export_task(created_at);
 | `/api/core/performance-monitor/version/export/create` | POST | 创建导出任务 |
 | `/api/core/performance-monitor/version/export/status/{task_id}` | GET | 查询任务状态 |
 | `/api/core/performance-monitor/version/export/download/{task_id}` | GET | 下载 Excel 文件 |
+
+### 权限控制
+
+所有导出相关 API 需验证用户权限：
+
+| API | 权限验证 |
+|------|------|
+| `create` | 验证用户对传入 version_ids 的访问权限 |
+| `status` | 验证任务创建者与当前用户一致（或管理员） |
+| `download` | 验证任务创建者与当前用户一致（或管理员） |
+
+**实现方式**：
+- API 层验证 version_ids 访问权限（快速失败）
+- 后台任务中再次验证（防止任务参数被篡改）
 
 ### Schema 定义
 
@@ -169,8 +208,23 @@ class ExportTaskCreateResponse(BaseModel):
 ### 防重复提交逻辑
 
 ```python
-async def create_export_task(request: ExportTaskCreate, db: AsyncSession):
-    # 检查相同参数的任务是否正在进行
+async def create_export_task(request: ExportTaskCreate, db: AsyncSession, current_user: User):
+    # 1. 验证版本数量
+    version_ids = request.version_ids.split(",")
+    if len(version_ids) > 6:
+        raise HTTPException(status_code=400, detail="最多支持6个版本对比")
+    
+    # 2. 验证 HWiNFO 参数
+    if request.metric == "hwinfo" and not request.hwinfo_key:
+        raise HTTPException(status_code=400, detail="请指定 HWiNFO 指标")
+    
+    # 3. 验证版本访问权限
+    for vid in version_ids:
+        version = await PerformanceVersionService.get(db, vid)
+        if not version:
+            raise HTTPException(status_code=404, detail=f"版本 {vid} 不存在")
+    
+    # 4. 检查相同参数的任务是否正在进行
     existing = await ExportTaskService.get_pending_task(db, request)
     if existing:
         # 返回已有任务的状态，让前端继续轮询
@@ -181,8 +235,12 @@ async def create_export_task(request: ExportTaskCreate, db: AsyncSession):
             message="已有相同任务正在进行"
         )
     
-    # 创建新任务
-    task = await ExportTaskService.create_task(db, request)
+    # 5. 创建新任务
+    task = await ExportTaskService.create_task(db, request, current_user.id)
+    
+    # 6. 启动后台任务
+    background_tasks.add_task(process_export_task, task.id)
+    
     return ExportTaskCreateResponse(
         task_id=task.id,
         status="pending",
@@ -199,8 +257,14 @@ async def create_export_task(request: ExportTaskCreate, db: AsyncSession):
 **配置常量**：
 ```python
 EXPORT_TASK_TIMEOUT = 600  # 任务执行超时：10分钟
-MAX_CONCURRENT_EXPORTS = 3  # 同时最多执行3个导出任务
-TEMP_EXPORTS_DIR = "temp_exports"  # 临时文件目录
+MAX_CONCURRENT_EXPORTS = 3  # 预留扩展，当前版本暂不实现并发控制
+TEMP_EXPORTS_DIR = Path("temp_exports")  # 临时文件目录
+```
+
+**临时目录初始化**：
+```python
+# 应用启动时确保临时目录存在
+TEMP_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 ```
 
 **任务执行入口**：
@@ -216,7 +280,7 @@ async def process_export_task(task_id: UUID, db: AsyncSession):
         task = await db.get(ExportTask, task_id)
         params = ExportTaskCreate.model_validate(task.params)
         
-        # 验证版本访问权限
+        # 验证版本访问权限（二次验证）
         version_ids = params.version_ids.split(",")
         for vid in version_ids:
             version = await PerformanceVersionService.get(db, vid)
@@ -234,8 +298,8 @@ async def process_export_task(task_id: UUID, db: AsyncSession):
         
         # 3. 获取对比标签（冲高/稳态区间）
         compare_tags = await CompareTagService.get_tags(db)
-        peak_tag = compare_tags.find(t => t.type == 'peak')
-        stable_tag = compare_tags.find(t => t.type == 'stable')
+        peak_tag = next((t for t in compare_tags if t.type == 'peak'), None)
+        stable_tag = next((t for t in compare_tags if t.type == 'stable'), None)
         
         # 超时检查
         if time.time() - start_time > EXPORT_TASK_TIMEOUT:
@@ -266,7 +330,7 @@ async def process_export_task(task_id: UUID, db: AsyncSession):
         
         # 6. 生成 Excel 文件（进度 70-90）
         await ExportTaskService.update_progress(db, task_id, 70, "生成Excel文件...")
-        file_path = await ExcelHandler.create_compare_excel(
+        file_path = ExcelHandler.create_compare_excel(
             summary_data, detail_data, params.metric, params.hwinfo_key
         )
         
@@ -275,6 +339,31 @@ async def process_export_task(task_id: UUID, db: AsyncSession):
         
     except Exception as e:
         await ExportTaskService.update_status(db, task_id, "failed", str(e))
+```
+
+### 数据结构定义
+
+**compare_data 结构**（来自 PerformanceVersionService.get_compare_data）：
+```python
+@dataclass
+class CompareData:
+    """版本对比数据"""
+    versions: List[VersionCompareData]
+
+@dataclass
+class VersionCompareData:
+    """单个版本的对比数据"""
+    version: PerformanceVersion  # 版本对象，包含 name、id 等
+    collects: List[CollectCompareData]
+
+@dataclass
+class CollectCompareData:
+    """单个采集的数据"""
+    collect: PerformanceCollect  # 采集对象，包含 start_time、end_time 等
+    data: List[PerformanceData]  # 时间点数据列表
+
+# PerformanceData 字段（来自 schema.py）
+# relative_time, cpu_usage, gpu_usage, memory_usage, commit_memory, target_processes 等
 ```
 
 ### 数据查询逻辑
@@ -311,7 +400,7 @@ async def get_detail_data(db, compare_data, metric, hwinfo_key):
     
     数据来源：
     - compare_data: 版本的采集数据列表（每个时间点的 PerformanceData）
-    - hwinfo_key: HWiNFO 指标需额外查询 query_advanced_metrics
+    - hwinfo_key: HWiNFO 指标需额外查询 PerformanceDataService.query_advanced_metrics
     """
     for version in compare_data.versions:
         for collect in version.collects:
@@ -323,17 +412,19 @@ async def get_detail_data(db, compare_data, metric, hwinfo_key):
                 # 指标值
                 if metric == "hwinfo":
                     # HWiNFO 需单独查询
-                    hwinfo_data = await query_advanced_metrics(collect.collect.id, [hwinfo_key])
-                    value = hwinfo_data[hwinfo_key].value
+                    hwinfo_data = await PerformanceDataService.query_advanced_metrics(
+                        db, collect.collect.id, [hwinfo_key]
+                    )
+                    value = hwinfo_data.metrics[hwinfo_key].data[0].value
                 else:
-                    value = data_point[metric]
+                    value = getattr(data_point, metric, None)
 ```
 
 **HWiNFO 单位获取**：
 ```python
 async def get_hwinfo_unit(db, collect_id, hwinfo_key):
     """从 HWiNFO 数据中提取单位"""
-    result = await query_advanced_metrics(db, collect_id, [hwinfo_key])
+    result = await PerformanceDataService.query_advanced_metrics(db, collect_id, [hwinfo_key])
     return result.metrics[hwinfo_key].unit  # 如 "W"、"°C"、"MHz"
 ```
 
@@ -358,26 +449,34 @@ async def get_hwinfo_unit(db, collect_id, hwinfo_key):
 ```python
 from fastapi.responses import StreamingResponse
 from pathlib import Path
+from urllib.parse import quote
 
 @router.get("/version/export/download/{task_id}")
-async def download_export_file(task_id: str, db: AsyncSession = Depends(get_db)):
+async def download_export_file(task_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """下载导出文件"""
     task = await db.get(ExportTask, task_id)
     
-    # 验证任务状态
+    # 验证任务存在和状态
     if not task or task.status != "completed":
         raise HTTPException(status_code=400, detail="任务未完成或不存在")
+    
+    # 验证权限：任务创建者与当前用户一致
+    if task.sys_creator_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权下载该文件")
     
     # 验证文件存在
     file_path = Path(task.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
     
+    # URL 编码文件名（处理中文）
+    filename = quote(file_path.name)
+    
     # 返回文件流
     return StreamingResponse(
         file_path.open("rb"),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={file_path.name}"}
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
     )
 ```
 
@@ -393,17 +492,18 @@ api.py
 
 service.py
 ├── ExportTaskService
-│   ├── create_task(db, params: ExportTaskCreate) -> ExportTask
+│   ├── create_task(db, params: ExportTaskCreate, user_id: UUID) -> ExportTask
 │   ├── get_pending_task(db, params: ExportTaskCreate) -> Optional[ExportTask]
 │   ├── update_progress(db, task_id, progress, message) -> None
 │   ├── update_status(db, task_id, status, message, file_path=None) -> None
 │   └── process_export_task(task_id) -> None  # 后台任务
+│   └── delete_old_tasks(db, older_than: datetime) -> None
 └── ExportReportService
     ├── get_summary_data(db, compare_data, tags, metric, hwinfo_key) -> SummaryData
     └── get_detail_data(db, compare_data, metric, hwinfo_key) -> Dict[str, DetailData]
 
 model.py
-└── ExportTask                  # 导出任务模型
+└── ExportTask                  # 导出任务模型（继承 BaseModel）
 
 schema.py
 ├── ExportTaskCreate
@@ -415,6 +515,45 @@ utils/excel.py
     ├── create_compare_excel()       # 创建对比报告 Excel
     ├── write_summary_sheet()        # 写入摘要页
     └── write_detail_sheet()         # 写入详细数据页
+    ├── _highlight_extreme_values()  # 高亮最佳/最差值
+```
+
+### ExportTaskService 方法实现
+
+```python
+class ExportTaskService(BaseService):
+    model = ExportTask
+    
+    async def get_pending_task(self, db: AsyncSession, params: ExportTaskCreate) -> Optional[ExportTask]:
+        """获取相同参数的进行中任务"""
+        stmt = select(ExportTask).where(
+            ExportTask.task_type == "compare_export",
+            ExportTask.params == params.model_dump(),
+            ExportTask.status.in_(["pending", "processing"]),
+            ExportTask.is_deleted == False
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+    
+    async def update_progress(self, db: AsyncSession, task_id: UUID, progress: int, message: str):
+        """更新任务进度"""
+        task = await db.get(ExportTask, task_id)
+        if task:
+            task.progress = progress
+            task.message = message
+            await db.commit()
+    
+    async def update_status(self, db: AsyncSession, task_id: UUID, status: str, message: str, file_path: str = None):
+        """更新任务状态"""
+        task = await db.get(ExportTask, task_id)
+        if task:
+            task.status = status
+            task.message = message
+            if file_path:
+                task.file_path = file_path
+            if status == "completed":
+                task.completed_at = datetime.utcnow()
+            await db.commit()
 ```
 
 ### 数据结构定义
@@ -450,9 +589,13 @@ def create_compare_excel(
     cls,
     summary_data: SummaryData,
     detail_data: Dict[str, DetailData],  # key: sheet_name
-    metric: str
+    metric: str,
+    hwinfo_key: Optional[str] = None
 ) -> str:
     """创建版本对比 Excel 文件，返回文件路径"""
+    # 确保临时目录存在
+    TEMP_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    
     wb = Workbook()
     
     # Sheet 1: 摘要页
@@ -462,12 +605,13 @@ def create_compare_excel(
     
     # Sheet 2~N: 详细数据页
     for sheet_name, data in detail_data.items():
-        ws = wb.create_sheet(title=sanitize_sheet_name(sheet_name, ""))
+        safe_name = sanitize_sheet_name(sheet_name, "")
+        ws = wb.create_sheet(title=safe_name)
         cls.write_detail_sheet(ws, data)
     
     # 保存到临时目录
     file_name = f"版本对比报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    file_path = Path(TEMP_EXPORTS_DIR) / file_name
+    file_path = TEMP_EXPORTS_DIR / file_name
     wb.save(file_path)
     
     return str(file_path)
@@ -482,10 +626,12 @@ def write_summary_sheet(cls, ws, summary_data: SummaryData):
     # 冲高区间（第5-6行）
     peak_columns = ["版本名称", "冲高区间开始时间", "冲高区间结束时间"] + summary_data.metric_columns
     cls._write_table(ws, 5, "冲高区间峰值", summary_data.peak_range, peak_columns)
+    cls._highlight_extreme_values(ws, summary_data.peak_range, summary_data.metric_columns, 6, 6 + len(summary_data.peak_range) - 1)
     
     # 稳态区间（第9-10行）
     steady_columns = ["版本名称", "稳态区间开始时间", "稳态区间结束时间"] + summary_data.metric_columns
     cls._write_table(ws, 9, "稳态区间平均值", summary_data.steady_range, steady_columns)
+    cls._highlight_extreme_values(ws, summary_data.steady_range, summary_data.metric_columns, 10, 10 + len(summary_data.steady_range) - 1)
 
 @classmethod
 def write_detail_sheet(cls, ws, detail_data: DetailData):
@@ -516,14 +662,15 @@ DATETIME_FORMAT = "YYYY-MM-DD HH:MM:SS"
 
 | 场景 | 处理 |
 |------|------|
-| 版本数量超过6个 | 返回 400，提示"最多支持6个版本" |
-| 版本不存在 | 更新任务 failed，提示"版本不存在" |
-| HWiNFO 未指定 key | 返回 400，提示"请指定 HWiNFO 指标" |
+| 版本数量超过6个 | 返回 400，提示"最多支持6个版本"（API层验证） |
+| 版本不存在 | 返回 404，提示"版本不存在"（API层验证） |
+| HWiNFO 未指定 key | 返回 400，提示"请指定 HWiNFO 指标"（API层验证） |
 | 数据查询失败 | 更新任务 failed，记录错误信息 |
 | 文件生成失败 | 更新任务 failed，记录错误信息 |
 | 任务执行超时 | 更新任务 failed，提示"导出超时" |
 | 版本无数据 | 摘要页标注"(无数据)"，跳过详细页 |
 | 区间为空 | 显示空表格，不进行最佳/最差值高亮 |
+| 下载权限不足 | 返回 403，提示"无权下载该文件" |
 
 ## 文件清理
 
@@ -531,19 +678,30 @@ DATETIME_FORMAT = "YYYY-MM-DD HH:MM:SS"
 - 临时文件：保留24小时，定时任务每小时清理过期文件
 - 任务记录：保留7天，定时任务每小时清理 `completed_at > 7天` 的记录
 
+**定时任务注册**（在 scheduler 模块中）：
 ```python
-# scheduler 任务
+# scheduler 任务配置
 async def cleanup_export_files():
     """清理过期导出文件和记录"""
     # 清理文件
-    for file in Path(TEMP_EXPORTS_DIR).glob("*.xlsx"):
-        if file.mtime < datetime.now() - timedelta(hours=24):
+    for file in TEMP_EXPORTS_DIR.glob("*.xlsx"):
+        mtime = datetime.fromtimestamp(file.stat().st_mtime)
+        if mtime < datetime.now() - timedelta(hours=24):
             file.unlink()
     
-    # 清理记录
-    await ExportTaskService.delete_old_tasks(
-        older_than=datetime.now() - timedelta(days=7)
-    )
+    # 清理记录（软删除）
+    cutoff_time = datetime.utcnow() - timedelta(days=7)
+    stmt = update(ExportTask).where(
+        ExportTask.completed_at < cutoff_time,
+        ExportTask.is_deleted == False
+    ).values(is_deleted=True)
+    await db.execute(stmt)
+    await db.commit()
+
+# 在 scheduler 配置中注册（每小时执行）
+SCHEDULED_TASKS = [
+    {"func": cleanup_export_files, "interval": "hourly"}
+]
 ```
 
 ## 相关设计
