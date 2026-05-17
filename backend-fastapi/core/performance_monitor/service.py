@@ -1020,12 +1020,14 @@ class ExportTaskService(BaseService):
 
     @classmethod
     async def cleanup_export_files(cls):
-        """清理过期导出文件和记录（定时任务）"""
+        """清理过期导出文件和记录（定时任务）
+        文件保留7天，记录保留7天后软删除
+        """
         from app.database import AsyncSessionLocal
 
         async with AsyncSessionLocal() as db:
-            # 清理文件（超过24小时）
-            cutoff_files = datetime.now() - timedelta(hours=24)
+            # 清理文件（超过7天）
+            cutoff_files = datetime.now() - timedelta(days=7)
             for file in TEMP_EXPORTS_DIR.glob("*.xlsx"):
                 mtime = datetime.fromtimestamp(file.stat().st_mtime)
                 if mtime < cutoff_files:
