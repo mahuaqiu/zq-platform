@@ -1,21 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { ElMessage, ElButton, ElEmpty } from 'element-plus';
+import type { ChartSeries, CompareTag, SummaryRow } from './types';
+
+import type {
+  CompareDataResponse,
+  PerformanceData,
+  PerformanceVersion,
+} from '#/api/core/performance-monitor';
+
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import VersionSelector from './components/VersionSelector.vue';
-import CompareChartPanel from './components/CompareChartPanel.vue';
-import CompareTimeNavigator from './components/CompareTimeNavigator.vue';
-import CompareSummaryTable from './components/CompareSummaryTable.vue';
-import VersionProcessPanel from './components/VersionProcessPanel.vue';
-import MetricSelector from './components/MetricSelector.vue';
+
+import { ElButton, ElEmpty, ElMessage } from 'element-plus';
+
 import {
-  getVersions,
-  getCompareData,
   createCompareTag,
   deleteCompareTag,
+  getCompareData,
+  getVersions,
 } from '#/api/core/performance-monitor';
-import type { PerformanceVersion, PerformanceData, CompareDataResponse } from '#/api/core/performance-monitor';
-import type { CompareTag, ChartSeries, SummaryRow } from './types';
+
+import CompareChartPanel from './components/CompareChartPanel.vue';
+import CompareSummaryTable from './components/CompareSummaryTable.vue';
+import CompareTimeNavigator from './components/CompareTimeNavigator.vue';
+import MetricSelector from './components/MetricSelector.vue';
+import VersionProcessPanel from './components/VersionProcessPanel.vue';
+import VersionSelector from './components/VersionSelector.vue';
 import { VERSION_COLORS } from './types';
 
 const route = useRoute();
@@ -39,7 +48,7 @@ const metricOptions = [
 ];
 
 // 时间范围
-const timeRange = ref<{ start: Date; end: Date }>({
+const timeRange = ref<{ end: Date; start: Date }>({
   start: new Date(),
   end: new Date(),
 });
@@ -49,14 +58,16 @@ const compareTags = ref<CompareTag[]>([]);
 const loadingTags = ref(false);
 
 // 进程详情（悬停数据）
-const processData = ref<Array<{
-  versionName: string;
-  versionColor: string;
-  processName: string;
-  pid: number;
-  currentValue: number;
-  unit: string;
-}>>([]);
+const processData = ref<
+  Array<{
+    currentValue: number;
+    pid: number;
+    processName: string;
+    unit: string;
+    versionColor: string;
+    versionName: string;
+  }>
+>([]);
 
 // 版本颜色映射
 function getVersionColor(index: number): string {
@@ -71,7 +82,7 @@ const chartSeries = computed<ChartSeries[]>(() => {
       name: v.version.name,
       data: allData.map((d) => ({
         time: d.relative_time,
-        value: d[currentMetric.value as keyof PerformanceData] as number || 0,
+        value: (d[currentMetric.value as keyof PerformanceData] as number) || 0,
       })),
       color: getVersionColor(i),
     };
@@ -85,13 +96,15 @@ const summaryData = computed<SummaryRow[]>(() => {
     return {
       version_name: v.version.name,
       color: getVersionColor(i),
-      peak_cpu: Math.max(...allData.map(d => d.cpu_usage || 0)),
-      peak_process_cpu: Math.max(...allData.map(d =>
-        d.target_processes?.reduce((s, p) => s + p.total_cpu, 0) || 0
-      )),
-      peak_gpu: Math.max(...allData.map(d => d.gpu_usage || 0)),
-      peak_commit_memory: Math.max(...allData.map(d => d.commit_memory || 0)),
-      peak_memory_usage: Math.max(...allData.map(d => d.memory_usage || 0)),
+      peak_cpu: Math.max(...allData.map((d) => d.cpu_usage || 0)),
+      peak_process_cpu: Math.max(
+        ...allData.map(
+          (d) => d.target_processes?.reduce((s, p) => s + p.total_cpu, 0) || 0,
+        ),
+      ),
+      peak_gpu: Math.max(...allData.map((d) => d.gpu_usage || 0)),
+      peak_commit_memory: Math.max(...allData.map((d) => d.commit_memory || 0)),
+      peak_memory_usage: Math.max(...allData.map((d) => d.memory_usage || 0)),
     };
   });
 });
@@ -113,7 +126,7 @@ async function fetchVersions() {
   try {
     const result = await getVersions();
     versions.value = result.items;
-  } catch (error) {
+  } catch {
     ElMessage.error('获取版本列表失败');
   } finally {
     loadingVersions.value = false;
@@ -136,18 +149,22 @@ async function handleCompare() {
     await fetchCompareTags();
 
     // 初始化时间范围
-    const allData = result.versions.flatMap(v => v.collects.flatMap(c => c.data));
+    const allData = result.versions.flatMap((v) =>
+      v.collects.flatMap((c) => c.data),
+    );
     if (allData.length > 0) {
-      const minTime = Math.min(...allData.map(d => d.relative_time));
-      const maxTime = Math.max(...allData.map(d => d.relative_time));
+      const minTime = Math.min(...allData.map((d) => d.relative_time));
+      const maxTime = Math.max(...allData.map((d) => d.relative_time));
       // 假设第一个采集的开始时间为基准
-      const baseTime = new Date(result.versions[0]?.collects[0]?.collect.start_time || Date.now());
+      const baseTime = new Date(
+        result.versions[0]?.collects[0]?.collect.start_time || Date.now(),
+      );
       timeRange.value = {
         start: new Date(baseTime.getTime() + minTime * 1000),
         end: new Date(baseTime.getTime() + maxTime * 1000),
       };
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('获取对比数据失败');
   } finally {
     loadingCompare.value = false;
@@ -170,12 +187,18 @@ async function fetchCompareTags() {
 }
 
 // 添加对比标签
-async function handleAddTag(data: { name: string; type: 'peak' | 'stable'; start_time: string; end_time: string; note?: string }) {
+async function handleAddTag(data: {
+  end_time: string;
+  name: string;
+  note?: string;
+  start_time: string;
+  type: 'peak' | 'stable';
+}) {
   try {
     await createCompareTag(data);
     ElMessage.success('标签添加成功');
     await fetchCompareTags();
-  } catch (error) {
+  } catch {
     ElMessage.error('添加标签失败');
   }
 }
@@ -186,18 +209,21 @@ async function handleRemoveTag(tagId: string) {
     await deleteCompareTag(tagId);
     ElMessage.success('标签删除成功');
     await fetchCompareTags();
-  } catch (error) {
+  } catch {
     ElMessage.error('删除标签失败');
   }
 }
 
 // 时间范围变化
-function handleTimeRangeChange(range: { start: Date; end: Date }) {
+function handleTimeRangeChange(range: { end: Date; start: Date }) {
   timeRange.value = range;
 }
 
 // 悬停数据更新
-function handleHoverChange(data: { time: number; values: Record<string, number> }) {
+function handleHoverChange(data: {
+  time: number;
+  values: Record<string, number>;
+}) {
   processData.value = compareData.value.versions.map((v, i) => {
     const collect = v.collects[0];
     const processData = collect?.data[0]?.target_processes?.[0];
@@ -218,12 +244,7 @@ function handleExport() {
   ElMessage.info('导出报告功能待实现');
 }
 
-// 监听版本选择变化
-watch(selectedVersionIds, (newIds) => {
-  if (newIds.length >= 2) {
-    handleCompare();
-  }
-});
+// 注意：用户需要手动点击"开始对比"按钮，不自动触发
 </script>
 
 <template>
@@ -237,12 +258,14 @@ watch(selectedVersionIds, (newIds) => {
         @update:selected-ids="selectedVersionIds = $event"
       />
       <div class="action-buttons">
-        <ElButton type="success" :disabled="selectedVersionIds.length < 2" @click="handleCompare">
+        <ElButton
+          type="success"
+          :disabled="selectedVersionIds.length < 2"
+          @click="handleCompare"
+        >
           开始对比
         </ElButton>
-        <ElButton type="warning" @click="handleExport">
-          导出报告
-        </ElButton>
+        <ElButton type="warning" @click="handleExport"> 导出报告 </ElButton>
       </div>
     </div>
 
@@ -278,7 +301,10 @@ watch(selectedVersionIds, (newIds) => {
     </div>
 
     <!-- 无数据提示 -->
-    <ElEmpty v-if="selectedVersionIds.length < 2" description="请选择至少2个版本进行对比" />
+    <ElEmpty
+      v-if="selectedVersionIds.length < 2"
+      description="请选择至少2个版本进行对比"
+    />
   </div>
 </template>
 

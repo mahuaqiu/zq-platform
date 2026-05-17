@@ -90,6 +90,9 @@ export interface PerformanceVersion {
   name: string;
   collect_ids: string[];
   is_protected: boolean;
+  sys_create_datetime?: string;
+  start_time?: string;
+  end_time?: string;
 }
 
 // 对比标签类型（跨版本共享）

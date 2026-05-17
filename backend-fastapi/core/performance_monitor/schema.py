@@ -327,6 +327,9 @@ class VersionResponse(BaseModel):
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
+    # 时间区间（从采集记录计算）
+    start_time: Optional[datetime] = Field(None, description="开始时间")
+    end_time: Optional[datetime] = Field(None, description="结束时间")
 
     model_config = ConfigDict(from_attributes=True)
 

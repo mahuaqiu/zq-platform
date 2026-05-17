@@ -281,9 +281,35 @@ async def get_versions(
     device_id: Optional[str] = Query(None, description="设备ID（可选，不传则返回所有）"),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取版本列表"""
+    """获取版本列表（包含时间区间）"""
     versions = await PerformanceVersionService.get_versions(db, device_id)
-    return {"items": versions}
+
+    # 计算每个版本的时间区间
+    items = []
+    for v in versions:
+        # 获取该版本关联的采集记录，计算时间区间
+        start_time = None
+        end_time = None
+        for cid in v.collect_ids:
+            collect = await db.get(PerformanceCollect, cid)
+            if collect:
+                if start_time is None or collect.start_time < start_time:
+                    start_time = collect.start_time
+                if collect.end_time and (end_time is None or collect.end_time > end_time):
+                    end_time = collect.end_time
+
+        items.append({
+            "id": v.id,
+            "device_id": v.device_id,
+            "name": v.name,
+            "collect_ids": v.collect_ids,
+            "is_protected": v.is_protected,
+            "sys_create_datetime": v.sys_create_datetime,
+            "start_time": start_time,
+            "end_time": end_time,
+        })
+
+    return {"items": items}
 
 
 @router.get("/version/compare")

@@ -1,53 +1,128 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { ElTag, ElDropdown, ElDropdownMenu, ElDropdownItem, ElButton } from 'element-plus';
 import type { PerformanceVersion } from '#/api/core/performance-monitor';
+
+import { computed, ref, watch } from 'vue';
+
+import {
+  ElButton,
+  ElCheckbox,
+  ElDialog,
+  ElInput,
+  ElMessage,
+  ElTag,
+} from 'element-plus';
+
 import { VERSION_COLORS } from '../types';
 
 interface SelectedVersion {
   id: string;
   name: string;
   color: string;
+  createTime?: string;
 }
 
 const props = defineProps<{
-  versions: PerformanceVersion[];
   selectedIds: string[];
+  versions: PerformanceVersion[];
 }>();
 
 const emit = defineEmits<{
   (e: 'update:selectedIds', value: string[]): void;
 }>();
 
-// 已选版本列表
+// 弹窗状态
+const showDialog = ref(false);
+const searchKeyword = ref('');
+
+// 已选版本列表（带颜色）
 const selectedVersions = computed<SelectedVersion[]>(() => {
-  return props.selectedIds.map((id, index) => {
-    const version = props.versions.find(v => v.id === id);
-    if (!version) return null;
-    return {
-      id: version.id,
-      name: version.name,
-      color: VERSION_COLORS[index % VERSION_COLORS.length],
-    };
-  }).filter((v): v is SelectedVersion => v !== null);
+  return props.selectedIds
+    .map((id, index) => {
+      const version = props.versions.find((v) => v.id === id);
+      if (!version) return null;
+      return {
+        id: version.id,
+        name: version.name,
+        color: VERSION_COLORS[index % VERSION_COLORS.length],
+        createTime: version.sys_create_datetime,
+      };
+    })
+    .filter((v): v is SelectedVersion => v !== null);
 });
 
-// 可选版本（未选中的）
-const availableVersions = computed(() => {
-  return props.versions.filter(v => !props.selectedIds.includes(v.id));
+// 可选版本列表（过滤后的）
+const filteredVersions = computed(() => {
+  if (!searchKeyword.value) return props.versions;
+  const keyword = searchKeyword.value.toLowerCase();
+  return props.versions.filter((v) => v.name.toLowerCase().includes(keyword));
 });
 
-// 移除版本
+// 弹窗内的临时选择状态
+const tempSelectedIds = ref<string[]>([]);
+
+// 移除已选版本
 const handleRemove = (id: string) => {
-  emit('update:selectedIds', props.selectedIds.filter(i => i !== id));
+  emit(
+    'update:selectedIds',
+    props.selectedIds.filter((i) => i !== id),
+  );
 };
 
-// 添加版本
-const handleAdd = (id: string) => {
-  if (props.selectedIds.length < 6) {
-    emit('update:selectedIds', [...props.selectedIds, id]);
+// 打开弹窗
+const handleOpenDialog = () => {
+  // 初始化临时选择为当前已选
+  tempSelectedIds.value = [...props.selectedIds];
+  searchKeyword.value = '';
+  showDialog.value = true;
+};
+
+// 弹窗内切换选择
+const handleToggleSelect = (id: string) => {
+  const index = tempSelectedIds.value.indexOf(id);
+  if (index === -1) {
+    if (tempSelectedIds.value.length >= 6) {
+      ElMessage.warning('最多选择 6 个版本');
+      return;
+    }
+    tempSelectedIds.value.push(id);
+  } else {
+    tempSelectedIds.value.splice(index, 1);
   }
 };
+
+// 确认添加
+const handleConfirm = () => {
+  emit('update:selectedIds', tempSelectedIds.value);
+  showDialog.value = false;
+};
+
+// 格式化完整时间（带时分秒）
+const formatDateTime = (dateStr?: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+};
+
+// 格式化时间区间
+const formatTimeRange = (startTime?: string, endTime?: string) => {
+  if (!startTime) return '';
+  const start = formatDateTime(startTime);
+  const end = endTime ? formatDateTime(endTime) : '进行中';
+  return `${start} ~ ${end}`;
+};
+
+// 监听弹窗打开，重置搜索
+watch(showDialog, (val) => {
+  if (val) {
+    searchKeyword.value = '';
+  }
+});
 </script>
 
 <template>
@@ -65,27 +140,68 @@ const handleAdd = (id: string) => {
       {{ version.name }}
     </ElTag>
 
-    <!-- 添加版本按钮 -->
-    <ElDropdown
-      v-if="selectedIds.length < 6 && availableVersions.length > 0"
-      trigger="click"
-      @command="handleAdd"
+    <!-- 添加按钮（缩小） -->
+    <ElButton
+      v-if="selectedIds.length < 6"
+      size="small"
+      class="add-btn"
+      @click="handleOpenDialog"
     >
-      <ElButton class="add-button" plain>
-        + 添加版本
-      </ElButton>
-      <template #dropdown>
-        <ElDropdownMenu>
-          <ElDropdownItem
-            v-for="version in availableVersions"
-            :key="version.id"
-            :command="version.id"
-          >
-            {{ version.name }}
-          </ElDropdownItem>
-        </ElDropdownMenu>
+      +添加
+    </ElButton>
+
+    <!-- 版本选择弹窗 -->
+    <ElDialog
+      v-model="showDialog"
+      title="选择版本"
+      width="500px"
+      class="version-select-dialog"
+    >
+      <!-- 搜索框 -->
+      <div class="search-area">
+        <ElInput
+          v-model="searchKeyword"
+          placeholder="搜索版本名称..."
+          clearable
+          prefix-icon="Search"
+        />
+      </div>
+
+      <!-- 版本列表 -->
+      <div class="version-list">
+        <div
+          v-for="version in filteredVersions"
+          :key="version.id"
+          class="version-item"
+          :class="{ selected: tempSelectedIds.includes(version.id) }"
+          @click="handleToggleSelect(version.id)"
+        >
+          <ElCheckbox
+            :model-value="tempSelectedIds.includes(version.id)"
+            @click.stop="handleToggleSelect(version.id)"
+          />
+          <span class="version-name">{{ version.name }}</span>
+          <span class="version-time-range">{{
+            formatTimeRange(version.start_time, version.end_time)
+          }}</span>
+        </div>
+
+        <!-- 无结果 -->
+        <div v-if="filteredVersions.length === 0" class="no-result">
+          无匹配版本
+        </div>
+      </div>
+
+      <!-- 底部计数 -->
+      <div class="select-count">
+        已选 {{ tempSelectedIds.length }} / 6 个版本
+      </div>
+
+      <template #footer>
+        <ElButton @click="showDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="handleConfirm">确定添加</ElButton>
       </template>
-    </ElDropdown>
+    </ElDialog>
   </div>
 </template>
 
@@ -94,15 +210,78 @@ const handleAdd = (id: string) => {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex: 1;
 }
 
 .version-tag {
-  padding: 8px 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.add-btn {
+  border: 1px dashed var(--el-color-primary);
+  color: var(--el-color-primary);
+  background: transparent;
+  padding: 4px 8px;
   font-size: 12px;
 }
 
-.add-button {
-  border: 2px dashed var(--el-color-primary);
-  color: var(--el-color-primary);
+.add-btn:hover {
+  background: var(--el-color-primary-light-9);
+}
+
+/* 弹窗样式 */
+.search-area {
+  margin-bottom: 12px;
+}
+
+.version-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+}
+
+.version-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.version-item:hover {
+  background: #f5f5f5;
+}
+
+.version-item.selected {
+  background: var(--el-color-primary-light-9);
+}
+
+.version-name {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  flex: 1;
+}
+
+.version-time-range {
+  font-size: 11px;
+  color: #999;
+  white-space: nowrap;
+}
+
+.no-result {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+}
+
+.select-count {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #666;
 }
 </style>

@@ -756,7 +756,7 @@ class MarkerService(BaseService):
     @classmethod
     async def create_marker(cls, db: AsyncSession, request: MarkerCreate) -> str:
         """
-        创建标记
+        创建标记（同时创建对应的版本记录）
 
         Args:
             db: 数据库会话
@@ -765,6 +765,12 @@ class MarkerService(BaseService):
         Returns:
             标记ID
         """
+        # 获取采集记录以获取 device_id
+        collect = await db.get(PerformanceCollect, request.collect_id)
+        if not collect:
+            raise ValueError(f"采集记录不存在: {request.collect_id}")
+
+        # 创建标记
         marker = PerformanceMarker(
             collect_id=request.collect_id,
             name=request.name,
@@ -774,6 +780,16 @@ class MarkerService(BaseService):
             note=request.note
         )
         db.add(marker)
+
+        # 同时创建版本记录（使用标记名称作为版本名称）
+        version = PerformanceVersion(
+            device_id=collect.device_id,
+            name=request.name,
+            collect_ids=[request.collect_id],
+            is_protected=False
+        )
+        db.add(version)
+
         await db.commit()
         await db.refresh(marker)
         return marker.id
@@ -812,7 +828,7 @@ class MarkerService(BaseService):
     @classmethod
     async def delete_marker(cls, db: AsyncSession, marker_id: str) -> bool:
         """
-        删除标记
+        删除标记（同时删除对应的版本记录）
 
         Args:
             db: 数据库会话
@@ -824,6 +840,19 @@ class MarkerService(BaseService):
         marker = await db.get(PerformanceMarker, marker_id)
         if not marker:
             return False
+
+        # 同时删除对应的版本记录（通过名称匹配）
+        stmt = select(PerformanceVersion).where(
+            and_(
+                PerformanceVersion.name == marker.name,
+                PerformanceVersion.is_deleted == False
+            )
+        )
+        result = await db.execute(stmt)
+        version = result.scalar_one_or_none()
+        if version:
+            await db.delete(version)
+
         await db.delete(marker)
         await db.commit()
         return True
