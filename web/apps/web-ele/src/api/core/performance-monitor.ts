@@ -497,7 +497,7 @@ export async function getExportStatus(taskId: string): Promise<ExportTaskStatus>
   return response;
 }
 
-// 下载导出文件 URL
+// 下载导出文件 URL（需要包含 /basic-api 前缀才能被 vite 代理）
 export function getExportDownloadUrl(taskId: string): string {
-  return `/api/core/performance-monitor/version/export/download/${taskId}`;
+  return `/basic-api/api/core/performance-monitor/version/export/download/${taskId}`;
 }
