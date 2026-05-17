@@ -1028,3 +1028,287 @@ class ExportTaskService(BaseService):
             # 清理记录（超过7天）
             cutoff_tasks = datetime.utcnow() - timedelta(days=7)
             await cls.delete_old_tasks(db, cutoff_tasks)
+
+
+class ExportReportService:
+    """导出报告数据组织服务"""
+
+    @classmethod
+    async def _get_hwinfo_unit(cls, db: AsyncSession, collect_id: str, hwinfo_key: str) -> str:
+        """获取 HWiNFO 指标单位"""
+        result = await PerformanceDataService.query_advanced_metrics(
+            db, AdvancedMetricsQuery(collect_id=collect_id, metric_keys=[hwinfo_key])
+        )
+        return result.get("metrics", {}).get(hwinfo_key, {}).get("unit", "")
+
+    @classmethod
+    async def get_summary_data(
+        cls,
+        db: AsyncSession,
+        compare_data: Dict,
+        peak_tag,  # CompareTag ORM 对象或 None
+        stable_tag,  # CompareTag ORM 对象或 None
+        metric: str,
+        hwinfo_key: Optional[str]
+    ) -> SummaryData:
+        """组织摘要数据
+
+        注意：compare_data 是字典格式，使用字典访问方式
+        peak_tag/stable_tag 是 ORM 对象，使用属性访问方式
+        """
+        basic_info = []
+        peak_range = []
+        steady_range = []
+
+        # 根据指标确定列名和单位
+        if metric == "cpu_usage":
+            metric_columns = ["系统CPU峰值(%)", "进程CPU峰值(%)"]
+            metric_unit = "%"
+        elif metric == "gpu_usage":
+            metric_columns = ["系统GPU峰值(%)", "进程GPU峰值(%)"]
+            metric_unit = "%"
+        elif metric == "memory_usage":
+            metric_columns = ["内存峰值(GB)"]
+            metric_unit = "GB"
+        elif metric == "commit_memory":
+            metric_columns = ["提交内存峰值(GB)"]
+            metric_unit = "GB"
+        elif metric == "hwinfo":
+            # 获取 HWiNFO 单位
+            if compare_data.get("versions") and compare_data["versions"][0].get("collects"):
+                first_collect_id = compare_data["versions"][0]["collects"][0]["collect"]["id"]
+                unit = await cls._get_hwinfo_unit(db, first_collect_id, hwinfo_key)
+            else:
+                unit = ""
+            metric_columns = [f"{hwinfo_key}峰值({unit})"]
+            metric_unit = unit
+        else:
+            metric_columns = []
+            metric_unit = ""
+
+        for v in compare_data.get("versions", []):
+            version_name = v["version"]["name"]
+
+            # 获取所有数据点
+            all_data = []
+            start_time = None
+            end_time = None
+
+            for c in v.get("collects", []):
+                collect_start = c["collect"]["start_time"]
+                if start_time is None or collect_start < start_time:
+                    start_time = collect_start
+                if c["collect"]["end_time"]:
+                    collect_end = c["collect"]["end_time"]
+                    if end_time is None or collect_end > end_time:
+                        end_time = collect_end
+
+                for d in c.get("data", []):
+                    all_data.append(d)
+
+            # 基本信息
+            duration = 0
+            if start_time and end_time:
+                duration = int((end_time - start_time).total_seconds())
+
+            basic_info.append({
+                "版本名称": version_name,
+                "采集开始时间": start_time.strftime("%Y-%m-%d %H:%M:%S") if start_time else "",
+                "采集结束时间": end_time.strftime("%Y-%m-%d %H:%M:%S") if end_time else "",
+                "采集时长(秒)": duration
+            })
+
+            # 计算峰值数据（冲高区间）- peak_tag 是 ORM 对象
+            if peak_tag and all_data:
+                version_start_rel = min(d["relative_time"] for d in all_data)
+                peak_start_orig = peak_tag.start_time + version_start_rel
+                peak_end_orig = peak_tag.end_time + version_start_rel
+
+                peak_data = [d for d in all_data if peak_start_orig <= d["relative_time"] <= peak_end_orig]
+
+                peak_abs_start = (start_time + timedelta(seconds=peak_start_orig)).strftime("%Y-%m-%d %H:%M:%S")
+                peak_abs_end = (start_time + timedelta(seconds=peak_end_orig)).strftime("%Y-%m-%d %H:%M:%S")
+
+                peak_row = {
+                    "版本名称": version_name,
+                    "冲高区间开始时间": peak_abs_start,
+                    "冲高区间结束时间": peak_abs_end
+                }
+
+                if metric == "cpu_usage":
+                    peak_row["系统CPU峰值(%)"] = max((d.get("cpu_usage") or 0) for d in peak_data) if peak_data else 0
+                    peak_row["进程CPU峰值(%)"] = cls._calc_process_peak(peak_data, "cpu_usage")
+                elif metric == "gpu_usage":
+                    peak_row["系统GPU峰值(%)"] = max((d.get("gpu_usage") or 0) for d in peak_data) if peak_data else 0
+                    peak_row["进程GPU峰值(%)"] = cls._calc_process_peak(peak_data, "gpu_usage")
+                elif metric == "memory_usage":
+                    peak_row["内存峰值(GB)"] = max((d.get("memory_usage") or 0) for d in peak_data) if peak_data else 0
+                elif metric == "commit_memory":
+                    peak_row["提交内存峰值(GB)"] = max((d.get("commit_memory") or 0) for d in peak_data) if peak_data else 0
+
+                peak_range.append(peak_row)
+
+            # 计算稳态数据（平均值）- stable_tag 是 ORM 对象
+            if stable_tag and all_data:
+                version_start_rel = min(d["relative_time"] for d in all_data)
+                steady_start_orig = stable_tag.start_time + version_start_rel
+                steady_end_orig = stable_tag.end_time + version_start_rel
+
+                steady_data = [d for d in all_data if steady_start_orig <= d["relative_time"] <= steady_end_orig]
+
+                steady_abs_start = (start_time + timedelta(seconds=steady_start_orig)).strftime("%Y-%m-%d %H:%M:%S")
+                steady_abs_end = (start_time + timedelta(seconds=steady_end_orig)).strftime("%Y-%m-%d %H:%M:%S")
+
+                steady_row = {
+                    "版本名称": version_name,
+                    "稳态区间开始时间": steady_abs_start,
+                    "稳态区间结束时间": steady_abs_end
+                }
+
+                if metric == "cpu_usage":
+                    steady_row["系统CPU峰值(%)"] = sum((d.get("cpu_usage") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["进程CPU峰值(%)"] = cls._calc_process_mean(steady_data, "cpu_usage")
+                elif metric == "gpu_usage":
+                    steady_row["系统GPU峰值(%)"] = sum((d.get("gpu_usage") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["进程GPU峰值(%)"] = cls._calc_process_mean(steady_data, "gpu_usage")
+                elif metric == "memory_usage":
+                    steady_row["内存峰值(GB)"] = sum((d.get("memory_usage") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                elif metric == "commit_memory":
+                    steady_row["提交内存峰值(GB)"] = sum((d.get("commit_memory") or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+
+                steady_range.append(steady_row)
+
+        return SummaryData(
+            basic_info=basic_info,
+            peak_range=peak_range,
+            steady_range=steady_range,
+            metric_unit=metric_unit,
+            metric_columns=metric_columns
+        )
+
+    @staticmethod
+    def _calc_process_peak(data: List[Dict], metric_type: str) -> float:
+        """计算进程峰值"""
+        if not data:
+            return 0
+        peaks = []
+        for d in data:
+            processes = d.get("target_processes") or []
+            total = sum(
+                p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0)
+                for p in processes
+            )
+            peaks.append(total)
+        return max(peaks) if peaks else 0
+
+    @staticmethod
+    def _calc_process_mean(data: List[Dict], metric_type: str) -> float:
+        """计算进程平均值"""
+        if not data:
+            return 0
+        totals = []
+        for d in data:
+            processes = d.get("target_processes") or []
+            total = sum(
+                p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0)
+                for p in processes
+            )
+            totals.append(total)
+        return sum(totals) / len(totals) if totals else 0
+
+    @classmethod
+    async def get_detail_data(
+        cls,
+        db: AsyncSession,
+        compare_data: Dict,
+        metric: str,
+        hwinfo_key: Optional[str]
+    ) -> Dict[str, DetailData]:
+        """组织详细数据
+
+        注意：compare_data 是字典格式，使用字典访问方式
+        """
+        detail_data = {}
+
+        for v in compare_data.get("versions", []):
+            version_name = v["version"]["name"]
+
+            for c in v.get("collects", []):
+                collect_start = c["collect"]["start_time"]
+                collect_id = c["collect"]["id"]
+
+                # CPU/GPU 需要系统页和进程页
+                if metric in ["cpu_usage", "gpu_usage"]:
+                    # 系统详细页
+                    system_columns = ["相对时间(秒)", "绝对时间", f"系统{metric.split('_')[0].upper()}使用率(%)"]
+                    system_data = []
+                    for d in c.get("data", []):
+                        rel_time = d["relative_time"]
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        value = d.get(metric) or 0
+                        system_data.append([rel_time, abs_time, value])
+
+                    detail_data[f"{version_name}-系统{metric.split('_')[0].upper()}详情"] = DetailData(
+                        sheet_name=f"{version_name}-系统{metric.split('_')[0].upper()}详情",
+                        columns=system_columns,
+                        data=system_data
+                    )
+
+                    # 进程详细页
+                    process_columns = ["相对时间(秒)", "绝对时间", f"进程{metric.split('_')[0].upper()}使用率(%)"]
+                    process_data = []
+                    for d in c.get("data", []):
+                        rel_time = d["relative_time"]
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        processes = d.get("target_processes") or []
+                        total = sum(
+                            p.get("total_cpu" if metric == "cpu_usage" else "total_gpu", 0)
+                            for p in processes
+                        )
+                        process_data.append([rel_time, abs_time, total])
+
+                    detail_data[f"{version_name}-进程{metric.split('_')[0].upper()}详情"] = DetailData(
+                        sheet_name=f"{version_name}-进程{metric.split('_')[0].upper()}详情",
+                        columns=process_columns,
+                        data=process_data
+                    )
+
+                # 内存/提交内存只需一个页
+                elif metric in ["memory_usage", "commit_memory"]:
+                    label = "内存" if metric == "memory_usage" else "提交内存"
+                    columns = ["相对时间(秒)", "绝对时间", f"{label}(GB)"]
+                    data_rows = []
+                    for d in c.get("data", []):
+                        rel_time = d["relative_time"]
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        value = d.get(metric) or 0
+                        data_rows.append([rel_time, abs_time, value])
+
+                    detail_data[f"{version_name}-{label}详情"] = DetailData(
+                        sheet_name=f"{version_name}-{label}详情",
+                        columns=columns,
+                        data=data_rows
+                    )
+
+                # HWiNFO 需单独查询
+                elif metric == "hwinfo" and hwinfo_key:
+                    unit = await cls._get_hwinfo_unit(db, collect_id, hwinfo_key)
+                    columns = ["相对时间(秒)", "绝对时间", f"{hwinfo_key}({unit})"]
+                    data_rows = []
+
+                    for d in c.get("data", []):
+                        rel_time = d["relative_time"]
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        # 从 hwinfo_raw 中获取值（PerformanceData.hwinfo_raw 字段）
+                        hwinfo_raw = d.get("hwinfo_raw") or {}
+                        value = hwinfo_raw.get(hwinfo_key)
+                        if value is not None:
+                            data_rows.append([rel_time, abs_time, value])
+
+                    detail_data[f"{version_name}-{hwinfo_key}详情"] = DetailData(
+                        sheet_name=f"{version_name}-{hwinfo_key}详情",
+                        columns=columns,
+                        data=data_rows
+                    )
+
+        return detail_data
