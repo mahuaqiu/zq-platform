@@ -1160,12 +1160,16 @@ class ExportReportService:
                 metric_columns = ["进程句柄峰值(个)"]
                 metric_unit = "个"
             else:
-                # 获取 HWiNFO 单位
+                # 直接从第一条数据的 hwinfo_raw 获取单位
+                unit = ""
                 if compare_data.get("versions") and compare_data["versions"][0].get("collects"):
-                    first_collect_id = compare_data["versions"][0]["collects"][0]["collect"].id  # CollectResponse 是 Pydantic 对象
-                    unit = await cls._get_hwinfo_unit(db, first_collect_id, hwinfo_key)
-                else:
-                    unit = ""
+                    first_data_points = compare_data["versions"][0]["collects"][0].get("data", [])
+                    if first_data_points:
+                        first_data = first_data_points[0]
+                        hwinfo_raw = first_data.hwinfo_raw or {}
+                        value_info = hwinfo_raw.get(hwinfo_key)
+                        if value_info is not None and isinstance(value_info, dict):
+                            unit = value_info.get("unit", "")
                 metric_columns = [f"{hwinfo_key}峰值({unit})"]
                 metric_unit = unit
         else:
@@ -1448,8 +1452,15 @@ class ExportReportService:
                             data=data_rows
                         )
                     else:
-                        # 真正的 HWiNFO 数据
-                        unit = await cls._get_hwinfo_unit(db, collect_id, hwinfo_key)
+                        # 真正的 HWiNFO 数据 - 从第一条数据获取单位
+                        unit = ""
+                        first_data_points = c.get("data", [])
+                        if first_data_points:
+                            first_data = first_data_points[0]
+                            hwinfo_raw = first_data.hwinfo_raw or {}
+                            value_info = hwinfo_raw.get(hwinfo_key)
+                            if value_info is not None and isinstance(value_info, dict):
+                                unit = value_info.get("unit", "")
                         columns = ["相对时间(秒)", "绝对时间", f"{hwinfo_key}({unit})"]
                         data_rows = []
 
