@@ -1374,11 +1374,17 @@ class ExportReportService:
                     for d in c.get("data", []):
                         rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        # 从 hwinfo_raw 中获取值（hwinfo_raw 是字典）
+                        # 从 hwinfo_raw 中获取值（hwinfo_raw 可能是 {key: {value, unit}} 或 {key: value} 格式）
                         hwinfo_raw = d.hwinfo_raw or {}
-                        value = hwinfo_raw.get(hwinfo_key)
-                        if value is not None:
-                            data_rows.append([rel_time, abs_time, value])
+                        value_info = hwinfo_raw.get(hwinfo_key)
+                        if value_info is not None:
+                            # 处理两种格式：字典格式 {value: xxx, unit: xxx} 或直接值
+                            if isinstance(value_info, dict):
+                                value = value_info.get("value")
+                            else:
+                                value = value_info
+                            if value is not None:
+                                data_rows.append([rel_time, abs_time, value])
 
                     detail_data[f"{version_name}-{hwinfo_key}详情"] = DetailData(
                         sheet_name=f"{version_name}-{hwinfo_key}详情",
