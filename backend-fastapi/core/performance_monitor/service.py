@@ -1235,6 +1235,21 @@ class ExportReportService:
                     peak_row["进程句柄峰值(个)"] = max((int(d.process_handles or 0)) for d in peak_data) if peak_data else 0
                 elif metric == "hwinfo" and hwinfo_key == "process_handles":
                     peak_row["进程句柄峰值(个)"] = max((int(d.process_handles or 0)) for d in peak_data) if peak_data else 0
+                elif metric == "hwinfo":
+                    # 从 hwinfo_raw 中获取峰值
+                    col_name = f"{hwinfo_key}峰值({metric_unit})"
+                    values = []
+                    for d in peak_data:
+                        hwinfo_raw = d.hwinfo_raw or {}
+                        value_info = hwinfo_raw.get(hwinfo_key)
+                        if value_info is not None:
+                            if isinstance(value_info, dict):
+                                v = value_info.get("value")
+                            else:
+                                v = value_info
+                            if v is not None:
+                                values.append(float(v))
+                    peak_row[col_name] = max(values) if values else 0
 
                 peak_range.append(peak_row)
 
@@ -1269,6 +1284,21 @@ class ExportReportService:
                     steady_row["进程句柄峰值(个)"] = sum((int(d.process_handles or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
                 elif metric == "hwinfo" and hwinfo_key == "process_handles":
                     steady_row["进程句柄峰值(个)"] = sum((int(d.process_handles or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
+                elif metric == "hwinfo":
+                    # 从 hwinfo_raw 中获取平均值
+                    col_name = f"{hwinfo_key}峰值({metric_unit})"
+                    values = []
+                    for d in steady_data:
+                        hwinfo_raw = d.hwinfo_raw or {}
+                        value_info = hwinfo_raw.get(hwinfo_key)
+                        if value_info is not None:
+                            if isinstance(value_info, dict):
+                                v = value_info.get("value")
+                            else:
+                                v = value_info
+                            if v is not None:
+                                values.append(float(v))
+                    steady_row[col_name] = sum(values) / len(values) if values else 0
 
                 steady_range.append(steady_row)
 
