@@ -7,9 +7,10 @@ import type {
   PerformanceVersion,
 } from '#/api/core/performance-monitor';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
+import * as echarts from 'echarts';
 import { ElButton, ElEmpty, ElMessage, ElTag } from 'element-plus';
 
 import {
@@ -40,6 +41,10 @@ const loadingVersions = ref(false);
 // 对比数据
 const compareData = ref<CompareDataResponse>({ versions: [] });
 const loadingCompare = ref(false);
+
+// dataZoom slider 独立容器（用于 CPU/GPU 双图表）
+const dataZoomSliderRef = ref<HTMLDivElement | null>(null);
+let dataZoomSliderChart: echarts.ECharts | null = null;
 
 // 当前指标
 const currentMetric = ref('cpu_usage');
@@ -388,6 +393,83 @@ const summaryData = computed<SummaryRow[]>(() => {
   });
 });
 
+// 初始化独立的 dataZoom slider（用于 CPU/GPU 双图表联动）
+function initDataZoomSlider() {
+  if (!dataZoomSliderRef.value || !isCpuOrGpuMetric.value) return;
+
+  // 销毁旧图表
+  if (dataZoomSliderChart) {
+    dataZoomSliderChart.dispose();
+  }
+
+  dataZoomSliderChart = echarts.init(dataZoomSliderRef.value);
+
+  // 获取时间范围
+  const allTimes = systemChartSeries.value.flatMap(s => s.data.map(d => d.time));
+  const minTime = allTimes.length > 0 ? Math.min(...allTimes) : 0;
+  const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 100;
+
+  const option: echarts.EChartsOption = {
+    grid: {
+      left: 60,
+      right: 40,
+      top: 5,
+      bottom: 5,
+    },
+    xAxis: {
+      type: 'value',
+      min: minTime,
+      max: maxTime,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: {
+        formatter: (value: number) => `${Math.round(value)}秒`,
+        color: '#666',
+      },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      show: false,
+    },
+    dataZoom: [
+      {
+        type: 'slider',
+        show: true,
+        xAxisIndex: 0,
+        start: 0,
+        end: 100,
+        height: 20,
+        bottom: 5,
+        borderColor: '#ddd',
+        fillerColor: 'rgba(64, 158, 255, 0.2)',
+        handleStyle: { color: '#409eff' },
+        textStyle: { color: '#666' },
+        labelFormatter: (value: number) => `${Math.round(value)}秒`,
+      },
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+      },
+    ],
+    series: [],
+  };
+
+  dataZoomSliderChart.setOption(option);
+
+  // 加入图表组实现联动
+  dataZoomSliderChart.group = 'cpu-gpu-compare';
+  echarts.connect('cpu-gpu-compare');
+}
+
+// 监听数据变化，重新初始化 slider
+watch([systemChartSeries, isCpuOrGpuMetric], () => {
+  if (isCpuOrGpuMetric.value && compareData.value.versions.length > 0) {
+    // 延迟初始化，确保 DOM 已渲染
+    setTimeout(() => initDataZoomSlider(), 100);
+  }
+}, { immediate: true });
+
 onMounted(async () => {
   await fetchVersions();
 
@@ -399,6 +481,12 @@ onMounted(async () => {
   if (versionIds) {
     selectedVersionIds.value = versionIds.split(',');
     await handleCompare();
+  }
+});
+
+onUnmounted(() => {
+  if (dataZoomSliderChart) {
+    dataZoomSliderChart.dispose();
   }
 });
 
@@ -571,13 +659,18 @@ function handleExport() {
           data-zoom-type="inside"
           chart-group="cpu-gpu-compare"
         />
+        <!-- dataZoom slider 放在两个图表中间 -->
+        <div class="datazoom-slider-container">
+          <div class="slider-label">时间范围选择</div>
+          <div ref="dataZoomSliderRef" class="slider-chart"></div>
+        </div>
         <CompareChartPanel
           :title="processChartTitle"
           :series="processChartSeries"
           :tags="compareTags"
           :loading="loadingCompare"
           :current-metric="currentMetric"
-          data-zoom-type="slider"
+          data-zoom-type="inside"
           chart-group="cpu-gpu-compare"
         />
       </div>
@@ -665,6 +758,22 @@ function handleExport() {
 
 .dual-charts .compare-chart-panel {
   width: 100%;
+}
+
+.datazoom-slider-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.slider-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.slider-chart {
+  height: 30px;
 }
 
 .bottom-panel {

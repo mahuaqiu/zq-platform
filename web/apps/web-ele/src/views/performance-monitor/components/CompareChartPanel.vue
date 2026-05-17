@@ -47,7 +47,7 @@ const getDataZoomConfig = () => {
   if (type === 'none') return undefined;
 
   if (type === 'slider') {
-    // 滑块类型，显示在顶部（用于进程图表）
+    // 滑块类型，显示在图表容器顶部
     return [
       {
         type: 'slider',
@@ -56,7 +56,9 @@ const getDataZoomConfig = () => {
         start: 0,
         end: 100,
         height: 20,
-        top: 10,
+        top: 5,
+        left: 60,
+        right: 40,
         borderColor: '#ddd',
         fillerColor: 'rgba(64, 158, 255, 0.2)',
         handleStyle: { color: '#409eff' },
@@ -173,7 +175,7 @@ const initChart = () => {
       left: 60,
       right: 40,
       bottom: 40,
-      top: props.dataZoomType === 'slider' ? 50 : 40,
+      top: 40,
     },
     xAxis: {
       type: 'value',
@@ -235,8 +237,16 @@ onUnmounted(() => {
 
 <template>
   <div class="compare-chart-panel" v-loading="loading">
-    <div v-if="title" class="chart-title">{{ title }}</div>
-    <div ref="chartRef" class="chart-container"></div>
+    <!-- slider 类型：标题放在底部（这样 slider 在标题上方） -->
+    <template v-if="dataZoomType === 'slider'">
+      <div ref="chartRef" class="chart-container has-datazoom"></div>
+      <div v-if="title" class="chart-title-bottom">{{ title }}</div>
+    </template>
+    <!-- 其他类型：标题放在顶部 -->
+    <template v-else>
+      <div v-if="title" class="chart-title">{{ title }}</div>
+      <div ref="chartRef" class="chart-container"></div>
+    </template>
   </div>
 </template>
 
@@ -254,7 +264,19 @@ onUnmounted(() => {
   margin-bottom: 12px;
 }
 
+.chart-title-bottom {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-top: 8px;
+  text-align: center;
+}
+
 .chart-container {
   height: 300px;
+}
+
+.chart-container.has-datazoom {
+  height: 320px;
 }
 </style>
