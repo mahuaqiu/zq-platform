@@ -163,7 +163,9 @@
       "Bash(Sort-Object LastWriteTime -Descending)",
       "Bash(Select-Object -First 5 FullName, LastWriteTime)",
       "Skill(brainstorming)",
-      "Bash(tasklist *)"
+      "Bash(tasklist *)",
+      "Skill(writing-plans)",
+      "Skill(subagent-driven-development)"
     ]
   }
 }
