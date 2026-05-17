@@ -276,11 +276,19 @@ const summaryData = computed<SummaryRow[]>(() => {
   const stableTag = compareTags.value.find(t => t.type === 'stable');
 
   return compareData.value.versions.map((v, i) => {
+    // 获取所有数据并按时间排序
     const allData = v.collects.flatMap((c) => c.data);
+    allData.sort((a, b) => a.relative_time - b.relative_time);
 
-    // 辅助函数：获取区间内的数据
-    const getIntervalData = (startTime: number, endTime: number) => {
-      return allData.filter(d => d.relative_time >= startTime && d.relative_time <= endTime);
+    // 找到该版本的起始时间（用于将归一化的标签时间转换为原始时间）
+    const versionStartTime = allData.length > 0 ? allData[0].relative_time : 0;
+
+    // 辅助函数：获取区间内的数据（标签时间是归一化的，需要转换为原始时间）
+    const getIntervalData = (normalizedStart: number, normalizedEnd: number) => {
+      // 将归一化时间转换为原始时间
+      const originalStart = normalizedStart + versionStartTime;
+      const originalEnd = normalizedEnd + versionStartTime;
+      return allData.filter(d => d.relative_time >= originalStart && d.relative_time <= originalEnd);
     };
 
     // 辅助函数：计算区间内系统指标的最大值
@@ -309,7 +317,7 @@ const summaryData = computed<SummaryRow[]>(() => {
       return values.reduce((a, b) => a + b, 0) / values.length;
     };
 
-    // 冲高区间数据
+    // 冲高区间数据（标签时间是归一化的）
     const peakData = peakTag ? getIntervalData(peakTag.start_time, peakTag.end_time) : [];
     // 稳态区间数据
     const stableData = stableTag ? getIntervalData(stableTag.start_time, stableTag.end_time) : [];
