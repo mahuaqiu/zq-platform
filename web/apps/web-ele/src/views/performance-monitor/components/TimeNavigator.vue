@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as echarts from 'echarts';
-import { ElDialog, ElInput, ElButton, ElColorPicker, ElDatePicker, ElMessage, ElMessageBox } from 'element-plus';
+import { ElDialog, ElInput, ElButton, ElColorPicker, ElDatePicker, ElMessage, ElMessageBox, ElTooltip } from 'element-plus';
 import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 import type { MarkerResponse } from '#/api/core/performance-monitor';
 
@@ -403,20 +403,25 @@ onUnmounted(() => {
 
       <!-- 右侧：标记区域 -->
       <div v-if="collectId" class="marker-area">
-        <span
+        <ElTooltip
           v-for="marker in validMarkers"
           :key="marker.id"
-          class="marker-tag"
-          :style="{
-            borderColor: marker.color,
-            color: marker.color,
-            background: marker.color + '15',
-          }"
-          :title="getMarkerTooltip(marker)"
+          :content="getMarkerTooltip(marker)"
+          placement="top"
+          effect="dark"
         >
-          {{ marker.name }}
-          <button class="marker-delete" @click="handleDeleteMarker(marker.id, marker.name)">×</button>
-        </span>
+          <span
+            class="marker-tag"
+            :style="{
+              borderColor: marker.color,
+              color: marker.color,
+              background: marker.color + '15',
+            }"
+          >
+            {{ marker.name }}
+            <button class="marker-delete" @click.stop="handleDeleteMarker(marker.id, marker.name)">×</button>
+          </span>
+        </ElTooltip>
         <button class="add-marker-btn" @click="handleOpenAddMarker">+标记</button>
       </div>
     </div>
