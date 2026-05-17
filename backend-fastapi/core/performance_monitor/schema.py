@@ -378,3 +378,30 @@ class PaginatedResponse(BaseModel):
     page: int = Field(default=1, description="当前页码")
     page_size: int = Field(default=20, description="每页数量")
     pages: int = Field(default=0, description="总页数")
+
+
+# ===== 导出任务 Schema =====
+
+from typing import Literal
+
+
+class ExportTaskCreate(BaseModel):
+    """创建导出任务请求"""
+    version_ids: str = Field(..., description="版本ID列表（逗号分隔，最多6个）")
+    metric: Literal["cpu_usage", "gpu_usage", "memory_usage", "commit_memory", "hwinfo"] = Field(..., description="指标类型")
+    hwinfo_key: Optional[str] = Field(None, description="HWiNFO 指标键名（仅 metric=hwinfo 时需要）")
+
+
+class ExportTaskStatus(BaseModel):
+    """任务状态响应"""
+    task_id: str = Field(..., description="任务ID")
+    status: Literal["pending", "processing", "completed", "failed", "already_exists"] = Field(..., description="状态")
+    progress: int = Field(..., ge=0, le=100, description="进度")
+    message: str = Field(..., description="消息")
+
+
+class ExportTaskCreateResponse(BaseModel):
+    """创建任务响应"""
+    task_id: str = Field(..., description="任务ID")
+    status: str = Field(..., description="状态")
+    message: str = Field(..., description="消息")
