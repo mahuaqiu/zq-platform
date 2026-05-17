@@ -1,10 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { ElTable, ElTableColumn } from 'element-plus';
 import type { SummaryRow } from '../types';
 
-defineProps<{
+const props = defineProps<{
   summaryData: SummaryRow[];
+  currentMetric: string;
 }>();
+
+// 根据当前指标判断显示哪些列
+const isCpuMetric = computed(() => props.currentMetric === 'cpu_usage');
+const isGpuMetric = computed(() => props.currentMetric === 'gpu_usage');
+const isMemoryMetric = computed(() => props.currentMetric === 'memory_usage');
+const isCommitMemoryMetric = computed(() => props.currentMetric === 'commit_memory');
+const isHwinfoMetric = computed(() => props.currentMetric === 'hwinfo');
 
 // Find best/worst values for each metric column
 const getMetricClass = (value: number | undefined, metricKey: string, allData: SummaryRow[]) => {
@@ -39,7 +48,7 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
 
 <template>
   <div class="compare-summary-table">
-    <div class="title">数据摘要（全局峰值统计）</div>
+    <div class="title">数据摘要</div>
     <ElTable :data="summaryData" border stripe>
       <ElTableColumn prop="version_name" label="版本" width="120">
         <template #default="{ row }">
@@ -48,7 +57,8 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
           </span>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="peak_cpu" label="系统CPU">
+      <!-- CPU 指标：显示系统CPU和进程CPU -->
+      <ElTableColumn v-if="isCpuMetric" prop="peak_cpu" label="系统CPU">
         <template #default="{ row }">
           <span :class="getMetricClass(row.peak_cpu, 'peak_cpu', summaryData)">
             {{ formatValue(row.peak_cpu) }}
@@ -57,7 +67,7 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
           </span>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="peak_process_cpu" label="进程CPU">
+      <ElTableColumn v-if="isCpuMetric" prop="peak_process_cpu" label="进程CPU">
         <template #default="{ row }">
           <span :class="getMetricClass(row.peak_process_cpu, 'peak_process_cpu', summaryData)">
             {{ formatValue(row.peak_process_cpu) }}
@@ -66,7 +76,8 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
           </span>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="peak_gpu" label="系统GPU">
+      <!-- GPU 指标：显示系统GPU和进程GPU -->
+      <ElTableColumn v-if="isGpuMetric" prop="peak_gpu" label="系统GPU">
         <template #default="{ row }">
           <span :class="getMetricClass(row.peak_gpu, 'peak_gpu', summaryData)">
             {{ formatValue(row.peak_gpu) }}
@@ -75,7 +86,7 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
           </span>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="peak_process_gpu" label="进程GPU">
+      <ElTableColumn v-if="isGpuMetric" prop="peak_process_gpu" label="进程GPU">
         <template #default="{ row }">
           <span :class="getMetricClass(row.peak_process_gpu, 'peak_process_gpu', summaryData)">
             {{ formatValue(row.peak_process_gpu) }}
@@ -84,7 +95,18 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
           </span>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="peak_commit_memory" label="提交内存">
+      <!-- 内存指标 -->
+      <ElTableColumn v-if="isMemoryMetric" prop="peak_memory_usage" label="内存峰值">
+        <template #default="{ row }">
+          <span :class="getMetricClass(row.peak_memory_usage, 'peak_memory_usage', summaryData)">
+            {{ formatValue(row.peak_memory_usage, 'GB') }}
+            <span v-if="getMetricClass(row.peak_memory_usage, 'peak_memory_usage', summaryData) === 'best'"> ✓</span>
+            <span v-if="getMetricClass(row.peak_memory_usage, 'peak_memory_usage', summaryData) === 'worst'"> ✗</span>
+          </span>
+        </template>
+      </ElTableColumn>
+      <!-- 提交内存指标 -->
+      <ElTableColumn v-if="isCommitMemoryMetric" prop="peak_commit_memory" label="提交内存峰值">
         <template #default="{ row }">
           <span :class="getMetricClass(row.peak_commit_memory, 'peak_commit_memory', summaryData)">
             {{ formatValue(row.peak_commit_memory, 'GB') }}

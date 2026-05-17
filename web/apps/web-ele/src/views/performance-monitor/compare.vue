@@ -478,7 +478,7 @@ function handleExport() {
         <CompareChartPanel
           :title="processChartTitle"
           :series="processChartSeries"
-          :tags="[]"
+          :tags="compareTags"
           :loading="loadingCompare"
           :current-metric="currentMetric"
         />
@@ -496,7 +496,7 @@ function handleExport() {
 
     <!-- 底部面板 -->
     <div class="bottom-panel" v-if="compareData.versions.length > 0">
-      <CompareSummaryTable :summary-data="summaryData" />
+      <CompareSummaryTable :summary-data="summaryData" :current-metric="currentMetric" />
     </div>
 
     <!-- 无数据提示 -->
