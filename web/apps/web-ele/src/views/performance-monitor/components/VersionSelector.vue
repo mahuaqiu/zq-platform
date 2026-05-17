@@ -117,6 +117,43 @@ const formatTimeRange = (startTime?: string, endTime?: string) => {
   return `${start} ~ ${end}`;
 };
 
+// 格式化相对时间区间（从time_ranges）
+const formatRelativeTimeRange = (version: PerformanceVersion) => {
+  const timeRanges = version.time_ranges;
+  if (!timeRanges) return '';
+
+  const ranges: string[] = [];
+  for (const [collectId, range] of Object.entries(timeRanges)) {
+    const start = range.start;
+    const end = range.end;
+    if (end !== undefined) {
+      ranges.push(`相对时间 ${start}-${end}秒`);
+    } else {
+      ranges.push(`相对时间 ${start}秒起`);
+    }
+  }
+  return ranges.join('；');
+};
+
+// Tooltip内容：显示采集时间 + 标记的相对时间区间
+const getVersionTooltip = (version: PerformanceVersion) => {
+  const parts: string[] = [];
+
+  // 采集时间范围
+  const absoluteTime = formatTimeRange(version.start_time, version.end_time);
+  if (absoluteTime) {
+    parts.push(`采集时间: ${absoluteTime}`);
+  }
+
+  // 标记的相对时间区间
+  const relativeTime = formatRelativeTimeRange(version);
+  if (relativeTime) {
+    parts.push(`标记区间: ${relativeTime}`);
+  }
+
+  return parts.join('\n') || '无时间信息';
+};
+
 // 监听弹窗打开，重置搜索
 watch(showDialog, (val) => {
   if (val) {
@@ -181,9 +218,17 @@ watch(showDialog, (val) => {
             @click.stop="handleToggleSelect(version.id)"
           />
           <span class="version-name">{{ version.name }}</span>
-          <span class="version-time-range">{{
-            formatTimeRange(version.start_time, version.end_time)
-          }}</span>
+          <!-- 悬停tooltip显示标记区间 -->
+          <span
+            class="version-time-range"
+            :title="getVersionTooltip(version)"
+          >
+            {{ formatTimeRange(version.start_time, version.end_time) }}
+          </span>
+          <!-- 显示相对时间区间标签 -->
+          <span v-if="version.time_ranges" class="relative-time-tag">
+            {{ formatRelativeTimeRange(version) }}
+          </span>
         </div>
 
         <!-- 无结果 -->
@@ -271,6 +316,17 @@ watch(showDialog, (val) => {
   font-size: 11px;
   color: #999;
   white-space: nowrap;
+  cursor: help;
+}
+
+.relative-time-tag {
+  font-size: 11px;
+  color: #409eff;
+  background: #ecf5ff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  margin-left: 8px;
 }
 
 .no-result {

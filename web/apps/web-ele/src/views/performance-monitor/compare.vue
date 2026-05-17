@@ -74,16 +74,38 @@ function getVersionColor(index: number): string {
   return VERSION_COLORS[index % VERSION_COLORS.length] || '#67c23a';
 }
 
-// 图表数据
+// 图表数据（归一化：每条线从0开始）
 const chartSeries = computed<ChartSeries[]>(() => {
   return compareData.value.versions.map((v, i) => {
-    const allData = v.collects.flatMap((c) => c.data);
+    // 获取该版本的time_ranges
+    const timeRanges = v.version.time_ranges || {};
+
+    // 遍历每个采集，获取数据并归一化
+    const normalizedData: Array<{ time: number; value: number }> = [];
+
+    v.collects.forEach((c) => {
+      const collectId = c.collect.id;
+      const dataPoints = c.data;
+
+      // 获取该采集的起始时间偏移
+      const rangeInfo = timeRanges[collectId];
+      const startOffset = rangeInfo?.start || 0;
+
+      // 归一化：relative_time - startOffset
+      dataPoints.forEach((d) => {
+        normalizedData.push({
+          time: d.relative_time - startOffset,
+          value: (d[currentMetric.value as keyof PerformanceData] as number) || 0,
+        });
+      });
+    });
+
+    // 按时间排序
+    normalizedData.sort((a, b) => a.time - b.time);
+
     return {
       name: v.version.name,
-      data: allData.map((d) => ({
-        time: d.relative_time,
-        value: (d[currentMetric.value as keyof PerformanceData] as number) || 0,
-      })),
+      data: normalizedData,
       color: getVersionColor(i),
     };
   });
