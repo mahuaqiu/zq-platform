@@ -6,16 +6,17 @@ import type { SummaryRow } from '../types';
 const props = defineProps<{
   summaryData: SummaryRow[];
   currentMetric: string;
+  hwinfoUnit?: string; // HWiNFO 指标单位
 }>();
 
 // 是否有冲高标签数据
 const hasPeakData = computed(() => {
-  return props.summaryData.some(row => row.peak_cpu !== undefined || row.peak_gpu !== undefined);
+  return props.summaryData.some(row => row.peak_cpu !== undefined || row.peak_gpu !== undefined || row.peak_hwinfo !== undefined);
 });
 
 // 是否有稳态标签数据
 const hasStableData = computed(() => {
-  return props.summaryData.some(row => row.mean_cpu !== undefined || row.mean_gpu !== undefined);
+  return props.summaryData.some(row => row.mean_cpu !== undefined || row.mean_gpu !== undefined || row.mean_hwinfo !== undefined);
 });
 
 // 根据当前指标判断显示哪些列
@@ -23,6 +24,7 @@ const isCpuMetric = computed(() => props.currentMetric === 'cpu_usage');
 const isGpuMetric = computed(() => props.currentMetric === 'gpu_usage');
 const isMemoryMetric = computed(() => props.currentMetric === 'memory_usage');
 const isCommitMemoryMetric = computed(() => props.currentMetric === 'commit_memory');
+const isHwinfoMetric = computed(() => props.currentMetric === 'hwinfo');
 
 // Find best/worst values
 const getMetricClass = (value: number | undefined, metricKey: string, allData: SummaryRow[]) => {
@@ -34,7 +36,7 @@ const getMetricClass = (value: number | undefined, metricKey: string, allData: S
 
   if (values.length === 0) return '';
 
-  const isLowerBetter = metricKey.includes('cpu') || metricKey.includes('gpu') || metricKey.includes('memory');
+  const isLowerBetter = metricKey.includes('cpu') || metricKey.includes('gpu') || metricKey.includes('memory') || metricKey.includes('hwinfo');
   const best = isLowerBetter ? Math.min(...values) : Math.max(...values);
   const worst = isLowerBetter ? Math.max(...values) : Math.min(...values);
 
@@ -113,6 +115,14 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
               </span>
             </template>
           </ElTableColumn>
+          <!-- HWiNFO 指标 -->
+          <ElTableColumn v-if="isHwinfoMetric" prop="peak_hwinfo" label="峰值" width="100">
+            <template #default="{ row }">
+              <span :class="getMetricClass(row.peak_hwinfo, 'peak_hwinfo', summaryData)">
+                {{ formatValue(row.peak_hwinfo, hwinfoUnit || '') }}
+              </span>
+            </template>
+          </ElTableColumn>
         </ElTable>
       </div>
 
@@ -170,6 +180,14 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
             <template #default="{ row }">
               <span :class="getMetricClass(row.mean_commit_memory, 'mean_commit_memory', summaryData)">
                 {{ formatValue(row.mean_commit_memory, 'GB') }}
+              </span>
+            </template>
+          </ElTableColumn>
+          <!-- HWiNFO 指标 -->
+          <ElTableColumn v-if="isHwinfoMetric" prop="mean_hwinfo" label="平均" width="100">
+            <template #default="{ row }">
+              <span :class="getMetricClass(row.mean_hwinfo, 'mean_hwinfo', summaryData)">
+                {{ formatValue(row.mean_hwinfo, hwinfoUnit || '') }}
               </span>
             </template>
           </ElTableColumn>

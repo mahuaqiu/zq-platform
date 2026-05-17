@@ -199,41 +199,57 @@ async function handleHwinfoMetricSelect(metricKey: string) {
 
   loadingHwinfoMetric.value = true;
   hwinfoMetricKey.value = metricKey;
+  hwinfoMetricInfo.value = { displayName: '', unit: '' };
 
   try {
     // 为每个版本获取 HWiNFO 指标数据
     const seriesList: ChartSeries[] = [];
+    console.log('开始获取 HWiNFO 指标数据，版本数量:', compareData.value.versions.length);
 
     for (const [index, v] of compareData.value.versions.entries()) {
+      console.log(`处理版本 ${index}: ${v.version.name}, 采集数量: ${v.collects.length}`);
+
       // 遍历每个采集
       const allData: Array<{ time: number; value: number }> = [];
 
       for (const c of v.collects) {
-        // 获取第一个采集ID用于查询指标数据
         const collectId = c.collect.id;
-        if (!collectId) continue;
+        console.log(`  采集ID: ${collectId}, 数据点数量: ${c.data.length}`);
+
+        if (!collectId) {
+          console.log('  跳过空采集ID');
+          continue;
+        }
 
         const result = await queryAdvancedMetrics({
           collect_id: collectId,
           metric_keys: [metricKey],
         });
 
+        console.log(`  API 返回:`, result);
+
         const metricData = result.metrics[metricKey];
         if (metricData?.data) {
           // 保存指标信息（使用第一个版本的信息）
-          if (index === 0) {
+          if (index === 0 && !hwinfoMetricInfo.value.displayName) {
             hwinfoMetricInfo.value = {
               displayName: metricData.display_name || metricKey,
               unit: metricData.unit || '',
             };
           }
 
+          console.log(`  指标数据点数量: ${metricData.data.length}`);
+
           // 合并数据
           metricData.data.forEach(d => {
             allData.push({ time: d.relative_time, value: d.value });
           });
+        } else {
+          console.log('  无指标数据');
         }
       }
+
+      console.log(`  版本 ${v.version.name} 总数据点: ${allData.length}`);
 
       // 按时间排序并归一化
       allData.sort((a, b) => a.time - b.time);
@@ -243,16 +259,25 @@ async function handleHwinfoMetricSelect(metricKey: string) {
         value: d.value,
       }));
 
-      seriesList.push({
-        name: v.version.name,
-        data: normalizedData,
-        color: getVersionColor(index),
-      });
+      // 只有有数据才添加到 seriesList
+      if (normalizedData.length > 0) {
+        seriesList.push({
+          name: v.version.name,
+          data: normalizedData,
+          color: getVersionColor(index),
+        });
+      }
     }
 
+    console.log('最终 seriesList:', seriesList);
     hwinfoChartData.value = seriesList;
     currentMetric.value = 'hwinfo';
-    ElMessage.success(`已加载指标: ${hwinfoMetricInfo.value.displayName}`);
+
+    if (seriesList.length === 0) {
+      ElMessage.warning('未获取到指标数据');
+    } else {
+      ElMessage.success(`已加载指标: ${hwinfoMetricInfo.value.displayName || metricKey}`);
+    }
   } catch (error) {
     console.error('获取 HWiNFO 指标数据失败:', error);
     ElMessage.error('获取指标数据失败');
@@ -275,6 +300,32 @@ const summaryData = computed<SummaryRow[]>(() => {
   const peakTag = compareTags.value.find(t => t.type === 'peak');
   const stableTag = compareTags.value.find(t => t.type === 'stable');
 
+  // HWiNFO 指标特殊处理
+  if (currentMetric.value === 'hwinfo' && hwinfoChartData.value.length > 0) {
+    return hwinfoChartData.value.map((series, i) => {
+      // HWiNFO 数据已经是归一化的，可以直接用标签时间过滤
+      const peakData = peakTag
+        ? series.data.filter(d => d.time >= peakTag.start_time && d.time <= peakTag.end_time)
+        : [];
+      const stableData = stableTag
+        ? series.data.filter(d => d.time >= stableTag.start_time && d.time <= stableTag.end_time)
+        : [];
+
+      const peakValue = peakData.length > 0 ? Math.max(...peakData.map(d => d.value)) : undefined;
+      const meanValue = stableData.length > 0
+        ? stableData.reduce((s, d) => s + d.value, 0) / stableData.length
+        : undefined;
+
+      return {
+        version_name: series.name,
+        color: series.color,
+        peak_hwinfo: peakTag ? peakValue : undefined,
+        mean_hwinfo: stableTag ? meanValue : undefined,
+      };
+    });
+  }
+
+  // 系统指标处理
   return compareData.value.versions.map((v, i) => {
     // 获取所有数据并按时间排序
     const allData = v.collects.flatMap((c) => c.data);
@@ -545,7 +596,7 @@ function handleExport() {
 
     <!-- 底部面板 -->
     <div class="bottom-panel" v-if="compareData.versions.length > 0">
-      <CompareSummaryTable :summary-data="summaryData" :current-metric="currentMetric" />
+      <CompareSummaryTable :summary-data="summaryData" :current-metric="currentMetric" :hwinfo-unit="hwinfoMetricInfo.unit" />
     </div>
 
     <!-- 无数据提示 -->

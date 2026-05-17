@@ -101,12 +101,14 @@ export interface SummaryRow {
   peak_process_gpu?: number;
   peak_commit_memory?: number;
   peak_memory_usage?: number;
+  peak_hwinfo?: number; // HWiNFO 指标峰值
   mean_cpu?: number;
   mean_process_cpu?: number;
   mean_gpu?: number;
   mean_process_gpu?: number;
   mean_commit_memory?: number;
   mean_memory_usage?: number;
+  mean_hwinfo?: number; // HWiNFO 指标平均值
 }
 
 // 时间轴标记点
