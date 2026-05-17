@@ -458,3 +458,46 @@ export interface AvailableMetric {
   label: string;
   source: 'system' | 'hwinfo';
 }
+
+// ===== 导出任务 API =====
+
+export interface ExportTaskCreate {
+  version_ids: string;
+  metric: 'cpu_usage' | 'gpu_usage' | 'memory_usage' | 'commit_memory' | 'hwinfo';
+  hwinfo_key?: string;
+}
+
+export interface ExportTaskStatus {
+  task_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'already_exists';
+  progress: number;
+  message: string;
+}
+
+export interface ExportTaskCreateResponse {
+  task_id: string;
+  status: string;
+  message: string;
+}
+
+// 创建导出任务
+export async function createExportTask(params: ExportTaskCreate): Promise<ExportTaskCreateResponse | ExportTaskStatus> {
+  const response = await requestClient.post<ExportTaskCreateResponse | ExportTaskStatus>(
+    '/api/core/performance-monitor/version/export/create',
+    params,
+  );
+  return response;
+}
+
+// 查询任务状态
+export async function getExportStatus(taskId: string): Promise<ExportTaskStatus> {
+  const response = await requestClient.get<ExportTaskStatus>(
+    `/api/core/performance-monitor/version/export/status/${taskId}`,
+  );
+  return response;
+}
+
+// 下载导出文件 URL
+export function getExportDownloadUrl(taskId: string): string {
+  return `/api/core/performance-monitor/version/export/download/${taskId}`;
+}
