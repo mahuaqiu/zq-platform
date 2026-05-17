@@ -568,6 +568,7 @@ function handleExport() {
           :tags="compareTags"
           :loading="loadingCompare"
           :current-metric="currentMetric"
+          data-zoom-type="inside"
           chart-group="cpu-gpu-compare"
         />
         <CompareChartPanel
@@ -576,7 +577,7 @@ function handleExport() {
           :tags="compareTags"
           :loading="loadingCompare"
           :current-metric="currentMetric"
-          show-data-zoom
+          data-zoom-type="slider"
           chart-group="cpu-gpu-compare"
         />
       </div>
@@ -589,7 +590,7 @@ function handleExport() {
         :loading="loadingCompare || loadingHwinfoMetric"
         :current-metric="currentMetric"
         :hwinfo-unit="hwinfoMetricInfo.unit"
-        show-data-zoom
+        data-zoom-type="slider"
       />
     </div>
 

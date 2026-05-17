@@ -11,7 +11,7 @@ const props = defineProps<{
   loading?: boolean;
   currentMetric?: string; // 当前指标类型
   hwinfoUnit?: string; // HWiNFO 指标单位
-  showDataZoom?: boolean; // 是否显示 dataZoom
+  dataZoomType?: 'slider' | 'inside' | 'none'; // dataZoom 类型
   chartGroup?: string; // 图表分组（用于联动）
 }>();
 
@@ -39,6 +39,49 @@ const emit = defineEmits<{
 
 const chartRef = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
+
+// 获取 dataZoom 配置
+const getDataZoomConfig = () => {
+  const type = props.dataZoomType || 'none';
+
+  if (type === 'none') return undefined;
+
+  if (type === 'slider') {
+    // 滑块类型，显示在顶部（用于进程图表）
+    return [
+      {
+        type: 'slider',
+        show: true,
+        xAxisIndex: 0,
+        start: 0,
+        end: 100,
+        height: 20,
+        top: 10,
+        borderColor: '#ddd',
+        fillerColor: 'rgba(64, 158, 255, 0.2)',
+        handleStyle: { color: '#409eff' },
+        textStyle: { color: '#666' },
+        labelFormatter: (value: number) => `${Math.round(value)}秒`,
+      },
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+      },
+    ];
+  }
+
+  if (type === 'inside') {
+    // 内置类型，不显示滑块（用于系统图表）
+    return [
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+      },
+    ];
+  }
+
+  return undefined;
+};
 
 const initChart = () => {
   if (!chartRef.value) return;
@@ -129,8 +172,8 @@ const initChart = () => {
     grid: {
       left: 60,
       right: 40,
-      bottom: props.showDataZoom ? 60 : 40,
-      top: 40,
+      bottom: 40,
+      top: props.dataZoomType === 'slider' ? 50 : 40,
     },
     xAxis: {
       type: 'value',
@@ -141,26 +184,7 @@ const initChart = () => {
     yAxis: {
       type: 'value',
     },
-    dataZoom: props.showDataZoom ? [
-      {
-        type: 'slider',
-        show: true,
-        xAxisIndex: 0,
-        start: 0,
-        end: 100,
-        height: 20,
-        bottom: 10,
-        borderColor: '#ddd',
-        fillerColor: 'rgba(64, 158, 255, 0.2)',
-        handleStyle: {
-          color: '#409eff',
-        },
-        textStyle: {
-          color: '#666',
-        },
-        labelFormatter: (value: number) => `${Math.round(value)}秒`,
-      },
-    ] : undefined,
+    dataZoom: getDataZoomConfig(),
     series: seriesData,
   };
 
