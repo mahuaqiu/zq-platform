@@ -1155,14 +1155,19 @@ class ExportReportService:
             metric_columns = ["进程句柄峰值(个)"]
             metric_unit = "个"
         elif metric == "hwinfo":
-            # 获取 HWiNFO 单位
-            if compare_data.get("versions") and compare_data["versions"][0].get("collects"):
-                first_collect_id = compare_data["versions"][0]["collects"][0]["collect"].id  # CollectResponse 是 Pydantic 对象
-                unit = await cls._get_hwinfo_unit(db, first_collect_id, hwinfo_key)
+            # 特殊处理：process_handles 是数据库字段，不是 HWiNFO 数据
+            if hwinfo_key == "process_handles":
+                metric_columns = ["进程句柄峰值(个)"]
+                metric_unit = "个"
             else:
-                unit = ""
-            metric_columns = [f"{hwinfo_key}峰值({unit})"]
-            metric_unit = unit
+                # 获取 HWiNFO 单位
+                if compare_data.get("versions") and compare_data["versions"][0].get("collects"):
+                    first_collect_id = compare_data["versions"][0]["collects"][0]["collect"].id  # CollectResponse 是 Pydantic 对象
+                    unit = await cls._get_hwinfo_unit(db, first_collect_id, hwinfo_key)
+                else:
+                    unit = ""
+                metric_columns = [f"{hwinfo_key}峰值({unit})"]
+                metric_unit = unit
         else:
             metric_columns = []
             metric_unit = ""
@@ -1228,6 +1233,8 @@ class ExportReportService:
                     peak_row["提交内存峰值(GB)"] = max((float(d.commit_memory or 0)) for d in peak_data) if peak_data else 0
                 elif metric == "process_handles":
                     peak_row["进程句柄峰值(个)"] = max((int(d.process_handles or 0)) for d in peak_data) if peak_data else 0
+                elif metric == "hwinfo" and hwinfo_key == "process_handles":
+                    peak_row["进程句柄峰值(个)"] = max((int(d.process_handles or 0)) for d in peak_data) if peak_data else 0
 
                 peak_range.append(peak_row)
 
@@ -1259,6 +1266,8 @@ class ExportReportService:
                 elif metric == "commit_memory":
                     steady_row["提交内存峰值(GB)"] = sum((float(d.commit_memory or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
                 elif metric == "process_handles":
+                    steady_row["进程句柄峰值(个)"] = sum((int(d.process_handles or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
+                elif metric == "hwinfo" and hwinfo_key == "process_handles":
                     steady_row["进程句柄峰值(个)"] = sum((int(d.process_handles or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
 
                 steady_range.append(steady_row)
@@ -1391,18 +1400,35 @@ class ExportReportService:
                         data=data_rows
                     )
 
-                # HWiNFO 需单独查询
+                # HWiNFO 需单独查询（特殊处理 process_handles）
                 elif metric == "hwinfo" and hwinfo_key:
-                    unit = await cls._get_hwinfo_unit(db, collect_id, hwinfo_key)
-                    columns = ["相对时间(秒)", "绝对时间", f"{hwinfo_key}({unit})"]
-                    data_rows = []
+                    # process_handles 是数据库字段，不是 HWiNFO 数据
+                    if hwinfo_key == "process_handles":
+                        columns = ["相对时间(秒)", "绝对时间", "进程句柄数(个)"]
+                        data_rows = []
+                        for d in c.get("data", []):
+                            rel_time = d.relative_time
+                            abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                            value = int(d.process_handles or 0)
+                            data_rows.append([rel_time, abs_time, value])
 
-                    for d in c.get("data", []):
-                        rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
-                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        # 从 hwinfo_raw 中获取值（hwinfo_raw 可能是 {key: {value, unit}} 或 {key: value} 格式）
-                        hwinfo_raw = d.hwinfo_raw or {}
-                        value_info = hwinfo_raw.get(hwinfo_key)
+                        detail_data[f"{version_name}-进程句柄详情"] = DetailData(
+                            sheet_name=f"{version_name}-进程句柄详情",
+                            columns=columns,
+                            data=data_rows
+                        )
+                    else:
+                        # 真正的 HWiNFO 数据
+                        unit = await cls._get_hwinfo_unit(db, collect_id, hwinfo_key)
+                        columns = ["相对时间(秒)", "绝对时间", f"{hwinfo_key}({unit})"]
+                        data_rows = []
+
+                        for d in c.get("data", []):
+                            rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
+                            abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                            # 从 hwinfo_raw 中获取值（hwinfo_raw 可能是 {key: {value, unit}} 或 {key: value} 格式）
+                            hwinfo_raw = d.hwinfo_raw or {}
+                            value_info = hwinfo_raw.get(hwinfo_key)
                         if value_info is not None:
                             # 处理两种格式：字典格式 {value: xxx, unit: xxx} 或直接值
                             if isinstance(value_info, dict):
