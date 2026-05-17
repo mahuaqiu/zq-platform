@@ -528,12 +528,19 @@ async def download_export_file(
 
     权限验证：仅任务创建者可下载（暂时跳过，后续添加认证）
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     task = await db.get(ExportTask, task_id)
 
     if not task:
+        logger.warning(f"下载失败: 任务不存在, task_id={task_id}")
         raise HTTPException(status_code=404, detail="任务不存在")
 
+    logger.info(f"下载请求: task_id={task_id}, status={task.status}, file_path={task.file_path}")
+
     if task.status != "completed":
+        logger.warning(f"下载失败: 任务未完成, status={task.status}")
         raise HTTPException(status_code=400, detail="任务未完成")
 
     # TODO: 添加权限验证
@@ -543,14 +550,17 @@ async def download_export_file(
     # 处理文件路径（确保是绝对路径）
     raw_path = task.file_path
     if not raw_path:
+        logger.warning(f"下载失败: 文件路径为空, task_id={task_id}")
         raise HTTPException(status_code=404, detail="文件路径为空，导出可能失败")
 
     # 如果是相对路径，转换为绝对路径（相对于 TEMP_EXPORTS_DIR）
     file_path = Path(raw_path)
     if not file_path.is_absolute():
         file_path = TEMP_EXPORTS_DIR / raw_path
+        logger.info(f"相对路径转换为绝对路径: {raw_path} -> {file_path}")
 
     if not file_path.exists():
+        logger.warning(f"下载失败: 文件不存在, file_path={file_path}, raw_path={raw_path}")
         raise HTTPException(status_code=404, detail=f"文件不存在: {file_path}")
 
     filename = quote(file_path.name)
