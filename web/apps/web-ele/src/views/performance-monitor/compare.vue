@@ -204,29 +204,29 @@ async function handleHwinfoMetricSelect(metricKey: string) {
   try {
     // 为每个版本获取 HWiNFO 指标数据
     const seriesList: ChartSeries[] = [];
-    console.log('开始获取 HWiNFO 指标数据，版本数量:', compareData.value.versions.length);
 
     for (const [index, v] of compareData.value.versions.entries()) {
-      console.log(`处理版本 ${index}: ${v.version.name}, 采集数量: ${v.collects.length}`);
+      // 获取该版本的时间范围（从 compareData 中获取，用于筛选 HWiNFO 数据）
+      const versionDataPoints = v.collects.flatMap(c => c.data);
+      versionDataPoints.sort((a, b) => a.relative_time - b.relative_time);
 
-      // 遍历每个采集
+      if (versionDataPoints.length === 0) continue;
+
+      // 该版本的时间范围
+      const versionStartTime = versionDataPoints[0].relative_time;
+      const versionEndTime = versionDataPoints[versionDataPoints.length - 1].relative_time;
+
+      // 遍历每个采集获取 HWiNFO 数据
       const allData: Array<{ time: number; value: number }> = [];
 
       for (const c of v.collects) {
         const collectId = c.collect.id;
-        console.log(`  采集ID: ${collectId}, 数据点数量: ${c.data.length}`);
-
-        if (!collectId) {
-          console.log('  跳过空采集ID');
-          continue;
-        }
+        if (!collectId) continue;
 
         const result = await queryAdvancedMetrics({
           collect_id: collectId,
           metric_keys: [metricKey],
         });
-
-        console.log(`  API 返回:`, result);
 
         const metricData = result.metrics[metricKey];
         if (metricData?.data) {
@@ -238,24 +238,19 @@ async function handleHwinfoMetricSelect(metricKey: string) {
             };
           }
 
-          console.log(`  指标数据点数量: ${metricData.data.length}`);
-
-          // 合并数据
+          // 根据该版本的时间范围筛选 HWiNFO 数据
           metricData.data.forEach(d => {
-            allData.push({ time: d.relative_time, value: d.value });
+            if (d.relative_time >= versionStartTime && d.relative_time <= versionEndTime) {
+              allData.push({ time: d.relative_time, value: d.value });
+            }
           });
-        } else {
-          console.log('  无指标数据');
         }
       }
 
-      console.log(`  版本 ${v.version.name} 总数据点: ${allData.length}`);
-
-      // 按时间排序并归一化
+      // 按时间排序并归一化（从该版本的起始时间开始）
       allData.sort((a, b) => a.time - b.time);
-      const startTime = allData.length > 0 ? allData[0].time : 0;
       const normalizedData = allData.map(d => ({
-        time: d.time - startTime,
+        time: d.time - versionStartTime,
         value: d.value,
       }));
 
@@ -269,7 +264,6 @@ async function handleHwinfoMetricSelect(metricKey: string) {
       }
     }
 
-    console.log('最终 seriesList:', seriesList);
     hwinfoChartData.value = seriesList;
     currentMetric.value = 'hwinfo';
 
