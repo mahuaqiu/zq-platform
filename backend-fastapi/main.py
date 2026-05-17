@@ -74,6 +74,27 @@ async def lifespan(app: FastAPI):
     html_path.mkdir(parents=True, exist_ok=True)
     # ========== 测试报告模块启动初始化结束 ==========
 
+    # ========== 导出任务模块启动初始化（仅主 worker） ==========
+    if is_main_worker:
+        from utils.excel import TEMP_EXPORTS_DIR
+        from core.performance_monitor.service import ExportTaskService
+
+        # 1. 创建导出临时目录
+        TEMP_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+        # 2. 注册定时清理任务（每小时执行）
+        async def cleanup_export_loop():
+            while True:
+                await asyncio.sleep(3600)  # 每小时
+                try:
+                    await ExportTaskService.cleanup_export_files()
+                except Exception as e:
+                    import logging
+                    logging.error(f"清理导出文件失败: {e}")
+
+        asyncio.create_task(cleanup_export_loop())
+    # ========== 导出任务模块启动初始化结束 ==========
+
     yield
 
     # 关闭时（仅主 worker 关闭调度器）
