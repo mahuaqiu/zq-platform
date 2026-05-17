@@ -165,7 +165,8 @@
       "Skill(brainstorming)",
       "Bash(tasklist *)",
       "Skill(writing-plans)",
-      "Skill(subagent-driven-development)"
+      "Skill(subagent-driven-development)",
+      "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/check_export_task.py)"
     ]
   }
 }
