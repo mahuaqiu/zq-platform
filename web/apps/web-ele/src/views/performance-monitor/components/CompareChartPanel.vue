@@ -5,6 +5,7 @@ import type { ChartSeries } from '../types';
 import type { CompareTag } from '../types';
 
 const props = defineProps<{
+  title?: string; // 图表标题
   series: ChartSeries[];
   tags: CompareTag[];
   loading?: boolean;
@@ -45,23 +46,18 @@ const initChart = () => {
       return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: number }>;
     });
 
-  // 判断是否是进程线（名称包含 "(进程)"）
-  const isProcessSeries = (name: string) => name.includes('(进程)');
-
   const seriesData = props.series.map((s, index) => {
-    const isProcess = isProcessSeries(s.name);
     return {
       name: s.name,
       type: 'line',
       data: s.data.map(d => [d.time, d.value]),
       lineStyle: {
         color: s.color,
-        type: isProcess ? 'dashed' : 'solid', // 进程线使用虚线
-        width: isProcess ? 1.5 : 2,
+        width: 2,
       },
       itemStyle: { color: s.color },
-      // 只给第一条系统线添加 markArea
-      markArea: index === 0 && !isProcess ? {
+      // 只给第一条线添加 markArea（标签区域）
+      markArea: index === 0 ? {
         silent: true,
         itemStyle: {
           color: 'rgba(245, 108, 108, 0.15)', // red for peak
@@ -170,6 +166,7 @@ onUnmounted(() => {
 
 <template>
   <div class="compare-chart-panel" v-loading="loading">
+    <div v-if="title" class="chart-title">{{ title }}</div>
     <div ref="chartRef" class="chart-container"></div>
   </div>
 </template>
@@ -179,6 +176,13 @@ onUnmounted(() => {
   background: #fff;
   border-radius: 8px;
   padding: 16px;
+}
+
+.chart-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
 }
 
 .chart-container {

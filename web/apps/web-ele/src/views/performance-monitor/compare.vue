@@ -57,76 +57,102 @@ function getVersionColor(index: number): string {
   return VERSION_COLORS[index % VERSION_COLORS.length] || '#67c23a';
 }
 
-// 图表数据（归一化：每条线从0开始）
-// CPU/GPU 显示两条线：系统和进程
-const chartSeries = computed<ChartSeries[]>(() => {
+// 判断是否是 CPU/GPU 指标（需要显示两个图表）
+const isCpuOrGpuMetric = computed(() => {
+  return currentMetric.value === 'cpu_usage' || currentMetric.value === 'gpu_usage';
+});
+
+// 系统数据图表（归一化：每条线从0开始）
+const systemChartSeries = computed<ChartSeries[]>(() => {
   const result: ChartSeries[] = [];
-  const isCpuOrGpu = currentMetric.value === 'cpu_usage' || currentMetric.value === 'gpu_usage';
   const metricField = currentMetric.value as keyof PerformanceData;
 
   compareData.value.versions.forEach((v, i) => {
-    // 遍历每个采集，获取所有数据点
     const systemData: Array<{ time: number; value: number }> = [];
-    const processData: Array<{ time: number; value: number }> = [];
 
     v.collects.forEach((c) => {
       c.data.forEach((d) => {
-        // 系统数据
         systemData.push({
           time: d.relative_time,
           value: (d[metricField] as number) || 0,
         });
-        // 进程数据（仅 CPU/GPU）
-        if (isCpuOrGpu) {
-          const processValue = d.target_processes?.reduce((sum, p) => {
-            return sum + (currentMetric.value === 'cpu_usage' ? p.total_cpu : p.total_gpu || 0);
-          }, 0) || 0;
-          processData.push({
-            time: d.relative_time,
-            value: processValue,
-          });
-        }
       });
     });
 
-    // 按时间排序
     systemData.sort((a, b) => a.time - b.time);
-    processData.sort((a, b) => a.time - b.time);
-
-    // 获取第一个时间点作为偏移量
     const startTime = systemData.length > 0 ? systemData[0].time : 0;
 
-    // 归一化：减去第一个时间点，从0开始
-    const normalizedSystemData = systemData.map(d => ({
-      time: d.time - startTime,
-      value: d.value,
-    }));
-    const normalizedProcessData = processData.map(d => ({
+    const normalizedData = systemData.map(d => ({
       time: d.time - startTime,
       value: d.value,
     }));
 
-    const baseColor = getVersionColor(i);
-
-    // 添加系统线
     result.push({
       name: v.version.name,
-      data: normalizedSystemData,
-      color: baseColor,
+      data: normalizedData,
+      color: getVersionColor(i),
     });
-
-    // CPU/GPU 添加进程线（使用同色系的虚线效果，名称加 "(进程)"）
-    if (isCpuOrGpu && processData.length > 0) {
-      result.push({
-        name: `${v.version.name}(进程)`,
-        data: normalizedProcessData,
-        color: baseColor,
-        unit: '%',
-      });
-    }
   });
 
   return result;
+});
+
+// 进程数据图表（仅 CPU/GPU）
+const processChartSeries = computed<ChartSeries[]>(() => {
+  if (!isCpuOrGpuMetric.value) return [];
+
+  const result: ChartSeries[] = [];
+
+  compareData.value.versions.forEach((v, i) => {
+    const processData: Array<{ time: number; value: number }> = [];
+
+    v.collects.forEach((c) => {
+      c.data.forEach((d) => {
+        const processValue = d.target_processes?.reduce((sum, p) => {
+          return sum + (currentMetric.value === 'cpu_usage' ? p.total_cpu : p.total_gpu || 0);
+        }, 0) || 0;
+        processData.push({
+          time: d.relative_time,
+          value: processValue,
+        });
+      });
+    });
+
+    processData.sort((a, b) => a.time - b.time);
+    const startTime = processData.length > 0 ? processData[0].time : 0;
+
+    const normalizedData = processData.map(d => ({
+      time: d.time - startTime,
+      value: d.value,
+    }));
+
+    result.push({
+      name: v.version.name,
+      data: normalizedData,
+      color: getVersionColor(i),
+    });
+  });
+
+  return result;
+});
+
+// 图表标题
+const systemChartTitle = computed(() => {
+  const metric = metricOptions.find(m => m.key === currentMetric.value);
+  const label = metric?.label || currentMetric.value;
+  if (isCpuOrGpuMetric.value) {
+    return `${label} - 系统使用率 (%)`;
+  }
+  if (currentMetric.value.includes('memory')) {
+    return `${label} (GB)`;
+  }
+  return `${label} (%)`;
+});
+
+const processChartTitle = computed(() => {
+  const metric = metricOptions.find(m => m.key === currentMetric.value);
+  const label = metric?.label || currentMetric.value;
+  return `${label} - 进程使用率 (%)`;
 });
 
 // 数据摘要
@@ -251,9 +277,8 @@ function handleAddTag(data: {
 
 // 计算图表数据的最大时间（用于限制标签输入范围）
 const maxChartTime = computed(() => {
-  if (chartSeries.value.length === 0) return 0;
-  const allTimes = chartSeries.value.flatMap(s => s.data.map(d => d.time));
-  return Math.max(...allTimes);
+  const allTimes = systemChartSeries.value.flatMap(s => s.data.map(d => d.time));
+  return allTimes.length > 0 ? Math.max(...allTimes) : 0;
 });
 
 // 导出报告
@@ -290,7 +315,6 @@ function handleExport() {
     <div class="metric-bar" v-if="compareData.versions.length > 0">
       <MetricSelector
         :current-metric="currentMetric"
-        :metrics="metricOptions"
         @change="currentMetric = $event"
       />
       <!-- 标签列表 -->
@@ -319,14 +343,35 @@ function handleExport() {
       @submit="handleAddTag"
     />
 
-    <!-- 图表区 -->
-    <CompareChartPanel
-      v-if="compareData.versions.length > 0"
-      :series="chartSeries"
-      :tags="compareTags"
-      :loading="loadingCompare"
-      :current-metric="currentMetric"
-    />
+    <!-- 图表区 - CPU/GPU 显示两个图表，其他指标显示一个 -->
+    <div v-if="compareData.versions.length > 0" class="charts-area">
+      <!-- CPU/GPU: 双图表布局 -->
+      <div v-if="isCpuOrGpuMetric" class="dual-charts">
+        <CompareChartPanel
+          :title="systemChartTitle"
+          :series="systemChartSeries"
+          :tags="compareTags"
+          :loading="loadingCompare"
+          :current-metric="currentMetric"
+        />
+        <CompareChartPanel
+          :title="processChartTitle"
+          :series="processChartSeries"
+          :tags="[]"
+          :loading="loadingCompare"
+          :current-metric="currentMetric"
+        />
+      </div>
+      <!-- 其他指标: 单图表布局 -->
+      <CompareChartPanel
+        v-else
+        :title="systemChartTitle"
+        :series="systemChartSeries"
+        :tags="compareTags"
+        :loading="loadingCompare"
+        :current-metric="currentMetric"
+      />
+    </div>
 
     <!-- 底部面板 -->
     <div class="bottom-panel" v-if="compareData.versions.length > 0">
@@ -385,6 +430,20 @@ function handleExport() {
   gap: 8px;
   align-items: center;
   margin-left: auto;
+}
+
+.charts-area {
+  margin-bottom: 12px;
+}
+
+.dual-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dual-charts .compare-chart-panel {
+  height: 100%;
 }
 
 .bottom-panel {
