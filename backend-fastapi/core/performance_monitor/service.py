@@ -4,16 +4,17 @@
 性能监控业务逻辑
 """
 import logging
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Type
 
-from sqlalchemy import select, and_, desc, func, or_
+from sqlalchemy import select, and_, desc, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
 from core.performance_monitor.model import (
     PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion,
-    PerformanceMetricMapping, PerformanceMarker
+    PerformanceMetricMapping, PerformanceMarker, ExportTask
 )
 from core.performance_monitor.compare_model import CompareTag
 from core.performance_monitor.utils import (
@@ -26,9 +27,13 @@ from core.performance_monitor.schema import (
     TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery,
-    DataResponse, CollectResponse
+    DataResponse, CollectResponse, ExportTaskCreate
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate
+from utils.excel import SummaryData, DetailData, ExcelHandler, TEMP_EXPORTS_DIR
+
+# 配置常量
+EXPORT_TASK_TIMEOUT = 600  # 任务执行超时：10分钟
 
 logger = logging.getLogger(__name__)
 
@@ -941,3 +946,85 @@ class CompareTagService(BaseService):
         tag.is_deleted = True
         await db.commit()
         return True
+
+
+class ExportTaskService(BaseService):
+    """导出任务服务"""
+    model = ExportTask
+
+    @classmethod
+    async def create_task(cls, db: AsyncSession, params: ExportTaskCreate, user_id: str) -> ExportTask:
+        """创建导出任务"""
+        task = ExportTask(
+            task_type="compare_export",
+            params=params.model_dump(),
+            status="pending",
+            progress=0,
+            message="任务已创建",
+            sys_creator_id=user_id
+        )
+        db.add(task)
+        await db.commit()
+        await db.refresh(task)
+        return task
+
+    @classmethod
+    async def get_pending_task(cls, db: AsyncSession, params: ExportTaskCreate) -> Optional[ExportTask]:
+        """获取相同参数的进行中任务"""
+        stmt = select(ExportTask).where(
+            ExportTask.task_type == "compare_export",
+            ExportTask.params == params.model_dump(),
+            ExportTask.status.in_(["pending", "processing"]),
+            ExportTask.is_deleted == False
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def update_progress(cls, db: AsyncSession, task_id: str, progress: int, message: str):
+        """更新任务进度"""
+        task = await db.get(ExportTask, task_id)
+        if task:
+            task.progress = progress
+            task.message = message
+            await db.commit()
+
+    @classmethod
+    async def update_status(cls, db: AsyncSession, task_id: str, status: str, message: str, file_path: str = None):
+        """更新任务状态"""
+        task = await db.get(ExportTask, task_id)
+        if task:
+            task.status = status
+            task.message = message
+            if file_path:
+                task.file_path = file_path
+            if status == "completed":
+                task.completed_at = datetime.utcnow()
+            await db.commit()
+
+    @classmethod
+    async def delete_old_tasks(cls, db: AsyncSession, older_than: datetime):
+        """清理过期任务记录（软删除）"""
+        stmt = update(ExportTask).where(
+            ExportTask.completed_at < older_than,
+            ExportTask.is_deleted == False
+        ).values(is_deleted=True)
+        await db.execute(stmt)
+        await db.commit()
+
+    @classmethod
+    async def cleanup_export_files(cls):
+        """清理过期导出文件和记录（定时任务）"""
+        from app.database import async_session_maker
+
+        async with async_session_maker() as db:
+            # 清理文件（超过24小时）
+            cutoff_files = datetime.now() - timedelta(hours=24)
+            for file in TEMP_EXPORTS_DIR.glob("*.xlsx"):
+                mtime = datetime.fromtimestamp(file.stat().st_mtime)
+                if mtime < cutoff_files:
+                    file.unlink()
+
+            # 清理记录（超过7天）
+            cutoff_tasks = datetime.utcnow() - timedelta(days=7)
+            await cls.delete_old_tasks(db, cutoff_tasks)
