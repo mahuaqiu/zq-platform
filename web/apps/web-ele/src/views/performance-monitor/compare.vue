@@ -76,32 +76,31 @@ function getVersionColor(index: number): string {
 
 // 图表数据（归一化：每条线从0开始）
 const chartSeries = computed<ChartSeries[]>(() => {
-  return compareData.value.versions.map((v, i) => {
-    // 获取该版本的time_ranges
-    const timeRanges = v.version.time_ranges || {};
-
-    // 遍历每个采集，获取数据并归一化
-    const normalizedData: Array<{ time: number; value: number }> = [];
+  const result = compareData.value.versions.map((v, i) => {
+    // 遍历每个采集，获取所有数据点
+    const allData: Array<{ time: number; value: number }> = [];
 
     v.collects.forEach((c) => {
-      const collectId = c.collect.id;
       const dataPoints = c.data;
-
-      // 获取该采集的起始时间偏移
-      const rangeInfo = timeRanges[collectId];
-      const startOffset = rangeInfo?.start || 0;
-
-      // 归一化：relative_time - startOffset
       dataPoints.forEach((d) => {
-        normalizedData.push({
-          time: d.relative_time - startOffset,
+        allData.push({
+          time: d.relative_time,
           value: (d[currentMetric.value as keyof PerformanceData] as number) || 0,
         });
       });
     });
 
     // 按时间排序
-    normalizedData.sort((a, b) => a.time - b.time);
+    allData.sort((a, b) => a.time - b.time);
+
+    // 获取第一个时间点作为偏移量
+    const startTime = allData.length > 0 ? allData[0].time : 0;
+
+    // 归一化：减去第一个时间点，从0开始
+    const normalizedData = allData.map(d => ({
+      time: d.time - startTime,
+      value: d.value,
+    }));
 
     return {
       name: v.version.name,
@@ -109,6 +108,8 @@ const chartSeries = computed<ChartSeries[]>(() => {
       color: getVersionColor(i),
     };
   });
+
+  return result;
 });
 
 // 数据摘要
