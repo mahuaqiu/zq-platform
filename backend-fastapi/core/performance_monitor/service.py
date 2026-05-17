@@ -1151,6 +1151,9 @@ class ExportReportService:
         elif metric == "commit_memory":
             metric_columns = ["提交内存峰值(GB)"]
             metric_unit = "GB"
+        elif metric == "process_handles":
+            metric_columns = ["进程句柄峰值(个)"]
+            metric_unit = "个"
         elif metric == "hwinfo":
             # 获取 HWiNFO 单位
             if compare_data.get("versions") and compare_data["versions"][0].get("collects"):
@@ -1223,6 +1226,8 @@ class ExportReportService:
                     peak_row["内存峰值(GB)"] = max((float(d.memory_usage or 0)) for d in peak_data) if peak_data else 0
                 elif metric == "commit_memory":
                     peak_row["提交内存峰值(GB)"] = max((float(d.commit_memory or 0)) for d in peak_data) if peak_data else 0
+                elif metric == "process_handles":
+                    peak_row["进程句柄峰值(个)"] = max((int(d.process_handles or 0)) for d in peak_data) if peak_data else 0
 
                 peak_range.append(peak_row)
 
@@ -1253,6 +1258,8 @@ class ExportReportService:
                     steady_row["内存峰值(GB)"] = sum((float(d.memory_usage or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
                 elif metric == "commit_memory":
                     steady_row["提交内存峰值(GB)"] = sum((float(d.commit_memory or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
+                elif metric == "process_handles":
+                    steady_row["进程句柄峰值(个)"] = sum((int(d.process_handles or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
 
                 steady_range.append(steady_row)
 
@@ -1364,6 +1371,22 @@ class ExportReportService:
 
                     detail_data[f"{version_name}-{label}详情"] = DetailData(
                         sheet_name=f"{version_name}-{label}详情",
+                        columns=columns,
+                        data=data_rows
+                    )
+
+                # 进程句柄数只需一个页
+                elif metric == "process_handles":
+                    columns = ["相对时间(秒)", "绝对时间", "进程句柄数(个)"]
+                    data_rows = []
+                    for d in c.get("data", []):
+                        rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        value = int(d.process_handles or 0)
+                        data_rows.append([rel_time, abs_time, value])
+
+                    detail_data[f"{version_name}-进程句柄详情"] = DetailData(
+                        sheet_name=f"{version_name}-进程句柄详情",
                         columns=columns,
                         data=data_rows
                     )
