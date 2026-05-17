@@ -820,6 +820,31 @@ async function handleCreateVersion() {
     ElMessage.warning('请选择采集记录');
     return;
   }
+
+  // 计算所选采集记录的总时长
+  let totalDurationSeconds = 0;
+  for (const collectId of versionForm.value.selectedCollects) {
+    const collect = collectHistory.value.find(c => c.id === collectId);
+    if (collect?.start_time && collect?.end_time) {
+      const startTime = new Date(collect.start_time).getTime();
+      const endTime = new Date(collect.end_time).getTime();
+      totalDurationSeconds += (endTime - startTime) / 1000;
+    } else if (collect?.start_time) {
+      // 如果没有结束时间（正在采集），使用当前时间
+      const startTime = new Date(collect.start_time).getTime();
+      totalDurationSeconds += (Date.now() - startTime) / 1000;
+    }
+  }
+
+  // 限制最大时长12小时
+  const maxDurationSeconds = 12 * 60 * 60; // 12小时
+  if (totalDurationSeconds > maxDurationSeconds) {
+    const hours = Math.floor(totalDurationSeconds / 3600);
+    const minutes = Math.floor((totalDurationSeconds % 3600) / 60);
+    ElMessage.warning(`所选采集记录总时长 ${hours}小时${minutes}分钟，超过最大限制12小时`);
+    return;
+  }
+
   try {
     await createVersion({
       device_id: deviceId.value,

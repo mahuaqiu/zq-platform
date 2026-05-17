@@ -25,7 +25,8 @@ from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
     TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
-    MarkerCreate, MarkerUpdate, AdvancedMetricsQuery
+    MarkerCreate, MarkerUpdate, AdvancedMetricsQuery,
+    DataResponse, CollectResponse
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate
 
@@ -557,19 +558,22 @@ class PerformanceVersionService(BaseService):
                             end_time = range_info.get("end")
                             if end_time:
                                 # 筛选时间范围内的数据
-                                data = [d for d in all_data if start_time <= d.relative_time <= end_time]
+                                filtered_data = [d for d in all_data if start_time <= d.relative_time <= end_time]
                             else:
                                 # 只有开始时间，从开始时间到结束
-                                data = [d for d in all_data if d.relative_time >= start_time]
+                                filtered_data = [d for d in all_data if d.relative_time >= start_time]
                         else:
                             # 没有时间范围，使用全部数据
-                            data = all_data
+                            filtered_data = all_data
+
+                        # 序列化数据
+                        serialized_data = [DataResponse.model_validate(d) for d in filtered_data]
 
                         # 获取标签
                         tags = await PerformanceTagService.get_tags(db, cid)
                         collects.append({
-                            "collect": collect,
-                            "data": data,
+                            "collect": CollectResponse.model_validate(collect),
+                            "data": serialized_data,
                             "tags": tags
                         })
                 versions_data.append({

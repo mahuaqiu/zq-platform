@@ -10,7 +10,7 @@ import type {
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { ElButton, ElEmpty, ElMessage } from 'element-plus';
+import { ElButton, ElEmpty, ElMessage, ElTag } from 'element-plus';
 
 import {
   createCompareTag,
@@ -19,11 +19,10 @@ import {
   getVersions,
 } from '#/api/core/performance-monitor';
 
+import AddTagDialog from './components/AddTagDialog.vue';
 import CompareChartPanel from './components/CompareChartPanel.vue';
 import CompareSummaryTable from './components/CompareSummaryTable.vue';
-import CompareTimeNavigator from './components/CompareTimeNavigator.vue';
 import MetricSelector from './components/MetricSelector.vue';
-import VersionProcessPanel from './components/VersionProcessPanel.vue';
 import VersionSelector from './components/VersionSelector.vue';
 import { VERSION_COLORS } from './types';
 
@@ -47,27 +46,10 @@ const metricOptions = [
   { key: 'commit_memory', label: '提交内存' },
 ];
 
-// 时间范围
-const timeRange = ref<{ end: Date; start: Date }>({
-  start: new Date(),
-  end: new Date(),
-});
-
 // 对比标签
 const compareTags = ref<CompareTag[]>([]);
 const loadingTags = ref(false);
-
-// 进程详情（悬停数据）
-const processData = ref<
-  Array<{
-    currentValue: number;
-    pid: number;
-    processName: string;
-    unit: string;
-    versionColor: string;
-    versionName: string;
-  }>
->([]);
+const showAddTagDialog = ref(false);
 
 // 版本颜色映射
 function getVersionColor(index: number): string {
@@ -168,25 +150,12 @@ async function handleCompare() {
     const result = await getCompareData(selectedVersionIds.value);
     compareData.value = result;
 
+    // 更新 URL 参数（不触发页面跳转）
+    const newUrl = `${route.path}?version_ids=${selectedVersionIds.value.join(',')}`;
+    window.history.replaceState({}, '', newUrl);
+
     // 加载对比标签
     await fetchCompareTags();
-
-    // 初始化时间范围
-    const allData = result.versions.flatMap((v) =>
-      v.collects.flatMap((c) => c.data),
-    );
-    if (allData.length > 0) {
-      const minTime = Math.min(...allData.map((d) => d.relative_time));
-      const maxTime = Math.max(...allData.map((d) => d.relative_time));
-      // 假设第一个采集的开始时间为基准
-      const baseTime = new Date(
-        result.versions[0]?.collects[0]?.collect.start_time || Date.now(),
-      );
-      timeRange.value = {
-        start: new Date(baseTime.getTime() + minTime * 1000),
-        end: new Date(baseTime.getTime() + maxTime * 1000),
-      };
-    }
   } catch {
     ElMessage.error('获取对比数据失败');
   } finally {
@@ -209,23 +178,6 @@ async function fetchCompareTags() {
   }
 }
 
-// 添加对比标签
-async function handleAddTag(data: {
-  end_time: string;
-  name: string;
-  note?: string;
-  start_time: string;
-  type: 'peak' | 'stable';
-}) {
-  try {
-    await createCompareTag(data);
-    ElMessage.success('标签添加成功');
-    await fetchCompareTags();
-  } catch {
-    ElMessage.error('添加标签失败');
-  }
-}
-
 // 删除对比标签
 async function handleRemoveTag(tagId: string) {
   try {
@@ -237,29 +189,23 @@ async function handleRemoveTag(tagId: string) {
   }
 }
 
-// 时间范围变化
-function handleTimeRangeChange(range: { end: Date; start: Date }) {
-  timeRange.value = range;
-}
-
-// 悬停数据更新
-function handleHoverChange(data: {
-  time: number;
-  values: Record<string, number>;
+// 添加对比标签
+function handleAddTag(data: {
+  end_time: string;
+  name: string;
+  note?: string;
+  start_time: string;
+  type: 'peak' | 'stable';
 }) {
-  processData.value = compareData.value.versions.map((v, i) => {
-    const collect = v.collects[0];
-    const processData = collect?.data[0]?.target_processes?.[0];
-    const instance = processData?.instances?.[0];
-    return {
-      versionName: v.version.name,
-      versionColor: getVersionColor(i),
-      processName: processData?.name || 'N/A',
-      pid: instance?.pid || 0,
-      currentValue: data.values[v.version.name] || 0,
-      unit: currentMetric.value.includes('memory') ? 'GB' : '%',
-    };
-  });
+  createCompareTag(data)
+    .then(() => {
+      ElMessage.success('标签添加成功');
+      fetchCompareTags();
+    })
+    .catch(() => {
+      ElMessage.error('添加标签失败');
+    });
+  showAddTagDialog.value = false;
 }
 
 // 导出报告
@@ -292,20 +238,36 @@ function handleExport() {
       </div>
     </div>
 
-    <!-- 指标选择器 -->
-    <MetricSelector
-      :current-metric="currentMetric"
-      :metrics="metricOptions"
-      @change="currentMetric = $event"
-    />
+    <!-- 指标选择器和标签区域 -->
+    <div class="metric-bar" v-if="compareData.versions.length > 0">
+      <MetricSelector
+        :current-metric="currentMetric"
+        :metrics="metricOptions"
+        @change="currentMetric = $event"
+      />
+      <!-- 标签列表 -->
+      <div class="tag-area">
+        <ElTag
+          v-for="tag in compareTags"
+          :key="tag.id"
+          :type="tag.type === 'peak' ? 'danger' : 'success'"
+          effect="plain"
+          closable
+          @close="handleRemoveTag(tag.id)"
+        >
+          {{ tag.name }}（{{ tag.type === 'peak' ? '冲高' : '稳态' }}）
+        </ElTag>
+        <ElButton size="small" type="primary" plain @click="showAddTagDialog = true">
+          +标签
+        </ElButton>
+      </div>
+    </div>
 
-    <!-- 时间导航条 -->
-    <CompareTimeNavigator
-      :time-range="timeRange"
-      :tags="compareTags"
-      @time-range-change="handleTimeRangeChange"
-      @add-tag="handleAddTag"
-      @remove-tag="handleRemoveTag"
+    <!-- 添加标签弹窗 -->
+    <AddTagDialog
+      :visible="showAddTagDialog"
+      @update:visible="showAddTagDialog = $event"
+      @submit="handleAddTag"
     />
 
     <!-- 图表区 -->
@@ -314,13 +276,12 @@ function handleExport() {
       :series="chartSeries"
       :tags="compareTags"
       :loading="loadingCompare"
-      @hover-change="handleHoverChange"
+      :current-metric="currentMetric"
     />
 
     <!-- 底部面板 -->
     <div class="bottom-panel" v-if="compareData.versions.length > 0">
       <CompareSummaryTable :summary-data="summaryData" />
-      <VersionProcessPanel :process-data="processData" />
     </div>
 
     <!-- 无数据提示 -->
@@ -357,6 +318,23 @@ function handleExport() {
 .action-buttons {
   display: flex;
   gap: 8px;
+  margin-left: auto;
+}
+
+.metric-bar {
+  background: #fff;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.tag-area {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   margin-left: auto;
 }
 

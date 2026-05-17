@@ -11,10 +11,10 @@ const emit = defineEmits<{
 
 // 固定显示的4个指标
 const mainMetrics = [
-  { key: 'cpu', label: 'CPU' },
-  { key: 'gpu', label: 'GPU' },
-  { key: 'memory', label: '内存' },
-  { key: 'commitMemory', label: '提交内存' },
+  { key: 'cpu_usage', label: 'CPU' },
+  { key: 'gpu_usage', label: 'GPU' },
+  { key: 'memory_usage', label: '内存' },
+  { key: 'commit_memory', label: '提交内存' },
 ];
 
 function handleMetricClick(metric: string) {

@@ -30,6 +30,9 @@ const getMetricClass = (value: number | undefined, metricKey: string, allData: S
 
 const formatValue = (value: number | undefined, unit: string = '%') => {
   if (value === undefined) return '-';
+  if (unit === 'GB') {
+    return `${value.toFixed(2)}${unit}`;
+  }
   return `${value.toFixed(1)}${unit}`;
 };
 </script>

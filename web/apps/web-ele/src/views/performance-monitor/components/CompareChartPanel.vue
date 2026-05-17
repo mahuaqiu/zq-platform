@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import type { ChartSeries } from '../types';
 import type { CompareTag } from '../types';
@@ -8,7 +8,18 @@ const props = defineProps<{
   series: ChartSeries[];
   tags: CompareTag[];
   loading?: boolean;
+  currentMetric?: string; // 当前指标类型
 }>();
+
+// 判断是否是内存类指标
+const isMemoryMetric = computed(() => {
+  return props.currentMetric?.includes('memory') || false;
+});
+
+// 单位
+const unit = computed(() => {
+  return isMemoryMetric.value ? 'GB' : '%';
+});
 
 const emit = defineEmits<{
   (e: 'hover-change', data: { time: number; values: Record<string, number> }): void;
@@ -72,13 +83,30 @@ const initChart = () => {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
+      backgroundColor: '#fff',
+      borderColor: '#eee',
+      borderWidth: 1,
+      padding: [8, 12],
+      textStyle: {
+        color: '#333',
+        fontSize: 12,
+      },
       formatter: (params: any) => {
         if (!Array.isArray(params)) params = [params];
         const time = params[0]?.data?.[0] ?? params[0]?.value?.[0];
-        let result = `时间: ${time}秒<br/>`;
+        let result = `<div style="font-weight:600;margin-bottom:6px;color:#666;">时间: ${time}秒</div>`;
         params.forEach((p: any) => {
           if (p.seriesName) {
-            result += `${p.seriesName}: ${p.data?.[1] ?? p.value?.[1] ?? '-'}<br/>`;
+            const value = p.data?.[1] ?? p.value?.[1] ?? 0;
+            const color = p.color || '#409eff';
+            const formattedValue = isMemoryMetric.value
+              ? value.toFixed(2)
+              : value.toFixed(1);
+            result += `<div style="display:flex;align-items:center;margin:2px 0;">
+              <span style="display:inline-block;width:10px;height:10px;background:${color};border-radius:50%;margin-right:6px;"></span>
+              <span style="color:#333;">${p.seriesName}: </span>
+              <span style="font-weight:500;color:${color};">${formattedValue}${unit.value}</span>
+            </div>`;
           }
         });
         return result;
@@ -87,7 +115,7 @@ const initChart = () => {
     grid: {
       left: 60,
       right: 40,
-      bottom: 80,
+      bottom: 40,
       top: 40,
     },
     xAxis: {
@@ -99,16 +127,6 @@ const initChart = () => {
     yAxis: {
       type: 'value',
     },
-    dataZoom: [
-      {
-        type: 'slider',
-        bottom: 20,
-        height: 20,
-      },
-      {
-        type: 'inside',
-      },
-    ],
     series: seriesData,
   };
 
