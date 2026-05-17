@@ -8,6 +8,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: '版本对比',
       hideInMenu: true,
+      keepAlive: false,
     },
   },
 ];

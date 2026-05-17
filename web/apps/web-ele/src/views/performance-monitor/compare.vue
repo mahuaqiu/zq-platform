@@ -117,8 +117,11 @@ const summaryData = computed<SummaryRow[]>(() => {
 onMounted(async () => {
   await fetchVersions();
 
-  // 如果有 version_ids 参数，自动对比
-  const versionIds = route.query.version_ids as string;
+  // 优先从 sessionStorage 读取（页面切换恢复），其次从 URL 参数读取
+  const storedVersionIds = sessionStorage.getItem('compare_version_ids');
+  const urlVersionIds = route.query.version_ids as string;
+
+  const versionIds = storedVersionIds || urlVersionIds;
   if (versionIds) {
     selectedVersionIds.value = versionIds.split(',');
     await handleCompare();
@@ -150,9 +153,8 @@ async function handleCompare() {
     const result = await getCompareData(selectedVersionIds.value);
     compareData.value = result;
 
-    // 更新 URL 参数（不触发页面跳转）
-    const newUrl = `${route.path}?version_ids=${selectedVersionIds.value.join(',')}`;
-    window.history.replaceState({}, '', newUrl);
+    // 保存对比状态到 sessionStorage，用于页面切换恢复
+    sessionStorage.setItem('compare_version_ids', selectedVersionIds.value.join(','));
 
     // 加载对比标签
     await fetchCompareTags();
