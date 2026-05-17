@@ -168,6 +168,7 @@ class PerformanceVersion(BaseModel):
     - device_id: 设备ID
     - name: 版本名称
     - collect_ids: 包含的采集记录ID列表
+    - time_ranges: 时间范围映射 {collect_id: {start, end}}
     - is_protected: 保护标记
     """
     __tablename__ = "performance_version"
@@ -180,6 +181,9 @@ class PerformanceVersion(BaseModel):
 
     # 包含的采集记录ID列表
     collect_ids = Column(JSON, nullable=False, comment="包含的采集记录ID列表")
+
+    # 时间范围映射: {collect_id: {start: 相对秒数, end: 相对秒数}}
+    time_ranges = Column(JSON, nullable=True, comment="时间范围映射")
 
     # 保护标记
     is_protected = Column(Boolean, nullable=False, default=False, comment="保护标记")

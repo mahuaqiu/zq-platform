@@ -534,20 +534,37 @@ class PerformanceVersionService(BaseService):
 
     @classmethod
     async def get_compare_data(cls, db: AsyncSession, version_ids: List[str]) -> Dict[str, Any]:
-        """获取对比数据"""
+        """获取对比数据（根据版本的时间范围筛选数据）"""
         versions_data = []
         for vid in version_ids:
             version = await db.get(PerformanceVersion, vid)
             if version:
                 collect_ids = version.collect_ids  # 已经是字符串列表
+                time_ranges = version.time_ranges or {}  # 时间范围映射
                 collects = []
                 for cid in collect_ids:
                     collect = await db.get(PerformanceCollect, cid)
                     if collect:
-                        # 获取该采集的所有数据
+                        # 获取该采集的数据，并根据时间范围筛选
                         stmt = select(PerformanceData).where(PerformanceData.collect_id == cid).order_by(PerformanceData.relative_time)
                         result = await db.execute(stmt)
-                        data = result.scalars().all()
+                        all_data = result.scalars().all()
+
+                        # 如果有时间范围，筛选数据
+                        if cid in time_ranges:
+                            range_info = time_ranges[cid]
+                            start_time = range_info.get("start", 0)
+                            end_time = range_info.get("end")
+                            if end_time:
+                                # 筛选时间范围内的数据
+                                data = [d for d in all_data if start_time <= d.relative_time <= end_time]
+                            else:
+                                # 只有开始时间，从开始时间到结束
+                                data = [d for d in all_data if d.relative_time >= start_time]
+                        else:
+                            # 没有时间范围，使用全部数据
+                            data = all_data
+
                         # 获取标签
                         tags = await PerformanceTagService.get_tags(db, cid)
                         collects.append({
@@ -782,10 +799,18 @@ class MarkerService(BaseService):
         db.add(marker)
 
         # 同时创建版本记录（使用标记名称作为版本名称）
+        # 构造 time_ranges: {collect_id: {start: start_time, end: end_time}}
+        time_ranges = {
+            request.collect_id: {
+                "start": request.start_time,
+                "end": request.end_time if request.end_time else request.start_time
+            }
+        }
         version = PerformanceVersion(
             device_id=collect.device_id,
             name=request.name,
             collect_ids=[request.collect_id],
+            time_ranges=time_ranges,
             is_protected=False
         )
         db.add(version)

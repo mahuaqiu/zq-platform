@@ -93,6 +93,7 @@ export interface PerformanceVersion {
   sys_create_datetime?: string;
   start_time?: string;
   end_time?: string;
+  time_ranges?: Record<string, { start: number; end: number }>;
 }
 
 // 对比标签类型（跨版本共享）

@@ -36,7 +36,7 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
 
 <template>
   <div class="compare-summary-table">
-    <div class="title">数据摘要（标签区间统计）</div>
+    <div class="title">数据摘要（全局峰值统计）</div>
     <ElTable :data="summaryData" border stripe>
       <ElTableColumn prop="version_name" label="版本" width="120">
         <template #default="{ row }">

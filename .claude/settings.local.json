@@ -161,7 +161,8 @@
       "PowerShell(Stop-Process *)",
       "Bash(Get-ChildItem -Path \"D:\\\\code\\\\zq-platform\\\\backend-fastapi\" -Filter \"*.log\" -Recurse)",
       "Bash(Sort-Object LastWriteTime -Descending)",
-      "Bash(Select-Object -First 5 FullName, LastWriteTime)"
+      "Bash(Select-Object -First 5 FullName, LastWriteTime)",
+      "Skill(brainstorming)"
     ]
   }
 }

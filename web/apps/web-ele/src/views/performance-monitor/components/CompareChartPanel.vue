@@ -21,14 +21,22 @@ const initChart = () => {
   if (!chartRef.value) return;
   chart = echarts.init(chartRef.value);
 
-  // Build markArea data from tags
+  // Build markArea data from tags (using relative time as value)
   const peakAreas = props.tags
     .filter(t => t.type === 'peak')
-    .map(t => [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: string }>);
+    .map(t => {
+      const start = new Date(t.start_time).getTime();
+      const end = new Date(t.end_time).getTime();
+      return [{ xAxis: start }, { xAxis: end }] as Array<{ xAxis: number }>;
+    });
 
   const stableAreas = props.tags
     .filter(t => t.type === 'stable')
-    .map(t => [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: string }>);
+    .map(t => {
+      const start = new Date(t.start_time).getTime();
+      const end = new Date(t.end_time).getTime();
+      return [{ xAxis: start }, { xAxis: end }] as Array<{ xAxis: number }>;
+    });
 
   const seriesData = props.series.map((s, index) => ({
     name: s.name,
@@ -64,6 +72,17 @@ const initChart = () => {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
+      formatter: (params: any) => {
+        if (!Array.isArray(params)) params = [params];
+        const time = params[0]?.data?.[0] ?? params[0]?.value?.[0];
+        let result = `时间: ${time}秒<br/>`;
+        params.forEach((p: any) => {
+          if (p.seriesName) {
+            result += `${p.seriesName}: ${p.data?.[1] ?? p.value?.[1] ?? '-'}<br/>`;
+          }
+        });
+        return result;
+      },
     },
     grid: {
       left: 60,
@@ -72,7 +91,10 @@ const initChart = () => {
       top: 40,
     },
     xAxis: {
-      type: 'time',
+      type: 'value',
+      name: '相对时间(秒)',
+      nameLocation: 'middle',
+      nameGap: 30,
     },
     yAxis: {
       type: 'value',
