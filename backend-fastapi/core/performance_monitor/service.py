@@ -1211,15 +1211,15 @@ class ExportReportService:
                 }
 
                 if metric == "cpu_usage":
-                    peak_row["系统CPU峰值(%)"] = max((d.cpu_usage or 0) for d in peak_data) if peak_data else 0
+                    peak_row["系统CPU峰值(%)"] = max((float(d.cpu_usage or 0)) for d in peak_data) if peak_data else 0
                     peak_row["进程CPU峰值(%)"] = cls._calc_process_peak(peak_data, "cpu_usage")
                 elif metric == "gpu_usage":
-                    peak_row["系统GPU峰值(%)"] = max((d.gpu_usage or 0) for d in peak_data) if peak_data else 0
+                    peak_row["系统GPU峰值(%)"] = max((float(d.gpu_usage or 0)) for d in peak_data) if peak_data else 0
                     peak_row["进程GPU峰值(%)"] = cls._calc_process_peak(peak_data, "gpu_usage")
                 elif metric == "memory_usage":
-                    peak_row["内存峰值(GB)"] = max((d.memory_usage or 0) for d in peak_data) if peak_data else 0
+                    peak_row["内存峰值(GB)"] = max((float(d.memory_usage or 0)) for d in peak_data) if peak_data else 0
                 elif metric == "commit_memory":
-                    peak_row["提交内存峰值(GB)"] = max((d.commit_memory or 0) for d in peak_data) if peak_data else 0
+                    peak_row["提交内存峰值(GB)"] = max((float(d.commit_memory or 0)) for d in peak_data) if peak_data else 0
 
                 peak_range.append(peak_row)
 
@@ -1241,15 +1241,15 @@ class ExportReportService:
                 }
 
                 if metric == "cpu_usage":
-                    steady_row["系统CPU峰值(%)"] = sum((d.cpu_usage or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["系统CPU峰值(%)"] = sum((float(d.cpu_usage or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
                     steady_row["进程CPU峰值(%)"] = cls._calc_process_mean(steady_data, "cpu_usage")
                 elif metric == "gpu_usage":
-                    steady_row["系统GPU峰值(%)"] = sum((d.gpu_usage or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["系统GPU峰值(%)"] = sum((float(d.gpu_usage or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
                     steady_row["进程GPU峰值(%)"] = cls._calc_process_mean(steady_data, "gpu_usage")
                 elif metric == "memory_usage":
-                    steady_row["内存峰值(GB)"] = sum((d.memory_usage or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["内存峰值(GB)"] = sum((float(d.memory_usage or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
                 elif metric == "commit_memory":
-                    steady_row["提交内存峰值(GB)"] = sum((d.commit_memory or 0) for d in steady_data) / len(steady_data) if steady_data else 0
+                    steady_row["提交内存峰值(GB)"] = sum((float(d.commit_memory or 0)) for d in steady_data) / len(steady_data) if steady_data else 0
 
                 steady_range.append(steady_row)
 
@@ -1270,7 +1270,7 @@ class ExportReportService:
         for d in data:
             processes = d.target_processes or []  # DataResponse 是 Pydantic 对象
             total = sum(
-                p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0)
+                float(p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0) or 0)
                 for p in processes
             )
             peaks.append(total)
@@ -1285,7 +1285,7 @@ class ExportReportService:
         for d in data:
             processes = d.target_processes or []  # DataResponse 是 Pydantic 对象
             total = sum(
-                p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0)
+                float(p.get("total_cpu" if metric_type == "cpu_usage" else "total_gpu", 0) or 0)
                 for p in processes
             )
             totals.append(total)
@@ -1320,7 +1320,7 @@ class ExportReportService:
                     for d in c.get("data", []):
                         rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        value = getattr(d, metric, None) or 0
+                        value = float(getattr(d, metric, None) or 0)
                         system_data.append([rel_time, abs_time, value])
 
                     detail_data[f"{version_name}-系统{metric.split('_')[0].upper()}详情"] = DetailData(
@@ -1337,7 +1337,7 @@ class ExportReportService:
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
                         processes = d.target_processes or []  # target_processes 是字典列表
                         total = sum(
-                            p.get("total_cpu" if metric == "cpu_usage" else "total_gpu", 0)
+                            float(p.get("total_cpu" if metric == "cpu_usage" else "total_gpu", 0) or 0)
                             for p in processes
                         )
                         process_data.append([rel_time, abs_time, total])
@@ -1356,7 +1356,7 @@ class ExportReportService:
                     for d in c.get("data", []):
                         rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
                         abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
-                        value = getattr(d, metric, None) or 0
+                        value = float(getattr(d, metric, None) or 0)
                         data_rows.append([rel_time, abs_time, value])
 
                     detail_data[f"{version_name}-{label}详情"] = DetailData(
@@ -1384,7 +1384,7 @@ class ExportReportService:
                             else:
                                 value = value_info
                             if value is not None:
-                                data_rows.append([rel_time, abs_time, value])
+                                data_rows.append([rel_time, abs_time, float(value)])
 
                     detail_data[f"{version_name}-{hwinfo_key}详情"] = DetailData(
                         sheet_name=f"{version_name}-{hwinfo_key}详情",
