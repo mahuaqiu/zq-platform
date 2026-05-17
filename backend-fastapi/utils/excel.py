@@ -49,6 +49,13 @@ class ExcelHandler:
             version_name = version_name[:max_version_len]
         return f"{version_name}-{suffix}" if suffix else version_name
 
+    @staticmethod
+    def _format_value(value):
+        """格式化数值：浮点数保留2位小数"""
+        if isinstance(value, float):
+            return round(value, 2)
+        return value
+
     @classmethod
     def _write_table(cls, ws, start_row: int, title: str, data: List[Dict], columns: List[str]):
         """写入一个表格（带标题行和数据行）"""
@@ -68,7 +75,7 @@ class ExcelHandler:
         # 数据行
         for row_idx, row_data in enumerate(data, header_row + 1):
             for col_idx, col_name in enumerate(columns, 1):
-                value = row_data.get(col_name, "")
+                value = cls._format_value(row_data.get(col_name, ""))
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
                 cell.border = cls.THIN_BORDER
                 cell.alignment = Alignment(vertical="center")
@@ -135,6 +142,7 @@ class ExcelHandler:
         # 数据行
         for row_idx, row_data in enumerate(detail_data.data, 2):
             for col_idx, value in enumerate(row_data, 1):
+                value = cls._format_value(value)
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
                 cell.border = cls.THIN_BORDER
 
@@ -203,7 +211,7 @@ class ExcelHandler:
         # 写入数据
         for row_idx, row_data in enumerate(data, 2):
             for col_idx, field in enumerate(field_names, 1):
-                value = row_data.get(field, "")
+                value = cls._format_value(row_data.get(field, ""))
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
                 cell.border = cls.THIN_BORDER
                 cell.alignment = Alignment(vertical="center")
