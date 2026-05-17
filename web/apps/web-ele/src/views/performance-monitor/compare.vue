@@ -269,27 +269,68 @@ const firstCollectId = computed(() => {
   return firstVersion.collects[0].collect.id || '';
 });
 
-// 数据摘要
+// 数据摘要（根据标签区间计算）
 const summaryData = computed<SummaryRow[]>(() => {
+  // 获取冲高和稳态标签
+  const peakTag = compareTags.value.find(t => t.type === 'peak');
+  const stableTag = compareTags.value.find(t => t.type === 'stable');
+
   return compareData.value.versions.map((v, i) => {
     const allData = v.collects.flatMap((c) => c.data);
+
+    // 辅助函数：获取区间内的数据
+    const getIntervalData = (startTime: number, endTime: number) => {
+      return allData.filter(d => d.relative_time >= startTime && d.relative_time <= endTime);
+    };
+
+    // 辅助函数：计算区间内系统指标的最大值
+    const getIntervalPeak = (data: PerformanceData[], field: keyof PerformanceData) => {
+      if (data.length === 0) return 0;
+      return Math.max(...data.map(d => (d[field] as number) || 0));
+    };
+
+    // 辅助函数：计算区间内进程指标的最大值
+    const getIntervalProcessPeak = (data: PerformanceData[], field: 'total_cpu' | 'total_gpu') => {
+      if (data.length === 0) return 0;
+      return Math.max(...data.map(d => d.target_processes?.reduce((s, p) => s + (p[field] || 0), 0) || 0));
+    };
+
+    // 辅助函数：计算区间内系统指标的平均值
+    const getIntervalMean = (data: PerformanceData[], field: keyof PerformanceData) => {
+      if (data.length === 0) return 0;
+      const values = data.map(d => (d[field] as number) || 0);
+      return values.reduce((a, b) => a + b, 0) / values.length;
+    };
+
+    // 辅助函数：计算区间内进程指标的平均值
+    const getIntervalProcessMean = (data: PerformanceData[], field: 'total_cpu' | 'total_gpu') => {
+      if (data.length === 0) return 0;
+      const values = data.map(d => d.target_processes?.reduce((s, p) => s + (p[field] || 0), 0) || 0);
+      return values.reduce((a, b) => a + b, 0) / values.length;
+    };
+
+    // 冲高区间数据
+    const peakData = peakTag ? getIntervalData(peakTag.start_time, peakTag.end_time) : [];
+    // 稳态区间数据
+    const stableData = stableTag ? getIntervalData(stableTag.start_time, stableTag.end_time) : [];
+
     return {
       version_name: v.version.name,
       color: getVersionColor(i),
-      peak_cpu: Math.max(...allData.map((d) => d.cpu_usage || 0)),
-      peak_process_cpu: Math.max(
-        ...allData.map(
-          (d) => d.target_processes?.reduce((s, p) => s + p.total_cpu, 0) || 0,
-        ),
-      ),
-      peak_gpu: Math.max(...allData.map((d) => d.gpu_usage || 0)),
-      peak_process_gpu: Math.max(
-        ...allData.map(
-          (d) => d.target_processes?.reduce((s, p) => s + (p.total_gpu || 0), 0) || 0,
-        ),
-      ),
-      peak_commit_memory: Math.max(...allData.map((d) => d.commit_memory || 0)),
-      peak_memory_usage: Math.max(...allData.map((d) => d.memory_usage || 0)),
+      // 冲高区间最高值
+      peak_cpu: peakTag ? getIntervalPeak(peakData, 'cpu_usage') : undefined,
+      peak_process_cpu: peakTag ? getIntervalProcessPeak(peakData, 'total_cpu') : undefined,
+      peak_gpu: peakTag ? getIntervalPeak(peakData, 'gpu_usage') : undefined,
+      peak_process_gpu: peakTag ? getIntervalProcessPeak(peakData, 'total_gpu') : undefined,
+      peak_memory_usage: peakTag ? getIntervalPeak(peakData, 'memory_usage') : undefined,
+      peak_commit_memory: peakTag ? getIntervalPeak(peakData, 'commit_memory') : undefined,
+      // 稳态区间平均值
+      mean_cpu: stableTag ? getIntervalMean(stableData, 'cpu_usage') : undefined,
+      mean_process_cpu: stableTag ? getIntervalProcessMean(stableData, 'total_cpu') : undefined,
+      mean_gpu: stableTag ? getIntervalMean(stableData, 'gpu_usage') : undefined,
+      mean_process_gpu: stableTag ? getIntervalProcessMean(stableData, 'total_gpu') : undefined,
+      mean_memory_usage: stableTag ? getIntervalMean(stableData, 'memory_usage') : undefined,
+      mean_commit_memory: stableTag ? getIntervalMean(stableData, 'commit_memory') : undefined,
     };
   });
 });
