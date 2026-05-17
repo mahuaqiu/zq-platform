@@ -1151,7 +1151,7 @@ class ExportReportService:
         elif metric == "hwinfo":
             # 获取 HWiNFO 单位
             if compare_data.get("versions") and compare_data["versions"][0].get("collects"):
-                first_collect_id = compare_data["versions"][0]["collects"][0]["collect"]["id"]
+                first_collect_id = compare_data["versions"][0]["collects"][0]["collect"].id  # CollectResponse 是 Pydantic 对象
                 unit = await cls._get_hwinfo_unit(db, first_collect_id, hwinfo_key)
             else:
                 unit = ""
@@ -1170,11 +1170,11 @@ class ExportReportService:
             end_time = None
 
             for c in v.get("collects", []):
-                collect_start = c["collect"]["start_time"]
+                collect_start = c["collect"].start_time  # CollectResponse 是 Pydantic 对象
                 if start_time is None or collect_start < start_time:
                     start_time = collect_start
-                if c["collect"]["end_time"]:
-                    collect_end = c["collect"]["end_time"]
+                if c["collect"].end_time:
+                    collect_end = c["collect"].end_time
                     if end_time is None or collect_end > end_time:
                         end_time = collect_end
 
@@ -1309,8 +1309,8 @@ class ExportReportService:
             version_name = v["version"].name  # version 是 ORM 对象
 
             for c in v.get("collects", []):
-                collect_start = c["collect"]["start_time"]
-                collect_id = c["collect"]["id"]
+                collect_start = c["collect"].start_time  # CollectResponse 是 Pydantic 对象
+                collect_id = c["collect"].id
 
                 # CPU/GPU 需要系统页和进程页
                 if metric in ["cpu_usage", "gpu_usage"]:
