@@ -74,6 +74,8 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     r"^/api/core/test-report/upload$",   # 上传测试报告 HTML
     # 性能监控上报接口（供外部 worker 调用，无需认证）
     r"^/api/core/performance-monitor/report$",  # 上报性能数据
+    # 导出报告下载接口（通过任务ID验证，无需Token认证）
+    r"^/api/core/performance-monitor/version/export/download/.*$",
 ]
 
 # 允许使用Query参数传递Token的API路径模式（出于安全考虑，仅限特定接口）
