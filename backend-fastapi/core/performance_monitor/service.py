@@ -1029,6 +1029,76 @@ class ExportTaskService(BaseService):
             cutoff_tasks = datetime.utcnow() - timedelta(days=7)
             await cls.delete_old_tasks(db, cutoff_tasks)
 
+    @classmethod
+    async def process_export_task(cls, task_id: str):
+        """后台任务执行（带超时检查）"""
+        from app.database import async_session_maker
+
+        start_time = time.time()
+
+        async with async_session_maker() as db:
+            try:
+                await cls.update_progress(db, task_id, 0, "开始处理...")
+
+                # 1. 解析参数
+                task = await db.get(ExportTask, task_id)
+                if not task:
+                    return
+
+                params = ExportTaskCreate.model_validate(task.params)
+                version_ids = params.version_ids.split(",")
+
+                # 超时检查
+                if time.time() - start_time > EXPORT_TASK_TIMEOUT:
+                    await cls.update_status(db, task_id, "failed", "导出超时")
+                    return
+
+                # 2. 获取对比数据（字典格式）
+                await cls.update_progress(db, task_id, 10, "获取版本数据...")
+                compare_data = await PerformanceVersionService.get_compare_data(db, version_ids)
+
+                # 3. 获取对比标签（ORM 对象列表）
+                compare_tags = await CompareTagService.get_tags(db)
+                peak_tag = next((t for t in compare_tags if t.type == 'peak'), None)
+                stable_tag = next((t for t in compare_tags if t.type == 'stable'), None)
+
+                if time.time() - start_time > EXPORT_TASK_TIMEOUT:
+                    await cls.update_status(db, task_id, "failed", "导出超时")
+                    return
+
+                # 4. 组织摘要数据
+                await cls.update_progress(db, task_id, 30, "计算摘要数据...")
+                summary_data = await ExportReportService.get_summary_data(
+                    db, compare_data, peak_tag, stable_tag, params.metric, params.hwinfo_key
+                )
+
+                if time.time() - start_time > EXPORT_TASK_TIMEOUT:
+                    await cls.update_status(db, task_id, "failed", "导出超时")
+                    return
+
+                # 5. 组织详细数据
+                await cls.update_progress(db, task_id, 50, "组织详细数据...")
+                detail_data = await ExportReportService.get_detail_data(
+                    db, compare_data, params.metric, params.hwinfo_key
+                )
+
+                if time.time() - start_time > EXPORT_TASK_TIMEOUT:
+                    await cls.update_status(db, task_id, "failed", "导出超时")
+                    return
+
+                # 6. 生成 Excel 文件
+                await cls.update_progress(db, task_id, 70, "生成Excel文件...")
+                file_path = ExcelHandler.create_compare_excel(
+                    summary_data, detail_data, params.metric, params.hwinfo_key
+                )
+
+                # 7. 完成
+                await cls.update_status(db, task_id, "completed", "导出完成", file_path)
+
+            except Exception as e:
+                logger.error(f"导出任务执行失败: {e}")
+                await cls.update_status(db, task_id, "failed", str(e))
+
 
 class ExportReportService:
     """导出报告数据组织服务"""
