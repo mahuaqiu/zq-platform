@@ -111,6 +111,17 @@ function formatTimeRange(): string {
   return `${startTimeStr} ~ ${endTimeStr}`;
 }
 
+// 格式化标记的时间区间tooltip
+function getMarkerTooltip(marker: MarkerResponse): string {
+  const startTimeStr = formatTime(marker.start_time);
+  const endTimeStr = marker.end_time ? formatTime(marker.end_time, true) : '无结束时间';
+  const duration = marker.end_time
+    ? `${marker.end_time - marker.start_time}秒`
+    : '未结束';
+  const note = marker.note ? `\n备注: ${marker.note}` : '';
+  return `${marker.name}\n开始: ${startTimeStr}\n结束: ${endTimeStr}\n时长: ${duration}${note}`;
+}
+
 // 计算时间标签位置百分比
 function getStartPercent(): number {
   if (props.duration <= 0) return 0;
@@ -401,6 +412,7 @@ onUnmounted(() => {
             color: marker.color,
             background: marker.color + '15',
           }"
+          :title="getMarkerTooltip(marker)"
         >
           {{ marker.name }}
           <button class="marker-delete" @click="handleDeleteMarker(marker.id, marker.name)">×</button>
