@@ -32,21 +32,17 @@ const initChart = () => {
   if (!chartRef.value) return;
   chart = echarts.init(chartRef.value);
 
-  // Build markArea data from tags (using relative time as value)
+  // Build markArea data from tags (using relative seconds directly)
   const peakAreas = props.tags
     .filter(t => t.type === 'peak')
     .map(t => {
-      const start = new Date(t.start_time).getTime();
-      const end = new Date(t.end_time).getTime();
-      return [{ xAxis: start }, { xAxis: end }] as Array<{ xAxis: number }>;
+      return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: number }>;
     });
 
   const stableAreas = props.tags
     .filter(t => t.type === 'stable')
     .map(t => {
-      const start = new Date(t.start_time).getTime();
-      const end = new Date(t.end_time).getTime();
-      return [{ xAxis: start }, { xAxis: end }] as Array<{ xAxis: number }>;
+      return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: number }>;
     });
 
   const seriesData = props.series.map((s, index) => ({

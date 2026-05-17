@@ -96,13 +96,13 @@ export interface PerformanceVersion {
   time_ranges?: Record<string, { start: number; end: number }>;
 }
 
-// 对比标签类型（跨版本共享）
+// 对比标签类型（跨版本共享，使用相对时间）
 export interface CompareTag {
   id: string;
   name: string;
   type: 'peak' | 'stable'; // 冲高 / 稳态
-  start_time: string; // ISO 格式绝对时间
-  end_time: string;
+  start_time: number; // 相对时间（秒）
+  end_time: number; // 相对时间（秒）
   note?: string;
   type_display?: string;
 }
@@ -421,8 +421,8 @@ export function queryAdvancedMetrics(data: AdvancedMetricsQuery) {
 export interface CompareTagCreate {
   name: string;
   type: 'peak' | 'stable';
-  start_time: string;
-  end_time: string;
+  start_time: number; // 相对时间（秒）
+  end_time: number; // 相对时间（秒）
   note?: string;
 }
 

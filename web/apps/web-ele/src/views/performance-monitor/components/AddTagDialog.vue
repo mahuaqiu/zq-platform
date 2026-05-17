@@ -1,37 +1,34 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElDatePicker, ElButton, ElMessage } from 'element-plus';
+import { ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElButton, ElMessage } from 'element-plus';
 
 defineProps<{
   visible: boolean;
+  maxTime?: number; // 最大时间（秒），用于限制输入范围
 }>();
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
-  (e: 'submit', data: { name: string; type: 'peak' | 'stable'; start_time: string; end_time: string; note?: string }): void;
+  (e: 'submit', data: { name: string; type: 'peak' | 'stable'; start_time: number; end_time: number; note?: string }): void;
 }>();
 
 const form = ref({
   name: '',
   type: 'peak' as 'peak' | 'stable',
-  start_time: '',
-  end_time: '',
+  start_time: 0,
+  end_time: 60,
   note: '',
 });
 
 const handleClose = () => {
   emit('update:visible', false);
   // 重置表单
-  form.value = { name: '', type: 'peak', start_time: '', end_time: '', note: '' };
+  form.value = { name: '', type: 'peak', start_time: 0, end_time: 60, note: '' };
 };
 
 const handleSubmit = () => {
   if (!form.value.name.trim()) {
     ElMessage.warning('请输入标签名称');
-    return;
-  }
-  if (!form.value.start_time || !form.value.end_time) {
-    ElMessage.warning('请选择时间范围');
     return;
   }
   if (form.value.start_time >= form.value.end_time) {
@@ -72,22 +69,24 @@ const handleSubmit = () => {
         </ElSelect>
       </ElFormItem>
       <ElFormItem label="开始时间">
-        <ElDatePicker
+        <ElInputNumber
           v-model="form.start_time"
-          type="datetime"
-          placeholder="选择开始时间"
-          format="YYYY-MM-DD HH:mm:ss"
-          value-format="YYYY-MM-DDTHH:mm:ssZ"
+          :min="0"
+          :max="maxTime || 99999"
+          :step="1"
+          placeholder="相对秒数"
         />
+        <span style="margin-left: 8px; color: #999; font-size: 12px;">秒</span>
       </ElFormItem>
       <ElFormItem label="结束时间">
-        <ElDatePicker
+        <ElInputNumber
           v-model="form.end_time"
-          type="datetime"
-          placeholder="选择结束时间"
-          format="YYYY-MM-DD HH:mm:ss"
-          value-format="YYYY-MM-DDTHH:mm:ssZ"
+          :min="0"
+          :max="maxTime || 99999"
+          :step="1"
+          placeholder="相对秒数"
         />
+        <span style="margin-left: 8px; color: #999; font-size: 12px;">秒</span>
       </ElFormItem>
       <ElFormItem label="备注">
         <ElInput
@@ -104,5 +103,5 @@ const handleSubmit = () => {
 </template>
 
 <style scoped>
-/* 统一弹窗样式，与性能监控标记弹窗保持一致 */
+/* 统一弹窗样式 */
 </style>

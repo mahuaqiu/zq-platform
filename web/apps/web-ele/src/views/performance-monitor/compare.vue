@@ -193,10 +193,10 @@ async function handleRemoveTag(tagId: string) {
 
 // 添加对比标签
 function handleAddTag(data: {
-  end_time: string;
+  end_time: number;
   name: string;
   note?: string;
-  start_time: string;
+  start_time: number;
   type: 'peak' | 'stable';
 }) {
   createCompareTag(data)
@@ -209,6 +209,13 @@ function handleAddTag(data: {
     });
   showAddTagDialog.value = false;
 }
+
+// 计算图表数据的最大时间（用于限制标签输入范围）
+const maxChartTime = computed(() => {
+  if (chartSeries.value.length === 0) return 0;
+  const allTimes = chartSeries.value.flatMap(s => s.data.map(d => d.time));
+  return Math.max(...allTimes);
+});
 
 // 导出报告
 function handleExport() {
@@ -257,7 +264,7 @@ function handleExport() {
           closable
           @close="handleRemoveTag(tag.id)"
         >
-          {{ tag.name }}（{{ tag.type === 'peak' ? '冲高' : '稳态' }}）
+          {{ tag.name }}（{{ tag.type === 'peak' ? '冲高' : '稳态' }}: {{ tag.start_time }}s-{{ tag.end_time }}s）
         </ElTag>
         <ElButton size="small" type="primary" plain @click="showAddTagDialog = true">
           +标签
@@ -268,6 +275,7 @@ function handleExport() {
     <!-- 添加标签弹窗 -->
     <AddTagDialog
       :visible="showAddTagDialog"
+      :max-time="maxChartTime"
       @update:visible="showAddTagDialog = $event"
       @submit="handleAddTag"
     />
