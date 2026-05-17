@@ -24,6 +24,35 @@ SKIP_PATHS = [
     "/",
 ]
 
+# 数组截断阈值
+ARRAY_TRUNCATE_LIMIT = 3  # 数组只显示前3条
+MAX_LOG_LENGTH = 3000  # 日志最大长度
+
+
+def truncate_large_data(obj, depth=0):
+    """截断大型数据结构，用于日志打印"""
+    if depth > 5:  # 防止递归过深
+        return str(obj)[:100]
+
+    if isinstance(obj, dict):
+        result = {}
+        for k, v in obj.items():
+            if isinstance(v, list) and len(v) > ARRAY_TRUNCATE_LIMIT:
+                # 截断大型数组
+                truncated = v[:ARRAY_TRUNCATE_LIMIT]
+                result[k] = truncated + [f"...({len(v)} items total)"]
+            elif isinstance(v, dict):
+                result[k] = truncate_large_data(v, depth + 1)
+            else:
+                result[k] = v
+        return result
+    elif isinstance(obj, list) and len(obj) > ARRAY_TRUNCATE_LIMIT:
+        # 截断顶级数组
+        truncated = obj[:ARRAY_TRUNCATE_LIMIT]
+        return truncated + [f"...({len(obj)} items total)"]
+    else:
+        return obj
+
 
 class RequestLogMiddleware(BaseHTTPMiddleware):
     """HTTP 请求日志中间件"""
@@ -89,10 +118,11 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
             try:
                 body_str = body.decode("utf-8")
                 parsed = json.loads(body_str)
-                # 如果内容太长，截断显示
-                result = json.dumps(parsed, ensure_ascii=False)
-                if len(result) > 3000:
-                    return f"{result[:3000]}..."
+                # 截断大型数据
+                truncated = truncate_large_data(parsed)
+                result = json.dumps(truncated, ensure_ascii=False)
+                if len(result) > MAX_LOG_LENGTH:
+                    return f"{result[:MAX_LOG_LENGTH]}..."
                 return result
             except (json.JSONDecodeError, UnicodeDecodeError):
                 return f"<binary:{len(body)}B>"
@@ -123,9 +153,11 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
             try:
                 body_str = body.decode("utf-8")
                 parsed = json.loads(body_str)
-                result = json.dumps(parsed, ensure_ascii=False)
-                if len(result) > 3000:
-                    return f"{result[:3000]}..."
+                # 截断大型数据（如 data 数组）
+                truncated = truncate_large_data(parsed)
+                result = json.dumps(truncated, ensure_ascii=False)
+                if len(result) > MAX_LOG_LENGTH:
+                    return f"{result[:MAX_LOG_LENGTH]}..."
                 return result
             except (json.JSONDecodeError, UnicodeDecodeError):
                 return f"<binary:{len(body)}B>"
