@@ -1365,10 +1365,12 @@ class ExportReportService:
                 collect_start = c["collect"].start_time  # CollectResponse 是 Pydantic 对象
                 collect_id = c["collect"].id
 
-                # CPU/GPU 需要系统页和进程页
+                # CPU/GPU 需要系统页、进程汇总页和进程PID明细页
                 if metric in ["cpu_usage", "gpu_usage"]:
+                    metric_label = metric.split('_')[0].upper()
+
                     # 系统详细页
-                    system_columns = ["相对时间(秒)", "绝对时间", f"系统{metric.split('_')[0].upper()}使用率(%)"]
+                    system_columns = ["相对时间(秒)", "绝对时间", f"系统{metric_label}使用率(%)"]
                     system_data = []
                     for d in c.get("data", []):
                         rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
@@ -1376,14 +1378,14 @@ class ExportReportService:
                         value = float(getattr(d, metric, None) or 0)
                         system_data.append([rel_time, abs_time, value])
 
-                    detail_data[f"{version_name}-系统{metric.split('_')[0].upper()}详情"] = DetailData(
-                        sheet_name=f"{version_name}-系统{metric.split('_')[0].upper()}详情",
+                    detail_data[f"{version_name}-系统{metric_label}详情"] = DetailData(
+                        sheet_name=f"{version_name}-系统{metric_label}详情",
                         columns=system_columns,
                         data=system_data
                     )
 
-                    # 进程详细页
-                    process_columns = ["相对时间(秒)", "绝对时间", f"进程{metric.split('_')[0].upper()}使用率(%)"]
+                    # 进程汇总详细页
+                    process_columns = ["相对时间(秒)", "绝对时间", f"进程{metric_label}使用率(%)"]
                     process_data = []
                     for d in c.get("data", []):
                         rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
@@ -1395,16 +1397,40 @@ class ExportReportService:
                         )
                         process_data.append([rel_time, abs_time, total])
 
-                    detail_data[f"{version_name}-进程{metric.split('_')[0].upper()}详情"] = DetailData(
-                        sheet_name=f"{version_name}-进程{metric.split('_')[0].upper()}详情",
+                    detail_data[f"{version_name}-进程{metric_label}详情"] = DetailData(
+                        sheet_name=f"{version_name}-进程{metric_label}详情",
                         columns=process_columns,
                         data=process_data
                     )
 
-                # 内存/提交内存只需一个页
+                    # 进程PID明细页（每个时间点展开为多行，每行一个PID）
+                    pid_columns = ["相对时间(秒)", "绝对时间", "进程名", "PID", f"{metric_label}使用率(%)"]
+                    pid_data = []
+                    for d in c.get("data", []):
+                        rel_time = d.relative_time
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        processes = d.target_processes or []
+                        for proc in processes:
+                            proc_name = proc.get("name", "")
+                            instances = proc.get("instances", [])
+                            for inst in instances:
+                                pid = inst.get("pid", 0)
+                                value = float(inst.get("cpu" if metric == "cpu_usage" else "gpu", 0) or 0)
+                                pid_data.append([rel_time, abs_time, proc_name, pid, value])
+
+                    detail_data[f"{version_name}-进程PID明细"] = DetailData(
+                        sheet_name=f"{version_name}-进程PID明细",
+                        columns=pid_columns,
+                        data=pid_data
+                    )
+
+                # 内存/提交内存需要详情页和进程PID明细页
                 elif metric in ["memory_usage", "commit_memory"]:
                     label = "内存" if metric == "memory_usage" else "提交内存"
-                    columns = ["相对时间(秒)", "绝对时间", f"{label}(GB)"]
+                    unit = "GB"
+
+                    # 详情页
+                    columns = ["相对时间(秒)", "绝对时间", f"{label}({unit})"]
                     data_rows = []
                     for d in c.get("data", []):
                         rel_time = d.relative_time  # DataResponse 是 Pydantic 对象
@@ -1418,8 +1444,31 @@ class ExportReportService:
                         data=data_rows
                     )
 
-                # 进程句柄数只需一个页
+                    # 进程PID明细页（物理内存或虚拟内存）
+                    pid_columns = ["相对时间(秒)", "绝对时间", "进程名", "PID", f"{label}(MB)"]
+                    pid_data = []
+                    value_key = "memory" if metric == "memory_usage" else "committed_memory"
+                    for d in c.get("data", []):
+                        rel_time = d.relative_time
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        processes = d.target_processes or []
+                        for proc in processes:
+                            proc_name = proc.get("name", "")
+                            instances = proc.get("instances", [])
+                            for inst in instances:
+                                pid = inst.get("pid", 0)
+                                value = float(inst.get(value_key, 0) or 0)
+                                pid_data.append([rel_time, abs_time, proc_name, pid, value])
+
+                    detail_data[f"{version_name}-进程PID明细"] = DetailData(
+                        sheet_name=f"{version_name}-进程PID明细",
+                        columns=pid_columns,
+                        data=pid_data
+                    )
+
+                # 进程句柄数需要详情页和进程PID明细页
                 elif metric == "process_handles":
+                    # 详情页
                     columns = ["相对时间(秒)", "绝对时间", "进程句柄数(个)"]
                     data_rows = []
                     for d in c.get("data", []):
@@ -1434,10 +1483,32 @@ class ExportReportService:
                         data=data_rows
                     )
 
+                    # 进程PID明细页（每个进程的句柄数）
+                    pid_columns = ["相对时间(秒)", "绝对时间", "进程名", "PID", "句柄数(个)"]
+                    pid_data = []
+                    for d in c.get("data", []):
+                        rel_time = d.relative_time
+                        abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                        processes = d.target_processes or []
+                        for proc in processes:
+                            proc_name = proc.get("name", "")
+                            instances = proc.get("instances", [])
+                            for inst in instances:
+                                pid = inst.get("pid", 0)
+                                value = int(inst.get("handles", 0) or 0)
+                                pid_data.append([rel_time, abs_time, proc_name, pid, value])
+
+                    detail_data[f"{version_name}-进程PID明细"] = DetailData(
+                        sheet_name=f"{version_name}-进程PID明细",
+                        columns=pid_columns,
+                        data=pid_data
+                    )
+
                 # HWiNFO 需单独查询（特殊处理 process_handles）
                 elif metric == "hwinfo" and hwinfo_key:
                     # process_handles 是数据库字段，不是 HWiNFO 数据
                     if hwinfo_key == "process_handles":
+                        # 详情页
                         columns = ["相对时间(秒)", "绝对时间", "进程句柄数(个)"]
                         data_rows = []
                         for d in c.get("data", []):
@@ -1450,6 +1521,27 @@ class ExportReportService:
                             sheet_name=f"{version_name}-进程句柄详情",
                             columns=columns,
                             data=data_rows
+                        )
+
+                        # 进程PID明细页（每个进程的句柄数）
+                        pid_columns = ["相对时间(秒)", "绝对时间", "进程名", "PID", "句柄数(个)"]
+                        pid_data = []
+                        for d in c.get("data", []):
+                            rel_time = d.relative_time
+                            abs_time = (collect_start + timedelta(seconds=rel_time)).strftime("%Y-%m-%d %H:%M:%S")
+                            processes = d.target_processes or []
+                            for proc in processes:
+                                proc_name = proc.get("name", "")
+                                instances = proc.get("instances", [])
+                                for inst in instances:
+                                    pid = inst.get("pid", 0)
+                                    value = int(inst.get("handles", 0) or 0)
+                                    pid_data.append([rel_time, abs_time, proc_name, pid, value])
+
+                        detail_data[f"{version_name}-进程PID明细"] = DetailData(
+                            sheet_name=f"{version_name}-进程PID明细",
+                            columns=pid_columns,
+                            data=pid_data
                         )
                     else:
                         # 真正的 HWiNFO 数据 - 从第一条数据获取单位
