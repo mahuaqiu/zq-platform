@@ -256,3 +256,51 @@ class PerformanceMarker(BaseModel):
 
 # 导入对比标签模型
 from core.performance_monitor.compare_model import CompareTag
+
+
+class ExportTask(BaseModel):
+    """
+    导出任务表
+
+    字段说明：
+    - task_type: 任务类型（compare_export）
+    - params: 任务参数 JSONB（version_ids, metric, hwinfo_key）
+    - status: 状态（pending/processing/completed/failed）
+    - progress: 进度（0-100）
+    - message: 进度消息或错误信息
+    - file_path: 生成的文件路径
+    - completed_at: 完成时间
+    """
+    __tablename__ = "export_task"
+
+    # 任务类型
+    task_type = Column(String(50), nullable=False, index=True, comment="任务类型")
+
+    # 任务参数 JSONB
+    params = Column(JSON, nullable=False, comment="任务参数")
+
+    # 状态
+    status = Column(String(20), nullable=False, default="pending", index=True, comment="状态")
+
+    # 进度
+    progress = Column(Integer, nullable=False, default=0, comment="进度（0-100）")
+
+    # 进度消息
+    message = Column(String(500), nullable=True, comment="进度消息")
+
+    # 文件路径
+    file_path = Column(String(500), nullable=True, comment="文件路径")
+
+    # 完成时间
+    completed_at = Column(DateTime, nullable=True, comment="完成时间")
+
+    # 状态显示映射
+    STATUS_DISPLAY = {
+        "pending": "等待中",
+        "processing": "处理中",
+        "completed": "已完成",
+        "failed": "失败",
+    }
+
+    def get_status_display(self) -> str:
+        return self.STATUS_DISPLAY.get(self.status, "") or self.status or ""
