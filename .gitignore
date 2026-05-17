@@ -4,3 +4,4 @@
 *.png
 *.pptx
 .worktrees/
+/backend-fastapi/temp_exports
