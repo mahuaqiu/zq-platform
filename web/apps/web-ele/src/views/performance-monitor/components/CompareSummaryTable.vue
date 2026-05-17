@@ -66,12 +66,21 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
           </span>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="peak_gpu" label="GPU">
+      <ElTableColumn prop="peak_gpu" label="系统GPU">
         <template #default="{ row }">
           <span :class="getMetricClass(row.peak_gpu, 'peak_gpu', summaryData)">
             {{ formatValue(row.peak_gpu) }}
             <span v-if="getMetricClass(row.peak_gpu, 'peak_gpu', summaryData) === 'best'"> ✓</span>
             <span v-if="getMetricClass(row.peak_gpu, 'peak_gpu', summaryData) === 'worst'"> ✗</span>
+          </span>
+        </template>
+      </ElTableColumn>
+      <ElTableColumn prop="peak_process_gpu" label="进程GPU">
+        <template #default="{ row }">
+          <span :class="getMetricClass(row.peak_process_gpu, 'peak_process_gpu', summaryData)">
+            {{ formatValue(row.peak_process_gpu) }}
+            <span v-if="getMetricClass(row.peak_process_gpu, 'peak_process_gpu', summaryData) === 'best'"> ✓</span>
+            <span v-if="getMetricClass(row.peak_process_gpu, 'peak_process_gpu', summaryData) === 'worst'"> ✗</span>
           </span>
         </template>
       </ElTableColumn>

@@ -45,20 +45,31 @@ const initChart = () => {
       return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: number }>;
     });
 
-  const seriesData = props.series.map((s, index) => ({
-    name: s.name,
-    type: 'line',
-    data: s.data.map(d => [d.time, d.value]),
-    lineStyle: { color: s.color },
-    itemStyle: { color: s.color },
-    markArea: index === 0 ? {
-      silent: true,
-      itemStyle: {
-        color: 'rgba(245, 108, 108, 0.15)', // red for peak
+  // 判断是否是进程线（名称包含 "(进程)"）
+  const isProcessSeries = (name: string) => name.includes('(进程)');
+
+  const seriesData = props.series.map((s, index) => {
+    const isProcess = isProcessSeries(s.name);
+    return {
+      name: s.name,
+      type: 'line',
+      data: s.data.map(d => [d.time, d.value]),
+      lineStyle: {
+        color: s.color,
+        type: isProcess ? 'dashed' : 'solid', // 进程线使用虚线
+        width: isProcess ? 1.5 : 2,
       },
-      data: peakAreas,
-    } : undefined,
-  })) as echarts.SeriesOption[];
+      itemStyle: { color: s.color },
+      // 只给第一条系统线添加 markArea
+      markArea: index === 0 && !isProcess ? {
+        silent: true,
+        itemStyle: {
+          color: 'rgba(245, 108, 108, 0.15)', // red for peak
+        },
+        data: peakAreas,
+      } : undefined,
+    };
+  }) as echarts.SeriesOption[];
 
   // Add stable areas as separate series if needed
   if (stableAreas.length > 0) {

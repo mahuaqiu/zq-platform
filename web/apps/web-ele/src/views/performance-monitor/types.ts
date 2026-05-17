@@ -98,11 +98,13 @@ export interface SummaryRow {
   peak_cpu?: number;
   peak_process_cpu?: number;
   peak_gpu?: number;
+  peak_process_gpu?: number;
   peak_commit_memory?: number;
   peak_memory_usage?: number;
   mean_cpu?: number;
   mean_process_cpu?: number;
   mean_gpu?: number;
+  mean_process_gpu?: number;
   mean_commit_memory?: number;
   mean_memory_usage?: number;
 }

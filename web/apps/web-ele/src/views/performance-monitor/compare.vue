@@ -58,38 +58,72 @@ function getVersionColor(index: number): string {
 }
 
 // 图表数据（归一化：每条线从0开始）
+// CPU/GPU 显示两条线：系统和进程
 const chartSeries = computed<ChartSeries[]>(() => {
-  const result = compareData.value.versions.map((v, i) => {
+  const result: ChartSeries[] = [];
+  const isCpuOrGpu = currentMetric.value === 'cpu_usage' || currentMetric.value === 'gpu_usage';
+  const metricField = currentMetric.value as keyof PerformanceData;
+
+  compareData.value.versions.forEach((v, i) => {
     // 遍历每个采集，获取所有数据点
-    const allData: Array<{ time: number; value: number }> = [];
+    const systemData: Array<{ time: number; value: number }> = [];
+    const processData: Array<{ time: number; value: number }> = [];
 
     v.collects.forEach((c) => {
-      const dataPoints = c.data;
-      dataPoints.forEach((d) => {
-        allData.push({
+      c.data.forEach((d) => {
+        // 系统数据
+        systemData.push({
           time: d.relative_time,
-          value: (d[currentMetric.value as keyof PerformanceData] as number) || 0,
+          value: (d[metricField] as number) || 0,
         });
+        // 进程数据（仅 CPU/GPU）
+        if (isCpuOrGpu) {
+          const processValue = d.target_processes?.reduce((sum, p) => {
+            return sum + (currentMetric.value === 'cpu_usage' ? p.total_cpu : p.total_gpu || 0);
+          }, 0) || 0;
+          processData.push({
+            time: d.relative_time,
+            value: processValue,
+          });
+        }
       });
     });
 
     // 按时间排序
-    allData.sort((a, b) => a.time - b.time);
+    systemData.sort((a, b) => a.time - b.time);
+    processData.sort((a, b) => a.time - b.time);
 
     // 获取第一个时间点作为偏移量
-    const startTime = allData.length > 0 ? allData[0].time : 0;
+    const startTime = systemData.length > 0 ? systemData[0].time : 0;
 
     // 归一化：减去第一个时间点，从0开始
-    const normalizedData = allData.map(d => ({
+    const normalizedSystemData = systemData.map(d => ({
+      time: d.time - startTime,
+      value: d.value,
+    }));
+    const normalizedProcessData = processData.map(d => ({
       time: d.time - startTime,
       value: d.value,
     }));
 
-    return {
+    const baseColor = getVersionColor(i);
+
+    // 添加系统线
+    result.push({
       name: v.version.name,
-      data: normalizedData,
-      color: getVersionColor(i),
-    };
+      data: normalizedSystemData,
+      color: baseColor,
+    });
+
+    // CPU/GPU 添加进程线（使用同色系的虚线效果，名称加 "(进程)"）
+    if (isCpuOrGpu && processData.length > 0) {
+      result.push({
+        name: `${v.version.name}(进程)`,
+        data: normalizedProcessData,
+        color: baseColor,
+        unit: '%',
+      });
+    }
   });
 
   return result;
@@ -109,6 +143,11 @@ const summaryData = computed<SummaryRow[]>(() => {
         ),
       ),
       peak_gpu: Math.max(...allData.map((d) => d.gpu_usage || 0)),
+      peak_process_gpu: Math.max(
+        ...allData.map(
+          (d) => d.target_processes?.reduce((s, p) => s + (p.total_gpu || 0), 0) || 0,
+        ),
+      ),
       peak_commit_memory: Math.max(...allData.map((d) => d.commit_memory || 0)),
       peak_memory_usage: Math.max(...allData.map((d) => d.memory_usage || 0)),
     };

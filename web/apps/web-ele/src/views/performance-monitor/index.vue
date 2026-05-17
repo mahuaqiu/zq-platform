@@ -294,9 +294,19 @@ const allMetrics = computed(() => {
   return baseMetrics;
 });
 
+// 指标 key 映射（MetricSelector 使用 _usage/_memory 后缀，转换为内部 key）
+const metricKeyMap: Record<string, MetricKey> = {
+  cpu_usage: 'cpu',
+  gpu_usage: 'gpu',
+  memory_usage: 'memory',
+  commit_memory: 'commitMemory',
+};
+
 // 指标切换处理
-function handleMetricChange(metric: MetricKey) {
-  currentMetric.value = metric;
+function handleMetricChange(metric: MetricKey | string) {
+  // 转换 key（如果是从 MetricSelector 来的）
+  const mappedKey = metricKeyMap[metric] || metric;
+  currentMetric.value = mappedKey as MetricKey;
 }
 
 // 当前图表数据映射
