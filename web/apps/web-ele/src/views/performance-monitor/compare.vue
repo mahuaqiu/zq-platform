@@ -16,6 +16,7 @@ import {
   createCompareTag,
   deleteCompareTag,
   getCompareData,
+  getCompareTags,
   getVersions,
 } from '#/api/core/performance-monitor';
 
@@ -169,12 +170,11 @@ async function handleCompare() {
 async function fetchCompareTags() {
   loadingTags.value = true;
   try {
-    // TODO: 需要从后端 API 获取对比标签
-    // const result = await getCompareTags();
-    // compareTags.value = result.items;
-    compareTags.value = []; // 暂时为空，等待后端 API
+    const result = await getCompareTags();
+    compareTags.value = result.items;
   } catch (error) {
     console.error('获取对比标签失败', error);
+    compareTags.value = [];
   } finally {
     loadingTags.value = false;
   }
