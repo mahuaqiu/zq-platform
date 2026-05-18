@@ -43,25 +43,15 @@ MAX_CONCURRENT_CONFIG_DEPLOY = 20
 
 #### 校验规则
 
-**状态校验（叠加现有逻辑）**：
+**状态校验**：仅 `status == "online"` 且 `config_status != "updating"` 的机器可下发。
 
-现有代码校验：
-- `offline` → 跳过
-- `config_status == "updating"` → 跳过
+跳过条件：
+- `status == "offline"` → 跳过（机器离线）
+- `status == "using"` → 跳过（机器使用中）
+- `status == "upgrading"` → 跳过（机器升级中）
+- `config_status == "updating"` → 跳过（配置更新中）
 
-新增校验（叠加）：
-- `using` → 跳过（机器使用中）
-- `upgrading` → 跳过（机器升级中）
-
-**最终状态校验规则**：仅 `status == "online"` 的机器可下发。
-
-1. **状态校验**：仅 `status == "online"` 的机器可下发
-   - `offline` → 跳过（机器离线）
-   - `using` → 跳过（机器使用中）
-   - `upgrading` → 跳过（机器升级中）
-   - `config_status == "updating"` → 跳过（配置更新中）
-
-2. **版本校验**：
+**版本校验**：
    - **配置类型**：`machine.config_version != template.version`
    - **脚本类型**：`machine.scripts.get(script_name) != template.version`
    - 版本号相同 → 跳过（已是最新版本）
@@ -177,11 +167,18 @@ def _convert_results_to_details(
 #### EnvMachine 模型新增字段
 
 ```python
+# 配置下发状态
+config_status = Column(String(20), nullable=True, default=None, comment="配置状态: updating/null")
+
 # 脚本版本字典（JSON 格式）
 scripts = Column(JSON, nullable=True, comment="脚本版本字典")
 ```
 
-存储格式示例：
+**config_status 字段说明**：
+- `null`（默认）：配置正常
+- `updating`：配置正在下发/更新中
+
+存储格式示例（scripts）：
 ```json
 {
   "play_ppt.ps1": "20260418-120000",
@@ -209,7 +206,7 @@ if data.scripts:
 
 #### 版本对比逻辑
 
-配置下发时的版本对比：
+配置下发时的版本对比（含设备类型校验）：
 
 ```python
 def _should_deploy(machine: EnvMachine, template: ConfigTemplate) -> Tuple[bool, Optional[str]]:
@@ -223,18 +220,40 @@ def _should_deploy(machine: EnvMachine, template: ConfigTemplate) -> Tuple[bool,
     if machine.status != "online":
         return False, f"机器状态为 {machine.status}"
 
-    # 版本校验
+    # 配置更新中校验
+    if machine.config_status == "updating":
+        return False, "配置正在更新中"
+
+    # 设备类型校验（脚本类型）
     if template.type == "script":
-        # 脚本类型：对比脚本版本
+        target_os = _get_target_os_from_extension(template.script_name)
+        if target_os == "windows" and machine.device_type != "windows":
+            return False, "脚本仅支持 Windows 设备"
+        elif target_os == "mac" and machine.device_type != "mac":
+            return False, "脚本仅支持 Mac 设备"
+
+        # 脚本版本校验
         machine_script_version = machine.scripts.get(template.script_name) if machine.scripts else None
         if machine_script_version == template.version:
             return False, "脚本已是最新版本"
     else:
-        # 配置类型：对比全局配置版本
+        # 配置类型版本校验
         if machine.config_version == template.version:
             return False, "配置已是最新版本"
 
     return True, None
+
+
+def _get_target_os_from_extension(script_name: str) -> str:
+    """根据脚本扩展名返回目标操作系统"""
+    if not script_name:
+        return ''
+    ext = script_name.lower().split('.')[-1] if '.' in script_name else ''
+    if ext in ('ps1', 'bat'):
+        return 'windows'
+    elif ext == 'sh':
+        return 'mac'
+    return ''
 ```
 
 #### 缓存同步
@@ -285,18 +304,45 @@ if template.type == "script":
 
 | 文件 | 修改内容 |
 |------|----------|
-| `core/env_machine/model.py` | 1. 新增 `scripts` JSON 字段；2. 更新 `to_cache_dict()` 方法添加 `scripts` 字段 |
-| `core/env_machine/schema.py` | 1. `EnvRegisterRequest` 新增 `scripts` 参数（新增字段）；2. `EnvMachineResponse` 新增 `scripts` 字段（新增字段） |
-| `core/env_machine/api.py` | 注册上报时新增 `scripts` 字段更新逻辑（现有代码缺少，需新增） |
-| `core/config_template/service.py` | 1. 新增 `_should_deploy` 函数实现版本校验；2. 新增 `_deploy_batch` 函数实现批次控制；3. `deploy_config` 方法调用版本校验逻辑；4. 下发成功后更新版本字段（含 `flag_modified`） |
-| `core/config_template/schema.py` | 1. `DeployDetail` 新增 `skip_reason` 字段（新增字段）；2. `DeployResponse` 新增 `skipped_count` 字段（新增字段）；3. `status` 字段值新增 `skipped` |
+| `core/env_machine/model.py` | 1. 新增 `config_status` 字段（String）；2. 新增 `scripts` 字段（JSON）；3. 更新 `to_cache_dict()` 方法添加两个字段 |
+| `core/env_machine/schema.py` | 1. `EnvRegisterRequest` 新增 `scripts` 参数；2. `EnvMachineResponse` 新增 `config_status` 和 `scripts` 字段 |
+| `core/env_machine/api.py` | 注册上报时新增 `scripts` 字段更新逻辑 |
+| `core/config_template/service.py` | 1. 新增 `_should_deploy` 函数实现完整校验（状态+设备类型+版本）；2. 新增 `_deploy_batch` 函数实现批次控制；3. `deploy_config` 方法调用校验逻辑；4. 下发成功后更新版本字段（含 `flag_modified`）；5. 下发开始时设置 `config_status="updating"`，成功后清除 |
+| `core/config_template/schema.py` | 1. `DeployDetail` 新增 `skip_reason` 字段；2. `DeployResponse` 新增 `skipped_count` 字段；3. `status` 字段值新增 `skipped` |
+
+**行为变更说明**：
+- 现有代码将 offline/config_status=updating 的机器计入 `failed_count`
+- 新设计将不符合下发条件的机器计入 `skipped_count`（新增）
+- 前端需适配新的返回结构
 
 ### 四、数据库迁移
 
 ```bash
-alembic revision --autogenerate -m "add scripts field to env_machine"
+alembic revision --autogenerate -m "add config_status and scripts fields to env_machine"
 alembic upgrade head
 ```
+
+### 五、预览功能更新
+
+`get_preview` 方法中的 `_calculate_config_status` 函数需要更新，以正确识别版本状态：
+
+```python
+def _calculate_config_status(machine: EnvMachine, template_version: str) -> str:
+    """计算机器的配置状态"""
+    # 离线或更新中状态
+    if machine.status == "offline":
+        return "offline"
+    if machine.config_status == "updating":
+        return "updating"
+
+    # 版本对比
+    if machine.config_version == template_version:
+        return "synced"  # 已同步
+
+    return "pending"  # 待更新
+```
+
+**预览结果新增**：预览列表中需显示版本对比结果，让用户知道哪些机器已是最新版本（会被跳过）。
 
 ## 实现计划
 
