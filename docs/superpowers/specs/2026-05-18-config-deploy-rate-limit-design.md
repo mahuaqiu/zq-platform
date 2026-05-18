@@ -53,6 +53,49 @@ MAX_CONCURRENT_CONFIG_DEPLOY = 20
    - **脚本类型**：`machine.scripts.get(script_name) != template.version`
    - 版本号相同 → 跳过（已是最新版本）
 
+#### 批次控制具体实现
+
+```python
+# 常量定义
+MAX_CONCURRENT_CONFIG_DEPLOY = 20
+
+async def _deploy_batch(
+    tasks: List[Tuple[EnvMachine, ConfigTemplate]],
+    batch_size: int = MAX_CONCURRENT_CONFIG_DEPLOY
+) -> List[Tuple[bool, Optional[str], str]]:
+    """
+    分批并发下发配置
+
+    Args:
+        tasks: 待下发的任务列表（machine, template）
+        batch_size: 每批最大并发数
+
+    Returns:
+        List[Tuple[是否成功, 错误信息, machine_id]]
+    """
+    results = []
+    total = len(tasks)
+
+    for i in range(0, total, batch_size):
+        batch = tasks[i:i + batch_size]
+        logger.info(f"下发第 {i//batch_size + 1} 批，共 {len(batch)} 台")
+
+        # 批次内并发执行
+        batch_tasks = [_send_config_to_worker(m, t) for m, t in batch]
+        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+
+        # 处理批次结果
+        for task_result in batch_results:
+            if isinstance(task_result, Exception):
+                results.append((False, str(task_result), batch[i][0].id))
+            else:
+                results.append(task_result)
+
+        logger.info(f"第 {i//batch_size + 1} 批完成，成功 {sum(1 for r in batch_results if not isinstance(r, Exception) and r[0])} 台")
+
+    return results
+```
+
 #### 下发流程
 
 ```
@@ -160,17 +203,50 @@ def _should_deploy(machine: EnvMachine, template: ConfigTemplate) -> Tuple[bool,
 
 #### 缓存同步
 
-`EnvMachine.to_cache_dict()` 方法已包含 `scripts` 字段，Redis 缓存自动同步脚本版本。
+**需要修改 `EnvMachine.to_cache_dict()` 方法**，新增 `scripts` 字段：
+
+```python
+# 在 model.py 的 to_cache_dict() 方法中新增
+"scripts": self.scripts,
+```
+
+**Redis 缓存自动同步脚本版本**，通过现有的心跳上报机制。
+
+#### 下发成功后的版本更新策略
+
+配置下发成功后，有两种版本更新策略：
+
+1. **立即更新数据库（推荐）**：下发成功后立即更新 `machine.config_version` 或 `machine.scripts`
+   - 优点：前端刷新后立即看到新版本，用户体验好
+   - 缺点：与 Worker 实际执行状态可能存在短暂不一致
+
+2. **等待 Worker 心跳上报**：完全依赖 Worker 下次心跳上报版本
+   - 优点：版本号来源可信，与 Worker 实际状态一致
+   - 缺点：前端刷新可能看到过时版本（心跳间隔约 5-10 秒）
+
+**推荐采用策略 1**：下发成功后立即更新数据库版本，Worker 心跳时再确认同步。
+
+```python
+# 配置类型：下发成功后立即更新 config_version
+if template.type == "config":
+    machine.config_version = template.version
+
+# 脚本类型：下发成功后立即更新 scripts 字典
+if template.type == "script":
+    if machine.scripts is None:
+        machine.scripts = {}
+    machine.scripts[template.script_name] = template.version
+```
 
 ### 三、文件修改清单
 
 | 文件 | 修改内容 |
 |------|----------|
-| `core/env_machine/model.py` | 新增 `scripts` JSON 字段 |
-| `core/env_machine/schema.py` | `EnvRegisterRequest` 新增 `scripts` 参数 |
+| `core/env_machine/model.py` | 新增 `scripts` JSON 字段；**更新 `to_cache_dict()` 方法添加 `scripts` 字段** |
+| `core/env_machine/schema.py` | `EnvRegisterRequest` 新增 `scripts` 参数；**`EnvMachineResponse` 新增 `scripts` 字段** |
 | `core/env_machine/api.py` | 注册上报时更新 `scripts` 字段 |
-| `core/config_template/service.py` | 下发逻辑增加并发限制 + 状态/版本校验 |
-| `core/config_template/schema.py` | `DeployDetail` 新增跳过状态，`DeployResponse` 新增 `skipped_count` |
+| `core/config_template/service.py` | 下发逻辑增加并发限制（批次控制）+ 状态/版本校验 + 下发成功后立即更新版本 |
+| `core/config_template/schema.py` | `DeployDetail` 新增跳过状态和 `skip_reason`（新增字段）；`DeployResponse` 新增 `skipped_count`（新增字段） |
 
 ### 四、数据库迁移
 
@@ -197,6 +273,7 @@ alembic upgrade head
 
 ## 注意事项
 
-1. 版本更新依赖 Worker 心跳机制（异步），前端刷新页面才能看到新版本
-2. 脚本版本字典可能为空（Worker 未上报），需要处理空值情况
-3. 并发限制值为常量，未来可考虑配置化
+1. **版本更新策略**：下发成功后立即更新数据库版本，Worker 心跳时确认同步
+2. 脚本版本字典可能为空（Worker 未上报），需要处理空值情况：`machine.scripts or {}`
+3. 并发限制值为常量（20），未来可考虑配置化
+4. 状态校验仅允许 `online` 状态下发，与升级管理一致
