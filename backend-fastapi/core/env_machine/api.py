@@ -95,6 +95,8 @@ async def register_env_machine(
                         existing_machine.version = data.version
                     if data.config_version:
                         existing_machine.config_version = data.config_version
+                    if data.scripts:
+                        existing_machine.scripts = data.scripts
 
                     # 状态更新规则：
                     # - using: 保持不变，只更新心跳时间（机器正在被使用）
@@ -121,6 +123,7 @@ async def register_env_machine(
                         sync_time=now,
                         version=data.version,
                         config_version=data.config_version,
+                        scripts=data.scripts,
                     )
                     db.add(new_machine)
 
@@ -159,6 +162,8 @@ async def register_env_machine(
                             existing_machine.version = data.version
                         if data.config_version:
                             existing_machine.config_version = data.config_version
+                        if data.scripts:
+                            existing_machine.scripts = data.scripts
 
                         # 状态更新规则：
                         # - using: 保持不变，只更新心跳时间（机器正在被使用）
@@ -185,6 +190,7 @@ async def register_env_machine(
                             sync_time=now,
                             version=data.version,
                             config_version=data.config_version,
+                            scripts=data.scripts,
                         )
                         db.add(new_machine)
 
