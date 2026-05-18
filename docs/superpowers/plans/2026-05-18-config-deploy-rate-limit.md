@@ -210,7 +210,7 @@ new_machine = EnvMachine(
 )
 ```
 
-- [ ] **Step 3: 验证修改**
+- [ ] **Step 4: 验证修改**
 
 ```bash
 cd backend-fastapi && python -c "from core.env_machine.api import router; print('API OK')"
@@ -218,7 +218,7 @@ cd backend-fastapi && python -c "from core.env_machine.api import router; print(
 
 Expected: 输出 "API OK"
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add backend-fastapi/core/env_machine/api.py
@@ -518,19 +518,102 @@ git commit -m "feat(config_template): 实现配置下发并发控制和校验逻
 ### Task 7: 预览功能更新
 
 **Files:**
+- Modify: `backend-fastapi/core/config_template/schema.py:102-111`
 - Modify: `backend-fastapi/core/config_template/service.py:_calculate_config_status`
 
-**注意**：现有代码已包含 `config_status == "updating"` 检查（第 290-291 行），但使用的是 `hasattr` 判断。由于新增字段后 `config_status` 字段已存在，需要简化判断逻辑。
+**注意**：预览功能需要支持脚本类型的版本对比，让用户知道哪些机器脚本已是最新版本。
 
-- [ ] **Step 1: 更新 _calculate_config_status 方法**
+- [ ] **Step 1: ConfigPreviewMachine 新增 scripts 字段**
 
-简化 `config_status` 检查逻辑：
+修改 `ConfigPreviewMachine` 类（schema.py 第 102-111 行）：
+
+```python
+class ConfigPreviewMachine(BaseModel):
+    """配置预览机器 Schema"""
+    id: str = Field(..., description="机器ID")
+    ip: str = Field(..., description="机器IP")
+    namespace: str = Field(..., description="命名空间")
+    device_type: str = Field(..., description="设备类型")
+    status: str = Field(..., description="设备状态")
+    config_status: str = Field(..., description="配置状态: synced/pending/updating/offline")
+    config_version: Optional[str] = Field(None, description="配置版本")
+    scripts: Optional[Dict[str, str]] = Field(None, description="脚本版本字典")  # 新增
+```
+
+- [ ] **Step 2: 更新 get_preview 方法**
+
+修改 `get_preview` 方法中计算 `config_status` 的逻辑（service.py），传入 template 对象：
+
+对于脚本类型，使用脚本版本对比：
+
+```python
+# 在 get_preview 方法中（约第 242-274 行）
+for machine in machines:
+    # 计算配置状态
+    if template.type == "script":
+        # 脚本类型：对比脚本版本
+        config_status = cls._calculate_script_config_status(machine, template)
+    else:
+        # 配置类型：对比全局配置版本
+        config_status = cls._calculate_config_status(machine, template.version)
+
+    machine_preview = ConfigPreviewMachine(
+        id=machine.id,
+        ip=machine.ip,
+        namespace=machine.namespace,
+        device_type=machine.device_type,
+        status=machine.status,
+        config_status=config_status,
+        config_version=machine.config_version,
+        scripts=machine.scripts,  # 新增
+    )
+```
+
+- [ ] **Step 3: 新增 _calculate_script_config_status 方法**
+
+在 `ConfigTemplateService` 类中新增静态方法：
+
+```python
+@staticmethod
+def _calculate_script_config_status(machine: EnvMachine, template: ConfigTemplate) -> str:
+    """
+    计算机器的脚本配置状态
+
+    Args:
+        machine: 机器对象
+        template: 配置模板（脚本类型）
+
+    Returns:
+        配置状态（synced/pending/updating/offline）
+    """
+    # 离线状态
+    if machine.status == "offline":
+        return "offline"
+
+    # 配置更新中
+    if machine.config_status == "updating":
+        return "updating"
+
+    # 脚本版本对比
+    machine_script_version = machine.scripts.get(template.script_name) if machine.scripts else None
+
+    # 已同步
+    if machine_script_version == template.version:
+        return "synced"
+
+    # 待更新
+    return "pending"
+```
+
+- [ ] **Step 4: 简化 _calculate_config_status 方法**
+
+简化 `config_status` 检查逻辑（移除 hasattr）：
 
 ```python
 @staticmethod
 def _calculate_config_status(machine: EnvMachine, template_version: str) -> str:
     """
-    计算机器的配置状态
+    计算机器的配置状态（配置类型）
 
     Args:
         machine: 机器对象
@@ -547,18 +630,15 @@ def _calculate_config_status(machine: EnvMachine, template_version: str) -> str:
     if machine.config_status == "updating":
         return "updating"
 
-    # 检查配置版本
-    machine_config_version = machine.config_version if hasattr(machine, 'config_version') else None
-
     # 已同步
-    if machine_config_version == template_version:
+    if machine.config_version == template_version:
         return "synced"
 
     # 待更新
     return "pending"
 ```
 
-- [ ] **Step 2: 验证修改**
+- [ ] **Step 5: 验证修改**
 
 ```bash
 cd backend-fastapi && python -c "from core.config_template.service import ConfigTemplateService; print('Preview OK')"
@@ -566,11 +646,11 @@ cd backend-fastapi && python -c "from core.config_template.service import Config
 
 Expected: 输出 "Preview OK"
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add backend-fastapi/core/config_template/service.py
-git commit -m "feat(config_template): 更新预览功能 config_status 检查"
+git add backend-fastapi/core/config_template/schema.py backend-fastapi/core/config_template/service.py
+git commit -m "feat(config_template): 预览功能支持脚本版本对比"
 ```
 
 ---
