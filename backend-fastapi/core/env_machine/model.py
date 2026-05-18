@@ -78,6 +78,12 @@ class EnvMachine(BaseModel):
     # 配置版本
     config_version = Column(String(20), nullable=True, comment="配置版本")
 
+    # 配置下发状态
+    config_status = Column(String(20), nullable=True, default=None, comment="配置状态: updating/null")
+
+    # 脚本版本字典（JSON 格式）
+    scripts = Column(JSON, nullable=True, comment="脚本版本字典")
+
     # 最后保持使用时间
     last_keepusing_time = Column(DateTime, nullable=True, comment="最后保持使用时间")
 
@@ -119,6 +125,8 @@ class EnvMachine(BaseModel):
             "extra_message": self.extra_message,
             "version": self.version,
             "config_version": self.config_version,
+            "config_status": self.config_status,
+            "scripts": self.scripts,
             "last_keepusing_time": self.last_keepusing_time.isoformat() if self.last_keepusing_time else None,
         }
 
