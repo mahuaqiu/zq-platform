@@ -15,6 +15,7 @@ from typing import List, Optional, Tuple
 import httpx
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.base_service import BaseService
 from app.config import get_settings
@@ -38,6 +39,9 @@ WORKER_CONFIG_TIMEOUT = 10
 
 # 合法的命名空间列表（用于配置下发筛选，从配置动态获取）
 VALID_NAMESPACE_LIST = list(settings.namespace_map.keys())
+
+# 最大并发配置下发数量
+MAX_CONCURRENT_CONFIG_DEPLOY = 20
 
 
 class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, ConfigTemplateUpdate]):
@@ -317,6 +321,86 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
             return 'mac'
         return ''
 
+    @staticmethod
+    def _should_deploy(machine: EnvMachine, template: ConfigTemplate) -> Tuple[bool, Optional[str]]:
+        """
+        判断是否需要下发配置
+
+        Args:
+            machine: 机器对象
+            template: 配置模板
+
+        Returns:
+            (是否需要下发, 跳过原因)
+        """
+        # 状态校验
+        if machine.status != "online":
+            return False, f"机器状态为 {machine.status}"
+
+        # 配置更新中校验
+        if machine.config_status == "updating":
+            return False, "配置正在更新中"
+
+        # 设备类型校验（脚本类型）
+        if template.type == "script":
+            target_os = ConfigTemplateService._get_target_os_from_extension(template.script_name)
+            if target_os == "windows" and machine.device_type != "windows":
+                return False, "脚本仅支持 Windows 设备"
+            elif target_os == "mac" and machine.device_type != "mac":
+                return False, "脚本仅支持 Mac 设备"
+
+            # 脚本版本校验
+            machine_script_version = machine.scripts.get(template.script_name) if machine.scripts else None
+            if machine_script_version == template.version:
+                return False, "脚本已是最新版本"
+        else:
+            # 配置类型版本校验
+            if machine.config_version == template.version:
+                return False, "配置已是最新版本"
+
+        return True, None
+
+    @staticmethod
+    async def _deploy_batch(
+        tasks: List[Tuple[EnvMachine, ConfigTemplate]],
+        batch_size: int = MAX_CONCURRENT_CONFIG_DEPLOY
+    ) -> List[Tuple[bool, Optional[str], str]]:
+        """
+        分批并发下发配置
+
+        Args:
+            tasks: 待下发的任务列表（machine, template）
+            batch_size: 每批最大并发数
+
+        Returns:
+            List[Tuple[是否成功, 错误信息, machine_id]]
+        """
+        results = []
+        total = len(tasks)
+
+        for i in range(0, total, batch_size):
+            batch = tasks[i:i + batch_size]
+            logger.info(f"下发第 {i//batch_size + 1} 批，共 {len(batch)} 台")
+
+            # 批次内并发执行
+            batch_tasks = [
+                ConfigTemplateService._send_config_to_worker(m, t) if t.type != "script"
+                else ConfigTemplateService._send_script_to_worker(m, t)
+                for m, t in batch
+            ]
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+
+            # 处理批次结果（使用批次内索引）
+            for idx, task_result in enumerate(batch_results):
+                if isinstance(task_result, Exception):
+                    results.append((False, str(task_result), batch[idx][0].id))
+                else:
+                    results.append(task_result)
+
+            logger.info(f"第 {i//batch_size + 1} 批完成，成功 {sum(1 for r in batch_results if not isinstance(r, Exception) and r[0])} 台")
+
+        return results
+
     @classmethod
     async def deploy_config(
         cls,
@@ -325,12 +409,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         machine_ids: List[str],
     ) -> DeployResponse:
         """
-        下发配置到机器
-
-        :param db: 数据库会话
-        :param template_id: 模板 ID
-        :param machine_ids: 机器 ID 列表
-        :return: 下发响应
+        下发配置到机器（带并发控制和校验）
         """
         # 获取模板
         template = await cls.get_by_id(db, template_id)
@@ -342,106 +421,79 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
             select(EnvMachine).where(
                 and_(
                     EnvMachine.id.in_(machine_ids),
-                    EnvMachine.is_deleted == False,  # noqa: E712
+                    EnvMachine.is_deleted == False,
                 )
             )
         )
         machines = result.scalars().all()
 
-        response = DeployResponse(success_count=0, failed_count=0, details=[])
-
-        # 收集并发任务
+        response = DeployResponse()
         deploy_tasks = []
         deploy_machine_map = {}
 
+        # 遍历校验
         for machine in machines:
-            # 跳过离线机器
-            if machine.status == "offline":
-                response.failed_count += 1
+            should_deploy, skip_reason = cls._should_deploy(machine, template)
+
+            if not should_deploy:
+                response.skipped_count += 1
                 response.details.append(DeployDetail(
                     machine_id=machine.id,
                     ip=machine.ip,
-                    status="failed",
-                    error_message="机器离线"
+                    status="skipped",
+                    error_message=None,
+                    skip_reason=skip_reason,
                 ))
                 continue
 
-            # 跳过正在更新配置的机器
-            if hasattr(machine, 'config_status') and machine.config_status == "updating":
-                response.failed_count += 1
-                response.details.append(DeployDetail(
-                    machine_id=machine.id,
-                    ip=machine.ip,
-                    status="failed",
-                    error_message="配置正在更新中"
-                ))
-                continue
+            # 设置 config_status 为 updating
+            machine.config_status = "updating"
 
-            # 脚本类型：校验设备类型匹配
-            if template.type == 'script':
-                target_os = cls._get_target_os_from_extension(template.script_name)
-                if target_os == 'windows' and machine.device_type != 'windows':
-                    response.failed_count += 1
-                    response.details.append(DeployDetail(
-                        machine_id=machine.id,
-                        ip=machine.ip,
-                        status="failed",
-                        error_message="脚本仅支持 Windows 设备"
-                    ))
-                    continue
-                elif target_os == 'mac' and machine.device_type != 'mac':
-                    response.failed_count += 1
-                    response.details.append(DeployDetail(
-                        machine_id=machine.id,
-                        ip=machine.ip,
-                        status="failed",
-                        error_message="脚本仅支持 Mac 设备"
-                    ))
-                    continue
-
-            # 收集并发任务 - 根据 type 选择不同的下发方法
-            if template.type == 'script':
-                deploy_tasks.append(cls._send_script_to_worker(machine, template))
-            else:
-                deploy_tasks.append(cls._send_config_to_worker(machine, template))
+            # 收集待下发任务
+            deploy_tasks.append((machine, template))
             deploy_machine_map[machine.id] = machine
 
-        # 并发下发
+        # 分批下发
         if deploy_tasks:
-            logger.info(f"并发下发到 {len(deploy_tasks)} 台机器，类型: {template.type}")
-            results = await asyncio.gather(*deploy_tasks, return_exceptions=True)
+            logger.info(f"开始下发配置到 {len(deploy_tasks)} 台机器，类型: {template.type}")
+            results = await cls._deploy_batch(deploy_tasks)
 
             # 处理结果
-            for task_result in results:
-                if isinstance(task_result, Exception):
-                    logger.error(f"并发任务异常: {task_result}")
-                    response.failed_count += 1
-                    continue
-
-                success, error_message, machine_id = task_result
+            for success, error_msg, machine_id in results:
                 machine = deploy_machine_map[machine_id]
 
                 if success:
-                    # 更新机器配置状态
-                    if hasattr(machine, 'config_status'):
-                        machine.config_status = "updating"
-                    if hasattr(machine, 'config_version'):
+                    # 更新版本字段
+                    if template.type == "config":
                         machine.config_version = template.version
+                    else:
+                        if machine.scripts is None:
+                            machine.scripts = {}
+                        machine.scripts[template.script_name] = template.version
+                        flag_modified(machine, "scripts")
+
+                    # 清除 config_status
+                    machine.config_status = None
 
                     response.success_count += 1
                     response.details.append(DeployDetail(
                         machine_id=machine.id,
                         ip=machine.ip,
                         status="success",
-                        error_message=None
+                        error_message=None,
+                        skip_reason=None,
                     ))
                 else:
+                    # 下发失败，清除 config_status
+                    machine.config_status = None
+
                     response.failed_count += 1
                     response.details.append(DeployDetail(
                         machine_id=machine.id,
                         ip=machine.ip,
                         status="failed",
-                        error_message=error_message
+                        error_message=error_msg,
+                        skip_reason=None,
                     ))
 
         await db.commit()
