@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ConfigTemplate, ConfigPreviewResponse, DeployRequest } from '#/api/core/env-machine-config';
+import type { ConfigTemplate, ConfigPreviewResponse, ConfigPreviewMachine, DeployRequest } from '#/api/core/env-machine-config';
 
 import { computed, onMounted, ref } from 'vue';
 
@@ -77,11 +77,11 @@ const selectedMachineIds = ref<string[]>([]);
 const deployDialogVisible = ref(false);
 const deployLoading = ref(false);
 
-// 可选机器列表（synced 或 pending，且设备类型为 windows/mac）
+// 可选机器列表（仅 pending 状态，且设备类型为 windows/mac）
 const selectableMachines = computed(() => {
   if (!previewData.value) return [];
   return previewData.value.machines.filter(m =>
-    (m.config_status === 'synced' || m.config_status === 'pending') &&
+    m.config_status === 'pending' &&
     (m.device_type === 'windows' || m.device_type === 'mac')
   );
 });
@@ -305,13 +305,28 @@ function handleCheckboxChange(machineId: string, checked: boolean) {
   }
 }
 
-// 判断是否可选（synced 或 pending，且设备类型为 windows/mac）
+// 判断是否可选（仅 pending 状态，且设备类型为 windows/mac）
 function isSelectable(configStatus: string, deviceType: string): boolean {
   // 只有 windows 和 mac 设备才能下发配置
   if (deviceType !== 'windows' && deviceType !== 'mac') {
     return false;
   }
-  return configStatus === 'synced' || configStatus === 'pending';
+  // 只有 pending 状态（需要更新）才可选，synced（已是最新）不可选
+  return configStatus === 'pending';
+}
+
+// 获取显示版本（根据模板类型）
+function getDisplayVersion(row: ConfigPreviewMachine): string {
+  if (!selectedTemplate.value) return row.config_version || '-';
+
+  // 脚本模板：显示脚本版本
+  if (selectedTemplate.value.type === 'script' && selectedTemplate.value.script_name) {
+    const scriptVersion = row.scripts?.[selectedTemplate.value.script_name];
+    return scriptVersion || '-';
+  }
+
+  // 配置模板：显示配置版本
+  return row.config_version || '-';
 }
 
 // 重置筛选
@@ -589,7 +604,7 @@ onMounted(async () => {
                 <ElTableColumn prop="config_version" label="下发版本" min-width="140">
                   <template #default="{ row }">
                     <span :style="{ color: getConfigVersionColor(row.config_status) }">
-                      {{ row.config_version || '-' }}
+                      {{ getDisplayVersion(row) }}
                     </span>
                   </template>
                 </ElTableColumn>

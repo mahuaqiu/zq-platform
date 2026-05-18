@@ -27,6 +27,7 @@ export interface ConfigPreviewMachine {
   status: string;
   config_status: string;  // synced/pending/updating/offline
   config_version?: string;
+  scripts?: Record<string, string>;  // 脚本版本字典
 }
 
 /**
