@@ -43,10 +43,23 @@ MAX_CONCURRENT_CONFIG_DEPLOY = 20
 
 #### 校验规则
 
+**状态校验（叠加现有逻辑）**：
+
+现有代码校验：
+- `offline` → 跳过
+- `config_status == "updating"` → 跳过
+
+新增校验（叠加）：
+- `using` → 跳过（机器使用中）
+- `upgrading` → 跳过（机器升级中）
+
+**最终状态校验规则**：仅 `status == "online"` 的机器可下发。
+
 1. **状态校验**：仅 `status == "online"` 的机器可下发
    - `offline` → 跳过（机器离线）
    - `using` → 跳过（机器使用中）
    - `upgrading` → 跳过（机器升级中）
+   - `config_status == "updating"` → 跳过（配置更新中）
 
 2. **版本校验**：
    - **配置类型**：`machine.config_version != template.version`
@@ -84,10 +97,10 @@ async def _deploy_batch(
         batch_tasks = [_send_config_to_worker(m, t) for m, t in batch]
         batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
 
-        # 处理批次结果
-        for task_result in batch_results:
+        # 处理批次结果（使用批次内索引）
+        for idx, task_result in enumerate(batch_results):
             if isinstance(task_result, Exception):
-                results.append((False, str(task_result), batch[i][0].id))
+                results.append((False, str(task_result), batch[idx][0].id))
             else:
                 results.append(task_result)
 
@@ -133,7 +146,30 @@ class DeployDetail(BaseModel):
     ip: str = Field(..., description="机器IP")
     status: str = Field(..., description="下发状态: success/failed/skipped")
     error_message: Optional[str] = Field(None, description="错误信息")
-    skip_reason: Optional[str] = Field(None, description="跳过原因")
+    skip_reason: Optional[str] = Field(None, description="跳过原因")  # 新增字段
+```
+
+#### 返回结果转换
+
+`_deploy_batch` 返回 `List[Tuple[bool, Optional[str], str]]`，需要转换为 `List[DeployDetail]`：
+
+```python
+def _convert_results_to_details(
+    results: List[Tuple[bool, Optional[str], str]],
+    machine_map: Dict[str, EnvMachine]
+) -> List[DeployDetail]:
+    """将批次下发结果转换为 DeployDetail 列表"""
+    details = []
+    for success, error_msg, machine_id in results:
+        machine = machine_map[machine_id]
+        details.append(DeployDetail(
+            machine_id=machine_id,
+            ip=machine.ip,
+            status="success" if success else "failed",
+            error_message=error_msg if not success else None,
+            skip_reason=None,
+        ))
+    return details
 ```
 
 ### 二、Worker 上报脚本版本
@@ -226,27 +262,34 @@ def _should_deploy(machine: EnvMachine, template: ConfigTemplate) -> Tuple[bool,
 
 **推荐采用策略 1**：下发成功后立即更新数据库版本，Worker 心跳时再确认同步。
 
+**重要：SQLAlchemy JSON 字段更新需要调用 `flag_modified()` 才能确保数据库更新生效**：
+
 ```python
+from sqlalchemy.orm.attributes import flag_modified
+
 # 配置类型：下发成功后立即更新 config_version
 if template.type == "config":
     machine.config_version = template.version
 
-# 脚本类型：下发成功后立即更新 scripts 字典
+# 脚本类型：下发成功后立即更新 scripts 字典（需要 flag_modified）
 if template.type == "script":
     if machine.scripts is None:
         machine.scripts = {}
     machine.scripts[template.script_name] = template.version
+    flag_modified(machine, "scripts")  # 关键！确保 JSON 字段更新被追踪
 ```
+
+**版本更新位置**：在结果处理阶段更新（继承现有代码模式），遍历下发结果时对成功的机器更新版本字段。
 
 ### 三、文件修改清单
 
 | 文件 | 修改内容 |
 |------|----------|
-| `core/env_machine/model.py` | 新增 `scripts` JSON 字段；**更新 `to_cache_dict()` 方法添加 `scripts` 字段** |
-| `core/env_machine/schema.py` | `EnvRegisterRequest` 新增 `scripts` 参数；**`EnvMachineResponse` 新增 `scripts` 字段** |
-| `core/env_machine/api.py` | 注册上报时更新 `scripts` 字段 |
-| `core/config_template/service.py` | 下发逻辑增加并发限制（批次控制）+ 状态/版本校验 + 下发成功后立即更新版本 |
-| `core/config_template/schema.py` | `DeployDetail` 新增跳过状态和 `skip_reason`（新增字段）；`DeployResponse` 新增 `skipped_count`（新增字段） |
+| `core/env_machine/model.py` | 1. 新增 `scripts` JSON 字段；2. 更新 `to_cache_dict()` 方法添加 `scripts` 字段 |
+| `core/env_machine/schema.py` | 1. `EnvRegisterRequest` 新增 `scripts` 参数（新增字段）；2. `EnvMachineResponse` 新增 `scripts` 字段（新增字段） |
+| `core/env_machine/api.py` | 注册上报时新增 `scripts` 字段更新逻辑（现有代码缺少，需新增） |
+| `core/config_template/service.py` | 1. 新增 `_should_deploy` 函数实现版本校验；2. 新增 `_deploy_batch` 函数实现批次控制；3. `deploy_config` 方法调用版本校验逻辑；4. 下发成功后更新版本字段（含 `flag_modified`） |
+| `core/config_template/schema.py` | 1. `DeployDetail` 新增 `skip_reason` 字段（新增字段）；2. `DeployResponse` 新增 `skipped_count` 字段（新增字段）；3. `status` 字段值新增 `skipped` |
 
 ### 四、数据库迁移
 
@@ -261,7 +304,22 @@ alembic upgrade head
 2. 注册上报接口更新 `scripts` 字段
 3. 配置下发逻辑增加并发限制和校验
 4. 数据库迁移
-5. 前端适配（显示跳过数量和原因）
+5. 前端适配
+
+## 前端适配
+
+**需要修改的页面和组件**：
+
+| 页面 | 组件 | 修改内容 |
+|------|------|----------|
+| 配置模板列表页 | 下发对话框 | 显示 `skipped_count`，列表中显示跳过原因 |
+| 配置模板列表页 | 预览对话框 | 预览时显示"已是最新版本"的机器（新增 `config_status` 显示） |
+| 设备列表页 | 设备详情 | 显示 `scripts` 字段（脚本版本字典） |
+
+**API 调用方处理**：
+- `DeployResponse` 新增 `skipped_count` 字段，前端需要展示
+- `DeployDetail` 新增 `skip_reason` 字段，前端需要显示跳过原因
+- `EnvMachineResponse` 新增 `scripts` 字段，前端需要展示脚本版本
 
 ## 测试要点
 
