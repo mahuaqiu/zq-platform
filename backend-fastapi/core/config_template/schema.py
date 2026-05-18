@@ -88,15 +88,17 @@ class DeployDetail(BaseModel):
     """下发详情 Schema"""
     machine_id: str = Field(..., description="机器ID")
     ip: str = Field(..., description="机器IP")
-    status: str = Field(..., description="下发状态: success/failed")
+    status: str = Field(..., description="下发状态: success/failed/skipped")
     error_message: Optional[str] = Field(None, description="错误信息")
+    skip_reason: Optional[str] = Field(None, description="跳过原因")
 
 
 class DeployResponse(BaseModel):
     """下发配置响应 Schema"""
-    success_count: int = Field(..., description="成功数量")
-    failed_count: int = Field(..., description="失败数量")
-    details: List[DeployDetail] = Field(..., description="下发详情列表")
+    success_count: int = Field(0, description="成功数量")
+    failed_count: int = Field(0, description="失败数量")
+    skipped_count: int = Field(0, description="跳过数量")
+    details: List[DeployDetail] = Field(default_factory=list, description="下发详情列表")
 
 
 class ConfigPreviewMachine(BaseModel):
@@ -108,6 +110,7 @@ class ConfigPreviewMachine(BaseModel):
     status: str = Field(..., description="设备状态")
     config_status: str = Field(..., description="配置状态: synced/pending/updating/offline")
     config_version: Optional[str] = Field(None, description="配置版本")
+    scripts: Optional[dict] = Field(None, description="脚本版本字典")
 
 
 class ConfigPreviewResponse(BaseModel):

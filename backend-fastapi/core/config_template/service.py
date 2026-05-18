@@ -245,7 +245,12 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
 
         for machine in machines:
             # 计算配置状态
-            config_status = cls._calculate_config_status(machine, template_version)
+            if template.type == "script":
+                # 脚本类型：对比脚本版本
+                config_status = cls._calculate_script_config_status(machine, template)
+            else:
+                # 配置类型：对比全局配置版本
+                config_status = cls._calculate_config_status(machine, template.version)
 
             machine_preview = ConfigPreviewMachine(
                 id=machine.id,
@@ -254,7 +259,8 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
                 device_type=machine.device_type,
                 status=machine.status,
                 config_status=config_status,
-                config_version=machine.config_version if hasattr(machine, 'config_version') else None,
+                config_version=machine.config_version,
+                scripts=machine.scripts,
             )
             preview_machines.append(machine_preview)
 
@@ -278,27 +284,57 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         )
 
     @staticmethod
-    def _calculate_config_status(machine: EnvMachine, template_version: str) -> str:
+    def _calculate_script_config_status(machine: EnvMachine, template: ConfigTemplate) -> str:
         """
-        计算机器的配置状态
+        计算机器的脚本配置状态
 
-        :param machine: 机器对象
-        :param template_version: 模板版本号
-        :return: 配置状态（synced/pending/updating/offline）
+        Args:
+            machine: 机器对象
+            template: 配置模板（脚本类型）
+
+        Returns:
+            配置状态（synced/pending/updating/offline）
         """
         # 离线状态
         if machine.status == "offline":
             return "offline"
 
         # 配置更新中
-        if hasattr(machine, 'config_status') and machine.config_status == "updating":
+        if machine.config_status == "updating":
             return "updating"
 
-        # 检查配置版本
-        machine_config_version = machine.config_version if hasattr(machine, 'config_version') else None
+        # 脚本版本对比
+        machine_script_version = machine.scripts.get(template.script_name) if machine.scripts else None
 
         # 已同步
-        if machine_config_version == template_version:
+        if machine_script_version == template.version:
+            return "synced"
+
+        # 待更新
+        return "pending"
+
+    @staticmethod
+    def _calculate_config_status(machine: EnvMachine, template_version: str) -> str:
+        """
+        计算机器的配置状态（配置类型）
+
+        Args:
+            machine: 机器对象
+            template_version: 模板版本号
+
+        Returns:
+            配置状态（synced/pending/updating/offline）
+        """
+        # 离线状态
+        if machine.status == "offline":
+            return "offline"
+
+        # 配置更新中
+        if machine.config_status == "updating":
+            return "updating"
+
+        # 已同步
+        if machine.config_version == template_version:
             return "synced"
 
         # 待更新
