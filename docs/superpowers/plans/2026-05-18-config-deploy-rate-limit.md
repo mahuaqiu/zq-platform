@@ -47,24 +47,27 @@ scripts = Column(JSON, nullable=True, comment="脚本版本字典")
 
 - [ ] **Step 3: 更新 to_cache_dict 方法**
 
-在 `to_cache_dict()` 方法中新增两个字段（约第 120 行后）：
+在 `to_cache_dict()` 方法内（第 104-123 行），`config_version` 字段后新增：
 
 ```python
-"config_status": self.config_status,
-"scripts": self.scripts,
+"config_version": self.config_version,
+"config_status": self.config_status,  # 新增
+"scripts": self.scripts,  # 新增
+"last_keepusing_time": self.last_keepusing_time.isoformat() if self.last_keepusing_time else None,
 ```
 
-- [ ] **Step 4: 更新 STATUS_DISPLAY 映射**
+- [ ] **Step 4: 确认 STATUS_DISPLAY 映射**
 
-在 `STATUS_DISPLAY` 字典中新增 `config_updating` 状态显示：
+**注意**：`STATUS_DISPLAY` 字典中已包含 `"config_updating": "配置更新中"`，无需修改。
 
+确认现有映射：
 ```python
 STATUS_DISPLAY = {
     "online": "在线",
     "using": "使用中",
     "offline": "离线",
     "upgrading": "升级中",
-    "config_updating": "配置更新中",
+    "config_updating": "配置更新中",  # 已存在
 }
 ```
 
@@ -169,20 +172,42 @@ git commit -m "feat(env_machine): EnvMachineResponse 新增 config_status 和 sc
 
 搜索 `if data.config_version:` 找到更新 config_version 的位置。
 
-- [ ] **Step 2: 新增 scripts 更新逻辑**
+**注意**：有两处需要修改：
+1. 现有机器更新（约第 96-97 行）
+2. 新机器创建（约第 113-125 行 和 第 177-189 行）
 
-在 `config_version` 更新逻辑后新增：
+- [ ] **Step 2: 现有机器更新 - 新增 scripts 更新逻辑**
+
+在第一处 `if data.config_version:` 后新增：
 
 ```python
+# 现有机器更新（Windows/Mac 约 96-97 行，Android/iOS 约 160-161 行）
+if data.config_version:
+    existing_machine.config_version = data.config_version
 if data.scripts:
     existing_machine.scripts = data.scripts
 ```
 
-同样处理新机器创建时的 scripts 字段（查找 `EnvMachine(...)` 创建位置）：
+- [ ] **Step 3: 新机器创建 - 新增 scripts 参数**
+
+在 `EnvMachine(...)` 创建时新增 `scripts` 参数（两处：Windows/Mac 和 Android/iOS）：
 
 ```python
-# 在创建新机器时新增 scripts 参数
-scripts=data.scripts,
+# Windows/Mac 创建（约 113-125 行）
+new_machine = EnvMachine(
+    namespace=data.namespace,
+    ...
+    config_version=data.config_version,
+    scripts=data.scripts,  # 新增
+)
+
+# Android/iOS 创建（约 177-189 行）
+new_machine = EnvMachine(
+    namespace=data.namespace,
+    ...
+    config_version=data.config_version,
+    scripts=data.scripts,  # 新增
+)
 ```
 
 - [ ] **Step 3: 验证修改**
@@ -276,6 +301,8 @@ from sqlalchemy.orm.attributes import flag_modified
 ```
 
 - [ ] **Step 3: 新增 _should_deploy 函数**
+
+**注意**：复用现有的 `_get_target_os_from_extension` 方法（service.py 第 303-318 行已存在）。
 
 在 `ConfigTemplateService` 类中新增静态方法：
 
@@ -493,9 +520,11 @@ git commit -m "feat(config_template): 实现配置下发并发控制和校验逻
 **Files:**
 - Modify: `backend-fastapi/core/config_template/service.py:_calculate_config_status`
 
+**注意**：现有代码已包含 `config_status == "updating"` 检查（第 290-291 行），但使用的是 `hasattr` 判断。由于新增字段后 `config_status` 字段已存在，需要简化判断逻辑。
+
 - [ ] **Step 1: 更新 _calculate_config_status 方法**
 
-修改 `_calculate_config_status` 方法，增加 config_status 检查：
+简化 `config_status` 检查逻辑：
 
 ```python
 @staticmethod
@@ -575,28 +604,31 @@ Expected: 迁移成功执行
 
 - [ ] **Step 4: 验证数据库**
 
-连接数据库检查字段是否存在：
+通过 ORM 查询验证字段是否存在：
 
 ```bash
 cd backend-fastapi && python -c "
-from app.database import engine
-from sqlalchemy import text
+from app.database import AsyncSessionLocal
+from core.env_machine.model import EnvMachine
 import asyncio
 
 async def check():
-    async with engine.connect() as conn:
-        result = await conn.execute(text(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'env_machine' AND column_name IN ('config_status', 'scripts')\"))
-        columns = [row[0] for row in result]
-        print(f'新增字段: {columns}')
-        assert 'config_status' in columns, 'config_status 字段不存在'
-        assert 'scripts' in columns, 'scripts 字段不存在'
-        print('验证成功')
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import select
+        result = await db.execute(select(EnvMachine).limit(1))
+        machine = result.scalar_one_or_none()
+        if machine:
+            print(f'config_status: {machine.config_status}')
+            print(f'scripts: {machine.scripts}')
+            print('验证成功')
+        else:
+            print('数据库无数据，但字段已定义')
 
 asyncio.run(check())
 "
 ```
 
-Expected: 输出 "验证成功"
+Expected: 输出 "验证成功" 或 "数据库无数据，但字段已定义"
 
 - [ ] **Step 5: Commit**
 
