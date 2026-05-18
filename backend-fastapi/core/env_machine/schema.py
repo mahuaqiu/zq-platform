@@ -21,6 +21,10 @@ class EnvRegisterRequest(BaseModel):
     version: Optional[str] = Field(None, description="机器版本")
     config_version: Optional[str] = Field(None, description="配置版本")
     devices: Dict[str, List[Any]] = Field(..., description="设备列表，key为device_type，value为device_sn列表（字符串或{\"udid\":\"...\"}对象）")
+    scripts: Optional[Dict[str, str]] = Field(
+        None,
+        description="脚本版本字典，key为脚本名，value为版本号"
+    )
 
 
 class EnvMachineListRequest(BaseModel):
