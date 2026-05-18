@@ -107,6 +107,8 @@ class EnvMachineResponse(BaseModel):
     extra_message: Optional[Dict[str, Any]] = Field(None, description="扩展信息")
     version: Optional[str] = Field(None, description="机器版本")
     config_version: Optional[str] = Field(None, description="配置版本")
+    config_status: Optional[str] = Field(None, description="配置状态")
+    scripts: Optional[Dict[str, str]] = Field(None, description="脚本版本字典")
     last_keepusing_time: Optional[datetime] = Field(None, description="最后保持使用时间")
     sort: int = Field(default=0, description="排序")
     is_deleted: bool = Field(default=False, description="是否删除")
