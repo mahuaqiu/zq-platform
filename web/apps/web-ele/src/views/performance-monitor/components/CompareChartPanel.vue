@@ -146,8 +146,8 @@ const initChart = () => {
         lineStyle: {
           color: s.color,
           type: 'dashed',
-          width: 1,
-          opacity: 0.6,
+          width: 2,
+          opacity: 0.8,
         },
         data: [{ type: 'average' }],
       } : undefined,
