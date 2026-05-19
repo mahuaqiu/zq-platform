@@ -40,6 +40,15 @@ const emit = defineEmits<{
 const chartRef = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
 
+// 均值线显示状态（默认关闭）
+const showMeanLine = ref(false);
+
+// 切换均值线显示
+function toggleMeanLine() {
+  showMeanLine.value = !showMeanLine.value;
+  initChart();
+}
+
 // 获取 dataZoom 配置
 const getDataZoomConfig = () => {
   const type = props.dataZoomType || 'none';
@@ -112,6 +121,15 @@ const initChart = () => {
         width: 2,
       },
       itemStyle: { color: s.color },
+      smooth: false,
+      symbol: 'none',
+      // 大数据模式优化（超过2000个点时自动启用）
+      large: true,
+      largeThreshold: 2000,
+      // 渐进式渲染（超过3000个点时启用）
+      progressive: 400,
+      progressiveThreshold: 3000,
+      progressiveChunkMode: 'mod',
       // 只给第一条线添加 markArea（标签区域）
       markArea: index === 0 ? {
         silent: true,
@@ -119,6 +137,19 @@ const initChart = () => {
           color: 'rgba(230, 162, 60, 0.1)', // 冲高区域橙色
         },
         data: peakAreas,
+      } : undefined,
+      // 均值线（当开启时显示）
+      markLine: showMeanLine.value ? {
+        silent: true,
+        symbol: 'none',
+        label: { show: false }, // 不显示均值数值
+        lineStyle: {
+          color: s.color,
+          type: 'dashed',
+          width: 1,
+          opacity: 0.6,
+        },
+        data: [{ type: 'average' }],
       } : undefined,
     };
   }) as echarts.SeriesOption[];
@@ -139,6 +170,47 @@ const initChart = () => {
   }
 
   const option: echarts.EChartsOption = {
+    // 工具栏配置 - 右上角
+    toolbox: {
+      show: true,
+      right: 10,
+      top: 5,
+      orient: 'horizontal',
+      itemSize: 14,
+      itemGap: 8,
+      feature: {
+        // 均值线开关
+        myMeanLine: {
+          show: true,
+          title: showMeanLine.value ? '隐藏均值线' : '显示均值线',
+          icon: 'path://M512 0c282.77 0 512 229.23 512 512s-229.23 512-512 512S0 794.77 0 512S229.23 0 512 0zm0 64C264.58 64 64 264.58 64 512s200.58 448 448 448 448-200.58 448-448S759.42 64 512 64zm-32 192h64v384h-64V256zm0 448h64v64h-64v-64z',
+          onclick: toggleMeanLine,
+        },
+        saveAsImage: {
+          show: true,
+          title: '保存为图片',
+          type: 'png',
+          pixelRatio: 2,
+          name: props.title || '性能对比图表',
+        },
+      },
+    },
+    // 图例配置（点击可隐藏/显示线条）- 右上角，toolbox左边
+    legend: {
+      show: true,
+      type: 'scroll',
+      orient: 'horizontal',
+      right: 70,
+      top: 5,
+      itemWidth: 12,
+      itemHeight: 8,
+      itemGap: 8,
+      textStyle: {
+        color: '#666',
+        fontSize: 12,
+      },
+      data: props.series.map(s => s.name),
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
@@ -173,9 +245,9 @@ const initChart = () => {
     },
     grid: {
       left: 60,
-      right: 40,
+      right: 15,
       bottom: 40,
-      top: 40,
+      top: 30,
     },
     xAxis: {
       type: 'value',

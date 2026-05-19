@@ -64,12 +64,12 @@ export interface PerformanceData {
   hwinfo_raw?: any;
 }
 
-// 版本颜色映射
+// 版本颜色映射（与性能监控页面一致，使用 Element Plus 配色）
 export const VERSION_COLORS = [
-  '#67c23a', // 绿
+  '#409eff', // 蓝（与性能监控一致）
+  '#67c23a', // 绿（与性能监控一致）
+  '#e6a23c', // 橙/黄
   '#f56c6c', // 红
-  '#e6a23c', // 橙
-  '#409eff', // 蓝
   '#909399', // 灰
   '#9c27b0', // 紫
 ];
