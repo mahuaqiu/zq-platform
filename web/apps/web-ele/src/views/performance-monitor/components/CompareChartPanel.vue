@@ -13,6 +13,8 @@ const props = defineProps<{
   hwinfoUnit?: string; // HWiNFO 指标单位
   dataZoomType?: 'slider' | 'inside' | 'none'; // dataZoom 类型
   chartGroup?: string; // 图表分组（用于联动）
+  dataZoomStart?: number; // dataZoom 起始位置
+  dataZoomEnd?: number; // dataZoom 结束位置
 }>();
 
 // 判断是否是内存类指标
@@ -87,6 +89,8 @@ const getDataZoomConfig = () => {
       {
         type: 'inside',
         xAxisIndex: 0,
+        start: props.dataZoomStart ?? 0,
+        end: props.dataZoomEnd ?? 100,
       },
     ];
   }

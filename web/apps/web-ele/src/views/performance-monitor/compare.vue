@@ -53,6 +53,9 @@ let dataZoomSliderChart: echarts.ECharts | null = null;
 const singleMetricSliderRef = ref<HTMLDivElement | null>(null);
 let singleMetricSliderChart: echarts.ECharts | null = null;
 
+// 共享的 dataZoom 范围状态（切换指标时保持）
+const sharedDataZoomRange = ref({ start: 0, end: 100 });
+
 // 当前指标
 const currentMetric = ref('cpu_usage');
 const metricOptions = [
@@ -444,8 +447,8 @@ function initDataZoomSlider() {
         type: 'slider',
         show: true,
         xAxisIndex: 0,
-        start: 0,
-        end: 100,
+        start: sharedDataZoomRange.value.start,
+        end: sharedDataZoomRange.value.end,
         height: 20,
         bottom: 5,
         borderColor: '#ddd',
@@ -463,6 +466,14 @@ function initDataZoomSlider() {
   };
 
   dataZoomSliderChart.setOption(option);
+
+  // 监听 dataZoom 变化，保存范围状态
+  dataZoomSliderChart.on('datazoom', (params: any) => {
+    sharedDataZoomRange.value = {
+      start: params.start || 0,
+      end: params.end || 100,
+    };
+  });
 
   // 加入图表组实现联动
   dataZoomSliderChart.group = 'cpu-gpu-compare';
@@ -513,8 +524,8 @@ function initSingleMetricSlider() {
         type: 'slider',
         show: true,
         xAxisIndex: 0,
-        start: 0,
-        end: 100,
+        start: sharedDataZoomRange.value.start,
+        end: sharedDataZoomRange.value.end,
         height: 20,
         bottom: 5,
         borderColor: '#ddd',
@@ -532,6 +543,14 @@ function initSingleMetricSlider() {
   };
 
   singleMetricSliderChart.setOption(option);
+
+  // 监听 dataZoom 变化，保存范围状态
+  singleMetricSliderChart.on('datazoom', (params: any) => {
+    sharedDataZoomRange.value = {
+      start: params.start || 0,
+      end: params.end || 100,
+    };
+  });
 
   // 加入图表组实现联动
   singleMetricSliderChart.group = 'single-metric-compare';
@@ -786,6 +805,8 @@ async function handleExport() {
           :current-metric="currentMetric"
           data-zoom-type="inside"
           chart-group="cpu-gpu-compare"
+          :data-zoom-start="sharedDataZoomRange.start"
+          :data-zoom-end="sharedDataZoomRange.end"
         />
         <!-- dataZoom slider 放在两个图表中间 -->
         <div class="datazoom-slider-container">
@@ -800,6 +821,8 @@ async function handleExport() {
           :current-metric="currentMetric"
           data-zoom-type="inside"
           chart-group="cpu-gpu-compare"
+          :data-zoom-start="sharedDataZoomRange.start"
+          :data-zoom-end="sharedDataZoomRange.end"
         />
       </div>
       <!-- 其他指标/HWiNFO: 单图表 + 独立时间范围选择 -->
@@ -813,6 +836,8 @@ async function handleExport() {
           :hwinfo-unit="hwinfoMetricInfo.unit"
           data-zoom-type="inside"
           chart-group="single-metric-compare"
+          :data-zoom-start="sharedDataZoomRange.start"
+          :data-zoom-end="sharedDataZoomRange.end"
         />
         <!-- 独立的时间范围选择卡片 -->
         <div class="datazoom-slider-container">
