@@ -246,7 +246,7 @@ const initChart = () => {
     grid: {
       left: 60,
       right: 15,
-      bottom: props.dataZoomType === 'slider' ? 60 : 40,
+      bottom: 40,
       top: 30,
     },
     xAxis: {

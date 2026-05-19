@@ -49,6 +49,10 @@ const loadingCompare = ref(false);
 const dataZoomSliderRef = ref<HTMLDivElement | null>(null);
 let dataZoomSliderChart: echarts.ECharts | null = null;
 
+// dataZoom slider 独立容器（用于其他指标单图表）
+const singleMetricSliderRef = ref<HTMLDivElement | null>(null);
+let singleMetricSliderChart: echarts.ECharts | null = null;
+
 // 当前指标
 const currentMetric = ref('cpu_usage');
 const metricOptions = [
@@ -465,11 +469,86 @@ function initDataZoomSlider() {
   echarts.connect('cpu-gpu-compare');
 }
 
+// 初始化独立的时间范围选择 slider（用于其他指标单图表）
+function initSingleMetricSlider() {
+  if (!singleMetricSliderRef.value) return;
+
+  // 销毁旧图表
+  if (singleMetricSliderChart) {
+    singleMetricSliderChart.dispose();
+  }
+
+  singleMetricSliderChart = echarts.init(singleMetricSliderRef.value);
+
+  // 获取时间范围
+  const allTimes = finalSystemChartSeries.value.flatMap(s => s.data.map(d => d.time));
+  const minTime = allTimes.length > 0 ? Math.min(...allTimes) : 0;
+  const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 100;
+
+  const option: echarts.EChartsOption = {
+    grid: {
+      left: 60,
+      right: 40,
+      top: 5,
+      bottom: 5,
+    },
+    xAxis: {
+      type: 'value',
+      min: minTime,
+      max: maxTime,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: {
+        formatter: (value: number) => `${Math.round(value)}秒`,
+        color: '#666',
+      },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      show: false,
+    },
+    dataZoom: [
+      {
+        type: 'slider',
+        show: true,
+        xAxisIndex: 0,
+        start: 0,
+        end: 100,
+        height: 20,
+        bottom: 5,
+        borderColor: '#ddd',
+        fillerColor: 'rgba(64, 158, 255, 0.2)',
+        handleStyle: { color: '#409eff' },
+        textStyle: { color: '#666' },
+        labelFormatter: (value: number) => `${Math.round(value)}秒`,
+      },
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+      },
+    ],
+    series: [],
+  };
+
+  singleMetricSliderChart.setOption(option);
+
+  // 加入图表组实现联动
+  singleMetricSliderChart.group = 'single-metric-compare';
+  echarts.connect('single-metric-compare');
+}
+
 // 监听数据变化，重新初始化 slider
-watch([systemChartSeries, isCpuOrGpuMetric], () => {
-  if (isCpuOrGpuMetric.value && compareData.value.versions.length > 0) {
+watch([systemChartSeries, isCpuOrGpuMetric, finalSystemChartSeries], () => {
+  if (compareData.value.versions.length > 0) {
     // 延迟初始化，确保 DOM 已渲染
-    setTimeout(() => initDataZoomSlider(), 100);
+    setTimeout(() => {
+      if (isCpuOrGpuMetric.value) {
+        initDataZoomSlider();
+      } else {
+        initSingleMetricSlider();
+      }
+    }, 100);
   }
 }, { immediate: true });
 
@@ -490,6 +569,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (dataZoomSliderChart) {
     dataZoomSliderChart.dispose();
+  }
+  if (singleMetricSliderChart) {
+    singleMetricSliderChart.dispose();
   }
 });
 
@@ -720,17 +802,24 @@ async function handleExport() {
           chart-group="cpu-gpu-compare"
         />
       </div>
-      <!-- 其他指标/HWiNFO: 单图表布局 -->
-      <CompareChartPanel
-        v-else
-        :title="systemChartTitle"
-        :series="finalSystemChartSeries"
-        :tags="compareTags"
-        :loading="loadingCompare || loadingHwinfoMetric"
-        :current-metric="currentMetric"
-        :hwinfo-unit="hwinfoMetricInfo.unit"
-        data-zoom-type="slider"
-      />
+      <!-- 其他指标/HWiNFO: 单图表 + 独立时间范围选择 -->
+      <div v-else class="single-chart-with-slider">
+        <CompareChartPanel
+          :title="systemChartTitle"
+          :series="finalSystemChartSeries"
+          :tags="compareTags"
+          :loading="loadingCompare || loadingHwinfoMetric"
+          :current-metric="currentMetric"
+          :hwinfo-unit="hwinfoMetricInfo.unit"
+          data-zoom-type="inside"
+          chart-group="single-metric-compare"
+        />
+        <!-- 独立的时间范围选择卡片 -->
+        <div class="datazoom-slider-container">
+          <div class="slider-label">时间范围选择</div>
+          <div ref="singleMetricSliderRef" class="slider-chart"></div>
+        </div>
+      </div>
     </div>
 
     <!-- 底部面板 -->
@@ -804,6 +893,12 @@ async function handleExport() {
 
 .dual-charts .compare-chart-panel {
   width: 100%;
+}
+
+.single-chart-with-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .datazoom-slider-container {
