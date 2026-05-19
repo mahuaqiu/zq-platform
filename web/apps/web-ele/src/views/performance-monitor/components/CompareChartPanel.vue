@@ -65,7 +65,7 @@ const getDataZoomConfig = () => {
         start: 0,
         end: 100,
         height: 20,
-        bottom: 10,
+        bottom: 5,
         left: 60,
         right: 40,
         borderColor: '#ddd',
@@ -246,7 +246,7 @@ const initChart = () => {
     grid: {
       left: 60,
       right: 15,
-      bottom: props.dataZoomType === 'slider' ? 50 : 40,
+      bottom: props.dataZoomType === 'slider' ? 60 : 40,
       top: 30,
     },
     xAxis: {
@@ -309,16 +309,9 @@ onUnmounted(() => {
 
 <template>
   <div class="compare-chart-panel" v-loading="loading">
-    <!-- slider 类型：标题放在底部（这样 slider 在标题上方） -->
-    <template v-if="dataZoomType === 'slider'">
-      <div ref="chartRef" class="chart-container has-datazoom"></div>
-      <div v-if="title" class="chart-title-bottom">{{ title }}</div>
-    </template>
-    <!-- 其他类型：标题放在顶部 -->
-    <template v-else>
-      <div v-if="title" class="chart-title">{{ title }}</div>
-      <div ref="chartRef" class="chart-container"></div>
-    </template>
+    <!-- 所有类型：标题统一放在左上角 -->
+    <div v-if="title" class="chart-title">{{ title }}</div>
+    <div ref="chartRef" class="chart-container" :class="{ 'has-datazoom': dataZoomType === 'slider' }"></div>
   </div>
 </template>
 
@@ -334,14 +327,6 @@ onUnmounted(() => {
   font-weight: 600;
   color: #333;
   margin-bottom: 12px;
-}
-
-.chart-title-bottom {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-top: 8px;
-  text-align: center;
 }
 
 .chart-container {
