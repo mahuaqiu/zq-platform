@@ -56,7 +56,7 @@ const getDataZoomConfig = () => {
   if (type === 'none') return undefined;
 
   if (type === 'slider') {
-    // 滑块类型，显示在图表容器顶部
+    // 滑块类型，显示在图表底部（和 CPU/GPU 一致）
     return [
       {
         type: 'slider',
@@ -65,7 +65,7 @@ const getDataZoomConfig = () => {
         start: 0,
         end: 100,
         height: 20,
-        top: 5,
+        bottom: 10,
         left: 60,
         right: 40,
         borderColor: '#ddd',
@@ -246,7 +246,7 @@ const initChart = () => {
     grid: {
       left: 60,
       right: 15,
-      bottom: 40,
+      bottom: props.dataZoomType === 'slider' ? 50 : 40,
       top: 30,
     },
     xAxis: {
