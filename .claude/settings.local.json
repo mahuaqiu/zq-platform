@@ -170,7 +170,8 @@
       "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/check_process_handles.py)",
       "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/check_export_params.py)",
       "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/check_data_range.py)",
-      "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/debug_export.py)"
+      "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/debug_export.py)",
+      "Skill(frontend-design)"
     ]
   }
 }
