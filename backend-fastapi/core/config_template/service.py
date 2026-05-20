@@ -205,6 +205,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         # 构建查询条件
         conditions = [
             EnvMachine.is_deleted == False,  # noqa: E712
+            EnvMachine.is_virtual == False,  # 新增：跳过虚拟设备
         ]
 
         # 命名空间筛选
@@ -458,6 +459,7 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
                 and_(
                     EnvMachine.id.in_(machine_ids),
                     EnvMachine.is_deleted == False,
+                    EnvMachine.is_virtual == False,  # 新增：跳过虚拟设备
                 )
             )
         )
