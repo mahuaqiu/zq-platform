@@ -95,7 +95,7 @@ class EnvMachineResponse(BaseModel):
     id: str = Field(..., description="机器ID")
     namespace: str = Field(..., description="机器分类")
     ip: str = Field(..., description="机器IP")
-    port: str = Field(..., description="机器端口")
+    port: Optional[str] = Field(None, description="机器端口（虚拟设备可为空）")
     asset_number: Optional[str] = Field(None, description="资产编号")
     mark: Optional[str] = Field(None, description="机器标签")
     device_type: str = Field(..., description="机器类型")
