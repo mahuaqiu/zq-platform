@@ -41,7 +41,8 @@ port = Column(String(10), nullable=True, comment="机器端口")
 
 **字段约束**：
 - `ip` 字段唯一约束保持：`namespace + ip + device_type + device_sn`
-- 虚拟设备 `device_sn` 为空，通过 `ip` 字段保证唯一性（如 `perf001`, `perf002`）
+- 虚拟设备 `device_sn` 为空（null），通过 `ip` 字段保证唯一性（如 `perf001`, `perf002`）
+- **注意**：PostgreSQL 中 null 值不参与唯一约束比较，因此同一 namespace + device_type 下可以有多个 `device_sn=null` 的虚拟设备，只要 `ip` 不同即可
 
 **to_cache_dict() 方法更新**：
 
@@ -87,7 +88,18 @@ alembic upgrade head
 **创建设备**：
 - `POST /api/core/env` - 新增 `is_virtual` 参数，默认为 `true`
 - 文件：`backend-fastapi/core/env_machine/schema.py`
-- 修改 `EnvMachineCreateRequest`：新增 `is_virtual: bool = Field(default=True, ...)`
+- 修改 `EnvMachineCreateRequest`：
+```python
+class EnvMachineCreateRequest(BaseModel):
+    """新增执行机请求 Schema"""
+    namespace: str = Field(..., description="机器分类")
+    device_type: str = Field(..., description="机器类型：windows/mac/ios/android")
+    asset_number: str = Field(..., description="资产编号（必填）")
+    ip: Optional[str] = Field(None, description="IP地址（Windows/Mac）")
+    device_sn: Optional[str] = Field(None, description="设备SN（iOS/Android）")
+    note: Optional[str] = Field(None, description="备注")
+    is_virtual: bool = Field(default=True, description="是否为虚拟设备")  # 新增
+```
 - Worker 注册设备通过 `/register` 接口，`is_virtual=false`（默认值）
 
 **设备列表查询**：
@@ -96,12 +108,13 @@ alembic upgrade head
 - 修改 `EnvMachineResponse`：新增 `is_virtual: bool = Field(default=False, description="是否为虚拟设备")`
 
 **升级管理列表查询**：
-- 文件：`backend-fastapi/core/env_machine/upgrade_api.py`
-- 过滤 `is_virtual=false` 的设备
+- 文件：`backend-fastapi/core/env_machine/upgrade_service.py`
+- 过滤 `is_virtual=false` 的设备 (lines 263, 386, 520)
+- 升级 API 文件：`backend-fastapi/core/env_machine/upgrade_api.py`
 
 **配置下发列表查询**：
-- 文件：`backend-fastapi/core/env_machine/upgrade_api.py`（配置下发在 upgrade_api 中）
-- 过滤 `is_virtual=false` 的设备
+- 文件：`backend-fastapi/core/config_template/service.py`
+- 过滤 `is_virtual=false` 的设备 (lines 207, 457)
 
 #### 2.3 Worker 注册保持现状
 
@@ -416,8 +429,49 @@ async def batch_import_virtual_devices(
 @router.get("/import-template", summary="下载虚拟设备导入模板")
 async def download_import_template():
     """下载虚拟设备导入 Excel 模板"""
-    # 使用 VIRTUAL_EXCEL_COLUMNS 配置生成模板
     return await EnvMachineService.generate_virtual_import_template()
+```
+
+**模板生成实现**：
+
+文件：`backend-fastapi/core/env_machine/service.py`
+
+```python
+@classmethod
+async def generate_virtual_import_template(cls) -> BytesIO:
+    """生成虚拟设备导入 Excel 模板"""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "虚拟设备导入模板"
+    
+    # 写入表头
+    headers = list(cls.VIRTUAL_EXCEL_COLUMNS.values())
+    ws.append(headers)
+    
+    # 设置表头样式
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # 写入示例行
+    ws.append([
+        "meeting_virtual",  # namespace
+        "windows",          # device_type
+        "PERF-001",         # asset_number
+        "perf001",          # ip
+        "windows_perf",     # mark
+        '{"windows_perf": {"username": "test", "password": "xxx"}}',  # extra_message
+        "性能测试账号",      # note
+    ])
+    
+    # 保存到 BytesIO
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
 ```
 
 ## 实现计划
@@ -445,13 +499,18 @@ async def download_import_template():
    - 新增 `POST /batch-delete`
    - 新增 `GET /import-template`
    - 修改 `POST /` 创建接口
-   - 升级/配置列表查询添加 `is_virtual=False` 过滤
 
-5. **定时任务改动** (`scheduler.py`)
+5. **升级服务改动** (`upgrade_service.py`)
+   - EnvMachine 查询添加 `is_virtual=False` 过滤 (lines 263, 386, 520)
+
+6. **配置模板服务改动** (`config_template/service.py`)
+   - EnvMachine 查询添加 `is_virtual=False` 过滤 (lines 207, 457)
+
+7. **定时任务改动** (`scheduler.py`)
    - `check_offline_machines` 添加 `is_virtual=False` 过滤 (line 259-262, 268-271)
    - `reload_machine_status_after_restart` 添加 `is_virtual=False` 过滤 (line 529-531)
 
-6. **数据库迁移**
+8. **数据库迁移**
    - 执行 Alembic 迁移
 
 ### 前端改动
