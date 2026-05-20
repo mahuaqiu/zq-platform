@@ -487,38 +487,22 @@ async def update_env_machine(
     return EnvMachineResponse.model_validate(machine)
 
 
-@router.get("/{machine_id}", response_model=EnvMachineResponse, summary="获取单个设备详情")
-async def get_env_machine_detail(
-    machine_id: str,
-    db: AsyncSession = Depends(get_db)
-) -> EnvMachineResponse:
-    """获取单个设备详情"""
-    machine = await EnvMachineService.get_by_id(db, machine_id)
-    if not machine:
-        raise HTTPException(status_code=404, detail="执行机不存在")
-    return EnvMachineResponse.model_validate(machine)
+@router.get("/import-template", summary="下载虚拟设备导入模板")
+async def download_import_template():
+    """
+    下载虚拟设备导入 Excel 模板
 
+    模板包含表头和示例数据
+    """
+    buffer = await EnvMachineService.generate_virtual_import_template()
 
-@router.delete("/{machine_id}", summary="删除执行机")
-async def delete_env_machine(
-    machine_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """删除执行机（软删除）"""
-    machine = await EnvMachineService.get_by_id(db, machine_id)
-    if not machine:
-        raise HTTPException(status_code=404, detail="执行机不存在")
-
-    # 记录 namespace 用于缓存清理
-    namespace = machine.namespace
-
-    await EnvMachineService.delete(db, machine_id)
-    await db.commit()
-
-    # 从 Redis 缓存中移除
-    await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
-
-    return {"status": "success", "message": "删除成功"}
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=virtual_device_import_template.xlsx"
+        }
+    )
 
 
 @router.get("/dashboard/stats", summary="获取设备监控看板统计")
@@ -573,6 +557,40 @@ async def get_dashboard_stats(
         top10_insufficient=top10_insufficient,
         offline_machines=offline_machines
     )
+
+
+@router.get("/{machine_id}", response_model=EnvMachineResponse, summary="获取单个设备详情")
+async def get_env_machine_detail(
+    machine_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> EnvMachineResponse:
+    """获取单个设备详情"""
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="执行机不存在")
+    return EnvMachineResponse.model_validate(machine)
+
+
+@router.delete("/{machine_id}", summary="删除执行机")
+async def delete_env_machine(
+    machine_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """删除执行机（软删除）"""
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="执行机不存在")
+
+    # 记录 namespace 用于缓存清理
+    namespace = machine.namespace
+
+    await EnvMachineService.delete(db, machine_id)
+    await db.commit()
+
+    # 从 Redis 缓存中移除
+    await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
+
+    return {"status": "success", "message": "删除成功"}
 
 
 # 注册升级管理路由
@@ -905,22 +923,4 @@ async def batch_import_virtual_devices(
     return EnvMachineBatchImportResponse(
         success_count=success_count,
         failed_items=failed_items
-    )
-
-
-@router.get("/import-template", summary="下载虚拟设备导入模板")
-async def download_import_template():
-    """
-    下载虚拟设备导入 Excel 模板
-
-    模板包含表头和示例数据
-    """
-    buffer = await EnvMachineService.generate_virtual_import_template()
-
-    return StreamingResponse(
-        buffer,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": "attachment; filename=virtual_device_import_template.xlsx"
-        }
     )
