@@ -42,8 +42,8 @@ class EnvMachine(BaseModel):
     # 机器 IP（支持 IPv6）
     ip = Column(String(45), nullable=False, comment="机器 IP")
 
-    # 机器端口
-    port = Column(String(10), nullable=False, comment="机器端口")
+    # 机器端口（虚拟设备可为空）
+    port = Column(String(10), nullable=True, comment="机器端口")
 
     # 资产编号
     asset_number = Column(String(32), nullable=True, comment="资产编号")
@@ -59,6 +59,9 @@ class EnvMachine(BaseModel):
 
     # 是否启用
     available = Column(Boolean, nullable=False, default=False, comment="是否启用")
+
+    # 是否为虚拟设备（虚拟设备不参与离线检测和重启重载）
+    is_virtual = Column(Boolean, nullable=False, default=False, comment="是否为虚拟设备")
 
     # 状态：online/using/offline
     status = Column(String(20), nullable=False, default="online", comment="状态")
@@ -92,6 +95,7 @@ class EnvMachine(BaseModel):
         UniqueConstraint("namespace", "ip", "device_type", "device_sn", name="uq_env_machine_namespace_ip_device"),
         Index("ix_env_machine_status", "status"),
         Index("ix_env_machine_sync_time", "sync_time"),
+        Index("ix_env_machine_is_virtual", "is_virtual"),  # 新增
     )
 
     # 状态显示名称映射
@@ -119,6 +123,7 @@ class EnvMachine(BaseModel):
             "device_type": self.device_type,
             "device_sn": self.device_sn,
             "available": self.available,
+            "is_virtual": self.is_virtual,  # 新增
             "status": self.status,
             "note": self.note,
             "sync_time": self.sync_time.isoformat() if self.sync_time else None,
