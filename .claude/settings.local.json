@@ -174,7 +174,11 @@
       "Skill(frontend-design)",
       "Bash(findstr \"is_virtual\")",
       "Bash(Set-Location backend-fastapi *)",
-      "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $bytes = [System.IO.File]::ReadAllBytes\\('core\\\\env_machine\\\\service.py'\\); $bytes[7700..7720] | ForEach-Object { $_ })"
+      "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $bytes = [System.IO.File]::ReadAllBytes\\('core\\\\env_machine\\\\service.py'\\); $bytes[7700..7720] | ForEach-Object { $_ })",
+      "Skill(executing-plans)",
+      "Bash(pytest tests/test_env_machine_auth.py -v)",
+      "Bash(pytest *)",
+      "Skill(finishing-a-development-branch)"
     ]
   }
 }
