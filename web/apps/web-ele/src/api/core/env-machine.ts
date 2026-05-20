@@ -24,6 +24,7 @@ export interface EnvMachine {
   is_deleted: boolean;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
+  is_virtual: boolean;  // 是否为虚拟设备
 }
 
 /**
@@ -52,6 +53,7 @@ export interface EnvMachineCreateParams {
   ip?: string;
   device_sn?: string;
   note?: string;
+  is_virtual?: boolean;  // 是否为虚拟设备（页面新增时默认为虚拟设备）
 }
 
 /**
@@ -193,4 +195,61 @@ export async function debugDeviceActionApi(
  */
 export async function getEnvMachineDetailApi(id: string) {
   return requestClient.get<EnvMachine>(`/api/core/env/${id}`);
+}
+
+/**
+ * 批量删除响应
+ */
+export interface BatchDeleteResponse {
+  success_count: number;
+  failed_count: number;
+  details: Array<{
+    id: string;
+    success: boolean;
+    error?: string;
+  }>;
+}
+
+/**
+ * 批量删除执行机
+ */
+export async function batchDeleteEnvMachineApi(ids: string[]) {
+  return requestClient.post<BatchDeleteResponse>('/api/core/env/batch-delete', { ids });
+}
+
+/**
+ * 批量导入响应
+ */
+export interface BatchImportResponse {
+  success_count: number;
+  failed_items: Array<{
+    row: number;
+    reason: string;
+  }>;
+}
+
+/**
+ * 批量导入虚拟设备
+ */
+export async function batchImportVirtualDevicesApi(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return requestClient.post<BatchImportResponse>(
+    '/api/core/env/batch-import-virtual',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+}
+
+/**
+ * 下载虚拟设备导入模板
+ */
+export async function downloadImportTemplateApi() {
+  return requestClient.get<Blob>('/api/core/env/import-template', {
+    responseType: 'blob',
+  });
 }
