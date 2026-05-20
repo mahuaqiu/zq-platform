@@ -260,6 +260,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             EnvMachine.sync_time < threshold,
             EnvMachine.status.in_(["online", "using"]),
             EnvMachine.is_deleted == False,  # noqa: E712
+            EnvMachine.is_virtual == False,  # 新增：跳过虚拟设备
         )
         result = await db.execute(stmt)
         machines = result.scalars().all()
@@ -269,6 +270,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             EnvMachine.sync_time < upgrade_threshold,
             EnvMachine.status == "upgrading",
             EnvMachine.is_deleted == False,  # noqa: E712
+            EnvMachine.is_virtual == False,  # 新增：跳过虚拟设备
         )
         upgrade_result = await db.execute(upgrade_stmt)
         upgrading_machines = upgrade_result.scalars().all()
@@ -525,9 +527,10 @@ async def reload_machine_status_after_restart() -> Dict:
     await asyncio.sleep(10)
 
     async with AsyncSessionLocal() as db:
-        # 查询所有机器（不包括已删除的）
+        # 查询所有机器（不包括已删除的和虚拟设备）
         stmt = select(EnvMachine).where(
             EnvMachine.is_deleted == False,  # noqa: E712
+            EnvMachine.is_virtual == False,  # 新增：跳过虚拟设备
         )
         result = await db.execute(stmt)
         machines = result.scalars().all()
