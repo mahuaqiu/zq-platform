@@ -171,7 +171,10 @@
       "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/check_export_params.py)",
       "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/check_data_range.py)",
       "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $env:PYTHONPATH='.'; python scripts/debug_export.py)",
-      "Skill(frontend-design)"
+      "Skill(frontend-design)",
+      "Bash(findstr \"is_virtual\")",
+      "Bash(Set-Location backend-fastapi *)",
+      "PowerShell(cd D:\\\\code\\\\zq-platform\\\\backend-fastapi; $bytes = [System.IO.File]::ReadAllBytes\\('core\\\\env_machine\\\\service.py'\\); $bytes[7700..7720] | ForEach-Object { $_ })"
     ]
   }
 }
