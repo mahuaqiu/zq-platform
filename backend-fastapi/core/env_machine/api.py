@@ -12,7 +12,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
@@ -29,6 +30,8 @@ from core.env_machine.schema import (
     EnvMachineResponse,
     DebugActionRequest,
     DebugActionResponse,
+    EnvMachineBatchDeleteRequest,
+    EnvMachineBatchImportResponse,
 )
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
@@ -418,16 +421,23 @@ async def create_env_machine(
     db: AsyncSession = Depends(get_db)
 ) -> EnvMachineResponse:
     """
-    新增执行机（手工使用场景）
+    新增执行机（手工使用场景或虚拟设备）
 
     根据设备类型自动处理：
     - Windows/Mac：填写 IP
     - iOS/Android：填写 device_sn
+    - 虚拟设备：is_virtual=True，无需真实 worker
     """
     # 构建端口默认值
-    port = data.ip.split(":")[1] if data.ip and ":" in data.ip else "8088"
-    ip = data.ip.split(":")[0] if data.ip and ":" in data.ip else data.ip
+    # 虚拟设备无端口，非虚拟设备默认8088
+    if data.ip and ":" in data.ip:
+        port = data.ip.split(":")[1]
+        ip = data.ip.split(":")[0]
+    else:
+        ip = data.ip or ""
+        port = None if data.is_virtual else "8088"
 
+    # 虚拟设备默认 online（无需心跳），非虚拟设备默认 offline（等待心跳）
     machine = EnvMachine(
         namespace=data.namespace,
         device_type=data.device_type,
@@ -436,8 +446,9 @@ async def create_env_machine(
         port=port,
         device_sn=data.device_sn,
         note=data.note,
-        status="offline",
+        status="online" if data.is_virtual else "offline",
         available=False,
+        is_virtual=data.is_virtual,
     )
     db.add(machine)
     await db.commit()
@@ -838,3 +849,78 @@ async def debug_device_action(
     except Exception as e:
         logger.error(f"调试操作失败: {e}")
         return DebugActionResponse(success=False, result={"error": str(e)})
+
+
+@router.post("/batch-delete", summary="批量删除设备")
+async def batch_delete_env_machines(
+    data: EnvMachineBatchDeleteRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    批量删除设备（支持虚拟和真实设备）
+
+    - 软删除：设置 is_deleted=True
+    - 从 Redis 缓存中移除
+    """
+    success_count = 0
+    failed_ids = []
+
+    for machine_id in data.ids:
+        machine = await EnvMachineService.get_by_id(db, machine_id)
+        if not machine:
+            failed_ids.append(machine_id)
+            continue
+
+        namespace = machine.namespace
+        await EnvMachineService.delete(db, machine_id)
+        await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
+        success_count += 1
+
+    await db.commit()
+
+    return {
+        "success_count": success_count,
+        "failed_ids": failed_ids
+    }
+
+
+@router.post("/batch-import-virtual", response_model=EnvMachineBatchImportResponse, summary="批量导入虚拟设备")
+async def batch_import_virtual_devices(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+) -> EnvMachineBatchImportResponse:
+    """
+    批量导入虚拟设备
+
+    - Excel 文件上传
+    - 返回导入结果
+    """
+    # 验证文件类型
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="只支持 Excel 文件 (.xlsx, .xls)")
+
+    content = await file.read()
+    success_count, failed_items = await EnvMachineService.import_virtual_from_excel(db, content)
+
+    return EnvMachineBatchImportResponse(
+        success_count=success_count,
+        failed_items=failed_items
+    )
+
+
+@router.get("/import-template", summary="下载虚拟设备导入模板")
+async def download_import_template():
+    """
+    下载虚拟设备导入 Excel 模板
+
+    模板包含表头和示例数据
+    """
+    buffer = await EnvMachineService.generate_virtual_import_template()
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=virtual_device_import_template.xlsx"
+        }
+    )
