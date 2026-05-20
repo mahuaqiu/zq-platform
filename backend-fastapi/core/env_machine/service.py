@@ -80,17 +80,15 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     }
     excel_sheet_name = "执行机列表"
 
-    # 虚拟设备 Excel 导入导出配置（不包含 namespace 和资产编号）
+    # 虚拟设备 Excel 导入导出配置
     VIRTUAL_EXCEL_COLUMNS = {
+        "namespace": "命名空间",
         "device_type": "机器类型",
         "ip": "虚拟标识",
         "mark": "标签",
         "extra_message": "扩展信息(JSON)",
         "note": "备注",
     }
-
-    # 虚拟设备默认 namespace
-    VIRTUAL_NAMESPACE = "_virtual"
 
     @classmethod
     def _export_converter(cls, item: EnvMachine) -> Dict[str, Any]:
@@ -145,12 +143,13 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     @classmethod
     def _virtual_import_processor(cls, row: Dict[str, Any]) -> Optional[EnvMachine]:
         """虚拟设备导入处理器"""
+        namespace = row.get("namespace")
         device_type = row.get("device_type")
         ip = row.get("ip")
         mark = row.get("mark")
         extra_message_str = row.get("extra_message")
 
-        if not all([device_type, ip, mark, extra_message_str]):
+        if not all([namespace, device_type, ip, mark, extra_message_str]):
             return None
 
         try:
@@ -161,7 +160,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             return None
 
         return EnvMachine(
-            namespace=cls.VIRTUAL_NAMESPACE,
+            namespace=str(namespace),
             device_type=str(device_type),
             asset_number=None,
             ip=str(ip),
@@ -215,7 +214,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
                     column_map[key] = idx
                     break
 
-        required_keys = ["device_type", "ip", "mark", "extra_message"]
+        required_keys = ["namespace", "device_type", "ip", "mark", "extra_message"]
         missing_keys = [k for k in required_keys if k not in column_map]
         if missing_keys:
             missing_cols = [cls.VIRTUAL_EXCEL_COLUMNS[k] for k in missing_keys]
@@ -726,6 +725,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             cell.alignment = Alignment(horizontal='center')
 
         ws.append([
+            "meeting_virtual",
             "windows",
             "perf001",
             "windows_perf",
