@@ -202,9 +202,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         file_content: bytes,
     ) -> Tuple[int, List[Dict[str, Any]]]:
         """从 Excel 导入虚拟设备"""
-        from openpyxl import load_workbook
-
-        wb = load_workbook(BytesIO(file_content))
+        wb = openpyxl.load_workbook(BytesIO(file_content))
         ws = wb.active
 
         success_count = 0
