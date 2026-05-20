@@ -36,6 +36,7 @@ from core.env_machine.schema import (
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
 from core.env_machine.scheduler import modify_release_job, remove_release_job
+from core.env_machine.auth import verify_env_apply_auth
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +227,8 @@ async def register_env_machine(
 
 @router.post(
     "/{namespace}/application",
-    summary="申请执行机"
+    summary="申请执行机",
+    dependencies=[Depends(verify_env_apply_auth)]  # 添加权限验证依赖
 )
 async def apply_env_machines(
     namespace: str,
@@ -239,6 +241,7 @@ async def apply_env_machines(
 
     Header:
         X-Testcase-Id: 用例编号（可选），用于合并连续失败记录
+        X-Env-Auth: 申请权限key（必填），用于验证申请权限
 
     从指定 namespace 的机器池中申请机器。
 
