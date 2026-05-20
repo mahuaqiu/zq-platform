@@ -101,7 +101,7 @@ async def verify_env_apply_auth(
     if namespace not in allowed_namespaces:
         raise HTTPException(
             status_code=401, 
-            detail=f"权限不足: 无权申请 namespace={namespace}"
+            detail="权限不足: 无权申请该命名空间的机器"
         )
 ```
 
@@ -167,8 +167,8 @@ async def apply_env_machines(
 → 返回: {"detail": "缺少 X-Env-Auth header"}
 
 情况2: key不存在或namespace不在授权列表中
-→ HTTPException(401, detail="权限不足: 无权申请 namespace=yyy")
-→ 返回: {"detail": "权限不足: 无权申请 namespace=yyy"}
+→ HTTPException(401, detail="权限不足: 无权申请该命名空间的机器")
+→ 返回: {"detail": "权限不足: 无权申请该命名空间的机器"}
 ```
 
 ## 实现要点
@@ -186,7 +186,8 @@ async def apply_env_machines(
 ### 3. 依赖注入方式
 - 使用 `dependencies=[Depends(verify_env_apply_auth)]` 而非参数注入
 - 这样验证函数会自动执行，但不改变接口参数结构
-- namespace 参数会自动传递给验证函数（FastAPI 的路由参数匹配机制）
+- FastAPI 会解析依赖函数的参数签名，自动注入匹配的路径参数（namespace）、Header 参数（x_env_auth）等
+- 这是 FastAPI 的依赖注入系统特性，无需手动传参
 
 ### 4. 错误处理
 - 所有验证失败统一返回 401 状态码
@@ -195,6 +196,26 @@ async def apply_env_machines(
 ### 5. 其他接口不受影响
 - 只在申请接口添加依赖验证
 - 注册、保持使用、释放、CRUD 等其他接口无需改动
+
+### 6. 配置验证建议
+- 部署前使用 JSON 校验工具验证 ENV_APPLY_AUTH 配置格式
+- 建议在 Settings 类中添加启动时配置校验：
+
+```python
+from pydantic import field_validator
+import json
+
+@field_validator("ENV_APPLY_AUTH")
+def validate_env_apply_auth(cls, v):
+    if not v:
+        logger.warning("ENV_APPLY_AUTH 配置为空，所有申请将被拒绝")
+        return v
+    try:
+        json.loads(v)
+        return v
+    except json.JSONDecodeError:
+        raise ValueError("ENV_APPLY_AUTH JSON 格式错误")
+```
 
 ## 测试要点
 
