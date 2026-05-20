@@ -219,7 +219,8 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         required_keys = ["namespace", "device_type", "asset_number", "ip", "mark", "extra_message"]
         missing_keys = [k for k in required_keys if k not in column_map]
         if missing_keys:
-            return 0, [{"row": 0, "reason": f"缺少必填列: {cls.VIRTUAL_EXCEL_COLUMNS[k]}" for k in missing_keys}]
+            missing_cols = [cls.VIRTUAL_EXCEL_COLUMNS[k] for k in missing_keys]
+            return 0, [{"row": 0, "reason": f"缺少必填列: {','.join(missing_cols)}"}]
 
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if not any(row):
