@@ -48,6 +48,7 @@ class EnvMachineCreateRequest(BaseModel):
     ip: Optional[str] = Field(None, description="IP地址（Windows/Mac）")
     device_sn: Optional[str] = Field(None, description="设备SN（iOS/Android）")
     note: Optional[str] = Field(None, description="备注")
+    is_virtual: bool = Field(default=True, description="是否为虚拟设备")  # 新增，默认为虚拟设备
 
 
 class EnvMachineUpdateRequest(BaseModel):
@@ -114,6 +115,7 @@ class EnvMachineResponse(BaseModel):
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
+    is_virtual: bool = Field(default=False, description="是否为虚拟设备")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -129,3 +131,14 @@ class DebugActionResponse(BaseModel):
     """设备调试操作响应 Schema"""
     success: bool = Field(..., description="操作是否成功")
     result: Optional[Dict[str, Any]] = Field(None, description="操作结果，如截图返回 screenshot_base64")
+
+
+class EnvMachineBatchDeleteRequest(BaseModel):
+    """批量删除请求 Schema"""
+    ids: List[str] = Field(..., description="设备 ID 列表")
+
+
+class EnvMachineBatchImportResponse(BaseModel):
+    """批量导入响应 Schema"""
+    success_count: int = Field(..., description="成功导入数量")
+    failed_items: List[Dict[str, Any]] = Field(default_factory=list, description="失败列表")
