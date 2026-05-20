@@ -57,7 +57,7 @@ class EnvPoolManager:
     PUBLIC_NAMESPACE = "public"  # 公共机器池
 
     # 标签允许的前缀列表
-    ALLOWED_TAG_PREFIXES = ("windows", "web", "android", "ios", "mac")
+    ALLOWED_TAG_PREFIXES = ("windows", "web", "android", "ios", "mac", "api")
 
     @classmethod
     def validate_single_tag(cls, tag: str) -> tuple[bool, str]:

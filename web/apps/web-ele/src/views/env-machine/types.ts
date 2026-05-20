@@ -11,7 +11,7 @@ export type DeviceStatus = 'online' | 'using' | 'offline' | 'upgrading';
 /**
  * 标签允许的前缀列表
  */
-export const ALLOWED_TAG_PREFIXES = ['windows', 'web', 'android', 'ios', 'mac'] as const;
+export const ALLOWED_TAG_PREFIXES = ['windows', 'web', 'android', 'ios', 'mac', 'api'] as const;
 
 /**
  * Namespace 映射
