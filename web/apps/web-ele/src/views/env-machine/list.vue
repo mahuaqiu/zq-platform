@@ -26,6 +26,8 @@ import {
   getEnvMachineListApi,
   updateEnvMachineApi,
   batchDeleteEnvMachineApi,
+  batchImportVirtualDevicesApi,
+  downloadImportTemplateApi,
 } from '#/api/core/env-machine';
 import type { EnvMachineUpdateParams } from '#/api/core/env-machine';
 
@@ -88,6 +90,15 @@ const logDialogVisible = ref(false);
 const logMachineId = ref('');
 const logMachineIp = ref('');
 const logMachinePort = ref('');
+
+// 导入弹窗
+const importDialogVisible = ref(false);
+const importLoading = ref(false);
+const importFile = ref<File | null>(null);
+const importResult = ref<{
+  success_count: number;
+  failed_items: Array<{ row: number; reason: string }>;
+} | null>(null);
 
 // 打开日志弹窗
 function handleViewLogs(row: EnvMachine) {
@@ -284,6 +295,61 @@ function handleBatchDelete() {
   });
 }
 
+// 打开导入弹窗
+function handleOpenImport() {
+  importFile.value = null;
+  importResult.value = null;
+  importDialogVisible.value = true;
+}
+
+// 文件选择变化
+function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    importFile.value = target.files[0];
+    importResult.value = null;
+  }
+}
+
+// 下载导入模板
+async function handleDownloadTemplate() {
+  try {
+    const blob = await downloadImportTemplateApi();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '虚拟设备导入模板.xlsx';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    ElMessage.success('模板下载成功');
+  } catch {
+    ElMessage.error('模板下载失败');
+  }
+}
+
+// 执行导入
+async function handleImport() {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择要导入的文件');
+    return;
+  }
+
+  importLoading.value = true;
+  try {
+    const res = await batchImportVirtualDevicesApi(importFile.value);
+    importResult.value = res;
+    if (res.success_count > 0) {
+      ElMessage.success(`成功导入 ${res.success_count} 台设备`);
+      loadData();
+    }
+  } catch (error: any) {
+    const msg = error?.response?.data?.detail || '导入失败';
+    ElMessage.error(msg);
+  } finally {
+    importLoading.value = false;
+  }
+}
+
 // 获取命名空间显示文本
 function getNamespaceText(namespace: string) {
   return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
@@ -473,6 +539,7 @@ onMounted(() => {
           <div class="env-search-buttons">
             <ElButton type="primary" @click="handleSearch">查询</ElButton>
             <ElButton @click="handleReset">重置</ElButton>
+            <ElButton type="success" @click="handleOpenImport">批量导入</ElButton>
             <ElButton
               type="danger"
               :disabled="selectedRows.length === 0"
@@ -659,6 +726,63 @@ onMounted(() => {
       :machine-ip="logMachineIp"
       :machine-port="logMachinePort"
     />
+
+    <!-- 批量导入弹窗 -->
+    <ElDialog
+      v-model="importDialogVisible"
+      title="批量导入虚拟设备"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div class="import-dialog-content">
+        <div class="import-step">
+          <div class="import-step-title">第一步：下载导入模板</div>
+          <ElButton type="primary" @click="handleDownloadTemplate">
+            下载模板
+          </ElButton>
+        </div>
+
+        <div class="import-step">
+          <div class="import-step-title">第二步：选择要导入的文件</div>
+          <input
+            type="file"
+            accept=".xlsx"
+            class="import-file-input"
+            @change="handleFileChange"
+          />
+          <div v-if="importFile" class="import-file-name">
+            已选择：{{ importFile.name }}
+          </div>
+        </div>
+
+        <div v-if="importResult" class="import-result">
+          <div class="import-result-title">导入结果</div>
+          <div class="import-result-success">
+            成功导入：{{ importResult.success_count }} 台
+          </div>
+          <div v-if="importResult.failed_items.length > 0" class="import-result-failed">
+            <div>失败项：</div>
+            <ul>
+              <li v-for="item in importResult.failed_items" :key="item.row">
+                第 {{ item.row }} 行：{{ item.reason }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <ElButton @click="importDialogVisible = false">关闭</ElButton>
+        <ElButton
+          type="primary"
+          :loading="importLoading"
+          :disabled="!importFile"
+          @click="handleImport"
+        >
+          导入
+        </ElButton>
+      </template>
+    </ElDialog>
   </Page>
 </template>
 
@@ -809,5 +933,69 @@ onMounted(() => {
 
 .nowrap {
   white-space: nowrap;
+}
+
+/* 导入弹窗 */
+.import-dialog-content {
+  padding: 0 16px;
+}
+
+.import-step {
+  margin-bottom: 24px;
+}
+
+.import-step-title {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.import-file-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.import-file-name {
+  margin-top: 8px;
+  color: #52c41a;
+  font-size: 13px;
+}
+
+.import-result {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.import-result-title {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.import-result-success {
+  color: #52c41a;
+  font-size: 13px;
+}
+
+.import-result-failed {
+  margin-top: 12px;
+  color: #ff4d4f;
+  font-size: 13px;
+}
+
+.import-result-failed ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.import-result-failed li {
+  margin-bottom: 4px;
 }
 </style>
