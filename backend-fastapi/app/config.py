@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # Namespace 配置（JSON 格式）
     NAMESPACE_CONFIG: str = ""
 
+    # 执行机申请权限配置（JSON格式）
+    ENV_APPLY_AUTH: str = ""
+
     # 执行主机IP（用于定时任务IP匹配）
     HOST_IP: str = ""
 
@@ -192,6 +195,17 @@ class Settings(BaseSettings):
         except json.JSONDecodeError as e:
             logger.warning(f"NAMESPACE_CONFIG JSON 解析失败: {e}, 使用默认配置")
             return default_config
+
+    @property
+    def env_apply_auth_map(self) -> Dict[str, List[str]]:
+        """解析执行机申请权限配置"""
+        if not self.ENV_APPLY_AUTH:
+            return {}
+        try:
+            return json.loads(self.ENV_APPLY_AUTH)
+        except json.JSONDecodeError as e:
+            logger.warning(f"ENV_APPLY_AUTH JSON 解析失败: {e}")
+            return {}
 
 
 def get_settings() -> Settings:
