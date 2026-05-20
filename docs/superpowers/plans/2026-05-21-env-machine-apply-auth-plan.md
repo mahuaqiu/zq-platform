@@ -26,6 +26,43 @@ backend-fastapi/
 
 ---
 
+## Task -1: 准备测试基础设施
+
+**Files:**
+- Create: `backend-fastapi/tests/__init__.py`
+- Modify: `backend-fastapi/requirements.txt`
+
+### Step 1: 创建 tests 目录
+
+```bash
+mkdir -p backend-fastapi/tests
+touch backend-fastapi/tests/__init__.py
+```
+
+### Step 2: 添加测试依赖
+
+```bash
+# 在 backend-fastapi/requirements.txt 中添加
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+```
+
+### Step 3: 安装测试依赖
+
+```bash
+cd backend-fastapi
+pip install pytest pytest-asyncio
+```
+
+### Step 4: Commit
+
+```bash
+git add backend-fastapi/tests backend-fastapi/requirements.txt
+git commit -m "chore: 添加测试基础设施（pytest）"
+```
+
+---
+
 ## Task 0: 编写单元测试（TDD）
 
 **Files:**
