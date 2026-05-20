@@ -228,6 +228,18 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             for key, idx in column_map.items():
                 row_dict[key] = row[idx] if idx < len(row) else None
 
+            # 检查重复（namespace + ip 组合）
+            namespace = row_dict.get("namespace")
+            ip = row_dict.get("ip")
+            if namespace and ip:
+                existing = await cls.get_by_ip(db, ip, namespace)
+                if existing:
+                    failed_items.append({
+                        "row": row_idx,
+                        "reason": f"重复：命名空间 '{namespace}' 下已存在 IP '{ip}'"
+                    })
+                    continue
+
             machine = cls._virtual_import_processor(row_dict)
             if machine:
                 db.add(machine)
