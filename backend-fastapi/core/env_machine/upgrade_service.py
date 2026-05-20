@@ -263,7 +263,8 @@ class UpgradeConcurrencyService:
             select(EnvMachine).where(
                 and_(
                     EnvMachine.status == "upgrading",
-                    EnvMachine.is_deleted == False
+                    EnvMachine.is_deleted == False,
+                    EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
                 )
             )
         )
@@ -383,7 +384,11 @@ class UpgradeService:
         config_map = {c.device_type: c for c in configs}
 
         # 查询机器
-        conditions = [EnvMachine.is_deleted == False, EnvMachine.available == True]
+        conditions = [
+            EnvMachine.is_deleted == False,
+            EnvMachine.available == True,
+            EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
+        ]
         if machine_ids:
             conditions.append(EnvMachine.id.in_(machine_ids))
         if namespace:
@@ -517,7 +522,11 @@ class UpgradeService:
         configs = await WorkerUpgradeConfigService.get_all(db)
         config_map = {c.device_type: c for c in configs}
 
-        conditions = [EnvMachine.is_deleted == False, EnvMachine.available == True]
+        conditions = [
+            EnvMachine.is_deleted == False,
+            EnvMachine.available == True,
+            EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
+        ]
         if namespace:
             conditions.append(EnvMachine.namespace == namespace)
         if device_type:
