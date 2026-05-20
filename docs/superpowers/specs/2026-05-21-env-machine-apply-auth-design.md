@@ -42,7 +42,28 @@ Client Request → Header(X-Env-Auth) → FastAPI Depends(verify_env_apply_auth)
 ENV_APPLY_AUTH={"key_gamma":["meeting_gamma"],"key_app":["meeting_app"],"key_common":["meeting_gamma","meeting_app"]}
 ```
 
-### 2. 依赖验证函数
+### 2. 配置管理实现
+
+修改 `backend-fastapi/app/config.py`，添加配置字段和解析 property：
+
+```python
+# 在 Settings 类中添加字段定义
+ENV_APPLY_AUTH: str = ""  # 执行机申请权限配置（JSON格式）
+
+# 在 Settings 类中添加 property
+@property
+def env_apply_auth_map(self) -> Dict[str, List[str]]:
+    """解析执行机申请权限配置"""
+    if not self.ENV_APPLY_AUTH:
+        return {}
+    try:
+        return json.loads(self.ENV_APPLY_AUTH)
+    except json.JSONDecodeError as e:
+        logger.warning(f"ENV_APPLY_AUTH JSON 解析失败: {e}")
+        return {}
+```
+
+### 3. 依赖验证函数
 
 创建新文件 `backend-fastapi/core/env_machine/auth.py`：
 
@@ -52,7 +73,6 @@ ENV_APPLY_AUTH={"key_gamma":["meeting_gamma"],"key_app":["meeting_app"],"key_com
 """
 from fastapi import Header, HTTPException, Depends
 from typing import Optional, Dict, List
-import json
 from app.config import settings
 
 async def verify_env_apply_auth(
@@ -69,12 +89,8 @@ async def verify_env_apply_auth(
     Raises:
         HTTPException: 401 权限不足
     """
-    # 1. 从配置读取权限映射
-    auth_config = getattr(settings, 'ENV_APPLY_AUTH', '{}')
-    try:
-        key_namespace_map: Dict[str, List[str]] = json.loads(auth_config)
-    except json.JSONDecodeError:
-        key_namespace_map = {}
+    # 1. 使用 settings property 获取配置
+    key_namespace_map = settings.env_apply_auth_map
     
     # 2. 检查 header 中的 key
     if not x_env_auth:
@@ -85,11 +101,11 @@ async def verify_env_apply_auth(
     if namespace not in allowed_namespaces:
         raise HTTPException(
             status_code=401, 
-            detail=f"权限不足: key={x_env_auth} 无权申请 namespace={namespace}"
+            detail=f"权限不足: 无权申请 namespace={namespace}"
         )
 ```
 
-### 3. 接口改造
+### 4. 接口改造
 
 修改申请接口 `backend-fastapi/core/env_machine/api.py`：
 
@@ -151,8 +167,8 @@ async def apply_env_machines(
 → 返回: {"detail": "缺少 X-Env-Auth header"}
 
 情况2: key不存在或namespace不在授权列表中
-→ HTTPException(401, detail="权限不足: key=xxx 无权申请 namespace=yyy")
-→ 返回: {"detail": "权限不足: key=xxx 无权申请 namespace=yyy"}
+→ HTTPException(401, detail="权限不足: 无权申请 namespace=yyy")
+→ 返回: {"detail": "权限不足: 无权申请 namespace=yyy"}
 ```
 
 ## 实现要点
@@ -160,18 +176,23 @@ async def apply_env_machines(
 ### 1. 配置管理
 - 配置项 `ENV_APPLY_AUTH` 存储在 `.env` 文件中
 - 格式为 JSON 字符串：`{"key1":["namespace1","namespace2"],...}`
-- 配置需要在 `app/config.py` 中添加对应的字段解析
+- 使用 Settings 类的 `env_apply_auth_map` property 解析配置
+- 配置解析失败时返回空字典，记录警告日志
 
-### 2. 依赖注入方式
+### 2. 配置默认行为
+- ENV_APPLY_AUTH 配置为空时：拒绝所有申请（安全优先原则）
+- 配置解析失败时：拒绝所有申请，记录警告日志
+
+### 3. 依赖注入方式
 - 使用 `dependencies=[Depends(verify_env_apply_auth)]` 而非参数注入
 - 这样验证函数会自动执行，但不改变接口参数结构
 - namespace 参数会自动传递给验证函数（FastAPI 的路由参数匹配机制）
 
-### 3. 错误处理
+### 4. 错误处理
 - 所有验证失败统一返回 401 状态码
-- 错误信息清晰说明具体原因（缺少 header、key 无权申请等）
+- 错误信息清晰说明具体原因，但避免暴露敏感信息（如传入的 key 值）
 
-### 4. 其他接口不受影响
+### 5. 其他接口不受影响
 - 只在申请接口添加依赖验证
 - 注册、保持使用、释放、CRUD 等其他接口无需改动
 
@@ -189,6 +210,17 @@ async def apply_env_machines(
 ### 3. 配置加载测试
 - 验证配置能正确从 .env 加载
 - 验证 JSON 解析正确
+
+### 4. 边界场景测试
+- 配置为空字符串 → 验证拒绝所有申请（返回 401）
+- JSON 配置格式错误 → 验证拒绝所有申请（返回 401）
+
+### 5. 多 namespace 授权测试
+- key 授权多个 namespace → 验证每个 namespace 都能成功申请
+- key 授权多个 namespace → 验证未授权的 namespace 被拒绝
+
+### 6. 并发申请测试
+- 同一 namespace 多个客户端并发申请 → 验证权限验证不影响并发处理
 
 ## 文件改动清单
 
@@ -210,3 +242,36 @@ ENV_APPLY_AUTH={"dev_key":["meeting_gamma","meeting_app","meeting_perf"]}
 ```bash
 ENV_APPLY_AUTH={"prod_key_gamma":["meeting_gamma"],"prod_key_app":["meeting_app"]}
 ```
+
+## 风险评估
+
+1. **配置错误导致申请被拒绝**
+   - 风险：JSON 配置格式错误可能导致所有申请被拒绝
+   - 缓解措施：部署前验证配置格式，使用配置校验脚本
+
+2. **key 泄露导致未授权申请**
+   - 风险：key 泄露后可能被恶意使用
+   - 缓解措施：定期更换 key，监控异常申请行为
+
+3. **配置为空时的行为**
+   - 风险：配置为空时拒绝所有申请，可能影响正常业务
+   - 缓解措施：确保每个环境都有正确配置，开发环境可配置宽松策略
+
+## 回滚方案
+
+如需回滚权限验证功能，按以下步骤操作：
+
+1. **移除依赖验证**
+   - 从申请接口移除 `dependencies=[Depends(verify_env_apply_auth)]`
+   - 申请接口恢复为无权限验证状态
+
+2. **删除验证代码**
+   - 删除 `backend-fastapi/core/env_machine/auth.py` 文件
+
+3. **移除配置**
+   - 从各环境 `.env` 文件中移除 `ENV_APPLY_AUTH` 配置项
+   - 从 `app/config.py` 中移除相关字段和 property
+
+4. **验证回滚**
+   - 测试申请接口无需 header 即可正常申请
+   - 确认其他功能不受影响
