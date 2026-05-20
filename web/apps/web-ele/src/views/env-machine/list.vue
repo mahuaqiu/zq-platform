@@ -25,6 +25,7 @@ import {
   deleteEnvMachineApi,
   getEnvMachineListApi,
   updateEnvMachineApi,
+  batchDeleteEnvMachineApi,
 } from '#/api/core/env-machine';
 import type { EnvMachineUpdateParams } from '#/api/core/env-machine';
 
@@ -49,6 +50,7 @@ const total = ref(0);
 const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(20);
+const selectedRows = ref<EnvMachine[]>([]);  // 选中的行
 
 // 篮选条件
 const searchForm = ref({
@@ -247,6 +249,41 @@ function handleDelete(row: EnvMachine) {
   });
 }
 
+// 选择变化
+function handleSelectionChange(rows: EnvMachine[]) {
+  selectedRows.value = rows;
+}
+
+// 批量删除
+function handleBatchDelete() {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要删除的设备');
+    return;
+  }
+
+  const count = selectedRows.value.length;
+  ElMessageBox.confirm(`确定要删除选中的 ${count} 台设备吗？`, '批量删除确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      const ids = selectedRows.value.map((row) => row.id);
+      const res = await batchDeleteEnvMachineApi(ids);
+      if (res.success_count > 0) {
+        ElMessage.success(`成功删除 ${res.success_count} 台设备`);
+      }
+      if (res.failed_count > 0) {
+        ElMessage.warning(`${res.failed_count} 台设备删除失败`);
+      }
+      selectedRows.value = [];
+      loadData();
+    } catch {
+      ElMessage.error('批量删除失败');
+    }
+  });
+}
+
 // 获取命名空间显示文本
 function getNamespaceText(namespace: string) {
   return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
@@ -436,13 +473,27 @@ onMounted(() => {
           <div class="env-search-buttons">
             <ElButton type="primary" @click="handleSearch">查询</ElButton>
             <ElButton @click="handleReset">重置</ElButton>
+            <ElButton
+              type="danger"
+              :disabled="selectedRows.length === 0"
+              @click="handleBatchDelete"
+            >
+              批量删除{{ selectedRows.length > 0 ? ` (${selectedRows.length})` : '' }}
+            </ElButton>
           </div>
         </div>
       </div>
 
       <!-- 表格区域 -->
       <div class="env-table-wrapper">
-        <ElTable :data="tableData" v-loading="loading" class="env-table" border>
+        <ElTable
+          :data="tableData"
+          v-loading="loading"
+          class="env-table"
+          border
+          @selection-change="handleSelectionChange"
+        >
+          <ElTableColumn type="selection" width="50" />
           <ElTableColumn prop="namespace" label="命名空间" min-width="100">
             <template #default="{ row }">
               {{ getNamespaceText(row.namespace) }}
@@ -503,8 +554,21 @@ onMounted(() => {
           <ElTableColumn label="操作" min-width="160">
             <template #default="{ row }">
               <span class="nowrap">
-                <a v-if="!isMobileDevice(row.device_type) && row.status !== 'offline'" class="env-link" @click="handleViewLogs(row)">日志</a>
-                <a v-if="row.status === 'online'" class="env-link" @click="handleDebug(row)">远程</a>
+                <!-- 虚拟设备不显示日志和远程按钮 -->
+                <a
+                  v-if="!row.is_virtual && !isMobileDevice(row.device_type) && row.status !== 'offline'"
+                  class="env-link"
+                  @click="handleViewLogs(row)"
+                >
+                  日志
+                </a>
+                <a
+                  v-if="!row.is_virtual && row.status === 'online'"
+                  class="env-link"
+                  @click="handleDebug(row)"
+                >
+                  远程
+                </a>
                 <a class="env-link" @click="handleEdit(row)">编辑</a>
                 <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
               </span>
