@@ -26,15 +26,140 @@ backend-fastapi/
 
 ---
 
+## Task 0: 编写单元测试（TDD）
+
+**Files:**
+- Create: `backend-fastapi/tests/test_env_machine_auth.py`
+
+### Step 1: 创建测试文件
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+@Time: 2026-05-21
+@File: test_env_machine_auth.py
+@Desc: 执行机申请权限验证单元测试
+"""
+import pytest
+from fastapi import HTTPException
+from unittest.mock import patch, MagicMock
+from core.env_machine.auth import verify_env_apply_auth
+
+
+class TestVerifyEnvApplyAuth:
+    """权限验证测试"""
+
+    @pytest.mark.asyncio
+    async def test_missing_header(self):
+        """测试缺少 X-Env-Auth header"""
+        with patch('core.env_machine.auth.settings') as mock_settings:
+            mock_settings.env_apply_auth_map = {"dev_key": ["meeting_gamma"]}
+            
+            with pytest.raises(HTTPException) as exc:
+                await verify_env_apply_auth(namespace="meeting_gamma", x_env_auth=None)
+            
+            assert exc.value.status_code == 401
+            assert exc.value.detail == "缺少 X-Env-Auth header"
+
+    @pytest.mark.asyncio
+    async def test_invalid_key(self):
+        """测试无效的 key"""
+        with patch('core.env_machine.auth.settings') as mock_settings:
+            mock_settings.env_apply_auth_map = {"dev_key": ["meeting_gamma"]}
+            
+            with pytest.raises(HTTPException) as exc:
+                await verify_env_apply_auth(namespace="meeting_gamma", x_env_auth="wrong_key")
+            
+            assert exc.value.status_code == 401
+            assert exc.value.detail == "权限不足: 无权申请该命名空间的机器"
+
+    @pytest.mark.asyncio
+    async def test_key_not_authorized_for_namespace(self):
+        """测试 key 未授权该 namespace"""
+        with patch('core.env_machine.auth.settings') as mock_settings:
+            mock_settings.env_apply_auth_map = {"dev_key": ["meeting_gamma"]}
+            
+            with pytest.raises(HTTPException) as exc:
+                await verify_env_apply_auth(namespace="meeting_app", x_env_auth="dev_key")
+            
+            assert exc.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_valid_key_and_namespace(self):
+        """测试正确的 key 和授权的 namespace"""
+        with patch('core.env_machine.auth.settings') as mock_settings:
+            mock_settings.env_apply_auth_map = {"dev_key": ["meeting_gamma", "meeting_app"]}
+            
+            # 不应抛出异常
+            await verify_env_apply_auth(namespace="meeting_gamma", x_env_auth="dev_key")
+
+    @pytest.mark.asyncio
+    async def test_empty_config(self):
+        """测试配置为空时拒绝所有申请"""
+        with patch('core.env_machine.auth.settings') as mock_settings:
+            mock_settings.env_apply_auth_map = {}
+            
+            with pytest.raises(HTTPException) as exc:
+                await verify_env_apply_auth(namespace="meeting_gamma", x_env_auth="any_key")
+            
+            assert exc.value.status_code == 401
+
+
+class TestEnvApplyAuthMap:
+    """配置解析测试"""
+
+    def test_valid_config(self):
+        """测试有效的 JSON 配置解析"""
+        from app.config import Settings
+        settings = Settings(ENV_APPLY_AUTH='{"key1":["ns1","ns2"]}')
+        
+        result = settings.env_apply_auth_map
+        assert result == {"key1": ["ns1", "ns2"]}
+
+    def test_empty_config(self):
+        """测试空配置"""
+        from app.config import Settings
+        settings = Settings(ENV_APPLY_AUTH='')
+        
+        result = settings.env_apply_auth_map
+        assert result == {}
+
+    def test_invalid_json_config(self):
+        """测试无效的 JSON 配置"""
+        from app.config import Settings
+        settings = Settings(ENV_APPLY_AUTH='invalid json')
+        
+        result = settings.env_apply_auth_map
+        assert result == {}  # 解析失败返回空字典
+```
+
+### Step 2: 运行测试验证失败（TDD）
+
+```bash
+cd backend-fastapi
+pytest tests/test_env_machine_auth.py -v
+```
+Expected: 测试失败（auth.py 文件不存在）
+
+### Step 3: Commit 测试文件
+
+```bash
+git add backend-fastapi/tests/test_env_machine_auth.py
+git commit -m "test(env_machine): 添加权限验证单元测试（TDD）"
+```
+
+---
+
 ## Task 1: 添加配置字段和解析逻辑
 
 **Files:**
-- Modify: `backend-fastapi/app/config.py:77-194`
+- Modify: `backend-fastapi/app/config.py:74-76`
 
 ### Step 1: 在 Settings 类添加 ENV_APPLY_AUTH 字段
 
 ```python
-# 在 backend-fastapi/app/config.py 第 77 行之后添加
+# 在 backend-fastapi/app/config.py 第 76 行之后添加（NAMESPACE_CONFIG 字段之后）
 ENV_APPLY_AUTH: str = ""  # 执行机申请权限配置（JSON格式）
 ```
 
@@ -54,14 +179,13 @@ def env_apply_auth_map(self) -> Dict[str, List[str]]:
         return {}
 ```
 
-### Step 3: 验证配置加载
+### Step 3: 运行配置解析测试
 
-运行 FastAPI 服务器验证配置加载无误：
 ```bash
 cd backend-fastapi
-python main.py
+pytest tests/test_env_machine_auth.py::TestEnvApplyAuthMap -v
 ```
-Expected: 服务器正常启动，无配置错误提示
+Expected: 配置解析测试通过
 
 ### Step 4: Commit
 
@@ -124,12 +248,13 @@ async def verify_env_apply_auth(
         )
 ```
 
-### Step 2: 验证文件创建成功
+### Step 2: 运行权限验证测试
 
 ```bash
-ls backend-fastapi/core/env_machine/auth.py
+cd backend-fastapi
+pytest tests/test_env_machine_auth.py::TestVerifyEnvApplyAuth -v
 ```
-Expected: 文件存在
+Expected: 所有权限验证测试通过
 
 ### Step 3: Commit
 
@@ -143,12 +268,12 @@ git commit -m "feat(env_machine): 添加执行机申请权限验证依赖函数"
 ## Task 3: 修改申请接口添加权限验证
 
 **Files:**
-- Modify: `backend-fastapi/core/env_machine/api.py:227-236`
+- Modify: `backend-fastapi/core/env_machine/api.py:38-42`
 
 ### Step 1: 导入验证函数
 
 ```python
-# 在 backend-fastapi/core/env_machine/api.py 第 38 行之后添加
+# 在 backend-fastapi/core/env_machine/api.py 第 38 行之后添加（其他 core.env_machine 导入之后）
 from core.env_machine.auth import verify_env_apply_auth
 ```
 
@@ -190,8 +315,7 @@ git commit -m "feat(env_machine): 申请接口添加权限验证依赖"
 
 **Files:**
 - Modify: `backend-fastapi/env/dev.env`
-- Modify: `backend-fastapi/env/uat.env`
-- Modify: `backend-fastapi/env/prod.env`
+- Modify: `backend-fastapi/env/example.env`
 
 ### Step 1: 添加开发环境配置
 
@@ -202,27 +326,21 @@ git commit -m "feat(env_machine): 申请接口添加权限验证依赖"
 ENV_APPLY_AUTH={"dev_key":["meeting_gamma","meeting_app","meeting_perf"]}
 ```
 
-### Step 2: 添加 UAT 环境配置
+### Step 2: 更新示例配置文件
 
 ```bash
-# 在 backend-fastapi/env/uat.env 文件末尾添加
+# 在 backend-fastapi/env/example.env 文件末尾添加
 # ==================== 执行机申请权限配置 ====================
-ENV_APPLY_AUTH={"uat_key_gamma":["meeting_gamma"],"uat_key_app":["meeting_app"]}
+# 执行机申请权限配置（JSON格式），key -> namespace列表 的映射
+# 示例: ENV_APPLY_AUTH={"key1":["namespace1","namespace2"]}
+ENV_APPLY_AUTH=
 ```
 
-### Step 3: 添加生产环境配置
+### Step 3: Commit
 
 ```bash
-# 在 backend-fastapi/env/prod.env 文件末尾添加
-# ==================== 执行机申请权限配置 ====================
-ENV_APPLY_AUTH={"prod_key_gamma":["meeting_gamma"],"prod_key_app":["meeting_app"]}
-```
-
-### Step 4: Commit
-
-```bash
-git add backend-fastapi/env/dev.env backend-fastapi/env/uat.env backend-fastapi/env/prod.env
-git commit -m "feat: 添加各环境执行机申请权限配置"
+git add backend-fastapi/env/dev.env backend-fastapi/env/example.env
+git commit -m "feat: 添加执行机申请权限配置"
 ```
 
 ---
@@ -290,6 +408,30 @@ curl -X POST http://localhost:8000/api/core/env/meeting_public/application \
   -d '{"userA": "windows"}'
 ```
 Expected: 返回 401
+
+### Step 7: 测试配置为空时的行为
+
+临时清空配置测试边界场景：
+```bash
+# 修改 dev.env 中的 ENV_APPLY_AUTH 为空字符串
+# ENV_APPLY_AUTH=
+# 重启服务后测试
+curl -X POST http://localhost:8000/api/core/env/meeting_gamma/application \
+  -H "Content-Type: application/json" \
+  -H "X-Env-Auth: any_key" \
+  -d '{"userA": "windows"}'
+```
+Expected: 返回 401（拒绝所有申请）
+
+### Step 8: 验证其他接口不受影响
+
+```bash
+# 测试注册接口（不需要 X-Env-Auth header）
+curl -X POST http://localhost:8000/api/core/env/register \
+  -H "Content-Type: application/json" \
+  -d '{"namespace":"meeting_gamma","ip":"10.0.0.1","port":"8080"}'
+```
+Expected: 正常响应（不受权限验证影响）
 
 ---
 
