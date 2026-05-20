@@ -39,7 +39,21 @@ mkdir -p backend-fastapi/tests
 touch backend-fastapi/tests/__init__.py
 ```
 
-### Step 2: 添加测试依赖
+### Step 2: 添加 pytest 配置
+
+```bash
+# 创建 backend-fastapi/pytest.ini
+cat > backend-fastapi/pytest.ini << 'EOF'
+[pytest]
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+asyncio_mode = auto
+EOF
+```
+
+### Step 3: 添加测试依赖
 
 ```bash
 # 在 backend-fastapi/requirements.txt 中添加
@@ -47,17 +61,17 @@ pytest>=7.4.0
 pytest-asyncio>=0.21.0
 ```
 
-### Step 3: 安装测试依赖
+### Step 4: 安装测试依赖
 
 ```bash
 cd backend-fastapi
 pip install pytest pytest-asyncio
 ```
 
-### Step 4: Commit
+### Step 5: Commit
 
 ```bash
-git add backend-fastapi/tests backend-fastapi/requirements.txt
+git add backend-fastapi/tests backend-fastapi/pytest.ini backend-fastapi/requirements.txt
 git commit -m "chore: 添加测试基础设施（pytest）"
 ```
 
