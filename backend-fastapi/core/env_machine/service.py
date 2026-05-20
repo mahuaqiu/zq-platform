@@ -7,9 +7,12 @@
 @File: service.py
 @Desc: 执行机基础服务层 - CRUD 操作
 """
+import json
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple
 
+import openpyxl
+from openpyxl.styles import Font, Alignment
 from pydantic import BaseModel
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,6 +80,17 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     }
     excel_sheet_name = "执行机列表"
 
+    # 虚拟设备 Excel 导入导出配置
+    VIRTUAL_EXCEL_COLUMNS = {
+        "namespace": "机器分类",
+        "device_type": "机器类型",
+        "asset_number": "资产编号",
+        "ip": "虚拟标识",
+        "mark": "标签",
+        "extra_message": "扩展信息(JSON)",
+        "note": "备注",
+    }
+
     @classmethod
     def _export_converter(cls, item: EnvMachine) -> Dict[str, Any]:
         """导出数据转换器"""
@@ -128,6 +142,41 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         )
 
     @classmethod
+    def _virtual_import_processor(cls, row: Dict[str, Any]) -> Optional[EnvMachine]:
+        """虚拟设备导入处理器"""
+        namespace = row.get("namespace")
+        device_type = row.get("device_type")
+        asset_number = row.get("asset_number")
+        ip = row.get("ip")
+        mark = row.get("mark")
+        extra_message_str = row.get("extra_message")
+
+        if not all([namespace, device_type, asset_number, ip, mark, extra_message_str]):
+            return None
+
+        try:
+            extra_message = json.loads(extra_message_str)
+            if not isinstance(extra_message, dict):
+                return None
+        except json.JSONDecodeError:
+            return None
+
+        return EnvMachine(
+            namespace=str(namespace),
+            device_type=str(device_type),
+            asset_number=str(asset_number),
+            ip=str(ip),
+            port=None,
+            device_sn=None,
+            mark=str(mark),
+            available=False,
+            status="online",
+            is_virtual=True,
+            extra_message=extra_message,
+            note=str(row.get("note")) if row.get("note") else None,
+        )
+
+    @classmethod
     async def export_to_excel(
         cls,
         db: AsyncSession,
@@ -145,6 +194,57 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     ) -> Tuple[int, int]:
         """从 Excel 导入"""
         return await super().import_from_excel(db, file_content, cls._import_processor)
+
+    @classmethod
+    async def import_virtual_from_excel(
+        cls,
+        db: AsyncSession,
+        file_content: bytes,
+    ) -> Tuple[int, List[Dict[str, Any]]]:
+        """从 Excel 导入虚拟设备"""
+        from openpyxl import load_workbook
+
+        wb = load_workbook(BytesIO(file_content))
+        ws = wb.active
+
+        success_count = 0
+        failed_items = []
+
+        headers = [cell.value for cell in ws[1]]
+        column_map = {}
+        for key, cn_name in cls.VIRTUAL_EXCEL_COLUMNS.items():
+            for idx, header in enumerate(headers):
+                if header == cn_name:
+                    column_map[key] = idx
+                    break
+
+        required_keys = ["namespace", "device_type", "asset_number", "ip", "mark", "extra_message"]
+        missing_keys = [k for k in required_keys if k not in column_map]
+        if missing_keys:
+            return 0, [{"row": 0, "reason": f"缺少必填列: {cls.VIRTUAL_EXCEL_COLUMNS[k]}" for k in missing_keys}]
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if not any(row):
+                continue
+
+            row_dict = {}
+            for key, idx in column_map.items():
+                row_dict[key] = row[idx] if idx < len(row) else None
+
+            machine = cls._virtual_import_processor(row_dict)
+            if machine:
+                db.add(machine)
+                success_count += 1
+            else:
+                failed_items.append({
+                    "row": row_idx,
+                    "reason": "数据验证失败（必填字段缺失或 JSON 格式错误）"
+                })
+
+        if success_count > 0:
+            await db.commit()
+
+        return success_count, failed_items
 
     @classmethod
     async def get_by_namespace(
@@ -612,3 +712,32 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
 
         result = await db.execute(query)
         return [row[0] for row in result.all()]
+
+    @classmethod
+    async def generate_virtual_import_template(cls) -> BytesIO:
+        """生成虚拟设备导入 Excel 模板"""
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "虚拟设备导入模板"
+
+        headers = list(cls.VIRTUAL_EXCEL_COLUMNS.values())
+        ws.append(headers)
+
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+
+        ws.append([
+            "meeting_virtual",
+            "windows",
+            "PERF-001",
+            "perf001",
+            "windows_perf",
+            '{"windows_perf": {"username": "test", "password": "xxx"}}',
+            "性能测试账号",
+        ])
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        return buffer
