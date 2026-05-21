@@ -12,7 +12,7 @@
 |--------|----------|
 | 命令执行方式 | 通过 Worker HTTP 接口 `/task/execute` |
 | 设备类型区分 | Windows → CMD，Mac → Shell |
-| 不支持设备 | iOS/Android 设备自动过滤 |
+| 不支持设备 | iOS/Android 设备、虚拟设备自动过滤 |
 | 混合选择处理 | 只执行支持的设备类型，过滤不支持的 |
 | 结果展示 | 弹窗内显示每台设备的 stdout/stderr，可滚动查看 |
 | 执行方式 | 并行流控，每批最多 20 台，逐批执行 |
@@ -82,7 +82,7 @@ async function loadData() {
 
 #### 1. 按钮新增
 
-**位置：** 批量删除按钮右边
+**位置：** 搜索区域按钮组（`env-search-buttons`），位于批量删除按钮右边
 
 ```vue
 <ElButton
@@ -106,7 +106,7 @@ async function loadData() {
 │ 批量执行命令                                            [X] │
 ├─────────────────────────────────────────────────────────────┤
 │ 已选中 15 台设备（Windows: 10, Mac: 5）                      │
-│ 注意：iOS/Android 设备不支持命令执行，已自动过滤              │
+│ 注意：iOS/Android 设备及虚拟设备不支持命令执行，已自动过滤    │
 ├─────────────────────────────────────────────────────────────┤
 │ 命令内容：                                                   │
 │ ┌─────────────────────────────────────────────────────────┐ │
@@ -204,27 +204,89 @@ class EnvMachineBatchCommandResponse(BaseModel):
 **流程：**
 
 1. 根据 ID 列表查询设备信息
-2. 校验设备类型（过滤 iOS/Android）
-3. 遍历设备，构造 Worker 请求：
+2. 校验设备类型和虚拟设备状态：
+   - 过滤 iOS/Android 设备
+   - 过滤虚拟设备（is_virtual=true）
+3. 并行执行：使用 `asyncio.gather` 同时请求多台设备
+4. 构造 Worker 请求：
    - Windows: `{ "action_type": "cmd", "command": "..." }`
    - Mac: `{ "action_type": "shell", "command": "..." }`
-4. POST 到 `http://{ip}:{port}/task/execute`
-5. 超时设置 60 秒
-6. 收集结果返回
+5. POST 到 `http://{ip}:{port}/task/execute`
+6. 超时设置 60 秒
+7. 收集结果返回
 
-**Worker 请求体构造：**
+**并行执行伪代码：**
 
 ```python
-# Windows CMD 命令
-actions = [{"action_type": "cmd", "command": data.command}]
+import asyncio
 
-# Mac Shell 命令
-actions = [{"action_type": "shell", "command": data.command}]
+async def execute_single_machine(machine, command):
+    """执行单台设备命令"""
+    # 构造请求
+    action_type = "cmd" if machine.device_type == "windows" else "shell"
+    worker_request = {
+        "platform": machine.device_type,
+        "device_id": machine.device_sn or str(machine.id),
+        "actions": [{"action_type": action_type, "command": command}]
+    }
+    
+    # 发送请求，超时 60 秒
+    try:
+        async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
+            resp = await client.post(
+                f"http://{machine.ip}:{machine.port}/task/execute",
+                json=worker_request
+            )
+            # 解析响应（见下方 Worker 响应格式）
+            ...
+    except Exception as e:
+        # 失败处理
+        ...
 
-worker_request = {
-    "platform": machine.device_type,
-    "device_id": machine.device_sn or machine.id,
-    "actions": actions
+async def batch_execute_command(data, db):
+    """批量执行命令"""
+    # 查询设备
+    machines = await EnvMachineService.get_by_ids(db, data.ids)
+    
+    # 过滤支持的设备（排除 iOS/Android 和虚拟设备）
+    supported_machines = [
+        m for m in machines 
+        if m.device_type in ('windows', 'mac') 
+        and not m.is_virtual
+    ]
+    
+    # 并行执行所有设备
+    results = await asyncio.gather(
+        *[execute_single_machine(m, data.command) for m in supported_machines],
+        return_exceptions=True  # 异常不中断其他执行
+    )
+    
+    return results
+```
+
+**Worker 响应格式定义：**
+
+```json
+{
+  "status": "success",
+  "actions": [
+    {
+      "action_type": "cmd",
+      "status": "success",
+      "stdout": "命令输出内容...",
+      "stderr": "",
+      "duration_seconds": 2.5
+    }
+  ]
+}
+```
+
+**失败响应格式：**
+
+```json
+{
+  "status": "failed",
+  "error": "执行失败原因"
 }
 ```
 
@@ -274,7 +336,7 @@ export async function batchExecuteCommandApi(data: BatchCommandRequest) {
   return requestClient.post<BatchCommandResponse>(
     '/api/core/env/batch-execute-command',
     data,
-    { timeout: 120000 }  // 整体超时 2 分钟（支持多批次）
+    { timeout: 600000 }  // 整体超时 10 分钟（支持大批量执行）
   );
 }
 ```
@@ -297,13 +359,13 @@ async function handleExecute() {
   // 获取选中设备列表（从 props 传入）
   const machines = props.selectedMachines;
   
-  // 过滤支持的设备类型
+  // 过滤支持的设备类型（排除 iOS/Android 和虚拟设备）
   const supportedMachines = machines.filter(
-    m => m.device_type === 'windows' || m.device_type === 'mac'
+    m => (m.device_type === 'windows' || m.device_type === 'mac') && !m.is_virtual
   );
 
   if (supportedMachines.length === 0) {
-    ElMessage.warning('选中的设备不支持命令执行');
+    ElMessage.warning('选中的设备不支持命令执行（仅支持 Windows/Mac 真实设备）');
     executing.value = false;
     return;
   }
@@ -373,6 +435,7 @@ async function handleExecute() {
    - 单选 Mac 设备执行 Shell 命令
    - 多选混合设备类型（验证自动过滤）
    - 选中 iOS/Android 设备（验证提示和过滤）
+   - 选中虚拟设备（验证过滤）
    - 超过 20 台设备（验证分批执行）
    - 命令执行成功/失败的展示
    - 弹窗关闭后再次打开（验证结果清空）
@@ -389,4 +452,5 @@ async function handleExecute() {
 
 1. Worker 端需要确认是否已支持 `cmd` 和 `shell` action_type，若无需要先实现
 2. 命令执行存在安全风险，建议后续增加命令白名单或权限控制
-3. 虚拟设备（is_virtual=true）不支持命令执行，应在过滤逻辑中排除
+3. 虚拟设备（is_virtual=true）和无 IP/端口的设备不支持命令执行，已在前后端过滤逻辑中排除
+4. 执行过程中用户关闭弹窗不会中断请求，但 UI 会隐藏结果展示。建议后续添加 AbortController 支持取消请求
