@@ -96,6 +96,15 @@ const screenCount = computed(() => {
 const isDesktop = computed(() => deviceDetail.value && isDesktopDevice(deviceDetail.value.device_type));
 const isMobile = computed(() => deviceDetail.value && isMobileDevice(deviceDetail.value.device_type));
 
+// 设备状态警告（使用中状态时显示）
+const deviceStatusWarning = computed(() => {
+  if (!deviceDetail.value) return '';
+  if (deviceDetail.value.status === 'using') {
+    return '设备正在执行任务，操作可能失败';
+  }
+  return '';
+});
+
 // 设备分辨率显示
 const deviceResolution = computed(() => {
   if (!deviceDetail.value) return '';
@@ -422,6 +431,16 @@ onUnmounted(() => {
       @screen-change="handleScreenChange"
     />
 
+    <!-- 设备状态警告 -->
+    <ElAlert
+      v-if="deviceStatusWarning"
+      :title="deviceStatusWarning"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="status-warning"
+    />
+
     <!-- 主内容区 -->
     <div class="debug-content" :class="{ 'content-padded': navbarFixed }">
       <!-- 桌面端布局：单屏幕展示 -->
@@ -508,6 +527,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+}
+
+/* 设备状态警告样式 */
+.status-warning {
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
 }
 
 .debug-content {

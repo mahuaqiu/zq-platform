@@ -630,7 +630,7 @@ onMounted(() => {
                   日志
                 </a>
                 <a
-                  v-if="!row.is_virtual && row.status === 'online'"
+                  v-if="!row.is_virtual && (row.status === 'online' || row.status === 'using')"
                   class="env-link"
                   @click="handleDebug(row)"
                 >
