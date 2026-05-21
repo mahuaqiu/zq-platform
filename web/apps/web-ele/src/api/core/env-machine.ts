@@ -202,12 +202,7 @@ export async function getEnvMachineDetailApi(id: string) {
  */
 export interface BatchDeleteResponse {
   success_count: number;
-  failed_count: number;
-  details: Array<{
-    id: string;
-    success: boolean;
-    error?: string;
-  }>;
+  failed_ids: string[];
 }
 
 /**
