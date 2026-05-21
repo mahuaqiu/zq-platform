@@ -142,3 +142,29 @@ class EnvMachineBatchImportResponse(BaseModel):
     """批量导入响应 Schema"""
     success_count: int = Field(..., description="成功导入数量")
     failed_items: List[Dict[str, Any]] = Field(default_factory=list, description="失败列表")
+
+
+class EnvMachineBatchCommandRequest(BaseModel):
+    """批量执行命令请求 Schema"""
+    ids: List[str] = Field(..., description="设备 ID 列表")
+    command: str = Field(..., description="命令内容")
+
+
+class CommandResultItem(BaseModel):
+    """单台设备执行结果 Schema"""
+    id: str = Field(..., description="设备 ID")
+    ip: str = Field(default="", description="设备 IP")
+    device_type: str = Field(..., description="设备类型")
+    device_name: str = Field(..., description="设备名称（asset_number 或 ip）")
+    success: bool = Field(..., description="执行状态")
+    stdout: str = Field(default="", description="标准输出")
+    stderr: str = Field(default="", description="错误输出")
+    duration_seconds: float = Field(default=0.0, description="执行耗时（秒）")
+
+
+class EnvMachineBatchCommandResponse(BaseModel):
+    """批量执行命令响应 Schema"""
+    results: List[CommandResultItem] = Field(default_factory=list, description="执行结果列表")
+    total: int = Field(..., description="总设备数")
+    success_count: int = Field(default=0, description="成功数")
+    failed_count: int = Field(default=0, description="失败数")
