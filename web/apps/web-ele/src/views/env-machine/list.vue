@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import type { EnvMachine } from '#/api/core/env-machine';
 
-import { onMounted, ref } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { Terminal } from '@vben/icons';
 
 import { Page } from '@vben/common-ui';
 
@@ -39,6 +40,7 @@ import {
   isMobileDevice,
 } from './types';
 import LogDialogV2 from './LogDialogV2.vue';
+import BatchCommandDialog from './BatchCommandDialog.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineListPage' });
@@ -53,6 +55,9 @@ const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const selectedRows = ref<EnvMachine[]>([]);  // 选中的行
+const tableRef = ref();  // 表格实例
+const selectedIds = ref<Set<string>>(new Set());  // 跨分页选中的 ID
+const selectedMachinesMap = ref<Map<string, EnvMachine>>(new Map());  // 跨分页选中的设备信息
 
 // 篮选条件
 const searchForm = ref({
@@ -99,6 +104,9 @@ const importResult = ref<{
   success_count: number;
   failed_items: Array<{ row: number; reason: string }>;
 } | null>(null);
+
+// 批量命令弹窗
+const batchCommandVisible = ref(false);
 
 // 打开日志弹窗
 function handleViewLogs(row: EnvMachine) {
@@ -184,6 +192,15 @@ async function loadData() {
     });
     tableData.value = res.items || [];
     total.value = res.total || 0;
+    // 跨分页选中：恢复选中状态
+    await nextTick();
+    if (tableRef.value) {
+      tableData.value.forEach((row) => {
+        if (selectedIds.value.has(row.id)) {
+          tableRef.value.toggleRowSelection(row, true);
+        }
+      });
+    }
   } catch (error) {
     console.error('加载数据失败:', error);
     ElMessage.error('加载数据失败');
@@ -263,36 +280,66 @@ function handleDelete(row: EnvMachine) {
 // 选择变化
 function handleSelectionChange(rows: EnvMachine[]) {
   selectedRows.value = rows;
+  // 更新跨分页选中状态
+  const currentPageIds = new Set(tableData.value.map((row) => row.id));
+  // 移除当前页面未选中的
+  currentPageIds.forEach((id) => {
+    if (!rows.find((r) => r.id === id)) {
+      selectedIds.value.delete(id);
+      selectedMachinesMap.value.delete(id);
+    }
+  });
+  // 添加当前页面选中的
+  rows.forEach((row) => {
+    selectedIds.value.add(row.id);
+    selectedMachinesMap.value.set(row.id, row);
+  });
 }
 
 // 批量删除
 function handleBatchDelete() {
-  if (selectedRows.value.length === 0) {
+  const count = selectedIds.value.size;
+  if (count === 0) {
     ElMessage.warning('请先选择要删除的设备');
     return;
   }
 
-  const count = selectedRows.value.length;
   ElMessageBox.confirm(`确定要删除选中的 ${count} 台设备吗？`, '批量删除确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
   }).then(async () => {
     try {
-      const ids = selectedRows.value.map((row) => row.id);
+      const ids = Array.from(selectedIds.value);
       const res = await batchDeleteEnvMachineApi(ids);
       if (res.success_count > 0) {
         ElMessage.success(`成功删除 ${res.success_count} 台设备`);
       }
-      if (res.failed_count > 0) {
+      if (res.failed_count > 0 && res.failed_ids && res.failed_ids.length > 0) {
         ElMessage.warning(`${res.failed_count} 台设备删除失败`);
       }
-      selectedRows.value = [];
+      // 清空选中状态
+      selectedIds.value.clear();
+      selectedMachinesMap.value.clear();
       loadData();
     } catch {
       ElMessage.error('批量删除失败');
     }
   });
+}
+
+// 打开批量命令弹窗
+function handleOpenBatchCommand() {
+  if (selectedIds.value.size === 0) {
+    ElMessage.warning('请先选择要执行命令的设备');
+    return;
+  }
+  batchCommandVisible.value = true;
+}
+
+// 获取选中的设备列表
+function getSelectedMachines(): EnvMachine[] {
+  return Array.from(selectedMachinesMap.value.values());
 }
 
 // 打开导入弹窗
@@ -542,10 +589,18 @@ onMounted(() => {
             <ElButton type="success" @click="handleOpenImport">批量导入</ElButton>
             <ElButton
               type="danger"
-              :disabled="selectedRows.length === 0"
+              :disabled="selectedIds.size === 0"
               @click="handleBatchDelete"
             >
-              批量删除{{ selectedRows.length > 0 ? ` (${selectedRows.length})` : '' }}
+              批量删除{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+            </ElButton>
+            <ElButton
+              type="primary"
+              :disabled="selectedIds.size === 0"
+              @click="handleOpenBatchCommand"
+            >
+              <Terminal class="mr-1 size-4" />
+              批量执行命令{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
             </ElButton>
           </div>
         </div>
@@ -554,10 +609,12 @@ onMounted(() => {
       <!-- 表格区域 -->
       <div class="env-table-wrapper">
         <ElTable
+          ref="tableRef"
           :data="tableData"
           v-loading="loading"
           class="env-table"
           border
+          row-key="id"
           @selection-change="handleSelectionChange"
         >
           <ElTableColumn type="selection" width="50" />
@@ -783,6 +840,13 @@ onMounted(() => {
         </ElButton>
       </template>
     </ElDialog>
+
+    <!-- 批量命令弹窗 -->
+    <BatchCommandDialog
+      v-model:visible="batchCommandVisible"
+      :selected-ids="Array.from(selectedIds)"
+      :selected-machines="getSelectedMachines()"
+    />
   </Page>
 </template>
 
