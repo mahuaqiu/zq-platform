@@ -398,6 +398,27 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         return result.scalar_one_or_none()
 
     @classmethod
+    async def get_by_ids(cls, db: AsyncSession, ids: List[str]) -> List[EnvMachine]:
+        """
+        根据 ID 列表批量获取设备
+
+        Args:
+            db: 数据库会话
+            ids: 设备 ID 列表
+
+        Returns:
+            设备列表
+        """
+        if not ids:
+            return []
+        stmt = select(cls.model).where(
+            cls.model.id.in_(ids),
+            cls.model.is_deleted == False
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    @classmethod
     async def get_by_device_sn(
         cls,
         db: AsyncSession,
