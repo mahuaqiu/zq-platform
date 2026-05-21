@@ -85,8 +85,8 @@ const uniqueProcessNames = computed(() => {
     .filter((name) => !runningProcesses.some((p) => p.name === name))
     .map((name) => ({ name, instanceCount: 0 }));
 
-  // 合并：运行的 + 手动输入的
-  return [...runningProcesses, ...manualProcesses];
+  // 合并：手动输入的放在最前面（方便删除），当前运行的放在后面
+  return [...manualProcesses, ...runningProcesses];
 });
 
 // 根据采集模式获取最终的目标进程配置
@@ -325,8 +325,8 @@ watch(() => props.visible, (v) => {
         </span>
       </div>
 
-      <!-- 手动输入进程名 -->
-      <div class="manual-input-wrapper">
+      <!-- 手动输入进程名（仅进程名模式） -->
+      <div v-if="collectMode === 'name'" class="manual-input-wrapper">
         <el-input
           v-model="manualInput"
           placeholder="输入进程名(逗号或分号分隔)"

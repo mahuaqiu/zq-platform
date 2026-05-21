@@ -45,9 +45,11 @@ const deviceId = ref('');
 const devices = ref<EnvMachine[]>([]);
 const loadingDevices = ref(true);
 
-// 在线设备列表
+// 在线设备列表（过滤虚拟设备，虚拟设备无法进行性能采集）
 const onlineDevices = computed(() =>
-  devices.value.filter((d) => d.status === 'online' || d.status === 'using'),
+  devices.value.filter((d) =>
+    (d.status === 'online' || d.status === 'using') && !d.is_virtual,
+  ),
 );
 
 // 当前选中设备信息
@@ -543,9 +545,9 @@ async function fetchOnlineDevices() {
       page_size: 100,
     });
     devices.value = result?.items || [];
-    // 默认选择第一个在线设备
+    // 默认选择第一个在线设备（排除虚拟设备）
     const onlineDevs = devices.value.filter(
-      (d) => d.status === 'online' || d.status === 'using',
+      (d) => (d.status === 'online' || d.status === 'using') && !d.is_virtual,
     );
     const firstDevice = onlineDevs[0];
     if (firstDevice) {
