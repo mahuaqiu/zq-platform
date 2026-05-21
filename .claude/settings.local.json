@@ -179,7 +179,8 @@
       "Bash(pytest tests/test_env_machine_auth.py -v)",
       "Bash(pytest *)",
       "Skill(finishing-a-development-branch)",
-      "Bash(dir *)"
+      "Bash(dir *)",
+      "Bash(Set-Location D:\\\\code\\\\zq-platform\\\\backend-fastapi)"
     ]
   }
 }
