@@ -413,7 +413,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             return []
         stmt = select(cls.model).where(
             cls.model.id.in_(ids),
-            cls.model.is_deleted == False
+            cls.model.is_deleted == False  # noqa: E712
         )
         result = await db.execute(stmt)
         return list(result.scalars().all())
