@@ -253,3 +253,46 @@ export async function downloadImportTemplateApi() {
     responseType: 'blob',
   });
 }
+
+/**
+ * 批量执行命令请求
+ */
+export interface BatchCommandRequest {
+  ids: string[];
+  command: string;
+}
+
+/**
+ * 单台设备执行结果
+ */
+export interface CommandResultItem {
+  id: string;
+  ip: string;
+  device_type: string;
+  device_name: string;
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  duration_seconds: number;
+}
+
+/**
+ * 批量执行命令响应
+ */
+export interface BatchCommandResponse {
+  results: CommandResultItem[];
+  total: number;
+  success_count: number;
+  failed_count: number;
+}
+
+/**
+ * 批量执行命令
+ */
+export async function batchExecuteCommandApi(data: BatchCommandRequest) {
+  return requestClient.post<BatchCommandResponse>(
+    '/api/core/env/batch-execute-command',
+    data,
+    { timeout: 600000 }  // 整体超时 10 分钟（支持大批量执行）
+  );
+}
