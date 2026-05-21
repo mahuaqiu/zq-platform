@@ -7,7 +7,9 @@
 @File: api.py
 @Desc: 执行机管理 API - 注册、申请、保持使用、释放、CRUD 接口
 """
+import asyncio
 import logging
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 
@@ -32,6 +34,9 @@ from core.env_machine.schema import (
     DebugActionResponse,
     EnvMachineBatchDeleteRequest,
     EnvMachineBatchImportResponse,
+    EnvMachineBatchCommandRequest,
+    CommandResultItem,
+    EnvMachineBatchCommandResponse,
 )
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
@@ -870,6 +875,181 @@ async def debug_device_action(
     except Exception as e:
         logger.error(f"调试操作失败: {e}")
         return DebugActionResponse(success=False, result={"error": str(e)})
+
+
+async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandResultItem:
+    """
+    执行单台设备命令的辅助函数
+
+    Args:
+        machine: 设备对象
+        command: 要执行的命令
+
+    Returns:
+        CommandResultItem: 执行结果
+    """
+    start_time = time.time()
+    device_name = machine.asset_number or machine.ip
+
+    # 初始化结果对象
+    result = CommandResultItem(
+        id=str(machine.id),
+        ip=machine.ip or "",
+        device_type=machine.device_type,
+        device_name=device_name,
+        success=False,
+        stdout="",
+        stderr="",
+        duration_seconds=0.0,
+    )
+
+    # 过滤不支持批量命令执行的设备类型
+    if machine.device_type in ("ios", "android"):
+        result.stderr = "iOS/Android 设备不支持批量命令执行"
+        return result
+
+    # 过滤虚拟设备
+    if machine.is_virtual:
+        result.stderr = "虚拟设备不支持批量命令执行"
+        return result
+
+    # 校验设备状态
+    if machine.status != "online":
+        result.stderr = f"设备状态为 {machine.status}，无法执行命令"
+        return result
+
+    # 校验 IP 和端口
+    if not machine.ip or not machine.port:
+        result.stderr = "设备未配置 IP 或端口"
+        return result
+
+    # 构造 Worker API 请求
+    # Windows 使用 cmd，Mac 使用 shell
+    action_type = "cmd" if machine.device_type == "windows" else "shell"
+
+    worker_url = f"http://{machine.ip}:{machine.port}/task/execute"
+    worker_request = {
+        "platform": machine.device_type,
+        "device_id": str(machine.id),
+        "actions": [
+            {
+                "action_type": action_type,
+                "command": command,
+            }
+        ],
+    }
+
+    # 执行请求（超时 60 秒）
+    try:
+        async with httpx.AsyncClient(timeout=60.0, trust_env=False, verify=False) as client:
+            resp = await client.post(worker_url, json=worker_request)
+            duration = time.time() - start_time
+            result.duration_seconds = round(duration, 2)
+
+            if resp.status_code == 200:
+                worker_result = resp.json()
+
+                # 检查 Worker 顶层状态
+                worker_status = worker_result.get("status", "")
+                if worker_status == "failed":
+                    result.stderr = worker_result.get("error", "命令执行失败")
+                    return result
+
+                # 检查 action 执行状态
+                actions_result = worker_result.get("actions", [])
+                if actions_result:
+                    first_action = actions_result[0]
+                    action_status = first_action.get("status", "")
+
+                    if action_status == "failed":
+                        result.stderr = first_action.get("error", "命令执行失败")
+                        return result
+
+                    # 提取输出
+                    result.stdout = first_action.get("output", "")
+                    result.success = True
+                else:
+                    result.stderr = "Worker 未返回执行结果"
+            elif resp.status_code == 502:
+                result.stderr = "无法连接到设备"
+            elif resp.status_code == 503:
+                result.stderr = "Worker 未初始化"
+            else:
+                result.stderr = f"设备返回异常: {resp.status_code}"
+
+    except httpx.TimeoutException:
+        duration = time.time() - start_time
+        result.duration_seconds = round(duration, 2)
+        result.stderr = "命令执行超时（60秒）"
+    except httpx.ConnectError:
+        duration = time.time() - start_time
+        result.duration_seconds = round(duration, 2)
+        result.stderr = "无法连接到设备"
+    except Exception as e:
+        duration = time.time() - start_time
+        result.duration_seconds = round(duration, 2)
+        result.stderr = f"执行异常: {str(e)}"
+        logger.error(f"批量命令执行失败: machine_id={machine.id}, error={e}")
+
+    return result
+
+
+@router.post("/batch-execute-command", response_model=EnvMachineBatchCommandResponse, summary="批量执行命令")
+async def batch_execute_command(
+    data: EnvMachineBatchCommandRequest,
+    db: AsyncSession = Depends(get_db)
+) -> EnvMachineBatchCommandResponse:
+    """
+    批量执行命令接口
+
+    在多台设备上并行执行命令，支持 Windows（cmd）和 Mac（shell）设备。
+
+    流程：
+    1. 查询所有设备信息
+    2. 过滤不支持命令执行的设备（iOS/Android、虚拟设备）
+    3. 使用 asyncio.gather 并行执行
+    4. 返回执行结果汇总
+
+    Args:
+        data: 批量执行命令请求
+        db: 数据库会话
+
+    Returns:
+        EnvMachineBatchCommandResponse: 执行结果汇总
+    """
+    # 查询所有设备
+    machines = []
+    for machine_id in data.ids:
+        machine = await EnvMachineService.get_by_id(db, machine_id)
+        if machine:
+            machines.append(machine)
+
+    if not machines:
+        return EnvMachineBatchCommandResponse(
+            results=[],
+            total=0,
+            success_count=0,
+            failed_count=0,
+        )
+
+    # 并行执行命令
+    tasks = [_execute_single_machine(machine, data.command) for machine in machines]
+    results = await asyncio.gather(*tasks)
+
+    # 统计结果
+    success_count = sum(1 for r in results if r.success)
+    failed_count = len(results) - success_count
+
+    logger.info(
+        f"批量执行命令完成: total={len(results)}, success={success_count}, failed={failed_count}"
+    )
+
+    return EnvMachineBatchCommandResponse(
+        results=results,
+        total=len(results),
+        success_count=success_count,
+        failed_count=failed_count,
+    )
 
 
 @router.post("/batch-delete", summary="批量删除设备")
