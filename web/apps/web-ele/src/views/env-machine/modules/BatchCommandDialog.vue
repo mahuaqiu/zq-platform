@@ -45,7 +45,7 @@ const deviceStats = computed(() => {
   const windows = supported.filter(m => m.device_type === 'windows').length;
   const mac = supported.filter(m => m.device_type === 'mac').length;
   const unsupported = machines.length - supported.length;
-  return { windows, mac, unsupported, supported };
+  return { windows, mac, unsupported, supportedCount: supported.length };
 });
 
 // 命令输入提示
@@ -89,7 +89,7 @@ async function handleExecute() {
     return;
   }
 
-  if (deviceStats.value.supported === 0) {
+  if (deviceStats.value.supportedCount === 0) {
     ElMessage.warning('选中的设备不支持命令执行（仅支持 Windows/Mac 真实设备）');
     return;
   }
@@ -211,7 +211,7 @@ function formatDuration(seconds: number): string {
       <ElButton
         type="primary"
         :loading="executing"
-        :disabled="deviceStats.supported === 0"
+        :disabled="deviceStats.supportedCount === 0"
         @click="handleExecute"
       >
         执行命令
