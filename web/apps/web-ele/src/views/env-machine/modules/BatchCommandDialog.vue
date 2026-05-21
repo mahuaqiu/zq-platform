@@ -113,7 +113,7 @@ async function handleExecute() {
   // 逐批执行
   for (let i = 0; i < batches.length; i++) {
     currentBatch.value = i + 1;
-    const batchIds = batches[i].map(m => m.id);
+    const batchIds = batches[i]!.map(m => m.id);
 
     try {
       const res = await batchExecuteCommandApi({
@@ -123,7 +123,7 @@ async function handleExecute() {
       results.value.push(...res.results);
     } catch (error: any) {
       // 批次请求失败，标记所有设备为失败
-      for (const machine of batches[i]) {
+      for (const machine of batches[i]!) {
         results.value.push({
           id: machine.id,
           ip: machine.ip || '',
