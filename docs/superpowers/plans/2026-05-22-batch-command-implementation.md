@@ -142,7 +142,7 @@ from core.env_machine.schema import (
 
 - [ ] **Step 2: 新增批量执行命令 API 路由**
 
-在 `batch_delete_env_machines` 路由之前（约第 875 行），插入以下代码：
+在 `debug_device_action` 路由函数结束后、`batch_delete_env_machines` 路由函数定义之前（约第 874 行），插入以下代码：
 
 ```python
 import time
@@ -875,7 +875,7 @@ import { Terminal } from '@element-plus/icons-vue';
 import BatchCommandDialog from './modules/BatchCommandDialog.vue';
 ```
 
-- [ ] **Step 2: 添加 tableRef 和 selectedIds**
+- [ ] **Step 2: 添加 tableRef、selectedIds 和 selectedMachinesMap**
 
 在数据定义区域（约第 50 行），添加：
 
@@ -885,6 +885,9 @@ const tableRef = ref<any>(null);
 
 // 跨页选中的设备 ID
 const selectedIds = ref<Set<string>>(new Set());
+
+// 跨页选中的设备数据（Map: id -> machine，用于传递给弹窗）
+const selectedMachinesMap = ref<Map<string, EnvMachine>>(new Map());
 ```
 
 - [ ] **Step 3: 添加批量命令弹窗状态**
@@ -901,44 +904,31 @@ const batchCommandVisible = ref(false);
 将现有的 `handleSelectionChange` 函数（约第 264 行）替换为：
 
 ```typescript
-// 选择变化（跨页保持）
+// 选择变化（跨页保持，同时存储设备数据）
 function handleSelectionChange(rows: EnvMachine[]) {
-  // 先移除当前页不在选中列表的 ID
+  // 先移除当前页取消选中的设备
   const currentPageIds = tableData.value.map(r => r.id);
   for (const id of currentPageIds) {
     if (!rows.find(r => r.id === id)) {
       selectedIds.value.delete(id);
+      selectedMachinesMap.value.delete(id);
     }
   }
-  // 再添加当前页选中的 ID
+  // 再添加当前页选中的设备
   for (const row of rows) {
     selectedIds.value.add(row.id);
+    selectedMachinesMap.value.set(row.id, row);
   }
 }
 ```
 
 - [ ] **Step 5: 修改 loadData 函数同步选中状态**
 
-在 `loadData` 函数末尾的 `finally` 块之前，添加选中状态同步逻辑：
+在 `loadData` 函数的 `tableData.value = res.items || [];` 之后、`finally` 块之前，添加选中状态同步逻辑：
+
+只需添加以下代码片段：
 
 ```typescript
-async function loadData() {
-  loading.value = true;
-  try {
-    const res = await getEnvMachineListApi({
-      namespace: searchForm.value.namespace || undefined,
-      device_type: searchForm.value.device_type || undefined,
-      ip: searchForm.value.ip || undefined,
-      asset_number: searchForm.value.asset_number || undefined,
-      mark: searchForm.value.mark || undefined,
-      available: searchForm.value.available,
-      note: searchForm.value.note || undefined,
-      page: currentPage.value,
-      page_size: pageSize.value,
-    });
-    tableData.value = res.items || [];
-    total.value = res.total || 0;
-
     // 同步选中状态（跨页保持）
     nextTick(() => {
       if (tableRef.value) {
@@ -949,16 +939,9 @@ async function loadData() {
         });
       }
     });
-  } catch (error) {
-    console.error('加载数据失败:', error);
-    ElMessage.error('加载数据失败');
-  } finally {
-    loading.value = false;
-  }
-}
 ```
 
-注意：需要导入 `nextTick`：
+注意：需要在文件顶部的 Vue 导入中添加 `nextTick`：
 ```typescript
 import { onMounted, ref, nextTick } from 'vue';
 ```
@@ -987,10 +970,13 @@ function handleBatchDelete() {
       if (res.success_count > 0) {
         ElMessage.success(`成功删除 ${res.success_count} 台设备`);
       }
-      if (res.failed_count > 0) {
-        ElMessage.warning(`${res.failed_count} 台设备删除失败`);
+      // 注意：后端返回的是 failed_ids 数组，不是 failed_count
+      const failedCount = res.failed_ids?.length || 0;
+      if (failedCount > 0) {
+        ElMessage.warning(`${failedCount} 台设备删除失败`);
       }
       selectedIds.value.clear();
+      selectedMachinesMap.value.clear();
       loadData();
     } catch {
       ElMessage.error('批量删除失败');
@@ -999,7 +985,7 @@ function handleBatchDelete() {
 }
 ```
 
-- [ ] **Step 7: 添加打开批量命令弹窗函数**
+- [ ] **Step 7: 添加打开批量命令弹窗函数和 getSelectedMachines**
 
 添加新函数：
 
@@ -1009,40 +995,7 @@ function handleOpenBatchCommand() {
   batchCommandVisible.value = true;
 }
 
-// 获取选中的设备列表（用于传递给弹窗）
-function getSelectedMachines(): EnvMachine[] {
-  return tableData.value.filter(row => selectedIds.value.has(row.id));
-}
-```
-
-注意：由于跨页选择，这里只返回当前页的选中设备。需要改为从所有选中 ID 对应的设备获取。由于 tableData 只有当前页数据，需要调整方案：
-
-改为在弹窗中根据 selectedIds 从 tableData 过滤，或者存储完整的选中设备数据。
-
-**调整方案：** 使用 `selectedMachines` Map 存储完整设备数据：
-
-```typescript
-// 跨页选中的设备数据（Map: id -> machine）
-const selectedMachinesMap = ref<Map<string, EnvMachine>>(new Map());
-
-// 选择变化时更新 Map
-function handleSelectionChange(rows: EnvMachine[]) {
-  const currentPageIds = tableData.value.map(r => r.id);
-  // 移除当前页取消选中的设备
-  for (const id of currentPageIds) {
-    if (!rows.find(r => r.id === id)) {
-      selectedIds.value.delete(id);
-      selectedMachinesMap.value.delete(id);
-    }
-  }
-  // 添加当前页选中的设备
-  for (const row of rows) {
-    selectedIds.value.add(row.id);
-    selectedMachinesMap.value.set(row.id, row);
-  }
-}
-
-// 获取选中的设备列表
+// 获取选中的设备列表（从 Map 中获取完整数据）
 function getSelectedMachines(): EnvMachine[] {
   return Array.from(selectedMachinesMap.value.values());
 }
@@ -1080,7 +1033,7 @@ function getSelectedMachines(): EnvMachine[] {
 
 - [ ] **Step 10: 新增批量执行命令按钮**
 
-在批量删除按钮后面添加：
+在批量删除按钮代码块之后（`env-search-buttons` 区域内），插入以下按钮：
 
 ```vue
 <ElButton
