@@ -40,7 +40,7 @@ import {
   isMobileDevice,
 } from './types';
 import LogDialogV2 from './LogDialogV2.vue';
-import BatchCommandDialog from './BatchCommandDialog.vue';
+import BatchCommandDialog from './modules/BatchCommandDialog.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineListPage' });
