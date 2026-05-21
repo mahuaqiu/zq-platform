@@ -178,7 +178,8 @@
       "Skill(executing-plans)",
       "Bash(pytest tests/test_env_machine_auth.py -v)",
       "Bash(pytest *)",
-      "Skill(finishing-a-development-branch)"
+      "Skill(finishing-a-development-branch)",
+      "Bash(dir *)"
     ]
   }
 }
