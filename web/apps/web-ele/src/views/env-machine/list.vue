@@ -3,7 +3,6 @@ import type { EnvMachine } from '#/api/core/env-machine';
 
 import { nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Terminal } from '@element-plus/icons-vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -599,7 +598,6 @@ onMounted(() => {
               :disabled="selectedIds.size === 0"
               @click="handleOpenBatchCommand"
             >
-              <Terminal class="mr-1 size-4" />
               批量执行命令{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
             </ElButton>
           </div>
