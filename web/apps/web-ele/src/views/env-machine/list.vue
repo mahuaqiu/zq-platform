@@ -3,7 +3,7 @@ import type { EnvMachine } from '#/api/core/env-machine';
 
 import { nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Terminal } from '@vben/icons';
+import { Terminal } from '@element-plus/icons-vue';
 
 import { Page } from '@vben/common-ui';
 
