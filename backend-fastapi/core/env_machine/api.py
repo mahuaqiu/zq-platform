@@ -924,8 +924,8 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
         return result
 
     # 构造 Worker API 请求
-    # Windows 使用 cmd，Mac 使用 shell
-    action_type = "cmd" if machine.device_type == "windows" else "shell"
+    # cmd_exec 同时支持 Windows CMD 和 Mac Shell
+    action_type = "cmd_exec"
 
     worker_url = f"http://{machine.ip}:{machine.port}/task/execute"
     worker_request = {
@@ -934,7 +934,7 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
         "actions": [
             {
                 "action_type": action_type,
-                "command": command,
+                "value": command,
             }
         ],
     }
@@ -965,9 +965,18 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
                         result.stderr = first_action.get("error", "命令执行失败")
                         return result
 
-                    # 提取输出
-                    result.stdout = first_action.get("output", "")
-                    result.success = True
+                    # 提取输出（Worker API 返回 stdout/stderr/exit_code）
+                    result.stdout = first_action.get("stdout", "")
+                    result.stderr = first_action.get("stderr", "")
+
+                    # exit_code 为 0 表示成功
+                    exit_code = first_action.get("exit_code", -1)
+                    if exit_code == 0:
+                        result.success = True
+                    else:
+                        result.success = False
+                        if not result.stderr and exit_code != -1:
+                            result.stderr = f"命令执行失败，退出码: {exit_code}"
                 else:
                     result.stderr = "Worker 未返回执行结果"
             elif resp.status_code == 502:
