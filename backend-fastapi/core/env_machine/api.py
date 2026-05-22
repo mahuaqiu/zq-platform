@@ -19,6 +19,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
+from app.config import get_settings
 from app.database import get_db
 from core.env_machine.model import EnvMachine
 from core.env_machine.schema import (
@@ -57,9 +58,10 @@ async def get_namespaces(db: AsyncSession = Depends(get_db)) -> Dict[str, str]:
     返回格式: {"meeting_gamma": "集成验证", "meeting_app": "APP", ...}
     """
     # 从配置获取命名空间映射（包含显示名称）
+    settings = get_settings()
     namespace_map = settings.namespace_map
     # 同时查询数据库中实际存在的命名空间，合并返回
-    from sqlalchemy import distinct
+    from sqlalchemy import select, distinct
     result = await db.execute(
         select(distinct(EnvMachine.namespace)).where(
             EnvMachine.is_deleted == False,  # noqa: E712
