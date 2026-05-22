@@ -345,17 +345,14 @@ class EnvPoolManager:
         # 从申请标签提取 device_type（取前缀）
         device_type = request_tag.split("_")[0]
 
-        # 基础字段
+        # 基础字段（虚拟设备只需要 id, ip, device_type）
         result = {
             "id": machine_data.get("id"),
             "ip": machine_data.get("ip"),
-            "port": machine_data.get("port"),
             "device_type": device_type,  # 使用标签前缀（用于响应给调用方）
-            "actual_device_type": machine_data.get("device_type"),  # 机器实际类型（用于日志记录）
-            "device_sn": machine_data.get("device_sn"),
         }
 
-        # 合并扩展信息
+        # 合并扩展信息（账号配置）
         extra_message = machine_data.get("extra_message") or {}
         tag_extra = extra_message.get(request_tag) or {}
         if isinstance(tag_extra, dict):

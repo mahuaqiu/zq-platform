@@ -84,7 +84,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
     VIRTUAL_EXCEL_COLUMNS = {
         "namespace": "命名空间",
         "device_type": "机器类型",
-        "ip": "虚拟标识",
+        "ip": "机器信息",
         "mark": "标签",
         "extra_message": "扩展信息(JSON)",
         "note": "备注",
@@ -141,8 +141,8 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         )
 
     @classmethod
-    def _virtual_import_processor(cls, row: Dict[str, Any]) -> Optional[EnvMachine]:
-        """虚拟设备导入处理器"""
+    def _virtual_import_processor(cls, row: Dict[str, Any]) -> Tuple[Optional[EnvMachine], Optional[str]]:
+        """虚拟设备导入处理器，返回 (machine, error_reason)"""
         namespace = row.get("namespace")
         device_type = row.get("device_type")
         ip = row.get("ip")
@@ -150,14 +150,23 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         extra_message_str = row.get("extra_message")
 
         if not all([namespace, device_type, ip, mark, extra_message_str]):
-            return None
+            return None, "必填字段缺失"
 
         try:
             extra_message = json.loads(extra_message_str)
             if not isinstance(extra_message, dict):
-                return None
+                return None, "扩展信息必须是JSON对象格式"
         except json.JSONDecodeError:
-            return None
+            return None, "扩展信息JSON格式错误"
+
+        # 验证标签是否在扩展信息中有对应配置
+        mark_str = str(mark).strip()
+        tags = [t.strip() for t in mark_str.split(',') if t.strip()]
+        for tag in tags:
+            if not extra_message.get(tag):
+                return None, f"标签 '{tag}' 在扩展信息中缺少对应配置"
+            if not isinstance(extra_message.get(tag), dict):
+                return None, f"标签 '{tag}' 的配置必须是JSON对象格式"
 
         return EnvMachine(
             namespace=str(namespace),
@@ -172,7 +181,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             is_virtual=True,
             extra_message=extra_message,
             note=str(row.get("note")) if row.get("note") else None,
-        )
+        ), None
 
     @classmethod
     async def export_to_excel(
@@ -240,14 +249,14 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
                     })
                     continue
 
-            machine = cls._virtual_import_processor(row_dict)
+            machine, error_reason = cls._virtual_import_processor(row_dict)
             if machine:
                 db.add(machine)
                 success_count += 1
             else:
                 failed_items.append({
                     "row": row_idx,
-                    "reason": "数据验证失败（必填字段缺失或 JSON 格式错误）"
+                    "reason": error_reason or "数据验证失败"
                 })
 
         if success_count > 0:
@@ -758,11 +767,11 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             cell.alignment = Alignment(horizontal='center')
 
         ws.append([
-            "meeting_virtual",
-            "windows",
-            "perf001",
             "windows_perf",
-            '{"windows_perf": {"username": "test", "password": "xxx"}}',
+            "windows",
+            "api",
+            "api",
+            '{"api": {"account": "test", "password": "xxx"}}',
             "性能测试账号",
         ])
 
