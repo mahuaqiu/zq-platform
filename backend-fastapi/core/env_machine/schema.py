@@ -168,3 +168,40 @@ class EnvMachineBatchCommandResponse(BaseModel):
     total: int = Field(..., description="总设备数")
     success_count: int = Field(default=0, description="成功数")
     failed_count: int = Field(default=0, description="失败数")
+
+
+class BatchEnableRequest(BaseModel):
+    """批量启用请求 Schema"""
+    ids: List[str] = Field(..., description="设备 ID 列表")
+
+
+class BatchDisableRequest(BaseModel):
+    """批量停用请求 Schema"""
+    ids: List[str] = Field(..., description="设备 ID 列表")
+
+
+class SkippedItem(BaseModel):
+    """批量启用时跳过的设备"""
+    id: str = Field(..., description="设备 ID")
+    ip: str = Field(default="", description="设备 IP")
+    reason: str = Field(..., description="跳过原因")
+
+
+class FailedItem(BaseModel):
+    """批量停用时失败的设备"""
+    id: str = Field(..., description="设备 ID")
+    ip: str = Field(default="", description="设备 IP")
+
+
+class BatchEnableResponse(BaseModel):
+    """批量启用响应 Schema"""
+    success_count: int = Field(..., description="成功启用数量")
+    skipped_count: int = Field(default=0, description="跳过数量")
+    skipped_items: List[SkippedItem] = Field(default_factory=list, description="跳过设备列表")
+
+
+class BatchDisableResponse(BaseModel):
+    """批量停用响应 Schema"""
+    success_count: int = Field(..., description="成功停用数量")
+    failed_count: int = Field(default=0, description="失败数量")
+    failed_items: List[FailedItem] = Field(default_factory=list, description="失败设备列表")
