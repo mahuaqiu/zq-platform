@@ -423,6 +423,15 @@ const loadInitialUserInfo = async (userIds: string[]) => {
   await Promise.all(promises);
 };
 
+// 验证是否为有效的用户ID（排除空字符串和占位符如 "string"）
+const isValidUserId = (id: string): boolean => {
+  if (!id || id === '' || id === 'string') {
+    return false;
+  }
+  // 用户ID通常是21位的UUID格式
+  return id.length >= 10;
+};
+
 // 监听外部 modelValue 变化
 const updateInternalValue = async () => {
   selectedUsers.value.clear();
@@ -432,10 +441,12 @@ const updateInternalValue = async () => {
 
   if (Array.isArray(props.modelValue)) {
     props.modelValue.forEach((v) => {
-      selectedUsers.value.add(v);
-      userIds.push(v);
+      if (isValidUserId(v)) {
+        selectedUsers.value.add(v);
+        userIds.push(v);
+      }
     });
-  } else if (props.modelValue) {
+  } else if (props.modelValue && isValidUserId(props.modelValue)) {
     selectedUsers.value.add(props.modelValue);
     userIds.push(props.modelValue);
   }
