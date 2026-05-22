@@ -137,69 +137,12 @@ export function getFormSchema(): VbenFormSchema[] {
         .or(z.literal('')),
     },
     {
-      component: 'RadioGroup',
-      componentProps: {
-        buttonStyle: 'solid',
-        options: getGenderOptions(),
-        isButton: true,
-      },
-      defaultValue: 0,
-      fieldName: 'gender',
-      label: $t('user.gender'),
-    },
-    {
-      component: 'DatePicker',
-      componentProps: {
-        placeholder: $t('user.selectBirthday'),
-        valueFormat: 'YYYY-MM-DD',
-      },
-      fieldName: 'birthday',
-      label: $t('user.birthday'),
-    },
-    {
-      component: 'Input',
-      fieldName: 'city',
-      label: $t('user.city'),
-      rules: z
-        .string()
-        .max(100, $t('ui.formRules.maxLength', [$t('user.city'), 100]))
-        .optional()
-        .or(z.literal('')),
-    },
-    {
-      component: 'Input',
-      fieldName: 'address',
-      label: $t('user.address'),
-      rules: z
-        .string()
-        .max(200, $t('ui.formRules.maxLength', [$t('user.address'), 200]))
-        .optional()
-        .or(z.literal('')),
-    },
-    {
-      component: 'Textarea',
-      componentProps: {
-        placeholder: $t('user.bioPlaceholder'),
-        rows: 3,
-      },
-      fieldName: 'bio',
-      label: $t('user.bio'),
-    },
-    {
       component: 'DeptSelector',
       componentProps: {
         placeholder: $t('user.selectDept'),
       },
       fieldName: 'dept_id',
       label: $t('user.dept'),
-    },
-    {
-      component: 'UserSelector',
-      componentProps: {
-        placeholder: $t('user.selectManager'),
-      },
-      fieldName: 'manager_id',
-      label: $t('user.manager'),
     },
     {
       component: 'RoleSelector',
@@ -279,34 +222,15 @@ export function useZqTableColumns(): Column[] {
       slots: { default: 'cell-user_type' },
     },
     {
-      key: 'gender',
-      title: $t('user.gender'),
-      width: 80,
-      align: 'center' as const,
-      slots: { default: 'cell-gender' },
-    },
-    {
-      key: 'birthday',
-      dataKey: 'birthday',
-      title: $t('user.birthday'),
-      width: 120,
-    },
-    {
-      key: 'city',
-      dataKey: 'city',
-      title: $t('user.city'),
-      width: 120,
-    },
-    {
       key: 'dept_name',
       dataKey: 'dept_name',
       title: $t('user.dept'),
       width: 140,
     },
     {
-      key: 'manager_name',
-      dataKey: 'manager_name',
-      title: $t('user.manager'),
+      key: 'role_name',
+      dataKey: 'role_name',
+      title: $t('user.role'),
       width: 120,
     },
     {

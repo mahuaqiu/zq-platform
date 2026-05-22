@@ -18,7 +18,6 @@ import {
 import { useZqTable } from '#/components/zq-table';
 
 import {
-  getGenderOptions,
   getLoginTypeOptions,
   getStatusOptions,
   getUserTypeOptions,
@@ -34,7 +33,6 @@ const selectedRows = ref<User[]>([]);
 
 // 状态映射
 const statusOptions = getStatusOptions();
-const genderOptions = getGenderOptions();
 const userTypeOptions = getUserTypeOptions();
 const loginTypeOptions = getLoginTypeOptions();
 
@@ -279,13 +277,6 @@ function refreshGrid() {
       <template #cell-user_type="{ row }">
         <ElTag :type="getTagType(row.user_type, userTypeOptions)" size="small">
           {{ getTagLabel(row.user_type, userTypeOptions) }}
-        </ElTag>
-      </template>
-
-      <!-- 性别列 -->
-      <template #cell-gender="{ row }">
-        <ElTag :type="getTagType(row.gender, genderOptions)" size="small">
-          {{ getTagLabel(row.gender, genderOptions) }}
         </ElTag>
       </template>
 
