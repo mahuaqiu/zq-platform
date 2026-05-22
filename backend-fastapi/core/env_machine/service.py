@@ -779,3 +779,84 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         wb.save(buffer)
         buffer.seek(0)
         return buffer
+
+    @classmethod
+    async def batch_enable_with_validation(
+        cls,
+        db: AsyncSession,
+        ids: List[str]
+    ) -> Tuple[int, List[Dict[str, Any]]]:
+        """
+        批量启用设备（带校验）
+
+        校验规则：
+        1. mark 字段必须存在且不为空
+        2. extra_message 字段必须存在且为有效 dict
+        3. 对于 mark 中的每个标签，extra_message[tag] 必须存在且为 dict
+
+        Args:
+            db: 数据库会话
+            ids: 设备 ID 列表
+
+        Returns:
+            (success_count, skipped_items)
+        """
+        success_count = 0
+        skipped_items = []
+
+        machines = await cls.get_by_ids(db, ids)
+
+        for machine in machines:
+            # 校验 1: 标签字段
+            mark = machine.mark
+            if not mark or not mark.strip():
+                skipped_items.append({
+                    "id": str(machine.id),
+                    "ip": machine.ip or "",
+                    "reason": "缺少标签"
+                })
+                continue
+
+            # 校验 2: 扩展信息字段
+            extra_message = machine.extra_message
+            if not extra_message or not isinstance(extra_message, dict):
+                skipped_items.append({
+                    "id": str(machine.id),
+                    "ip": machine.ip or "",
+                    "reason": "缺少扩展信息"
+                })
+                continue
+
+            # 校验 3: 标签与扩展信息匹配
+            mark_str = str(mark).strip()
+            tags = [t.strip() for t in mark_str.split(',') if t.strip()]
+            validation_failed = False
+            for tag in tags:
+                if not extra_message.get(tag):
+                    skipped_items.append({
+                        "id": str(machine.id),
+                        "ip": machine.ip or "",
+                        "reason": f"标签 '{tag}' 在扩展信息中缺少对应配置"
+                    })
+                    validation_failed = True
+                    break
+                if not isinstance(extra_message.get(tag), dict):
+                    skipped_items.append({
+                        "id": str(machine.id),
+                        "ip": machine.ip or "",
+                        "reason": f"标签 '{tag}' 的配置必须是对象格式"
+                    })
+                    validation_failed = True
+                    break
+
+            if validation_failed:
+                continue
+
+            # 校验通过，启用设备
+            machine.available = True
+            success_count += 1
+
+        if success_count > 0:
+            await db.commit()
+
+        return success_count, skipped_items
