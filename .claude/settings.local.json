@@ -180,7 +180,9 @@
       "Bash(pytest *)",
       "Skill(finishing-a-development-branch)",
       "Bash(dir *)",
-      "Bash(Set-Location D:\\\\code\\\\zq-platform\\\\backend-fastapi)"
+      "Bash(Set-Location D:\\\\code\\\\zq-platform\\\\backend-fastapi)",
+      "Bash(findstr \":5778 :5779\")",
+      "PowerShell(Get-NetTCPConnection *)"
     ]
   }
 }
