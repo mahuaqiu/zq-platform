@@ -9,6 +9,9 @@ import { Page } from '@vben/common-ui';
 import {
   ElButton,
   ElDialog,
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
   ElForm,
   ElFormItem,
   ElInput,
@@ -21,6 +24,8 @@ import {
   ElTableColumn,
 } from 'element-plus';
 
+import { Grid } from '@element-plus/icons-vue';
+
 import {
   deleteEnvMachineApi,
   getEnvMachineListApi,
@@ -28,6 +33,8 @@ import {
   batchDeleteEnvMachineApi,
   batchImportVirtualDevicesApi,
   downloadImportTemplateApi,
+  batchEnableEnvMachineApi,
+  batchDisableEnvMachineApi,
 } from '#/api/core/env-machine';
 import type { EnvMachineUpdateParams } from '#/api/core/env-machine';
 
@@ -338,6 +345,102 @@ function handleOpenBatchCommand() {
   batchCommandVisible.value = true;
 }
 
+// 批量启用
+async function handleBatchEnable() {
+  const count = selectedIds.value.size;
+  if (count === 0) {
+    ElMessage.warning('请先选择要启用的设备');
+    return;
+  }
+
+  // 获取所有选中设备的信息，预估跳过数量
+  const machines = getSelectedMachines();
+  let estimatedSkip = 0;
+  machines.forEach((m) => {
+    if (!m.mark || !m.extra_message) {
+      estimatedSkip++;
+    }
+  });
+
+  const confirmMsg = estimatedSkip > 0
+    ? `确定要启用选中的 ${count} 台设备吗？（其中 ${estimatedSkip} 台可能因缺少必要信息而跳过）`
+    : `确定要启用选中的 ${count} 台设备吗？`;
+
+  ElMessageBox.confirm(confirmMsg, '批量启用确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'info',
+  }).then(async () => {
+    try {
+      const ids = Array.from(selectedIds.value);
+      const res = await batchEnableEnvMachineApi(ids);
+      if (res.success_count > 0) {
+        ElMessage.success(`成功启用 ${res.success_count} 台设备`);
+      }
+      if (res.skipped_count > 0) {
+        const details = res.skipped_items.map((item) => `${item.ip}: ${item.reason}`).join('\n');
+        ElMessageBox.alert(`${res.skipped_count} 台设备因不符合条件而跳过：\n\n${details}`, '部分设备跳过', {
+          confirmButtonText: '确定',
+          type: 'warning',
+        });
+      }
+      loadData();
+    } catch {
+      ElMessage.error('批量启用失败');
+    }
+  });
+}
+
+// 批量停用
+async function handleBatchDisable() {
+  const count = selectedIds.value.size;
+  if (count === 0) {
+    ElMessage.warning('请先选择要停用的设备');
+    return;
+  }
+
+  ElMessageBox.confirm(`确定要停用选中的 ${count} 台设备吗？`, '批量停用确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      const ids = Array.from(selectedIds.value);
+      const res = await batchDisableEnvMachineApi(ids);
+      if (res.success_count > 0) {
+        ElMessage.success(`成功停用 ${res.success_count} 台设备`);
+      }
+      if (res.failed_count > 0) {
+        ElMessage.warning(`${res.failed_count} 台设备停用失败`);
+      }
+      loadData();
+    } catch {
+      ElMessage.error('批量停用失败');
+    }
+  });
+}
+
+// 批量操作菜单命令处理
+function handleBatchCommand(command: string) {
+  switch (command) {
+    case 'import':
+      handleOpenImport();
+      break;
+    case 'delete':
+      handleBatchDelete();
+      break;
+    case 'execute':
+      handleOpenBatchCommand();
+      break;
+    case 'enable':
+      handleBatchEnable();
+      break;
+    case 'disable':
+      handleBatchDisable();
+      break;
+  }
+}
+
 // 获取选中的设备列表
 function getSelectedMachines(): EnvMachine[] {
   return Array.from(selectedMachinesMap.value.values());
@@ -590,21 +693,26 @@ onMounted(async () => {
           <div class="env-search-buttons">
             <ElButton type="primary" @click="handleSearch">查询</ElButton>
             <ElButton @click="handleReset">重置</ElButton>
-            <ElButton type="success" @click="handleOpenImport">批量导入</ElButton>
-            <ElButton
-              type="danger"
-              :disabled="selectedIds.size === 0"
-              @click="handleBatchDelete"
-            >
-              批量删除{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
-            </ElButton>
-            <ElButton
-              type="primary"
-              :disabled="selectedIds.size === 0"
-              @click="handleOpenBatchCommand"
-            >
-              批量执行命令{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
-            </ElButton>
+            <ElDropdown trigger="click" @command="handleBatchCommand">
+              <ElButton :icon="Grid" />
+              <template #dropdown>
+                <ElDropdownMenu>
+                  <ElDropdownItem command="import">批量导入</ElDropdownItem>
+                  <ElDropdownItem command="delete" :disabled="selectedIds.size === 0">
+                    批量删除{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="execute" :disabled="selectedIds.size === 0">
+                    批量执行命令{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="enable" :disabled="selectedIds.size === 0">
+                    批量启用{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  </ElDropdownItem>
+                  <ElDropdownItem command="disable" :disabled="selectedIds.size === 0">
+                    批量停用{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  </ElDropdownItem>
+                </ElDropdownMenu>
+              </template>
+            </ElDropdown>
           </div>
         </div>
       </div>
