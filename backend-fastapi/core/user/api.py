@@ -268,21 +268,25 @@ async def get_user_by_id(user_id: str, db: AsyncSession = Depends(get_db)):
 @router.put("/{user_id}", response_model=UserResponse, summary="更新用户")
 async def update_user(user_id: str, data: UserUpdate, db: AsyncSession = Depends(get_db)):
     """更新用户"""
+    # 处理 core_roles 数组转换为 role_id
+    if data.core_roles and len(data.core_roles) > 0:
+        data.role_id = data.core_roles[0]
+
     # 用户名唯一性校验
     if data.username:
         if not await UserService.check_unique(db, field="username", value=data.username, exclude_id=user_id):
             raise HTTPException(status_code=400, detail="用户名已存在")
-    
+
     # 邮箱唯一性校验
     if data.email:
         if not await UserService.check_unique(db, field="email", value=data.email, exclude_id=user_id):
             raise HTTPException(status_code=400, detail="邮箱已存在")
-    
+
     # 手机号唯一性校验
     if data.mobile:
         if not await UserService.check_unique(db, field="mobile", value=data.mobile, exclude_id=user_id):
             raise HTTPException(status_code=400, detail="手机号已存在")
-    
+
     user = await UserService.update(db, record_id=user_id, data=data)
     if user is None:
         raise HTTPException(status_code=404, detail="用户不存在")
@@ -331,6 +335,8 @@ def _build_user_response(user) -> UserResponse:
         is_superuser=user.is_superuser,
         is_active=user.is_active,
         dept_id=user.dept_id,
+        role_id=user.role_id,
+        role_name=user.role.name if user.role else None,
         manager_id=user.manager_id,
         last_login=user.last_login,
         last_login_ip=user.last_login_ip,

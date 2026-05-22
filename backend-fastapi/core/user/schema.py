@@ -93,7 +93,9 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, description="个人简介")
     is_active: Optional[bool] = Field(None, description="是否激活")
     dept_id: Optional[str] = Field(None, description="所属部门ID")
+    role_id: Optional[str] = Field(None, description="所属角色ID")
     manager_id: Optional[str] = Field(None, description="直属上级ID")
+    core_roles: Optional[List[str]] = Field(None, description="角色ID列表（前端传递）")
     sort: Optional[int] = Field(None, description="排序")
     
     @field_validator("mobile")
@@ -154,6 +156,8 @@ class UserResponse(BaseModel):
     is_active: bool = True
     dept_id: Optional[str] = None
     dept_name: Optional[str] = None
+    role_id: Optional[str] = None
+    role_name: Optional[str] = None
     manager_id: Optional[str] = None
     manager_name: Optional[str] = None
     last_login: Optional[datetime] = None

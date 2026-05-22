@@ -117,6 +117,7 @@ class User(BaseModel):
     
     # 关系定义（使用primaryjoin指定逻辑关联，lazy='selectin'支持异步加载）
     dept = relationship("Dept", foreign_keys="User.dept_id", primaryjoin="User.dept_id == Dept.id", backref="users", lazy="selectin")
+    role = relationship("Role", foreign_keys="User.role_id", primaryjoin="User.role_id == Role.id", backref="users", lazy="selectin")
     manager = relationship("User", remote_side="User.id", foreign_keys="User.manager_id", primaryjoin="User.manager_id == User.id", backref="subordinates", lazy="selectin")
     
     def __repr__(self):
