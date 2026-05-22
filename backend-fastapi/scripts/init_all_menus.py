@@ -227,6 +227,16 @@ ALL_MENUS = [
         "parent_id": "system-root",
         "order": 5,
     },
+    {
+        "id": "system-permission",
+        "name": "SystemPermission",
+        "title": "权限管理",
+        "path": "/system/permission",
+        "type": "menu",
+        "component": "/views/_core/permission/index",
+        "parent_id": "system-root",
+        "order": 6,
+    },
 ]
 
 
@@ -311,6 +321,7 @@ async def clear_and_init_menus():
         print("    - 菜单管理")
         print("    - 部门管理")
         print("    - 登录日志")
+        print("    - 权限管理")
         print("请刷新前端页面查看。")
         print("=" * 50)
 

@@ -750,106 +750,102 @@ provide('expandedMenuIds', expandedMenuIds);
           >
             <ElEmpty :description="$t('role.permissions.selectMenuPrompt')" />
           </div>
-          <div v-else class="grid grid-cols-2 gap-2 pb-2 pr-2">
-            <!-- 4列显示：按钮权限、API权限、数据权限、其他权限 -->
-            <template v-for="type in [0, 1]" :key="type">
-              <ElCard
-                class="flex flex-col border border-[var(--el-border-color)]"
-                shadow="never"
-                :style="{ height: `${scrollAreaHeight}px` }"
-                :body-style="{
-                  padding: '0',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  height: '100%',
-                }"
-              >
-                <!-- 权限类型标题 -->
-                <template #header>
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs font-medium text-gray-700">
-                        {{ getPermissionTypeName(type) }}
-                      </span>
-                      <span class="text-xs text-gray-400">
-                        ({{
-                          currentMenuPermissions[type]?.filter(
-                            (p: PermissionNode) =>
-                              selectedPermissions.has(p.id),
-                          ).length || 0
-                        }}/{{ currentMenuPermissions[type]?.length || 0 }})
-                      </span>
-                    </div>
-                    <div class="flex flex-shrink-0">
-                      <ElButton
-                        link
-                        type="primary"
-                        size="small"
-                        @click="selectPermissionsByType(type)"
-                      >
-                        {{ $t('role.permissions.selectAll') }}
-                      </ElButton>
-                      <ElButton
-                        link
-                        type="primary"
-                        size="small"
-                        @click="unselectPermissionsByType(type)"
-                      >
-                        {{ $t('role.permissions.unselectAll') }}
-                      </ElButton>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- 权限列表 -->
-                <div class="min-h-0 flex-1">
-                  <ElScrollbar style="height: 100%">
-                    <div
-                      v-if="loadingPermissions"
-                      class="flex h-20 items-center justify-center"
-                    >
-                      <span class="text-xs text-gray-400">{{
-                        $t('role.permissions.loading')
-                      }}</span>
-                    </div>
-                    <div
-                      v-else-if="
-                        !currentMenuPermissions[type] ||
-                        currentMenuPermissions[type].length === 0
-                      "
-                      class="flex h-20 items-center justify-center"
-                    >
-                      <span class="text-xs text-gray-400">{{
-                        $t('role.permissions.noPermissions')
-                      }}</span>
-                    </div>
-                    <div v-else class="space-y-1 p-2">
-                      <div
-                        v-for="permission in currentMenuPermissions[type]"
-                        :key="permission.id"
-                        class="flex h-[36px] cursor-pointer items-center rounded-[6px] px-2 transition-colors hover:bg-[var(--el-fill-color-light)]"
-                        @click="togglePermission(permission.id)"
-                      >
-                        <input
-                          type="checkbox"
-                          :checked="selectedPermissions.has(permission.id)"
-                          class="mr-2 size-3.5 flex-shrink-0 cursor-pointer rounded border-gray-300 transition-colors"
-                          @change="togglePermission(permission.id)"
-                          @click.stop
-                        />
-                        <span
-                          class="flex-1 truncate text-xs"
-                          :title="permission.label || permission.name"
-                        >
-                          {{ permission.label || permission.name }}
-                        </span>
-                      </div>
-                    </div>
-                  </ElScrollbar>
+          <!-- 只显示API权限列 -->
+          <ElCard
+            class="flex flex-col border border-[var(--el-border-color)]"
+            shadow="never"
+            :style="{ height: `${scrollAreaHeight}px`, width: '100%' }"
+            :body-style="{
+              padding: '0',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+            }"
+          >
+            <!-- 权限类型标题 -->
+            <template #header>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-medium text-gray-700">
+                    {{ getPermissionTypeName(1) }}
+                  </span>
+                  <span class="text-xs text-gray-400">
+                    ({{
+                      currentMenuPermissions[1]?.filter(
+                        (p: PermissionNode) =>
+                          selectedPermissions.has(p.id),
+                      ).length || 0
+                    }}/{{ currentMenuPermissions[1]?.length || 0 }})
+                  </span>
                 </div>
-              </ElCard>
+                <div class="flex flex-shrink-0">
+                  <ElButton
+                    link
+                    type="primary"
+                    size="small"
+                    @click="selectPermissionsByType(1)"
+                  >
+                    {{ $t('role.permissions.selectAll') }}
+                  </ElButton>
+                  <ElButton
+                    link
+                    type="primary"
+                    size="small"
+                    @click="unselectPermissionsByType(1)"
+                  >
+                    {{ $t('role.permissions.unselectAll') }}
+                  </ElButton>
+                </div>
+              </div>
             </template>
-          </div>
+
+            <!-- 权限列表 -->
+            <div class="min-h-0 flex-1">
+              <ElScrollbar style="height: 100%">
+                <div
+                  v-if="loadingPermissions"
+                  class="flex h-20 items-center justify-center"
+                >
+                  <span class="text-xs text-gray-400">{{
+                    $t('role.permissions.loading')
+                  }}</span>
+                </div>
+                <div
+                  v-else-if="
+                    !currentMenuPermissions[1] ||
+                    currentMenuPermissions[1].length === 0
+                  "
+                  class="flex h-20 items-center justify-center"
+                >
+                  <span class="text-xs text-gray-400">{{
+                    $t('role.permissions.noPermissions')
+                  }}</span>
+                </div>
+                <div v-else class="space-y-1 p-2">
+                  <div
+                    v-for="permission in currentMenuPermissions[1]"
+                    :key="permission.id"
+                    class="flex h-[36px] cursor-pointer items-center rounded-[6px] px-2 transition-colors hover:bg-[var(--el-fill-color-light)]"
+                    @click="togglePermission(permission.id)"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="selectedPermissions.has(permission.id)"
+                      class="mr-2 size-3.5 flex-shrink-0 cursor-pointer rounded border-gray-300 transition-colors"
+                      @change="togglePermission(permission.id)"
+                      @click.stop
+                    />
+                    <span
+                      class="flex-1 truncate text-xs"
+                      :title="permission.label || permission.name"
+                    >
+                      {{ permission.label || permission.name }}
+                    </span>
+                  </div>
+                </div>
+              </ElScrollbar>
+            </div>
+          </ElCard>
         </div>
       </div>
     </div>

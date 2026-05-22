@@ -61,8 +61,9 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     r"^/redoc.*",
     *OAUTH_WHITE_LIST_PATTERNS,  # OAuth相关接口
     *WEBSOCKET_WHITE_LIST_PATTERNS,  # WebSocket相关接口
-    # 执行机管理接口（供外部 worker 调用，无需认证）
-    r"^/api/core/env/.*",
+    # 执行机管理接口（供外部 worker 调用，无需认证）- 只放行注册和Worker升级相关
+    r"^/api/core/env/register$",           # 执行机注册
+    r"^/api/core/env/upgrade/worker/.*",   # Worker获取升级信息、触发升级（无需认证）
     # 公开接口（无需认证）
     r"^/env/.*",
     # AI助手公开接口（供外部系统发送消息和接收回调，无需认证）
@@ -362,10 +363,10 @@ class AuthPermissionMiddleware(BaseHTTPMiddleware):
         if self.enable_permission_check:
             # 超级管理员跳过权限检查
             if not is_superuser:
-                from app.database import async_session_maker
+                from app.database import AsyncSessionLocal
                 from utils.permission import check_api_permission
-                
-                async with async_session_maker() as db:
+
+                async with AsyncSessionLocal() as db:
                     has_permission, error_msg = await check_api_permission(
                         db=db,
                         user_id=user_id,

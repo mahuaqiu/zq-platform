@@ -20,7 +20,7 @@ from utils.redis import RedisClient
 from core.router import router as core_router
 from core.websocket.router import router as websocket_router
 from core.env_machine.api import router as env_machine_router
-from utils.auth_middleware import AuthMiddleware
+from utils.auth_middleware import AuthPermissionMiddleware
 from utils.logging_config import setup_logging
 from utils.request_log_middleware import RequestLogMiddleware
 
@@ -114,8 +114,8 @@ app = FastAPI(
     },
 )
 
-# 添加全局认证中间件（白名单内的路由无需认证）
-app.add_middleware(AuthMiddleware)
+# 添加全局认证+鉴权中间件（白名单内的路由无需认证，权限检查基于Permission表）
+app.add_middleware(AuthPermissionMiddleware)
 
 # 添加请求日志中间件
 app.add_middleware(RequestLogMiddleware)

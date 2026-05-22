@@ -61,7 +61,7 @@ class Permission(BaseModel):
     }
     
     # 关联的菜单ID（逻辑外键）
-    menu_id = Column(String(21), nullable=False, index=True, comment="关联菜单ID（逻辑外键关联core_menu）")
+    menu_id = Column(String(64), nullable=False, index=True, comment="关联菜单ID（逻辑外键关联core_menu）")
     
     # 权限名称
     name = Column(String(64), nullable=False, index=True, comment="权限名称")
