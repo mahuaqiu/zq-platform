@@ -4,6 +4,7 @@
   "user": {
     "selectPost": "Select Post",
     "selectDept": "Select Department",
-    "allDept": "All Departments"
+    "allDept": "All Departments",
+    "selectRole": "Select Role"
   }
 }

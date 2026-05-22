@@ -3,6 +3,7 @@
   "user": {
     "selectPost": "选择岗位",
     "selectDept": "选择部门",
-    "allDept": "全部部门"
+    "allDept": "全部部门",
+    "selectRole": "选择角色"
   }
 }
