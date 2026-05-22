@@ -113,7 +113,7 @@ export async function getAllMenusApi() {
  * 获取用户路由树（Core 版本）
  */
 export async function getUserRouteTreeApi() {
-  return requestClient.get<MenuTreeNode[]>('/api/core/menu/user_route_tree');
+  return requestClient.get<MenuTreeNode[]>('/api/core/menu/route/tree');
 }
 
 /**

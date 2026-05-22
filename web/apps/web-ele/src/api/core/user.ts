@@ -86,10 +86,6 @@ export interface UserBatchUpdateStatusInput {
   user_status: number;
 }
 
-export interface UserPermissionCheckInput {
-  permission_code: string;
-}
-
 export interface UserListParams {
   page?: number;
   pageSize?: number;
@@ -171,7 +167,7 @@ export async function batchUpdateUserStatusApi(
   data: UserBatchUpdateStatusInput,
 ) {
   return requestClient.post<{ count: number }>(
-    '/api/core/user/batch_update_status',
+    '/api/core/user/batch/status',
     data,
   );
 }
@@ -184,7 +180,7 @@ export async function resetUserPasswordApi(
   data: UserPasswordResetInput,
 ) {
   return requestClient.post<User>(
-    `/api/core/user/${userId}/reset_password`,
+    `/api/core/user/${userId}/reset-password`,
     data,
   );
 }
@@ -194,16 +190,6 @@ export async function resetUserPasswordApi(
  */
 export async function updateUserProfileApi(data: UserProfileUpdateInput) {
   return requestClient.put<User>('/api/core/user/profile', data);
-}
-
-/**
- * 检查用户权限
- */
-export async function checkUserPermissionApi(data: UserPermissionCheckInput) {
-  return requestClient.post<{ has_permission: boolean }>(
-    '/api/core/user/check_permission',
-    data,
-  );
 }
 
 /**

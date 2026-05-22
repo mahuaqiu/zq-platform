@@ -133,7 +133,7 @@ export async function deleteDeptApi(deptId: string) {
  */
 export async function batchDeleteDeptApi(data: DeptBatchDeleteInput) {
   return requestClient.post<{ count: number }>(
-    '/api/core/dept/batch_delete',
+    '/api/core/dept/batch/delete',
     data,
   );
 }

@@ -124,7 +124,7 @@ export async function deleteRoleApi(roleId: string) {
  */
 export async function batchDeleteRoleApi(data: RoleBatchDeleteInput) {
   return requestClient.post<{ count: number }>(
-    '/api/core/role/batch_delete',
+    '/api/core/role/batch/delete',
     data,
   );
 }
@@ -136,7 +136,7 @@ export async function batchUpdateRoleStatusApi(
   data: RoleBatchUpdateStatusInput,
 ) {
   return requestClient.post<{ count: number }>(
-    '/api/core/role/batch_update_status',
+    '/api/core/role/batch/status',
     data,
   );
 }

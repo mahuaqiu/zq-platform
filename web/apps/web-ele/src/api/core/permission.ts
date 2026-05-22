@@ -134,7 +134,7 @@ export async function batchUpdatePermissionStatusApi(
   data: PermissionBatchUpdateStatusInput,
 ) {
   return requestClient.post<{ count: number }>(
-    '/api/core/permission/batch_update_status',
+    '/api/core/permission/batch/status',
     data,
   );
 }
@@ -144,7 +144,7 @@ export async function batchUpdatePermissionStatusApi(
  */
 export async function getPermissionsByMenuApi(menuId: string) {
   return requestClient.get<Permission[]>(
-    `/api/core/permission/by_menu/${menuId}`,
+    `/api/core/permission/by/menu/${menuId}`,
   );
 }
 
@@ -160,7 +160,7 @@ export async function getPermissionStatsApi() {
  */
 export async function checkPermissionCodeApi(code: string, menuId: string) {
   return requestClient.get<{ available: boolean }>(
-    '/api/core/permission/check_code',
+    '/api/core/permission/check/unique',
     {
       params: { code, menu_id: menuId },
     },
