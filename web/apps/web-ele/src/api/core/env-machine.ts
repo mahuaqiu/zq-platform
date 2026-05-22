@@ -299,3 +299,52 @@ export async function batchExecuteCommandApi(data: BatchCommandRequest) {
     { timeout: 600000 }  // 整体超时 10 分钟（支持大批量执行）
   );
 }
+
+/**
+ * 批量启用时跳过的设备
+ */
+export interface SkippedItem {
+  id: string;
+  ip: string;
+  reason: string;
+}
+
+/**
+ * 批量停用时失败的设备
+ */
+export interface FailedItem {
+  id: string;
+  ip: string;
+}
+
+/**
+ * 批量启用响应
+ */
+export interface BatchEnableResponse {
+  success_count: number;
+  skipped_count: number;
+  skipped_items: SkippedItem[];
+}
+
+/**
+ * 批量停用响应
+ */
+export interface BatchDisableResponse {
+  success_count: number;
+  failed_count: number;
+  failed_items: FailedItem[];
+}
+
+/**
+ * 批量启用设备
+ */
+export async function batchEnableEnvMachineApi(ids: string[]) {
+  return requestClient.post<BatchEnableResponse>('/api/core/env/batch-enable', { ids });
+}
+
+/**
+ * 批量停用设备
+ */
+export async function batchDisableEnvMachineApi(ids: string[]) {
+  return requestClient.post<BatchDisableResponse>('/api/core/env/batch-disable', { ids });
+}
