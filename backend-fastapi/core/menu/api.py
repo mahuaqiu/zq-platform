@@ -129,13 +129,19 @@ async def get_route_tree(
 ):
     """
     获取当前用户的路由树
-    
+
     - 超级管理员获取所有菜单
     - 普通用户获取其角色关联的菜单
     """
-    # TODO: 获取用户角色关联的菜单ID列表
     role_menu_ids = None
-    
+
+    # 非超级管理员，获取用户角色关联的菜单ID列表
+    if not current_user.is_superuser and current_user.role_id:
+        from core.role.service import RoleService
+        role = await RoleService.get_by_id_with_relations(db, current_user.role_id)
+        if role and role.menus:
+            role_menu_ids = [menu.id for menu in role.menus]
+
     return await MenuService.get_user_route_tree(
         db,
         user_id=current_user.id,
