@@ -31,9 +31,8 @@ import {
 } from '#/api/core/env-machine';
 import type { EnvMachineUpdateParams } from '#/api/core/env-machine';
 
+import { useNamespaceStore } from './store';
 import {
-  NAMESPACE_OPTIONS,
-  NAMESPACE_DISPLAY_MAP,
   DEVICE_TYPE_OPTIONS,
   STATUS_OPTIONS,
   isMobileDevice,
@@ -46,6 +45,9 @@ defineOptions({ name: 'EnvMachineListPage' });
 
 // 路由
 const router = useRouter();
+
+// 命名空间 Store
+const namespaceStore = useNamespaceStore();
 
 // 数据
 const tableData = ref<EnvMachine[]>([]);
@@ -396,9 +398,9 @@ async function handleImport() {
   }
 }
 
-// 获取命名空间显示文本
+// 获取命名空间显示文本（使用 store getter）
 function getNamespaceText(namespace: string) {
-  return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
+  return namespaceStore.getNamespaceText(namespace);
 }
 
 // 获取状态文本
@@ -499,7 +501,10 @@ async function handleSubmit() {
 }
 
 // 初始加载
-onMounted(() => {
+onMounted(async () => {
+  // 加载命名空间配置
+  await namespaceStore.loadNamespaceConfig();
+  // 加载设备列表
   loadData();
 });
 </script>
@@ -519,7 +524,7 @@ onMounted(() => {
               style="width: 120px"
             >
               <ElOption
-                v-for="opt in NAMESPACE_OPTIONS"
+                v-for="opt in namespaceStore.namespaceOptions"
                 :key="opt.value"
                 :label="opt.label"
                 :value="opt.value"

@@ -78,6 +78,14 @@ export interface PaginatedResponse<T> {
 }
 
 /**
+ * 获取命名空间配置
+ * 返回格式: {"meeting_gamma": "集成验证", "meeting_app": "APP", ...}
+ */
+export async function getNamespaceConfigApi() {
+  return requestClient.get<Record<string, string>>('/api/core/env/namespaces');
+}
+
+/**
  * 获取执行机列表
  */
 export async function getEnvMachineListApi(params: EnvMachineQueryParams) {

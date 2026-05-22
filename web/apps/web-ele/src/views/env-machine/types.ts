@@ -14,7 +14,8 @@ export type DeviceStatus = 'online' | 'using' | 'offline' | 'upgrading';
 export const ALLOWED_TAG_PREFIXES = ['windows', 'web', 'android', 'ios', 'mac', 'api'] as const;
 
 /**
- * Namespace 映射
+ * Namespace 映射（用于后端 API 参数转换，如 gamma -> meeting_gamma）
+ * 注意：命名空间配置已改为从后端动态获取，使用 useNamespaceStore
  */
 export const NAMESPACE_MAP: Record<string, string> = {
   gamma: 'meeting_gamma',
@@ -23,68 +24,6 @@ export const NAMESPACE_MAP: Record<string, string> = {
   public: 'meeting_public',
   manual: 'meeting_manual',
 };
-
-/**
- * 默认 Namespace 配置
- */
-const DEFAULT_NAMESPACE_CONFIG: Record<string, string> = {
-  meeting_gamma: '集成验证',
-  meeting_app: 'APP',
-  meeting_av: '音视频',
-  meeting_public: '公共设备',
-};
-
-/**
- * 动态解析 Namespace 配置
- */
-let namespaceConfig: Record<string, string>;
-try {
-  namespaceConfig = JSON.parse(
-    import.meta.env.VITE_NAMESPACE_CONFIG ||
-    JSON.stringify(DEFAULT_NAMESPACE_CONFIG)
-  );
-} catch (e) {
-  console.error('VITE_NAMESPACE_CONFIG JSON 解析失败，使用默认配置:', e);
-  namespaceConfig = DEFAULT_NAMESPACE_CONFIG;
-}
-
-/**
- * 命名空间选项（用于筛选下拉框，第一项为空值）
- */
-export const NAMESPACE_OPTIONS = [
-  { label: '全部', value: '' },
-  ...Object.entries(namespaceConfig).map(([value, label]) => ({
-    label: String(label),
-    value,
-  })),
-];
-
-/**
- * 命名空间选项（带全部选项，value='all'）
- */
-export const NAMESPACE_OPTIONS_WITH_ALL = [
-  { label: '全部', value: 'all' },
-  ...Object.entries(namespaceConfig).map(([value, label]) => ({
-    label: String(label),
-    value,
-  })),
-];
-
-/**
- * 命名空间选项（弹窗用，第一项为"全部命名空间"）
- */
-export const NAMESPACE_OPTIONS_DIALOG = [
-  { label: '全部命名空间', value: '' },
-  ...Object.entries(namespaceConfig).map(([value, label]) => ({
-    label: String(label),
-    value,
-  })),
-];
-
-/**
- * 命名空间中文映射（用于表格显示）
- */
-export const NAMESPACE_DISPLAY_MAP: Record<string, string> = namespaceConfig;
 
 /**
  * 设备类型选项

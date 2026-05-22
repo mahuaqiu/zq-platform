@@ -28,9 +28,12 @@ import {
   removeUpgradeQueueApi,
 } from '#/api/core/env-machine-upgrade';
 
-import { NAMESPACE_OPTIONS_WITH_ALL } from './types';
+import { useNamespaceStore } from './store';
 
 defineOptions({ name: 'EnvMachineUpgradePage' });
+
+// 命名空间 Store
+const namespaceStore = useNamespaceStore();
 
 // 版本配置数据
 const windowsConfig = ref<UpgradeConfig | null>(null);
@@ -315,6 +318,9 @@ function handleReset() {
 
 // 初始化
 onMounted(async () => {
+  // 加载命名空间配置
+  await namespaceStore.loadNamespaceConfig();
+  // 加载升级配置
   await loadConfigs();
   // 同步表单数据
   if (windowsConfig.value) {
@@ -400,7 +406,7 @@ onMounted(async () => {
             <div class="filter-item">
               <label class="filter-label">设备类别:</label>
               <ElSelect v-model="filterForm.namespace" style="width: 150px">
-                <ElOption v-for="opt in NAMESPACE_OPTIONS_WITH_ALL" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <ElOption v-for="opt in namespaceStore.namespaceOptionsWithAll" :key="opt.value" :label="opt.label" :value="opt.value" />
               </ElSelect>
             </div>
             <div class="filter-item">

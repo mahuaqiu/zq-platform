@@ -8,13 +8,16 @@ import { Page } from '@vben/common-ui';
 import { ElScrollbar, ElSelect, ElOption, ElTag } from 'element-plus';
 
 import { getDashboardStatsApi } from '#/api/core/device-monitor';
-import { NAMESPACE_OPTIONS } from '#/views/env-machine/types';
+import { useNamespaceStore } from '#/views/env-machine/store';
 
 defineOptions({ name: 'DeviceMonitorPage' });
 
+// 命名空间 Store
+const namespaceStore = useNamespaceStore();
+
 // namespace 选项（排除"全部"选项）
 const namespaceOptions = computed(() => {
-  return NAMESPACE_OPTIONS.filter(opt => opt.value !== '');
+  return namespaceStore.namespaceOptions.filter(opt => opt.value !== '');
 });
 
 // 判断是否选中了所有 namespace
@@ -132,7 +135,12 @@ function handleNamespaceChange(val: string[]) {
 }
 
 // 初始化
-onMounted(() => {
+onMounted(async () => {
+  // 加载命名空间配置
+  await namespaceStore.loadNamespaceConfig();
+  // 初始化选中所有 namespace
+  selectedNamespaces.value = namespaceOptions.value.map(opt => opt.value);
+  // 加载统计数据
   loadStats();
   // 30分钟自动刷新
   refreshTimer = setInterval(loadStats, 30 * 60 * 1000);

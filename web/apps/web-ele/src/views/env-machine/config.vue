@@ -25,9 +25,12 @@ import {
   deployConfigApi,
 } from '#/api/core/env-machine-config';
 
-import { NAMESPACE_OPTIONS_WITH_ALL, NAMESPACE_OPTIONS_DIALOG, NAMESPACE_DISPLAY_MAP } from './types';
+import { useNamespaceStore } from './store';
 
 defineOptions({ name: 'EnvMachineConfigPage' });
+
+// 命名空间 Store
+const namespaceStore = useNamespaceStore();
 
 // 模板列表数据
 const templateList = ref<ConfigTemplate[]>([]);
@@ -124,7 +127,7 @@ const deployButtonText = computed(() => {
 // 获取模板适用命名空间的显示文本
 function getTemplateNamespaceDisplay(namespace?: string): string {
   if (!namespace) return '全部命名空间';
-  return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
+  return namespaceStore.getNamespaceText(namespace);
 }
 
 // 根据脚本扩展名获取目标系统显示
@@ -439,11 +442,14 @@ function getConfigVersionColor(configStatus: string): string {
 
 // 获取命名空间显示名称
 function getNamespaceDisplay(namespace: string): string {
-  return NAMESPACE_DISPLAY_MAP[namespace] || namespace;
+  return namespaceStore.getNamespaceText(namespace);
 }
 
 // 初始化
 onMounted(async () => {
+  // 加载命名空间配置
+  await namespaceStore.loadNamespaceConfig();
+  // 加载模板和预览
   await loadTemplates();
   await loadPreview();
 });
@@ -499,7 +505,7 @@ onMounted(async () => {
               <div class="filter-item">
                 <label class="filter-label">命名空间:</label>
                 <ElSelect v-model="filterForm.namespace" style="width: 140px">
-                  <ElOption v-for="opt in NAMESPACE_OPTIONS_WITH_ALL" :key="opt.value" :label="opt.label" :value="opt.value" />
+                  <ElOption v-for="opt in namespaceStore.namespaceOptionsWithAll" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </ElSelect>
               </div>
               <div class="filter-item">
@@ -671,7 +677,7 @@ onMounted(async () => {
                 <div class="form-col">
                   <label class="form-label">适用命名空间</label>
                   <ElSelect v-model="templateForm.namespace" placeholder="全部命名空间" clearable style="width: 100%">
-                    <ElOption v-for="opt in NAMESPACE_OPTIONS_DIALOG" :key="opt.value" :label="opt.label" :value="opt.value" />
+                    <ElOption v-for="opt in namespaceStore.namespaceOptionsDialog" :key="opt.value" :label="opt.label" :value="opt.value" />
                   </ElSelect>
                 </div>
                 <div class="form-col">
