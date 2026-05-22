@@ -24,7 +24,6 @@ export function getStatusOptions() {
   return [
     { type: 'danger', label: $t('common.disabled'), value: 0 },
     { type: 'success', label: $t('common.enabled'), value: 1 },
-    { type: 'warning', label: $t('user.locked'), value: 2 },
   ];
 }
 
