@@ -55,27 +55,12 @@ async def get_namespaces(db: AsyncSession = Depends(get_db)) -> Dict[str, str]:
     获取所有 namespace 配置（命名空间名称 -> 中文显示名称）
 
     用于前端筛选下拉框和表格显示的数据源。
+    只返回配置中定义的命名空间，过滤掉未配置的（如 meeting_manual）。
     返回格式: {"meeting_gamma": "集成验证", "meeting_app": "APP", ...}
     """
     # 从配置获取命名空间映射（包含显示名称）
     settings = get_settings()
-    namespace_map = settings.namespace_map
-    # 同时查询数据库中实际存在的命名空间，合并返回
-    from sqlalchemy import select, distinct
-    result = await db.execute(
-        select(distinct(EnvMachine.namespace)).where(
-            EnvMachine.is_deleted == False,  # noqa: E712
-        ).order_by(EnvMachine.namespace)
-    )
-    existing_namespaces = [row[0] for row in result.all()]
-
-    # 合并配置和数据库中实际存在的命名空间
-    merged = {}
-    for ns in existing_namespaces:
-        # 使用配置中的显示名称，如果没有配置则直接使用命名空间名称
-        merged[ns] = namespace_map.get(ns, ns)
-
-    return merged
+    return settings.namespace_map
 
 
 @router.post("/register", response_model=EnvSuccessResponse, summary="执行机注册")
