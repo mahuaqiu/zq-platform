@@ -90,8 +90,7 @@ watch(
         :avatar
         :menus
         :text="userStore.userInfo?.realName"
-        description="jiangzhikj@outlook.com"
-        tag-text="Pro"
+        :description="userStore.userInfo?.email"
         @logout="handleLogout"
       />
     </template>
