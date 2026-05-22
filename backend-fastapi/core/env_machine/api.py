@@ -38,6 +38,12 @@ from core.env_machine.schema import (
     EnvMachineBatchCommandRequest,
     CommandResultItem,
     EnvMachineBatchCommandResponse,
+    BatchEnableRequest,
+    BatchEnableResponse,
+    BatchDisableRequest,
+    BatchDisableResponse,
+    SkippedItem,
+    FailedItem,
 )
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
@@ -1119,5 +1125,64 @@ async def batch_import_virtual_devices(
 
     return EnvMachineBatchImportResponse(
         success_count=success_count,
+        failed_items=failed_items
+    )
+
+
+@router.post("/batch-enable", response_model=BatchEnableResponse, summary="批量启用设备")
+async def batch_enable_env_machines(
+    data: BatchEnableRequest,
+    db: AsyncSession = Depends(get_db)
+) -> BatchEnableResponse:
+    """
+    批量启用设备（带校验）
+
+    校验规则：
+    - 标签字段必须存在
+    - 扩展信息字段必须存在且为有效 dict
+    - 每个标签在扩展信息中必须有对应配置
+
+    不满足条件的设备会被跳过，返回跳过原因。
+    """
+    success_count, skipped_items = await EnvMachineService.batch_enable_with_validation(
+        db, data.ids
+    )
+
+    return BatchEnableResponse(
+        success_count=success_count,
+        skipped_count=len(skipped_items),
+        skipped_items=[SkippedItem(**item) for item in skipped_items]
+    )
+
+
+@router.post("/batch-disable", response_model=BatchDisableResponse, summary="批量停用设备")
+async def batch_disable_env_machines(
+    data: BatchDisableRequest,
+    db: AsyncSession = Depends(get_db)
+) -> BatchDisableResponse:
+    """
+    批量停用设备
+
+    直接停用所有选中的设备，无需校验。
+    """
+    # 使用现有方法批量更新
+    success_count, failed_ids = await EnvMachineService.batch_update_available(
+        db, data.ids, available=False
+    )
+
+    # 同步 Redis 缓存
+    machines = await EnvMachineService.get_by_ids(db, data.ids)
+    for machine in machines:
+        await EnvPoolManager.sync_machine_to_cache(machine)
+
+    # 构建失败项详情
+    failed_items = []
+    if failed_ids:
+        for fid in failed_ids:
+            failed_items.append(FailedItem(id=fid, ip=""))
+
+    return BatchDisableResponse(
+        success_count=success_count,
+        failed_count=len(failed_ids),
         failed_items=failed_items
     )
