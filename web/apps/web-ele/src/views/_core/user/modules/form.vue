@@ -35,7 +35,12 @@ function open(data?: User) {
   visible.value = true;
   if (data) {
     formData.value = data;
-    formApi.setValues(formData.value);
+    // 将 role_id 转换为 core_roles 数组格式
+    const formValues = { ...data };
+    if (data.role_id) {
+      formValues.core_roles = [data.role_id];
+    }
+    formApi.setValues(formValues);
   } else {
     formData.value = undefined;
     formApi.resetForm();
