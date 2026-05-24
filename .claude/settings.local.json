@@ -182,7 +182,8 @@
       "Bash(dir *)",
       "Bash(Set-Location D:\\\\code\\\\zq-platform\\\\backend-fastapi)",
       "Bash(findstr \":5778 :5779\")",
-      "PowerShell(Get-NetTCPConnection *)"
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(node create_ppt.js)"
     ]
   }
 }

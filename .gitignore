@@ -5,3 +5,5 @@
 *.pptx
 .worktrees/
 /backend-fastapi/temp_exports
+/node_modules
+create_ppt.js
