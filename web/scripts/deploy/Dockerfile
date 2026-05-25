@@ -17,7 +17,8 @@ WORKDIR /app
 # copy package.json and pnpm-lock.yaml to workspace
 COPY . /app
 
-# 安装依赖（使用淘宝源）
+# 配置淘宝源并安装依赖
+RUN pnpm config set registry https://registry.npmmirror.com
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build --filter=\!./docs
 
