@@ -1,21 +1,28 @@
 <script setup lang="ts">
 interface Props {
   currentMetric: string;
+  isLinuxDevice?: boolean;  // 是否为 Linux 设备
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const emit = defineEmits<{
   change: [metric: string];
   more: [];
 }>();
 
-// 固定显示的4个指标
-const mainMetrics = [
-  { key: 'cpu_usage', label: 'CPU' },
-  { key: 'gpu_usage', label: 'GPU' },
-  { key: 'memory_usage', label: '内存' },
-  { key: 'commit_memory', label: '提交内存' },
-];
+// 固定显示的指标（Linux 设备不显示 GPU）
+const mainMetrics = computed(() => {
+  const baseMetrics = [
+    { key: 'cpu_usage', label: 'CPU' },
+    // Linux 设备没有 GPU 数据，不显示 GPU 指标
+    ...(props.isLinuxDevice ? [] : [{ key: 'gpu_usage', label: 'GPU' }]),
+    { key: 'memory_usage', label: '内存' },
+    { key: 'commit_memory', label: '提交内存' },
+  ];
+  return baseMetrics;
+});
+
+import { computed } from 'vue';
 
 function handleMetricClick(metric: string) {
   emit('change', metric);

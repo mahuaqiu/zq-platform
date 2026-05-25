@@ -16,6 +16,11 @@ const emit = defineEmits<{
   (e: 'started', collectId: string): void;
 }>();
 
+// 判断是否为 Linux 设备
+const isLinuxDevice = computed(() => {
+  return props.deviceInfo?.device_type === 'linux';
+});
+
 // 设备显示信息
 const deviceDisplay = computed(() => {
   if (props.deviceInfo) {
@@ -23,6 +28,14 @@ const deviceDisplay = computed(() => {
     return `${deviceType}-${props.deviceInfo.ip}`;
   }
   return '未选择设备';
+});
+
+// 弹窗标题（Linux 设备显示简化标题）
+const dialogTitle = computed(() => {
+  if (isLinuxDevice.value) {
+    return '开始系统性能采集';
+  }
+  return '开始性能采集';
 });
 const interval = ref(5);
 const intervalOptions = [1, 5, 10, 30];
@@ -205,6 +218,27 @@ function handleManualAdd() {
 }
 
 async function handleStart() {
+  // Linux 设备：无需选择进程，直接开始采集
+  if (isLinuxDevice.value) {
+    try {
+      loading.value = true;
+      const result = await startCollect({
+        device_id: props.deviceId,
+        interval: interval.value,
+        target_processes: [],  // Linux 设备不传进程列表，采集系统级数据
+      });
+      ElMessage.success('系统性能采集已开始');
+      emit('started', result.collect_id);
+      emit('update:visible', false);
+    } catch (error) {
+      ElMessage.error('开始采集失败');
+    } finally {
+      loading.value = false;
+    }
+    return;
+  }
+
+  // Windows 设备：需要选择进程
   if (selectedCount.value === 0) {
     ElMessage.warning('请选择目标进程');
     return;
@@ -278,18 +312,22 @@ watch(() => props.visible, (v) => {
     :close-on-click-modal="false"
     class="collect-dialog"
   >
-    <!-- 弹窗标题 -->
+    <!-- 弹窗标题（动态显示） -->
     <template #header>
-      <div class="dialog-title">开始性能采集</div>
+      <div class="dialog-title">{{ dialogTitle }}</div>
     </template>
     <!-- 设备信息 -->
     <div class="device-info">
       <div class="device-label">目标设备</div>
       <div class="device-name">{{ deviceDisplay }}</div>
+      <!-- Linux 设备特殊提示 -->
+      <div v-if="isLinuxDevice" class="device-tip">
+        Linux 设备将采集系统级 CPU/内存性能数据，无需选择进程
+      </div>
     </div>
 
-    <!-- 目标进程选择 -->
-    <div class="process-section">
+    <!-- 目标进程选择（仅 Windows 设备显示） -->
+    <div v-if="!isLinuxDevice" class="process-section">
       <div class="section-title">目标进程 <span class="subtitle">（可多选）</span></div>
 
       <!-- 采集模式选择 -->
@@ -398,7 +436,12 @@ watch(() => props.visible, (v) => {
         </el-select>
       </div>
       <div class="config-tip">
-        <b>说明：</b>采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
+        <template v-if="isLinuxDevice">
+          <b>说明：</b>Linux 设备采集系统级 CPU/内存性能数据。采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
+        </template>
+        <template v-else>
+          <b>说明：</b>采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
+        </template>
       </div>
     </div>
 
@@ -434,6 +477,13 @@ watch(() => props.visible, (v) => {
   font-size: 12px;
   font-weight: 600;
   color: #67c23a;
+}
+.device-tip {
+  font-size: 10px;
+  color: #e6a23c;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #d4e6c9;
 }
 .process-section {
   margin-bottom: 12px;

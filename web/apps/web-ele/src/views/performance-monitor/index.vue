@@ -46,6 +46,7 @@ const devices = ref<EnvMachine[]>([]);
 const loadingDevices = ref(true);
 
 // 在线设备列表（过滤虚拟设备，虚拟设备无法进行性能采集）
+// Windows 和 Linux 设备都可以进行性能采集
 const onlineDevices = computed(() =>
   devices.value.filter((d) =>
     (d.status === 'online' || d.status === 'using') && !d.is_virtual,
@@ -267,11 +268,18 @@ async function handleHwinfoMetricSelect(metricKey: string) {
   }
 }
 
-// 所有指标列表
+// 当前选中设备是否为 Linux
+const isLinuxDevice = computed(() => {
+  const device = devices.value.find((d) => d.id === deviceId.value);
+  return device?.device_type === 'linux';
+});
+
+// 所有指标列表（Linux 设备不显示 GPU 指标）
 const allMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu' as MetricKey, label: 'CPU使用率' },
-    { key: 'gpu' as MetricKey, label: 'GPU使用率' },
+    // Linux 设备没有 GPU 数据，不显示 GPU 指标
+    ...(isLinuxDevice.value ? [] : [{ key: 'gpu' as MetricKey, label: 'GPU使用率' }]),
     { key: 'memory' as MetricKey, label: '进程内存' },
     { key: 'commitMemory' as MetricKey, label: '提交内存' },
     { key: 'handles' as MetricKey, label: '进程句柄' },
@@ -535,12 +543,12 @@ const hwinfoChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
-// 获取在线设备列表
+// 获取在线设备列表（Windows 和 Linux 设备都支持性能采集）
 async function fetchOnlineDevices() {
   loadingDevices.value = true;
   try {
+    // 获取 Windows 和 Linux 设备（虚拟设备会被前端过滤）
     const result = await getEnvMachineListApi({
-      device_type: 'windows', // 性能监控目前只支持 Windows 设备
       page: 1,
       page_size: 100,
     });
@@ -1157,7 +1165,7 @@ async function loadMoreData(start_time: number, end_time: number) {
         <!-- 设备选择标签 -->
         <span class="device-label-tag">设备选择</span>
 
-        <!-- 设备下拉选择框（加大宽度） -->
+        <!-- 设备下拉选择框（加大宽度，支持 Windows 和 Linux） -->
         <el-select
           v-if="!loadingDevices"
           v-model="deviceId"
@@ -1173,6 +1181,8 @@ async function loadMoreData(start_time: number, end_time: number) {
           >
             <span>{{ device.device_type }}</span>
             <span style="margin-left: 10px; color: #409eff">{{ device.ip }}</span>
+            <!-- Linux 设备特殊标识 -->
+            <span v-if="device.device_type === 'linux'" style="margin-left: 6px; color: #e6a23c; font-size: 11px;">[Linux]</span>
           </el-option>
         </el-select>
         <span v-else class="loading-text">加载中...</span>
@@ -1204,6 +1214,7 @@ async function loadMoreData(start_time: number, end_time: number) {
       <div class="metric-selector-wrapper">
         <MetricSelector
           :current-metric="currentMetric"
+          :is-linux-device="isLinuxDevice"
           @change="handleMetricChange"
           @more="showMorePopup = true"
         />

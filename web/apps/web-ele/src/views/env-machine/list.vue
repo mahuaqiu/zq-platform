@@ -93,6 +93,7 @@ const formData = ref({
   mark: '',
   available: false,
   extra_message_raw: '',
+  device_type: '',  // 设备类型，用于判断是否为 Linux 设备
 });
 
 // JSON 格式错误提示
@@ -263,6 +264,7 @@ function handleEdit(row: EnvMachine) {
     mark: row.mark || '',
     available: row.available,
     extra_message_raw: row.extra_message ? JSON.stringify(row.extra_message, null, 2) : '',
+    device_type: row.device_type || '',  // 保存设备类型
   };
   jsonError.value = '';
   dialogVisible.value = true;
@@ -346,26 +348,40 @@ function handleOpenBatchCommand() {
   batchCommandVisible.value = true;
 }
 
-// 批量启用
+// 批量启用（Linux 设备不支持启用，需过滤）
 async function handleBatchEnable() {
-  const count = selectedIds.value.size;
-  if (count === 0) {
-    ElMessage.warning('请先选择要启用的设备');
+  const machines = getSelectedMachines();
+  // 过滤掉 Linux 设备（Linux 设备不支持启用功能）
+  const filteredMachines = machines.filter((m) => m.device_type !== 'linux');
+
+  if (filteredMachines.length === 0) {
+    ElMessage.warning('没有可启用的设备（Linux 设备不支持启用功能）');
     return;
   }
 
-  // 获取所有选中设备的信息，预估跳过数量
-  const machines = getSelectedMachines();
+  // 获取过滤后设备的 ID
+  const filteredIds = filteredMachines.map((m) => m.id);
+
+  // 预估跳过数量（检查是否缺少必要信息）
   let estimatedSkip = 0;
-  machines.forEach((m) => {
+  filteredMachines.forEach((m) => {
     if (!m.mark || !m.extra_message) {
       estimatedSkip++;
     }
   });
 
-  const confirmMsg = estimatedSkip > 0
-    ? `确定要启用选中的 ${count} 台设备吗？（其中 ${estimatedSkip} 台可能因缺少必要信息而跳过）`
-    : `确定要启用选中的 ${count} 台设备吗？`;
+  // 如果有 Linux 设备被过滤，提示用户
+  const linuxCount = machines.length - filteredMachines.length;
+  let confirmMsg = '';
+  if (linuxCount > 0 && estimatedSkip > 0) {
+    confirmMsg = `已排除 ${linuxCount} 台 Linux 设备（不支持启用）。确定启用剩余 ${filteredMachines.length} 台设备吗？（其中 ${estimatedSkip} 台可能因缺少必要信息而跳过）`;
+  } else if (linuxCount > 0) {
+    confirmMsg = `已排除 ${linuxCount} 台 Linux 设备（不支持启用）。确定启用剩余 ${filteredMachines.length} 台设备吗？`;
+  } else if (estimatedSkip > 0) {
+    confirmMsg = `确定要启用选中的 ${filteredMachines.length} 台设备吗？（其中 ${estimatedSkip} 台可能因缺少必要信息而跳过）`;
+  } else {
+    confirmMsg = `确定要启用选中的 ${filteredMachines.length} 台设备吗？`;
+  }
 
   ElMessageBox.confirm(confirmMsg, '批量启用确认', {
     confirmButtonText: '确定',
@@ -373,8 +389,7 @@ async function handleBatchEnable() {
     type: 'info',
   }).then(async () => {
     try {
-      const ids = Array.from(selectedIds.value);
-      const res = await batchEnableEnvMachineApi(ids);
+      const res = await batchEnableEnvMachineApi(filteredIds);
       if (res.success_count > 0) {
         ElMessage.success(`成功启用 ${res.success_count} 台设备`);
       }
@@ -552,7 +567,35 @@ async function handleSubmit() {
     return;
   }
 
-  // 启用时检查标签和扩展信息
+  // Linux 设备：放宽校验，不检查启用条件
+  if (formData.value.device_type === 'linux') {
+    dialogLoading.value = true;
+    try {
+      const updateData: EnvMachineUpdateParams = {
+        asset_number: formData.value.asset_number,
+        ip: formData.value.ip,
+        device_sn: formData.value.device_sn,
+        mark: formData.value.mark,
+        available: formData.value.available,  // Linux 设备的 available 会被后端忽略
+        note: formData.value.note,
+      };
+      if (formData.value.extra_message_raw.trim()) {
+        updateData.extra_message = JSON.parse(formData.value.extra_message_raw.trim());
+      }
+      await updateEnvMachineApi(editId.value, updateData);
+      ElMessage.success('更新成功');
+      dialogVisible.value = false;
+      loadData();
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || '操作失败';
+      ElMessage.error(msg);
+    } finally {
+      dialogLoading.value = false;
+    }
+    return;
+  }
+
+  // Windows 设备：启用时检查标签和扩展信息
   if (formData.value.available) {
     const mark = formData.value.mark?.trim();
 
@@ -855,11 +898,16 @@ onMounted(async () => {
           <ElInput v-model="formData.mark" placeholder="请输入标签，多个用逗号分隔" />
         </ElFormItem>
 
-        <ElFormItem label="是否启用">
+        <!-- 是否启用（Linux 设备不支持启用功能，隐藏该选项） -->
+        <ElFormItem v-if="formData.device_type !== 'linux'" label="是否启用">
           <ElSelect v-model="formData.available" style="width: 100%">
             <ElOption label="是" :value="true" />
             <ElOption label="否" :value="false" />
           </ElSelect>
+        </ElFormItem>
+        <!-- Linux 设备提示 -->
+        <ElFormItem v-if="formData.device_type === 'linux'" label="是否启用">
+          <span style="color: #999; font-size: 12px;">Linux 设备不支持启用功能（自动采集系统级性能数据）</span>
         </ElFormItem>
 
         <ElFormItem label="扩展信息">
