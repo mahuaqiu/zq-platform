@@ -177,6 +177,43 @@ class SSHConnectionPool:
     def is_connected(cls, device_id: str) -> bool:
         """检查连接是否存在"""
         return device_id in cls._connections
+    
+    # 认证信息缓存（用于重连）
+    _auth_cache: Dict[str, Dict[str, Any]] = {}
+    
+    @classmethod
+    def cache_auth(cls, device_id: str, host: str, port: int, account: str, password: str):
+        """缓存认证信息（用于重连）"""
+        cls._auth_cache[device_id] = {
+            "host": host,
+            "port": port,
+            "account": account,
+            "password": password,
+        }
+    
+    @classmethod
+    async def reconnect(cls, device_id: str) -> Optional[paramiko.SSHClient]:
+        """重连指定设备"""
+        auth = cls._auth_cache.get(device_id)
+        if not auth:
+            logger.warning(f"无认证缓存，无法重连: device_id={device_id}")
+            return None
+        
+        # 先关闭旧连接
+        await cls.close_connection(device_id)
+        
+        # 使用缓存的认证信息重新连接
+        try:
+            return await cls.get_connection(
+                device_id=device_id,
+                host=auth["host"],
+                port=auth["port"],
+                account=auth["account"],
+                password=auth["password"]
+            )
+        except Exception as e:
+            logger.error(f"重连失败: device_id={device_id}, error={e}")
+            return None
 ```
 
 - [ ] **Step 2: 创建数据采集类**
@@ -501,6 +538,15 @@ async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends
         try:
             # 建立 SSH 连接
             await SSHConnectionPool.get_connection(
+                device_id=request.device_id,
+                host=device.ip,
+                port=port,
+                account=account,
+                password=password
+            )
+            
+            # 缓存认证信息（用于重连）
+            SSHConnectionPool.cache_auth(
                 device_id=request.device_id,
                 host=device.ip,
                 port=port,
@@ -985,6 +1031,66 @@ async function fetchDevices() {
 ```bash
 git add web/apps/web-ele/src/views/performance-monitor/index.vue
 git commit -m "feat: 性能监控页面支持 Linux 设备选择"
+```
+
+---
+
+## Task 8.5: 前端 - 设备编辑弹窗隐藏 Linux 启用开关
+
+**Files:**
+- Modify: `web/apps/web-ele/src/views/env-machine/list.vue`
+
+- [ ] **Step 1: 找到编辑弹窗的启用开关并添加条件判断**
+
+在设备编辑弹窗中找到"是否启用"表单项，添加 Linux 设备隐藏条件：
+
+```vue
+<!-- 是否启用 - Linux 设备隐藏 -->
+<el-form-item v-if="formData.device_type !== 'linux'" label="是否启用">
+  <el-switch v-model="formData.available" />
+</el-form-item>
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add web/apps/web-ele/src/views/env-machine/list.vue
+git commit -m "feat: 设备编辑弹窗隐藏 Linux 启用开关"
+```
+
+---
+
+## Task 10.5: 前端 - GPU 图表条件渲染
+
+**Files:**
+- Modify: `web/apps/web-ele/src/views/performance-monitor/index.vue`
+
+- [ ] **Step 1: GPU 图表区域添加条件判断**
+
+找到 GPU 图表组件，添加 `gpu_usage` 存在时才显示的条件：
+
+```vue
+<!-- GPU 图表 - 仅在有 GPU 数据时显示 -->
+<div v-if="hasGpuData" class="gpu-chart-section">
+  <!-- GPU 图表内容 -->
+</div>
+```
+
+在 script 中添加判断逻辑：
+
+```typescript
+const hasGpuData = computed(() => {
+  // 检查采集数据中是否有 GPU 数据
+  // Linux 设备无 GPU 指标，gpu_usage 为 null
+  return collectData.value.some(item => item.gpu_usage !== null);
+});
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add web/apps/web-ele/src/views/performance-monitor/index.vue
+git commit -m "feat: GPU 图表条件渲染 - Linux 设备无 GPU 时隐藏"
 ```
 
 ---
