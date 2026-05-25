@@ -144,7 +144,10 @@ class Settings(BaseSettings):
     FEISHU_APP_ID: Optional[str] = None
     FEISHU_APP_SECRET: Optional[str] = None
     FEISHU_REDIRECT_URI: Optional[str] = 'https://localhost:5777/oauth/feishu/callback'
-    
+
+    # CORS 配置（跨域允许的 origins，逗号分隔）
+    CORS_ORIGINS: str = "*"  # 默认允许所有来源，生产环境建议限制
+
     model_config = SettingsConfigDict(
         env_file=f"env/{os.getenv('ENV', 'dev')}.env",
         env_file_encoding="utf-8",
