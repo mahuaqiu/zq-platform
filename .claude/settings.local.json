@@ -185,7 +185,8 @@
       "PowerShell(Get-NetTCPConnection *)",
       "Bash(node create_ppt.js)",
       "Bash(xxd)",
-      "Bash(docker-compose logs *)"
+      "Bash(docker-compose logs *)",
+      "PowerShell(New-Item *)"
     ]
   }
 }
