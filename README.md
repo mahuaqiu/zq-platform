@@ -255,13 +255,138 @@ pnpm build:ele
    - 支持暗黑模式
    - 图标从 `@vben/icons` 导入
 
-## 📦 部署
-1. **后端部署**
-   - 使用 Gunicorn + Nginx
-   - 配置 Supervisor 进程守护
-   - 配置 SSL 证书
+## 📦 Docker 部署
 
-2. **前端部署**
-   - 执行 `pnpm build` 构建
-   - 将 `dist` 目录部署到 Nginx
-   - 配置反向代理
+### 快速启动
+
+```bash
+# 构建并启动所有服务
+docker-compose up -d --build
+
+# 查看运行状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+```
+
+### 配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `.env` | Docker Compose 环境变量配置（数据库、Redis、JWT密钥等） |
+| `docker-compose.yml` | Docker 服务编排配置 |
+| `backend-fastapi/Dockerfile` | 后端镜像构建配置 |
+| `web/scripts/deploy/Dockerfile` | 前端镜像构建配置 |
+| `web/scripts/deploy/nginx.conf` | Nginx 反向代理配置 |
+
+### 环境变量配置
+
+修改 `.env` 文件配置生产环境参数：
+
+```bash
+# 环境标识
+ENV=prod
+DEBUG=false
+
+# Worker 数量（建议 2-4 * CPU核数）
+WORKERS=1
+
+# JWT 密钥（必须修改）
+JWT_SECRET_KEY=your-secret-key
+
+# 数据库配置
+DB_HOST=192.168.0.102
+DB_PORT=5432
+DB_USER=superset
+DB_PASSWORD=superset
+DB_NAME=fastapi_db
+
+# Redis 配置
+REDIS_HOST=192.168.0.102
+REDIS_PORT=6379
+REDIS_DB=0
+
+# 测试报告外部访问地址（根据实际部署地址修改）
+TEST_REPORT_EXTERNAL_BASE_URL=http://your-domain:8000
+```
+
+### 代码更新流程
+
+#### 后端更新（代码外挂，无需重新构建镜像）
+
+```bash
+# 1. 修改后端代码后，重启容器即可
+docker-compose restart backend
+
+# 2. 查看重启日志
+docker-compose logs -f backend
+```
+
+#### 前端更新（构建产物外挂，无需重新构建镜像）
+
+```bash
+# 1. 进入前端目录构建
+cd web
+pnpm build
+
+# 2. 重启 frontend 容器（秒级完成）
+cd ..
+docker-compose restart frontend
+```
+
+#### 镜像更新（依赖变更时需要）
+
+当 `requirements.txt` 或 `package.json` 依赖变更时，需要重新构建镜像：
+
+```bash
+# 重新构建后端镜像
+docker-compose build backend
+
+# 重新构建前端镜像
+docker-compose build frontend
+
+# 重新构建所有镜像
+docker-compose build --no-cache
+```
+
+### 常用命令
+
+```bash
+# 启动服务
+docker-compose up -d
+
+# 停止服务
+docker-compose down
+
+# 重启单个服务
+docker-compose restart backend
+docker-compose restart frontend
+
+# 查看容器状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# 进入容器
+docker-compose exec backend bash
+docker-compose exec frontend sh
+
+# 清理构建缓存
+docker builder prune -f
+```
+
+### 端口说明
+
+| 服务 | 容器端口 | 外部端口 |
+|------|----------|----------|
+| frontend (nginx) | 8080 | 80 |
+| backend (fastapi) | 8000 | 8000 |
+
+### 访问地址
+
+- 前端页面: http://localhost
+- 后端 API: http://localhost:8000
+- API 文档: http://localhost:8000/docs
