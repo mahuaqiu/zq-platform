@@ -5,10 +5,10 @@ services:
       dockerfile: scripts/deploy/Dockerfile
       provenance: false
     ports:
-      - "80:8080"
+      - "9017:8080"
     volumes:
       # 外挂构建产物：更新前端后只需在宿主机重新构建（pnpm build），然后重启容器
-      - ./web/playground/dist:/usr/share/nginx/html
+      - ./web/apps/web-ele/dist:/usr/share/nginx/html
     depends_on:
       - backend
     restart: unless-stopped
