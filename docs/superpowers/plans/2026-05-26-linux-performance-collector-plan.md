@@ -740,6 +740,111 @@ git commit -m "feat: 设备 Schema 支持 Linux 类型"
 
 ---
 
+## Task 6.5: 修改 env_machine service.py - Linux 设备导入逻辑
+
+**Files:**
+- Modify: `backend-fastapi/core/env_machine/service.py`
+
+- [ ] **Step 1: 修改 `_virtual_import_processor` 方法支持 Linux 设备**
+
+找到 `_virtual_import_processor` 方法（约第 145-188 行），添加 Linux 设备分支：
+
+```python
+def _virtual_import_processor(cls, row: Dict[str, Any]) -> Tuple[Optional[EnvMachine], Optional[str]]:
+    """虚拟设备导入处理器，返回 (machine, error_reason)"""
+    namespace = row.get("namespace")
+    device_type = row.get("device_type")
+    ip = row.get("ip")
+    mark = row.get("mark")
+    extra_message_str = row.get("extra_message")
+
+    if not all([namespace, device_type, ip]):
+        return None, "必填字段缺失（namespace, device_type, ip）"
+
+    # Linux 设备：特殊处理
+    if device_type == 'linux':
+        # Linux 设备必须有 extra_message（SSH 认证信息）
+        if not extra_message_str:
+            return None, "Linux 设备必须提供 extra_message（SSH 认证信息）"
+        
+        try:
+            extra_message = json.loads(extra_message_str)
+            if not isinstance(extra_message, dict):
+                return None, "扩展信息必须是JSON对象格式"
+        except json.JSONDecodeError:
+            return None, "扩展信息JSON格式错误"
+        
+        # 验证 Linux 认证信息格式
+        account = extra_message.get('account', 'root')
+        password = extra_message.get('password')
+        port = extra_message.get('port', 22)
+        
+        if not password:
+            return None, "Linux 设备必须提供 SSH 密码（extra_message.password）"
+        
+        return EnvMachine(
+            namespace=str(namespace),
+            device_type='linux',
+            asset_number=None,
+            ip=str(ip),
+            port=None,  # SSH 端口存储在 extra_message.port
+            device_sn=None,
+            mark=None,  # Linux 设备无标签
+            available=False,  # Linux 设备不支持启用
+            status='offline',
+            is_virtual=False,
+            extra_message={
+                "account": account,
+                "password": password,
+                "port": port,
+            },
+        )
+
+    # 其他设备：原有逻辑
+    if not all([mark, extra_message_str]):
+        return None, "必填字段缺失"
+
+    try:
+        extra_message = json.loads(extra_message_str)
+        if not isinstance(extra_message, dict):
+            return None, "扩展信息必须是JSON对象格式"
+    except json.JSONDecodeError:
+        return None, "扩展信息JSON格式错误"
+
+    # 验证标签格式（与编辑时一致）
+    mark_str = str(mark).strip()
+    tags = [t.strip() for t in mark_str.split(',') if t.strip()]
+    for tag in tags:
+        is_valid, error_msg = EnvPoolManager.validate_single_tag(tag)
+        if not is_valid:
+            return None, f"标签 '{tag}' 不合法：{error_msg}"
+        if not extra_message.get(tag):
+            return None, f"标签 '{tag}' 在扩展信息中缺少对应配置"
+        if not isinstance(extra_message.get(tag), dict):
+            return None, f"标签 '{tag}' 的配置必须是JSON对象格式"
+
+    return EnvMachine(
+        namespace=str(namespace),
+        device_type=str(device_type),
+        asset_number=None,
+        ip=str(ip),
+        port=None,
+        device_sn=None,
+        mark=str(mark),
+        available=False,
+        # ... 原有逻辑继续
+    )
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add backend-fastapi/core/env_machine/service.py
+git commit -m "feat: Linux 设备导入逻辑支持 - SSH 认证信息格式"
+```
+
+---
+
 ## Task 7: 创建 Linux 指标映射初始化脚本
 
 **Files:**
@@ -1035,7 +1140,7 @@ git commit -m "feat: 性能监控页面支持 Linux 设备选择"
 
 ---
 
-## Task 8.5: 前端 - 设备编辑弹窗隐藏 Linux 启用开关
+## Task 8.5: 前端 - 设备编辑弹窗隐藏 Linux 启用开关 + 校验规则放宽
 
 **Files:**
 - Modify: `web/apps/web-ele/src/views/env-machine/list.vue`
@@ -1051,11 +1156,35 @@ git commit -m "feat: 性能监控页面支持 Linux 设备选择"
 </el-form-item>
 ```
 
-- [ ] **Step 2: 提交**
+- [ ] **Step 2: 放宽 Linux 设备的校验规则**
+
+修改编辑表单的校验规则，对 Linux 设备放宽：
+- `port` 可为空（SSH 端口在 extra_message.port）
+- `device_sn` 可为空（Linux 无需 SN）
+- `mark` 可为空（Linux 无标签）
+
+```typescript
+const editRules = computed(() => {
+  if (formData.device_type === 'linux') {
+    // Linux 设备：放宽校验
+    return {
+      ip: [{ required: true, message: '请输入 IP 地址', trigger: 'blur' }],
+      // port, device_sn, mark 不校验
+    };
+  }
+  // 其他设备：原有校验规则
+  return {
+    ip: [{ required: true, message: '请输入 IP 地址', trigger: 'blur' }],
+    // ... 其他校验
+  };
+});
+```
+
+- [ ] **Step 3: 提交**
 
 ```bash
 git add web/apps/web-ele/src/views/env-machine/list.vue
-git commit -m "feat: 设备编辑弹窗隐藏 Linux 启用开关"
+git commit -m "feat: 设备编辑弹窗隐藏 Linux 启用开关 + 校验规则放宽"
 ```
 
 ---
