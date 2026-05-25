@@ -54,6 +54,7 @@ ALL_MENUS = [
         "component": "/views/env-machine/list",
         "parent_id": "env-machine-root",
         "order": 2,
+        "keepAlive": True,  # 缓存页面，切换tab时保留筛选条件
     },
     {
         "id": "env-machine-upgrade",
