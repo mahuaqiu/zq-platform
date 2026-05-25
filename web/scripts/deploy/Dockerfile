@@ -6,6 +6,10 @@ ENV PATH="$PNPM_HOME:$PATH"
 ENV NODE_OPTIONS=--max-old-space-size=8192
 ENV TZ=Asia/Shanghai
 
+# 更换为阿里云国内源 (Debian)
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
 RUN npm i -g corepack
 
 WORKDIR /app
@@ -13,13 +17,16 @@ WORKDIR /app
 # copy package.json and pnpm-lock.yaml to workspace
 COPY . /app
 
-# 安装依赖
+# 安装依赖（使用淘宝源）
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build --filter=\!./docs
 
 RUN echo "Builder Success 🎉"
 
 FROM nginx:stable-alpine AS production
+
+# 更换为阿里云国内源 (Alpine)
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 配置 nginx
 RUN echo "types { application/javascript js mjs; }" > /etc/nginx/conf.d/mjs.conf \
