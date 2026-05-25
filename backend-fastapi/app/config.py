@@ -85,11 +85,7 @@ class Settings(BaseSettings):
     TEST_REPORT_HTML_CLEANUP_DAYS: int = 15  # HTML 文件保留天数
     TEST_REPORT_DETAIL_CLEANUP_DAYS: int = 30  # 明细记录保留天数
 
-    # NanoClaw 配置
-    NANOCLAW_API_URL: str = "http://localhost:8080"
-    NANOCLAW_API_TOKEN: str = ""
-    NANOCLAW_CALLBACK_URL: Optional[str] = None  # 回调接收地址
-
+    
     # 上下文管理配置
     CONTEXT_TIME_WINDOW: int = 120  # 分钟
     CONTEXT_MESSAGE_LIMIT: int = 50  # 消息数量上限

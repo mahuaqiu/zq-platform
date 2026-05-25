@@ -17,7 +17,8 @@ services:
       - "8000:8000"
     environment:
       # 环境标识
-      - ENV=prod
+      - ENV=${ENV:-prod}
+      - DEBUG=${DEBUG:-false}
       # Worker 数量（只有主 worker 启动调度器）
       - WORKERS=${WORKERS:-1}
       # 数据库配置
@@ -29,13 +30,19 @@ services:
       # Redis配置
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB}
       # JWT密钥
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      # 其他配置
+      # 测试报告配置
+      - TEST_REPORT_HTML_PATH=${TEST_REPORT_HTML_PATH:-/data/test_reports}
       - TEST_REPORT_EXTERNAL_BASE_URL=${TEST_REPORT_EXTERNAL_BASE_URL:-http://localhost:8000}
-      - HOST_IP=${HOST_IP}
+      # Namespace配置
+      - NAMESPACE_CONFIG=${NAMESPACE_CONFIG}
+      # 执行机申请权限配置
+      - ENV_APPLY_AUTH=${ENV_APPLY_AUTH}
+      # 其他配置
+      - HOST_IP=${HOST_IP:-}
     volumes:
       # 代码外挂：更新代码后只需重启容器，无需重新构建
       - ./backend-fastapi:/app
