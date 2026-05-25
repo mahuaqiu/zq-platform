@@ -150,8 +150,52 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         mark = row.get("mark")
         extra_message_str = row.get("extra_message")
 
-        if not all([namespace, device_type, ip, mark, extra_message_str]):
-            return None, "必填字段缺失"
+        if not all([namespace, device_type, ip]):
+            return None, "必填字段缺失（namespace, device_type, ip）"
+
+        # Linux 设备：特殊处理
+        if device_type == 'linux':
+            # Linux 设备必须有 extra_message（SSH 认证信息）
+            if not extra_message_str:
+                return None, "Linux 设备必须提供 extra_message（SSH 认证信息）"
+
+            try:
+                extra_message = json.loads(extra_message_str)
+                if not isinstance(extra_message, dict):
+                    return None, "扩展信息必须是JSON对象格式"
+            except json.JSONDecodeError:
+                return None, "扩展信息JSON格式错误"
+
+            # 验证 Linux 认证信息格式
+            account = extra_message.get('account', 'root')
+            password = extra_message.get('password')
+            port = extra_message.get('port', 22)
+
+            if not password:
+                return None, "Linux 设备必须提供 SSH 密码（extra_message.password）"
+
+            return EnvMachine(
+                namespace=str(namespace),
+                device_type='linux',
+                asset_number=None,
+                ip=str(ip),
+                port=None,  # SSH 端口存储在 extra_message.port
+                device_sn=None,
+                mark=None,  # Linux 设备无标签
+                available=False,  # Linux 设备不支持启用
+                status='offline',
+                is_virtual=False,
+                extra_message={
+                    "account": account,
+                    "password": password,
+                    "port": port,
+                },
+                note=str(row.get("note")) if row.get("note") else None,
+            ), None
+
+        # 其他虚拟设备：原有逻辑
+        if not all([mark, extra_message_str]):
+            return None, "虚拟设备必填字段缺失（mark, extra_message）"
 
         try:
             extra_message = json.loads(extra_message_str)

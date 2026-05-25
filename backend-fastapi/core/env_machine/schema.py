@@ -43,12 +43,13 @@ class EnvMachineListRequest(BaseModel):
 class EnvMachineCreateRequest(BaseModel):
     """新增执行机请求 Schema"""
     namespace: str = Field(..., description="机器分类")
-    device_type: str = Field(..., description="机器类型：windows/mac/ios/android")
-    asset_number: str = Field(..., description="资产编号（必填）")
-    ip: Optional[str] = Field(None, description="IP地址（Windows/Mac）")
+    device_type: str = Field(..., description="机器类型：windows/mac/ios/android/linux")
+    asset_number: Optional[str] = Field(None, description="资产编号（Linux 可选）")
+    ip: Optional[str] = Field(None, description="IP地址（Windows/Mac/Linux）")
     device_sn: Optional[str] = Field(None, description="设备SN（iOS/Android）")
     note: Optional[str] = Field(None, description="备注")
     is_virtual: bool = Field(default=True, description="是否为虚拟设备")  # 新增，默认为虚拟设备
+    extra_message: Optional[Dict[str, Any]] = Field(None, description="扩展信息（Linux 设备存储 SSH 认证）")
 
 
 class EnvMachineUpdateRequest(BaseModel):

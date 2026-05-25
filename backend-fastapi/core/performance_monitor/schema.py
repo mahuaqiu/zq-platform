@@ -406,3 +406,13 @@ class ExportTaskCreateResponse(BaseModel):
     task_id: str = Field(..., description="任务ID")
     status: str = Field(..., description="状态")
     message: str = Field(..., description="消息")
+
+
+# ===== Linux 采集 Schema =====
+
+
+class LinuxAuthInfo(BaseModel):
+    """Linux SSH 认证信息"""
+    account: str = Field(default="root", description="SSH 账号")
+    password: str = Field(..., description="SSH 密码")
+    port: int = Field(default=22, ge=1, le=65535, description="SSH 端口")

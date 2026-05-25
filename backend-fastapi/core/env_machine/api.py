@@ -1141,22 +1141,38 @@ async def batch_enable_env_machines(
     - 标签字段必须存在
     - 扩展信息字段必须存在且为有效 dict
     - 每个标签在扩展信息中必须有对应配置
+    - Linux 设备不支持启用（自动跳过）
 
     不满足条件的设备会被跳过，返回跳过原因。
     """
+    # 查询所有设备，过滤 Linux 设备
+    machines = await EnvMachineService.get_by_ids(db, data.ids)
+
+    # 过滤 Linux 设备
+    linux_ids = [str(m.id) for m in machines if m.device_type == 'linux']
+    other_ids = [str(m.id) for m in machines if m.device_type != 'linux']
+
+    # Linux 设备跳过
+    linux_skipped = [{"id": id, "ip": "", "reason": "Linux 设备不支持启用"} for id in linux_ids]
+
+    # 其他设备执行启用校验
     success_count, skipped_items = await EnvMachineService.batch_enable_with_validation(
-        db, data.ids
+        db, other_ids
     )
 
+    # 合并跳过列表
+    all_skipped = linux_skipped + skipped_items
+
     # 同步 Redis 缓存（将启用的设备加入申请池）
-    machines = await EnvMachineService.get_by_ids(db, data.ids)
-    for machine in machines:
-        await EnvPoolManager.sync_machine_to_cache(machine)
+    enabled_machines = await EnvMachineService.get_by_ids(db, other_ids)
+    for machine in enabled_machines:
+        if machine.available:
+            await EnvPoolManager.sync_machine_to_cache(machine)
 
     return BatchEnableResponse(
         success_count=success_count,
-        skipped_count=len(skipped_items),
-        skipped_items=[SkippedItem(**item) for item in skipped_items]
+        skipped_count=len(all_skipped),
+        skipped_items=[SkippedItem(**item) for item in all_skipped]
     )
 
 
