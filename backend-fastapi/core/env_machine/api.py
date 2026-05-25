@@ -1148,6 +1148,11 @@ async def batch_enable_env_machines(
         db, data.ids
     )
 
+    # 同步 Redis 缓存（将启用的设备加入申请池）
+    machines = await EnvMachineService.get_by_ids(db, data.ids)
+    for machine in machines:
+        await EnvPoolManager.sync_machine_to_cache(machine)
+
     return BatchEnableResponse(
         success_count=success_count,
         skipped_count=len(skipped_items),

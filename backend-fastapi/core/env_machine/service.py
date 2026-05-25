@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.base_service import BaseService
 from app.config import get_settings
 from core.env_machine.model import EnvMachine
+from core.env_machine.pool_manager import EnvPoolManager
 
 settings = get_settings()
 
@@ -159,10 +160,15 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         except json.JSONDecodeError:
             return None, "扩展信息JSON格式错误"
 
-        # 验证标签是否在扩展信息中有对应配置
+        # 验证标签格式（与编辑时一致）
         mark_str = str(mark).strip()
         tags = [t.strip() for t in mark_str.split(',') if t.strip()]
         for tag in tags:
+            # 验证标签格式：小写、合法前缀、下划线后有内容
+            is_valid, error_msg = EnvPoolManager.validate_single_tag(tag)
+            if not is_valid:
+                return None, f"标签 '{tag}' 不合法：{error_msg}"
+            # 验证标签在扩展信息中有对应配置
             if not extra_message.get(tag):
                 return None, f"标签 '{tag}' 在扩展信息中缺少对应配置"
             if not isinstance(extra_message.get(tag), dict):
