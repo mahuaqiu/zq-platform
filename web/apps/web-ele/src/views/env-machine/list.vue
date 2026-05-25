@@ -48,7 +48,7 @@ import LogDialogV2 from './LogDialogV2.vue';
 import BatchCommandDialog from './modules/BatchCommandDialog.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
-defineOptions({ name: 'EnvMachineListPage' });
+defineOptions({ name: 'EnvMachineList' });
 
 // 路由
 const router = useRouter();
@@ -108,6 +108,7 @@ const logMachinePort = ref('');
 const importDialogVisible = ref(false);
 const importLoading = ref(false);
 const importFile = ref<File | null>(null);
+const importFileInputRef = ref<HTMLInputElement | null>(null); // 文件输入框引用
 const importResult = ref<{
   success_count: number;
   failed_items: Array<{ row: number; reason: string }>;
@@ -450,6 +451,10 @@ function getSelectedMachines(): EnvMachine[] {
 function handleOpenImport() {
   importFile.value = null;
   importResult.value = null;
+  // 清空原生 input 元素的值，避免浏览器不触发 change 事件
+  if (importFileInputRef.value) {
+    importFileInputRef.value.value = '';
+  }
   importDialogVisible.value = true;
 }
 
@@ -913,6 +918,7 @@ onMounted(async () => {
         <div class="import-step">
           <div class="import-step-title">第二步：选择要导入的文件</div>
           <input
+            ref="importFileInputRef"
             type="file"
             accept=".xlsx"
             class="import-file-input"
