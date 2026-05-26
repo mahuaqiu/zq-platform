@@ -144,11 +144,15 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       doRefreshToken,
       enableRefreshToken: preferences.app.enableRefreshToken,
       formatToken,
-      // 登录接口的401错误不应该触发重新认证，应该显示错误消息
+      // 登录、刷新token、退出登录等接口的401错误不处理，让错误消息拦截器处理
+      // logout 的 401 是正常的（用户退出时 token 可能已过期），不应触发 refresh token 流程
       shouldHandle: (error) => {
         const url = error?.config?.url || '';
-        // 登录、刷新token等接口的401错误不处理，让错误消息拦截器处理
-        return !url.includes('/login') && !url.includes('/refresh_token');
+        return (
+          !url.includes('/login') &&
+          !url.includes('/refresh_token') &&
+          !url.includes('/logout')
+        );
       },
     }),
   );
@@ -158,6 +162,12 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     errorMessageResponseInterceptor((msg: string, error) => {
       // 如果正在重新认证，不显示重复的错误消息
       if (isReAuthenticating && error?.response?.status === 401) {
+        return;
+      }
+
+      // logout 接口的 401 错误不显示消息，因为退出时 token 过期是正常情况
+      const url = error?.config?.url || '';
+      if (url.includes('/logout') && error?.response?.status === 401) {
         return;
       }
 
