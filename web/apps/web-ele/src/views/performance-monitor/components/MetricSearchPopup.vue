@@ -88,9 +88,12 @@ const filteredMetrics = computed(() => {
   );
 });
 
-// 分组显示：进程指标和 HWiNFO 指标
+// 分组显示：进程指标、Linux 系统指标、HWiNFO 指标
 const systemMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'system')
+);
+const linuxMetrics = computed(() =>
+  filteredMetrics.value.filter(m => m.source === 'linux')
 );
 const hwinfoMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'hwinfo')
@@ -191,6 +194,22 @@ onUnmounted(() => {
             >
               <span class="result-label">{{ metric.label }}</span>
               <span class="result-source">进程</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linux 系统指标 -->
+        <div v-if="linuxMetrics.length > 0" class="metric-group">
+          <span class="group-label">Linux 系统指标 ({{ linuxMetrics.length }})</span>
+          <div class="results-list">
+            <div
+              v-for="metric in linuxMetrics"
+              :key="metric.key"
+              class="result-item linux-item"
+              @click="handleSelect(metric.key)"
+            >
+              <span class="result-label">{{ getDisplayLabel(metric) }}</span>
+              <span class="result-source linux-source">Linux</span>
             </div>
           </div>
         </div>
@@ -433,6 +452,19 @@ onUnmounted(() => {
 
 .system-item:hover {
   background: #e6f0ff;
+}
+
+.linux-item {
+  background: #f0f9eb;
+}
+
+.linux-item:hover {
+  background: #e6f7dc;
+}
+
+.linux-source {
+  color: #67c23a;
+  background: #f0f9eb;
 }
 
 .result-label {

@@ -11,6 +11,35 @@ export interface HwinfoMetric {
 }
 
 /**
+ * Linux 系统指标（通过 SSH 采集）
+ */
+export const LINUX_SYSTEM_METRICS: HwinfoMetric[] = [
+  // CPU 指标（百分比）
+  { key: 'Linux CPU User', label: 'CPU 用户态', unit: '%' },
+  { key: 'Linux CPU System', label: 'CPU 内核态', unit: '%' },
+  { key: 'Linux CPU Idle', label: 'CPU 空闲', unit: '%' },
+  { key: 'Linux CPU Wait', label: 'CPU I/O等待', unit: '%' },
+  { key: 'Linux CPU Steal', label: 'CPU 虚拟化开销', unit: '%' },
+  { key: 'Linux CPU Hi', label: 'CPU 硬中断', unit: '%' },
+  { key: 'Linux CPU Si', label: 'CPU 软中断', unit: '%' },
+  { key: 'Linux CPU Nice', label: 'CPU 低优先级进程', unit: '%' },
+  { key: 'Linux CPU Usage', label: 'CPU 总使用率', unit: '%' },
+
+  // 内存指标（MB）
+  { key: 'Linux Memory Total', label: '内存总量', unit: 'MB' },
+  { key: 'Linux Memory Free', label: '内存空闲', unit: 'MB' },
+  { key: 'Linux Memory Available', label: '内存可用', unit: 'MB' },
+  { key: 'Linux Memory Buffers', label: '内存缓冲区', unit: 'MB' },
+  { key: 'Linux Memory Cached', label: '内存缓存', unit: 'MB' },
+  { key: 'Linux Memory Usage', label: '内存使用量', unit: 'MB' },
+
+  // Swap 指标（MB）
+  { key: 'Linux Swap Total', label: 'Swap总量', unit: 'MB' },
+  { key: 'Linux Swap Free', label: 'Swap空闲', unit: 'MB' },
+  { key: 'Linux Swap Used', label: 'Swap使用量', unit: 'MB' },
+];
+
+/**
  * 常用指标（主要显示）
  */
 export const PRIMARY_HWINFO_METRICS: HwinfoMetric[] = [
@@ -356,6 +385,7 @@ export const MISC_VOLTAGE_METRICS: HwinfoMetric[] = [
  * 所有指标合并列表
  */
 export const ALL_HWINFO_METRICS: HwinfoMetric[] = [
+  ...LINUX_SYSTEM_METRICS,
   ...PRIMARY_HWINFO_METRICS,
   ...CPU_CORE_METRICS,
   ...GPU_DETAIL_METRICS,

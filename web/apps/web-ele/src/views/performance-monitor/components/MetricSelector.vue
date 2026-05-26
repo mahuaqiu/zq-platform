@@ -10,14 +10,15 @@ const emit = defineEmits<{
   more: [];
 }>();
 
-// 固定显示的指标（Linux 设备不显示 GPU）
+// 固定显示的指标
+// Linux 设备：不显示 GPU（无 GPU 数据）、不显示提交内存（Linux 不区分）、不显示进程句柄（无进程数据）
 const mainMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu_usage', label: 'CPU' },
-    // Linux 设备没有 GPU 数据，不显示 GPU 指标
     ...(props.isLinuxDevice ? [] : [{ key: 'gpu_usage', label: 'GPU' }]),
     { key: 'memory_usage', label: '内存' },
-    { key: 'commit_memory', label: '提交内存' },
+    ...(props.isLinuxDevice ? [] : [{ key: 'commit_memory', label: '提交内存' }]),
+    ...(props.isLinuxDevice ? [] : [{ key: 'process_handles', label: '进程句柄' }]),
   ];
   return baseMetrics;
 });

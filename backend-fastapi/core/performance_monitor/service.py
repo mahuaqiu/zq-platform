@@ -348,10 +348,12 @@ class PerformanceDataService(BaseService):
 
         if hwinfo_data and hwinfo_data.hwinfo_raw:
             for key in sorted(hwinfo_data.hwinfo_raw.keys()):
+                # Linux 指标（以 "Linux " 开头）分类为 linux 源，不是 hwinfo
+                source = "linux" if key.startswith("Linux ") else "hwinfo"
                 metrics.append({
                     "key": key,
                     "label": key,  # 默认使用原键名，前端可以翻译
-                    "source": "hwinfo"
+                    "source": source
                 })
 
         return metrics
