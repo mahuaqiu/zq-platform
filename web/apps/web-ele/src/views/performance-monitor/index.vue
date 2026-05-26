@@ -356,6 +356,15 @@ const currentChartTitle = computed(() => {
     return name;
   }
 
+  // Linux 设备的 CPU/内存显示中英文双语格式
+  if (isLinuxDevice.value) {
+    if (currentMetric.value === 'cpu') {
+      return 'CPU 总使用率（Linux CPU Usage） (%)';
+    } else if (currentMetric.value === 'memory') {
+      return '内存使用量（Linux Memory Usage） (MB)';
+    }
+  }
+
   // CPU/GPU/内存/提交内存/句柄加单位
   const metric = allMetrics.value.find(m => m.key === currentMetric.value);
   const baseLabel = metric?.label || currentMetric.value;
@@ -417,10 +426,10 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
     value: d.cpu_usage || 0,
   }));
 
-  // Linux 设备只显示系统数据，不显示进程数据
+  // Linux 设备只显示系统数据，不显示进程数据，tooltip 显示中英文双语
   if (isLinuxDevice.value) {
     return [
-      { name: 'CPU 总使用率', data: systemData, color: '#409eff', unit: '%' },
+      { name: 'CPU 总使用率（Linux CPU Usage）', data: systemData, color: '#409eff', unit: '%' },
     ];
   }
 
@@ -473,14 +482,15 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
   if (!data.length) return [];
 
-  // Linux 设备显示系统内存使用量（GB单位）
+  // Linux 设备显示系统内存使用量（MB单位，与更多指标统一）
+  // memory_usage 字段存储的是 GB，需要转换为 MB
   if (isLinuxDevice.value) {
     const memoryData = data.map((d) => ({
       time: d.relative_time,
-      value: d.memory_usage || 0,  // 来自 /proc/meminfo 的系统内存使用量（GB）
+      value: (d.memory_usage || 0) * 1024,  // GB -> MB 转换
     }));
     return [
-      { name: '内存使用量', data: memoryData, color: '#409eff', unit: 'GB' },
+      { name: '内存使用量（Linux Memory Usage）', data: memoryData, color: '#409eff', unit: 'MB' },
     ];
   }
 
