@@ -160,7 +160,7 @@ async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends
                     interval=request.interval,
                     db_session_factory=None,  # linux_collector 内部使用 AsyncSessionLocal
                     ssh_auth=ssh_auth,
-                    timeout=43200,  # 默认12小时，与 Windows 一致
+                    timeout=request.timeout,  # 使用前端传入的超时时间
                 )
 
                 if not started:
@@ -182,7 +182,7 @@ async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends
                     worker_request = {
                         "collect_id": collect_id,
                         "interval": request.interval,
-                        "timeout": 43200,  # 默认12小时
+                        "timeout": request.timeout,  # 使用前端传入的超时时间
                         "target_processes": request.target_processes or []
                     }
                     resp = await client.post(worker_url, json=worker_request)

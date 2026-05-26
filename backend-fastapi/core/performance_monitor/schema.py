@@ -17,6 +17,7 @@ class CollectStartRequest(BaseModel):
     device_id: str = Field(..., description="设备ID")
     name: Optional[str] = Field(None, max_length=100, description="采集名称")
     interval: int = Field(default=5, ge=1, le=60, description="采集频率（秒）")
+    timeout: int = Field(default=43200, ge=3600, le=259200, description="最大采集时间（秒），默认12小时，最大72小时")
     target_processes: Optional[List[Dict[str, Any]]] = Field(None, description="目标进程配置")
 
 

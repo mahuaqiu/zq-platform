@@ -40,6 +40,10 @@ const dialogTitle = computed(() => {
 const interval = ref(5);
 const intervalOptions = [1, 3, 5, 10, 30];
 
+// 采集时间（小时）
+const collectTimeout = ref(12);
+const timeoutOptions = [12, 24, 72];
+
 // 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
 const collectMode = ref<'pid' | 'name'>('pid');
 
@@ -225,6 +229,7 @@ async function handleStart() {
       const result = await startCollect({
         device_id: props.deviceId,
         interval: interval.value,
+        timeout: collectTimeout.value * 3600,  // 小时转秒
         target_processes: [],  // Linux 设备不传进程列表，采集系统级数据
       });
       ElMessage.success('系统性能采集已开始');
@@ -249,6 +254,7 @@ async function handleStart() {
     const result = await startCollect({
       device_id: props.deviceId,
       interval: interval.value,
+      timeout: collectTimeout.value * 3600,  // 小时转秒
       target_processes: finalTargetProcesses.value,
     });
     // 保存到历史记录，下次优先显示
@@ -427,23 +433,36 @@ watch(() => props.visible, (v) => {
     <!-- 采集配置 -->
     <div class="config-section">
       <div class="section-title">采集配置</div>
-      <div class="config-item">
-        <div class="config-label">采集间隔</div>
-        <el-select v-model="interval" size="small" style="width: 100%">
-          <el-option
-            v-for="opt in intervalOptions"
-            :key="opt"
-            :label="`${opt}秒`"
-            :value="opt"
-          />
-        </el-select>
+      <div class="config-row">
+        <div class="config-item-half">
+          <div class="config-label">采集间隔</div>
+          <el-select v-model="interval" size="small">
+            <el-option
+              v-for="opt in intervalOptions"
+              :key="opt"
+              :label="`${opt}秒`"
+              :value="opt"
+            />
+          </el-select>
+        </div>
+        <div class="config-item-half">
+          <div class="config-label">采集时间</div>
+          <el-select v-model="collectTimeout" size="small">
+            <el-option
+              v-for="opt in timeoutOptions"
+              :key="opt"
+              :label="`${opt}小时`"
+              :value="opt"
+            />
+          </el-select>
+        </div>
       </div>
       <div class="config-tip">
         <template v-if="isLinuxDevice">
-          <b>说明：</b>Linux 设备采集系统级 CPU/内存性能数据。采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
+          <b>说明：</b>Linux 设备采集系统级 CPU/内存性能数据。采集间隔越小，数据越精细。达到采集时间后自动停止。
         </template>
         <template v-else>
-          <b>说明：</b>采集间隔越小，数据越精细，但占用更多存储空间。点击"停止采集"手动结束。
+          <b>说明：</b>采集间隔越小，数据越精细。达到采集时间后自动停止。
         </template>
       </div>
     </div>
@@ -592,8 +611,18 @@ watch(() => props.visible, (v) => {
 .config-section {
   margin-bottom: 16px;
 }
+.config-row {
+  display: flex;
+  gap: 16px;
+}
 .config-item {
   margin-bottom: 10px;
+}
+.config-item-half {
+  flex: 1;
+}
+.config-item-half .el-select {
+  width: 100%;
 }
 .config-label {
   font-size: 13px;

@@ -56,6 +56,10 @@ pnpm check:type
 
 # 运行单元测试
 pnpm test:unit
+
+# Docker 部署（前端镜像不包含构建，dist 目录外挂）
+pnpm build:ele                 # 构建前端（生成 apps/web-ele/dist）
+docker restart zq-platform-frontend-1  # 重启容器即可生效
 ```
 
 ### 后端开发 (在 `backend-fastapi/` 目录下)

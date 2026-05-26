@@ -204,6 +204,7 @@ export async function startCollect(params: {
   device_id: string;
   name?: string;
   interval: number;
+  timeout?: number;  // 最大采集时间（秒）
   target_processes?: TargetProcessConfig[];
 }) {
   return requestClient.post<{ collect_id: string; status: string }>(

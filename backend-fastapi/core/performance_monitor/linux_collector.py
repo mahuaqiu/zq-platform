@@ -596,7 +596,7 @@ def start_linux_collect_task(
     interval: int,
     db_session_factory: Callable,
     ssh_auth: Dict[str, Any],
-    timeout: int = 43200  # 最大采集时间（秒），默认12小时
+    timeout: int = 43200  # 最大采集时间（秒），默认12小时，由前端传入
 ) -> bool:
     """
     启动 Linux 后台采集任务
