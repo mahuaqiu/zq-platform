@@ -70,6 +70,14 @@ async def get_processes(
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
 
+    # Linux 设备不支持获取进程列表（采集系统级数据，无需选择进程）
+    if device.device_type == "linux":
+        return {"processes": []}
+
+    # Windows/Mac 设备需要有有效的端口
+    if not device.port:
+        raise HTTPException(status_code=400, detail="设备缺少端口信息，无法连接 worker")
+
     # 构建 worker URL
     worker_url = f"http://{device.ip}:{device.port}/api/worker/{device_id}/processes"
 

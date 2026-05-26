@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 # ===== SSH 连接池配置 =====
-CONNECT_TIMEOUT = 10  # SSH 连接超时（秒）
-COMMAND_TIMEOUT = 30  # 命令执行超时（秒）
-MAX_RETRIES = 3  # 最大重试次数
+CONNECT_TIMEOUT = 5  # SSH 连接超时（秒）
+COMMAND_TIMEOUT = 10  # 命令执行超时（秒）
+MAX_RETRIES = 2  # 最大重试次数
 MAX_CONNECTIONS = 10  # 最大并发连接数
 
 
@@ -278,22 +278,28 @@ class LinuxDataCollector:
     """
     Linux 数据采集类
 
-    执行 vmstat 和 free 命令采集性能数据。
+    直接读取 /proc/stat 和 /proc/meminfo 文件采集性能数据。
+    毫秒级采集，无需等待采样时间。
     """
 
-    @staticmethod
-    def parse_vmstat(output: str) -> Dict[str, float]:
-        """
-        解析 vmstat 输出，提取 CPU 指标
+    # 缓存上次 CPU 累计值，用于计算瞬时使用率
+    _last_cpu_stats: Dict[str, Dict[str, float]] = {}
+    _cpu_lock = threading.Lock()
 
-        vmstat 1 2 输出格式示例：
-        procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
-         r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs  us  sy id  wa st
-         1  0      0 123456  1234  56789    0    0     0     0  123  456  5  2 93  0  0
-         1  0      0 123456  1234  56789    0    0     0     0  123  456  5  2 93  0  0
+    @staticmethod
+    def parse_proc_stat(output: str, device_id: str) -> Dict[str, float]:
+        """
+        解析 /proc/stat 输出，计算 CPU 使用率
+
+        /proc/stat 第一行格式：
+        cpu  user nice system idle iowait irq softirq steal guest guest_nice
+        cpu  123456 789 45678 987654 1234 567 890 123 45 67 89
+
+        通过两次读取的差值计算瞬时 CPU 使用率
 
         Args:
-            output: vmstat 命令输出
+            output: /proc/stat 内容
+            device_id: 设备ID（用于缓存状态）
 
         Returns:
             CPU 指标字典：
@@ -318,120 +324,157 @@ class LinuxDataCollector:
         }
 
         lines = output.strip().split('\n')
-        if len(lines) < 3:
-            logger.warning(f"vmstat 输出格式不正确: {output}")
+        if not lines:
+            logger.warning(f"/proc/stat 输出为空")
             return result
 
-        # 找到标题行（包含 "us sy id wa st"）
-        header_line = None
-        data_line = None
-        for i, line in enumerate(lines):
-            if 'us' in line and 'sy' in line and 'id' in line:
-                header_line = line
-                # 取最后一行数据（vmstat 1 2 的第二次采样）
-                for j in range(i + 1, len(lines)):
-                    stripped = lines[j].strip()
-                    if stripped and not stripped.startswith('procs'):
-                        data_line = stripped
+        # 找到第一行 cpu 数据
+        cpu_line = None
+        for line in lines:
+            if line.startswith('cpu '):
+                cpu_line = line
+                break
 
-        if not header_line or not data_line:
-            logger.warning(f"vmstat 输出无法解析: {output}")
+        if not cpu_line:
+            logger.warning(f"/proc/stat 未找到 cpu 行")
             return result
 
-        # 解析标题获取列索引
-        headers = header_line.strip().split()
-        values = data_line.strip().split()
+        # 解析数据：cpu  user nice system idle iowait irq softirq steal guest guest_nice
+        parts = cpu_line.split()
+        if len(parts) < 8:
+            logger.warning(f"/proc/stat cpu 行数据不足: {cpu_line}")
+            return result
 
-        # 映射列名到索引
-        column_map = {}
-        for idx, h in enumerate(headers):
-            column_map[h] = idx
-
-        # 提取 CPU 指标
         try:
-            if 'us' in column_map:
-                result['cpu_us'] = float(values[column_map['us']])
-            if 'sy' in column_map:
-                result['cpu_sy'] = float(values[column_map['sy']])
-            if 'id' in column_map:
-                result['cpu_id'] = float(values[column_map['id']])
-            if 'wa' in column_map:
-                result['cpu_wa'] = float(values[column_map['wa']])
-            if 'st' in column_map:
-                result['cpu_st'] = float(values[column_map['st']])
-            if 'hi' in column_map:
-                result['cpu_hi'] = float(values[column_map['hi']])
-            if 'si' in column_map:
-                result['cpu_si'] = float(values[column_map['si']])
-            if 'ni' in column_map:
-                result['cpu_ni'] = float(values[column_map['ni']])
-        except (ValueError, IndexError) as e:
-            logger.warning(f"vmstat 数据解析失败: {e}")
+            # 累计值（单位：USER_HZ，通常为 1/100 秒）
+            user = float(parts[1])      # user
+            nice = float(parts[2])      # nice
+            system = float(parts[3])    # system
+            idle = float(parts[4])      # idle
+            iowait = float(parts[5]) if len(parts) > 5 else 0.0   # iowait
+            irq = float(parts[6]) if len(parts) > 6 else 0.0      # irq (硬中断)
+            softirq = float(parts[7]) if len(parts) > 7 else 0.0  # softirq (软中断)
+            steal = float(parts[8]) if len(parts) > 8 else 0.0    # steal
+
+            # 当前累计值
+            current_stats = {
+                "user": user,
+                "nice": nice,
+                "system": system,
+                "idle": idle,
+                "iowait": iowait,
+                "irq": irq,
+                "softirq": softirq,
+                "steal": steal,
+            }
+
+            # 计算总时间
+            total = user + nice + system + idle + iowait + irq + softirq + steal
+
+            with LinuxDataCollector._cpu_lock:
+                # 获取上次累计值
+                last_stats = LinuxDataCollector._last_cpu_stats.get(device_id)
+
+                if last_stats:
+                    # 计算差值（瞬时使用率）
+                    delta_total = total - sum(last_stats.values())
+                    if delta_total > 0:
+                        delta_user = user - last_stats["user"]
+                        delta_nice = nice - last_stats["nice"]
+                        delta_system = system - last_stats["system"]
+                        delta_idle = idle - last_stats["idle"]
+                        delta_iowait = iowait - last_stats["iowait"]
+                        delta_irq = irq - last_stats["irq"]
+                        delta_softirq = softirq - last_stats["softirq"]
+                        delta_steal = steal - last_stats["steal"]
+
+                        # 计算百分比
+                        result["cpu_us"] = (delta_user + delta_nice) / delta_total * 100  # user + nice
+                        result["cpu_sy"] = delta_system / delta_total * 100
+                        result["cpu_id"] = delta_idle / delta_total * 100
+                        result["cpu_wa"] = delta_iowait / delta_total * 100
+                        result["cpu_hi"] = delta_irq / delta_total * 100
+                        result["cpu_si"] = delta_softirq / delta_total * 100
+                        result["cpu_st"] = delta_steal / delta_total * 100
+                        result["cpu_ni"] = delta_nice / delta_total * 100
+
+                # 更新缓存
+                LinuxDataCollector._last_cpu_stats[device_id] = current_stats
+
+        except (ValueError, KeyError) as e:
+            logger.warning(f"/proc/stat 解析失败: {e}")
 
         return result
 
     @staticmethod
-    def parse_free(output: str) -> Dict[str, float]:
+    def parse_proc_meminfo(output: str) -> Dict[str, float]:
         """
-        解析 free -m 输出，提取内存指标
+        解析 /proc/meminfo 输出，提取内存指标
 
-        free -m 输出格式示例：
-                      total        used        free      shared  buff/cache   available
-        Mem:           7982        1234        4567         123        2181        6543
-        Swap:          2048           0        2048
+        /proc/meminfo 格式示例：
+        MemTotal:        7982340 kB
+        MemFree:         1234567 kB
+        MemAvailable:    6543210 kB
+        Buffers:          123456 kB
+        Cached:          567890 kB
+        SwapTotal:       2048000 kB
+        SwapFree:        2048000 kB
 
         Args:
-            output: free -m 命令输出
+            output: /proc/meminfo 内容
 
         Returns:
             内存指标字典（单位：MB）：
             - mem_total: 总内存
-            - mem_used: 已用内存（不含 buff/cache）
             - mem_free: 空闲内存
-            - mem_buff_cache: buff/cache 内存
             - mem_available: 可用内存
+            - mem_buffers: buffers 内存
+            - mem_cached: cached 内存
             - swap_total: 总 Swap
-            - swap_used: 已用 Swap
             - swap_free: 空闲 Swap
         """
         result = {
             "mem_total": 0.0,
-            "mem_used": 0.0,
             "mem_free": 0.0,
-            "mem_buff_cache": 0.0,
             "mem_available": 0.0,
+            "mem_buffers": 0.0,
+            "mem_cached": 0.0,
             "swap_total": 0.0,
-            "swap_used": 0.0,
             "swap_free": 0.0,
         }
 
         lines = output.strip().split('\n')
-        if len(lines) < 3:
-            logger.warning(f"free 输出格式不正确: {output}")
+        if not lines:
+            logger.warning(f"/proc/meminfo 输出为空")
             return result
 
         for line in lines:
-            stripped = line.strip()
-            if stripped.startswith('Mem:'):
-                parts = stripped.split()
-                if len(parts) >= 7:
-                    try:
-                        result['mem_total'] = float(parts[1])
-                        result['mem_used'] = float(parts[2])
-                        result['mem_free'] = float(parts[3])
-                        result['mem_buff_cache'] = float(parts[5])
-                        result['mem_available'] = float(parts[6])
-                    except ValueError as e:
-                        logger.warning(f"free Mem 数据解析失败: {e}")
-            elif stripped.startswith('Swap:'):
-                parts = stripped.split()
-                if len(parts) >= 4:
-                    try:
-                        result['swap_total'] = float(parts[1])
-                        result['swap_used'] = float(parts[2])
-                        result['swap_free'] = float(parts[3])
-                    except ValueError as e:
-                        logger.warning(f"free Swap 数据解析失败: {e}")
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+
+            key = parts[0].rstrip(':')
+            try:
+                # 值单位为 kB，转换为 MB
+                value_kb = float(parts[1])
+                value_mb = value_kb / 1024
+
+                if key == "MemTotal":
+                    result["mem_total"] = value_mb
+                elif key == "MemFree":
+                    result["mem_free"] = value_mb
+                elif key == "MemAvailable":
+                    result["mem_available"] = value_mb
+                elif key == "Buffers":
+                    result["mem_buffers"] = value_mb
+                elif key == "Cached":
+                    result["mem_cached"] = value_mb
+                elif key == "SwapTotal":
+                    result["swap_total"] = value_mb
+                elif key == "SwapFree":
+                    result["swap_free"] = value_mb
+            except ValueError as e:
+                logger.warning(f"/proc/meminfo 解析失败: {line} - {e}")
 
         return result
 
@@ -463,12 +506,15 @@ class LinuxDataCollector:
             raise Exception(f"命令执行失败: {e}")
 
     @classmethod
-    def collect(cls, client: SSHClient) -> Dict[str, Any]:
+    def collect(cls, client: SSHClient, device_id: str = "default") -> Dict[str, Any]:
         """
         执行采集，返回结构化数据
 
+        直接读取 /proc/stat 和 /proc/meminfo，毫秒级采集
+
         Args:
             client: SSHClient 实例
+            device_id: 设备ID（用于缓存 CPU 状态，计算瞬时使用率）
 
         Returns:
             采集数据字典：
@@ -476,25 +522,24 @@ class LinuxDataCollector:
             - gpu_usage: None（Linux 不采集 GPU）
             - memory_usage: 内存使用量 GB（mem_total - mem_available）
             - commit_memory: 0（Linux 不区分提交内存）
-            - hwinfo_raw: 扁平化的原始数据，包含所有 vmstat 和 free 指标
+            - hwinfo_raw: 扁平化的原始数据
 
         Raises:
             Exception: 采集失败
         """
-        # 执行 vmstat 采集 CPU
-        vmstat_output = cls.execute_command(client, "vmstat 1 2")
-        cpu_metrics = cls.parse_vmstat(vmstat_output)
+        # 直接读取 /proc/stat（毫秒级）
+        stat_output = cls.execute_command(client, "cat /proc/stat")
+        cpu_metrics = cls.parse_proc_stat(stat_output, device_id)
 
-        # 执行 free 采集内存
-        free_output = cls.execute_command(client, "free -m")
-        mem_metrics = cls.parse_free(free_output)
+        # 直接读取 /proc/meminfo（毫秒级）
+        meminfo_output = cls.execute_command(client, "cat /proc/meminfo")
+        mem_metrics = cls.parse_proc_meminfo(meminfo_output)
 
         # 计算综合指标
         # CPU 使用率 = us + sy（用户 + 内核）
         cpu_usage = cpu_metrics['cpu_us'] + cpu_metrics['cpu_sy']
 
-        # 内存使用量（GB）= 总内存 - 可用内存（更准确反映实际使用）
-        # 注意：free 的 available 字段是估算的可分配内存，比 free + buff/cache 更准确
+        # 内存使用量（GB）= 总内存 - 可用内存
         memory_usage_mb = mem_metrics['mem_total'] - mem_metrics['mem_available']
         memory_usage_gb = memory_usage_mb / 1024
 
@@ -514,16 +559,16 @@ class LinuxDataCollector:
 
         # 内存指标（MB）
         hwinfo_raw["Linux Memory Total"] = {"value": mem_metrics['mem_total'], "unit": "MB"}
-        hwinfo_raw["Linux Memory Used"] = {"value": mem_metrics['mem_used'], "unit": "MB"}
         hwinfo_raw["Linux Memory Free"] = {"value": mem_metrics['mem_free'], "unit": "MB"}
-        hwinfo_raw["Linux Memory Buff/Cache"] = {"value": mem_metrics['mem_buff_cache'], "unit": "MB"}
         hwinfo_raw["Linux Memory Available"] = {"value": mem_metrics['mem_available'], "unit": "MB"}
+        hwinfo_raw["Linux Memory Buffers"] = {"value": mem_metrics['mem_buffers'], "unit": "MB"}
+        hwinfo_raw["Linux Memory Cached"] = {"value": mem_metrics['mem_cached'], "unit": "MB"}
         hwinfo_raw["Linux Memory Usage"] = {"value": memory_usage_mb, "unit": "MB"}
 
         # Swap 指标（MB）
         hwinfo_raw["Linux Swap Total"] = {"value": mem_metrics['swap_total'], "unit": "MB"}
-        hwinfo_raw["Linux Swap Used"] = {"value": mem_metrics['swap_used'], "unit": "MB"}
         hwinfo_raw["Linux Swap Free"] = {"value": mem_metrics['swap_free'], "unit": "MB"}
+        hwinfo_raw["Linux Swap Used"] = {"value": mem_metrics['swap_total'] - mem_metrics['swap_free'], "unit": "MB"}
 
         return {
             "cpu_usage": cpu_usage,
@@ -596,8 +641,8 @@ def start_linux_collect_task(
 
                 while _collect_tasks.get(device_id, {}).get("running", False):
                     try:
-                        # 采集数据
-                        data = LinuxDataCollector.collect(client)
+                        # 采集数据（传入 device_id 用于缓存 CPU 状态）
+                        data = LinuxDataCollector.collect(client, device_id)
 
                         # 存储到数据库
                         async with AsyncSessionLocal() as db:

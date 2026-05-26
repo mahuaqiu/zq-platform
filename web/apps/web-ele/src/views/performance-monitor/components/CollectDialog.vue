@@ -38,7 +38,7 @@ const dialogTitle = computed(() => {
   return '开始性能采集';
 });
 const interval = ref(5);
-const intervalOptions = [1, 5, 10, 30];
+const intervalOptions = [1, 3, 5, 10, 30];
 
 // 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
 const collectMode = ref<'pid' | 'name'>('pid');
@@ -295,7 +295,10 @@ watch(collectMode, () => {
 
 watch(() => props.visible, (v) => {
   if (v) {
-    fetchProcesses();
+    // Linux 设备不获取进程列表（采集系统级数据，无需选择进程）
+    if (!isLinuxDevice.value) {
+      fetchProcesses();
+    }
     selectedProcessNames.value = [];
     selectedProcesses.value = [];
   }
@@ -306,7 +309,7 @@ watch(() => props.visible, (v) => {
   <el-dialog
     :model-value="props.visible"
     @update:model-value="(v: boolean) => emit('update:visible', v)"
-    width="500px"
+    width="600px"
     destroy-on-close
     align-center
     :close-on-click-modal="false"
@@ -322,7 +325,7 @@ watch(() => props.visible, (v) => {
       <div class="device-name">{{ deviceDisplay }}</div>
       <!-- Linux 设备特殊提示 -->
       <div v-if="isLinuxDevice" class="device-tip">
-        Linux 设备将采集系统级 CPU/内存性能数据，无需选择进程
+        Linux 设备将采集系统级 CPU/内存性能数据
       </div>
     </div>
 
@@ -458,67 +461,67 @@ watch(() => props.visible, (v) => {
 
 <style scoped>
 .dialog-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #333;
 }
 .device-info {
-  margin-bottom: 12px;
-  padding: 8px 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
   background: #f0f9eb;
   border-radius: 4px;
 }
 .device-label {
-  font-size: 11px;
+  font-size: 13px;
   color: #666;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .device-name {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #67c23a;
 }
 .device-tip {
-  font-size: 10px;
+  font-size: 13px;
   color: #e6a23c;
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px dashed #d4e6c9;
 }
 .process-section {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .section-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .subtitle {
   color: #999;
   font-weight: normal;
 }
 .search-wrapper {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .mode-selector {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .mode-tip {
-  font-size: 10px;
+  font-size: 12px;
   color: #999;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .preset-tags {
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 .preset-tag {
-  padding: 3px 8px;
+  padding: 4px 10px;
   background: #e6f7ff;
   color: #409eff;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 12px;
   cursor: pointer;
   border: 1px solid #91d5ff;
 }
@@ -528,17 +531,17 @@ watch(() => props.visible, (v) => {
 .process-list {
   border: 1px solid #eee;
   border-radius: 4px;
-  max-height: 240px;
+  max-height: 280px;
   overflow-y: auto;
-  padding: 4px;
+  padding: 6px;
 }
 .process-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  gap: 8px;
+  padding: 6px 8px;
   border-radius: 3px;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 .process-item:last-child {
   margin-bottom: 0;
@@ -548,17 +551,17 @@ watch(() => props.visible, (v) => {
 }
 .process-name {
   flex: 1;
-  font-size: 11px;
+  font-size: 13px;
 }
 .process-pid {
-  font-size: 10px;
+  font-size: 12px;
   color: #999;
 }
 .process-badge {
-  font-size: 10px;
+  font-size: 12px;
   color: #409eff;
   background: #e6f7ff;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 2px;
 }
 .process-item.name-mode.selected {
@@ -566,23 +569,23 @@ watch(() => props.visible, (v) => {
 }
 .quick-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 10px;
   align-items: center;
 }
 .quick-btn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   background: #f5f5f5;
   border: 1px solid #ddd;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 12px;
   cursor: pointer;
 }
 .quick-btn:hover {
   background: #eee;
 }
 .selected-count {
-  font-size: 10px;
+  font-size: 12px;
   color: #999;
   margin-left: auto;
 }
@@ -590,17 +593,17 @@ watch(() => props.visible, (v) => {
   margin-bottom: 16px;
 }
 .config-item {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .config-label {
-  font-size: 11px;
+  font-size: 13px;
   color: #666;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .config-tip {
-  font-size: 10px;
+  font-size: 12px;
   color: #999;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: #f8f9fa;
   border-radius: 4px;
 }
@@ -610,23 +613,23 @@ watch(() => props.visible, (v) => {
   justify-content: flex-end;
 }
 .cancel-btn {
-  padding: 8px 20px;
+  padding: 10px 24px;
   background: #f5f5f5;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 .cancel-btn:hover {
   background: #eee;
 }
 .start-btn {
-  padding: 8px 20px;
+  padding: 10px 24px;
   background: #67c23a;
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 .start-btn:hover {
@@ -638,19 +641,19 @@ watch(() => props.visible, (v) => {
 }
 .manual-input-wrapper {
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 .add-btn {
-  padding: 0 12px;
+  padding: 0 14px;
   background: #409eff;
   color: #fff;
   border: none;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
-  height: 24px;
-  line-height: 24px;
+  height: 28px;
+  line-height: 28px;
 }
 .add-btn:hover {
   background: #66b1ff;
