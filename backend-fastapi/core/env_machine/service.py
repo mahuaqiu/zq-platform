@@ -816,13 +816,24 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal='center')
 
+        # 示例行 1: Windows 设备
         ws.append([
             "windows_perf",
             "windows",
-            "api",
+            "192.168.1.100",
             "api",
             '{"api": {"account": "test", "password": "xxx"}}',
             "性能测试账号",
+        ])
+
+        # 示例行 2: Linux 设备（SSH 采集）
+        ws.append([
+            "linux_perf",
+            "linux",
+            "192.168.1.101",
+            "",  # Linux 设备无标签
+            '{"account": "root", "password": "your_password", "port": 22}',
+            "Linux 性能采集设备",
         ])
 
         buffer = BytesIO()
