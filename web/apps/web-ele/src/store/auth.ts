@@ -77,6 +77,10 @@ export const useAuthStore = defineStore('auth', () => {
           });
         }
       }
+    } catch (error) {
+      // 错误消息已在 errorMessageResponseInterceptor 中显示
+      // 捕获错误防止 Vue 报 "Unhandled error" 和浏览器报 "Uncaught (in promise)"
+      console.error('[Login Error]', error);
     } finally {
       loginLoading.value = false;
     }
