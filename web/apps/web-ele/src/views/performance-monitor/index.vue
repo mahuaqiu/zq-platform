@@ -868,9 +868,12 @@ async function handleDeviceChange() {
   hwinfoMetricData.value = [];
   hwinfoMetricInfo.value = { displayName: '', unit: '' };
 
-  // 如果当前是 HWiNFO 指标，切换回默认的 CPU 指标
-  if (currentMetric.value === 'hwinfo') {
-    currentMetric.value = 'cpu';
+  // Linux 设备没有 GPU/提交内存/进程句柄数据，切换到 Linux 时自动切换回 CPU
+  // HWiNFO 指标也需要清空
+  if (isLinuxDevice.value) {
+    if (['gpu', 'commitMemory', 'handles', 'hwinfo'].includes(currentMetric.value)) {
+      currentMetric.value = 'cpu';
+    }
   }
 
   await refreshStatus();
