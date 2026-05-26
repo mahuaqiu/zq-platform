@@ -313,6 +313,7 @@ const metricKeyMap: Record<string, MetricKey> = {
   gpu_usage: 'gpu',
   memory_usage: 'memory',
   commit_memory: 'commitMemory',
+  process_handles: 'handles',
 };
 
 // 指标切换处理
