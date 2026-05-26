@@ -543,7 +543,7 @@ const hwinfoChartSeries = computed<ChartSeries[]>(() => {
   ];
 });
 
-// 获取在线设备列表（Windows 和 Linux 设备都支持性能采集）
+// 获取在线设备列表
 async function fetchOnlineDevices() {
   loadingDevices.value = true;
   try {
@@ -553,11 +553,35 @@ async function fetchOnlineDevices() {
       page_size: 100,
     });
     devices.value = result?.items || [];
-    // 默认选择第一个在线设备（排除虚拟设备）
+
+    // 获取所有设备的采集历史记录（不传 device_id，获取所有记录）
+    const collectResult = await getCollectList({
+      page: 1,
+      page_size: 50,
+    });
+    const allCollects = collectResult?.items || [];
+
+    // 统计每个设备的采集记录数量
+    const deviceCollectCount = new Map<string, number>();
+    for (const c of allCollects) {
+      const count = deviceCollectCount.get(c.device_id) || 0;
+      deviceCollectCount.set(c.device_id, count + 1);
+    }
+
+    // 过滤在线设备（排除虚拟设备）
     const onlineDevs = devices.value.filter(
       (d) => (d.status === 'online' || d.status === 'using') && !d.is_virtual,
     );
-    const firstDevice = onlineDevs[0];
+
+    // 按采集记录数量降序排序（有采集记录的设备优先）
+    const sortedDevices = onlineDevs.sort((a, b) => {
+      const countA = deviceCollectCount.get(a.id) || 0;
+      const countB = deviceCollectCount.get(b.id) || 0;
+      return countB - countA;  // 有记录的排在前面
+    });
+
+    // 默认选择第一个设备（优先选择有采集记录的）
+    const firstDevice = sortedDevices[0];
     if (firstDevice) {
       deviceId.value = firstDevice.id;
     }
@@ -1165,12 +1189,14 @@ async function loadMoreData(start_time: number, end_time: number) {
         <!-- 设备选择标签 -->
         <span class="device-label-tag">设备选择</span>
 
-        <!-- 设备下拉选择框（加大宽度，支持 Windows 和 Linux） -->
+        <!-- 设备下拉选择框（加大宽度，支持搜索） -->
         <el-select
           v-if="!loadingDevices"
           v-model="deviceId"
           placeholder="选择设备"
           class="device-select-large"
+          filterable
+          clearable
           @change="handleDeviceChange"
         >
           <el-option
@@ -1181,8 +1207,6 @@ async function loadMoreData(start_time: number, end_time: number) {
           >
             <span>{{ device.device_type }}</span>
             <span style="margin-left: 10px; color: #409eff">{{ device.ip }}</span>
-            <!-- Linux 设备特殊标识 -->
-            <span v-if="device.device_type === 'linux'" style="margin-left: 6px; color: #e6a23c; font-size: 11px;">[Linux]</span>
           </el-option>
         </el-select>
         <span v-else class="loading-text">加载中...</span>
