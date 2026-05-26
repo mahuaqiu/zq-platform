@@ -1423,16 +1423,16 @@ async function loadMoreData(start_time: number, end_time: number) {
         >
           <!-- 卡片头部 -->
           <div class="card-header">
-            <div class="card-checkbox">
-              <input
-                type="checkbox"
-                :checked="selectedCollectIds.has(c.id)"
-                :disabled="c.status === 'running' || c.is_protected"
-                @change="handleToggleSelect(c.id)"
-                @click.stop
-              />
-            </div>
-            <div class="card-status">
+            <div class="card-left">
+              <div class="card-checkbox">
+                <input
+                  type="checkbox"
+                  :checked="selectedCollectIds.has(c.id)"
+                  :disabled="c.status === 'running' || c.is_protected"
+                  @change="handleToggleSelect(c.id)"
+                  @click.stop
+                />
+              </div>
               <span v-if="c.status === 'running'" class="status-running">
                 <span class="running-dot"></span> 采集中
               </span>
@@ -1475,7 +1475,7 @@ async function loadMoreData(start_time: number, end_time: number) {
                 <span class="info-value">{{ c.interval }}秒/次</span>
               </div>
             </div>
-            <div class="card-processes">
+            <div class="card-processes" v-if="c.target_processes?.length > 0">
               <span class="processes-label">目标进程：</span>
               <div class="processes-tags">
                 <span
@@ -1789,6 +1789,12 @@ async function loadMoreData(start_time: number, end_time: number) {
   padding: 12px 16px;
   background: #fafafa;
   border-bottom: 1px solid #eee;
+}
+
+.card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .card-checkbox {
