@@ -862,6 +862,17 @@ async function handleDeviceChange() {
   stopPolling();
   performanceData.value = [];
   historyData.value = [];
+
+  // 清空 HWiNFO 指标状态（避免显示上一个设备的指标）
+  hwinfoMetricKey.value = '';
+  hwinfoMetricData.value = [];
+  hwinfoMetricInfo.value = { displayName: '', unit: '' };
+
+  // 如果当前是 HWiNFO 指标，切换回默认的 CPU 指标
+  if (currentMetric.value === 'hwinfo') {
+    currentMetric.value = 'cpu';
+  }
+
   await refreshStatus();
   await fetchCollectHistory();
   await fetchVersions();

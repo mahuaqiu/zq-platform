@@ -8,7 +8,7 @@ import { getMetricLabel } from '../hwinfo-metrics-config';
 interface Props {
   visible: boolean;
   collectId?: string;
-  isLinuxDevice?: boolean;  // 是否为 Linux 设备，用于过滤重复指标
+  isLinuxDevice?: boolean;  // 是否为 Linux 设备，用于过滤重复指标和隔离搜索记录
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -21,7 +21,11 @@ const emit = defineEmits<{
   select: [metric: string];
 }>();
 
-const RECENT_SEARCH_KEY = 'performance-monitor-recent-metrics';
+// 按设备类型隔离最近搜索记录
+const getRecentSearchKey = () => {
+  const deviceType = props.isLinuxDevice ? 'linux' : 'windows';
+  return `performance-monitor-recent-metrics-${deviceType}`;
+};
 const MAX_RECENT = 5;
 
 const searchKeyword = ref('');
@@ -29,11 +33,12 @@ const recentSearches = ref<string[]>([]);
 const metrics = ref<AvailableMetric[]>([]);
 const loading = ref(false);
 
-// 从 localStorage 加载最近搜索
+// 从 localStorage 加载最近搜索（按设备类型）
 function loadRecentSearches(): string[] {
   try {
+    const key = getRecentSearchKey();
     const stored = typeof localStorage !== 'undefined'
-      ? localStorage.getItem(RECENT_SEARCH_KEY)
+      ? localStorage.getItem(key)
       : null;
     return stored ? JSON.parse(stored) : [];
   } catch {
@@ -41,11 +46,12 @@ function loadRecentSearches(): string[] {
   }
 }
 
-// 保存最近搜索到 localStorage
+// 保存最近搜索到 localStorage（按设备类型）
 function saveRecentSearches(searches: string[]) {
   try {
+    const key = getRecentSearchKey();
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(searches));
+      localStorage.setItem(key, JSON.stringify(searches));
     }
   } catch (error) {
     console.warn('保存最近搜索失败:', error);
@@ -54,6 +60,11 @@ function saveRecentSearches(searches: string[]) {
 
 // 初始化加载最近搜索
 recentSearches.value = loadRecentSearches();
+
+// 监听设备类型变化，重新加载对应的最近搜索记录
+watch(() => props.isLinuxDevice, () => {
+  recentSearches.value = loadRecentSearches();
+});
 
 // 加载指标列表
 async function loadMetrics() {
