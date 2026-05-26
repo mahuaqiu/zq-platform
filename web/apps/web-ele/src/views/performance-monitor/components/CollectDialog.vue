@@ -38,7 +38,7 @@ const dialogTitle = computed(() => {
   return '开始性能采集';
 });
 const interval = ref(5);
-const intervalOptions = [1, 3, 5, 10, 30];
+const intervalOptions = [1, 3, 5, 10, 30, 300, 900, 1800];  // 秒：1秒-30分钟
 
 // 采集时间（小时）
 const collectTimeout = ref(12);
@@ -440,7 +440,7 @@ watch(() => props.visible, (v) => {
             <el-option
               v-for="opt in intervalOptions"
               :key="opt"
-              :label="`${opt}秒`"
+              :label="opt >= 60 ? `${opt / 60}分钟` : `${opt}秒`"
               :value="opt"
             />
           </el-select>
