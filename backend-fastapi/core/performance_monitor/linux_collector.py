@@ -595,7 +595,8 @@ def start_linux_collect_task(
     collect_id: str,
     interval: int,
     db_session_factory: Callable,
-    ssh_auth: Dict[str, Any]
+    ssh_auth: Dict[str, Any],
+    timeout: int = 43200  # 最大采集时间（秒），默认12小时
 ) -> bool:
     """
     启动 Linux 后台采集任务
@@ -640,6 +641,12 @@ def start_linux_collect_task(
                 retry_count = 0
 
                 while _collect_tasks.get(device_id, {}).get("running", False):
+                    # 检查是否超时
+                    if relative_time >= timeout:
+                        logger.info(f"设备 {device_id} 采集达到最大时间 {timeout} 秒，自动停止")
+                        await stop_collect_in_db(collect_id, "stopped")
+                        break
+
                     try:
                         # 采集数据（传入 device_id 用于缓存 CPU 状态）
                         data = LinuxDataCollector.collect(client, device_id)
