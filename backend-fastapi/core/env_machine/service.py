@@ -183,7 +183,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
                 device_sn=None,
                 mark=None,  # Linux 设备无标签
                 available=False,  # Linux 设备不支持启用
-                status='offline',
+                status='online',  # Linux 设备为真实设备，默认在线，可进行性能采集
                 is_virtual=False,
                 extra_message={
                     "account": account,
@@ -737,7 +737,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
 
         # 按设备类型统计
         type_stats = {}
-        for device_type in ["windows", "mac", "android", "ios"]:
+        for device_type in ["windows", "mac", "android", "ios", "linux"]:
             type_query = select(func.count(EnvMachine.id)).where(
                 *base_filter,
                 EnvMachine.device_type == device_type
@@ -816,9 +816,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal='center')
 
-        # 示例行 1: Windows 设备
+        # 示例行 1: Windows 设备（使用默认配置中的命名空间）
         ws.append([
-            "windows_perf",
+            "meeting_gamma",
             "windows",
             "192.168.1.100",
             "api",
@@ -826,9 +826,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             "性能测试账号",
         ])
 
-        # 示例行 2: Linux 设备（SSH 采集）
+        # 示例行 2: Linux 设备（SSH 采集，使用默认配置中的命名空间）
         ws.append([
-            "linux_perf",
+            "meeting_gamma",
             "linux",
             "192.168.1.101",
             "",  # Linux 设备无标签

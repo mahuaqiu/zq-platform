@@ -806,7 +806,9 @@ onMounted(async () => {
           </ElTableColumn>
           <ElTableColumn prop="status" label="状态" min-width="70" align="center">
             <template #default="{ row }">
-              <span :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
+              <!-- Linux 设备不显示状态，显示 - -->
+              <span v-if="row.device_type === 'linux'" class="env-dash">-</span>
+              <span v-else :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
             </template>
           </ElTableColumn>
           <ElTableColumn prop="available" label="是否启用" min-width="70" align="center">
@@ -837,16 +839,16 @@ onMounted(async () => {
           <ElTableColumn label="操作" min-width="160">
             <template #default="{ row }">
               <span class="nowrap">
-                <!-- 虚拟设备不显示日志和远程按钮 -->
+                <!-- 操作按钮：Linux 设备不支持日志和远程（无 worker 进程） -->
                 <a
-                  v-if="!row.is_virtual && !isMobileDevice(row.device_type) && row.status !== 'offline'"
+                  v-if="!row.is_virtual && !isMobileDevice(row.device_type) && row.device_type !== 'linux' && row.status !== 'offline'"
                   class="env-link"
                   @click="handleViewLogs(row)"
                 >
                   日志
                 </a>
                 <a
-                  v-if="!row.is_virtual && (row.status === 'online' || row.status === 'using')"
+                  v-if="!row.is_virtual && (row.status === 'online' || row.status === 'using') && row.device_type !== 'linux'"
                   class="env-link"
                   @click="handleDebug(row)"
                 >

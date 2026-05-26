@@ -1,7 +1,7 @@
 /**
  * 设备类型
  */
-export type DeviceType = 'windows' | 'mac' | 'ios' | 'android';
+export type DeviceType = 'windows' | 'mac' | 'ios' | 'android' | 'linux';
 
 /**
  * 设备状态
@@ -33,6 +33,7 @@ export const DEVICE_TYPE_OPTIONS = [
   { label: 'Mac', value: 'mac' },
   { label: 'iOS', value: 'ios' },
   { label: 'Android', value: 'android' },
+  { label: 'Linux', value: 'linux' },
 ];
 
 /**
