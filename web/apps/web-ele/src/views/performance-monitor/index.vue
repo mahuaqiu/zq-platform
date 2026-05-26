@@ -274,15 +274,18 @@ const isLinuxDevice = computed(() => {
   return device?.device_type === 'linux';
 });
 
-// 所有指标列表（Linux 设备不显示 GPU 指标）
+// 所有指标列表（Linux 设备不显示 GPU 指标，内存显示系统内存）
 const allMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu' as MetricKey, label: 'CPU使用率' },
     // Linux 设备没有 GPU 数据，不显示 GPU 指标
     ...(isLinuxDevice.value ? [] : [{ key: 'gpu' as MetricKey, label: 'GPU使用率' }]),
-    { key: 'memory' as MetricKey, label: '进程内存' },
-    { key: 'commitMemory' as MetricKey, label: '提交内存' },
-    { key: 'handles' as MetricKey, label: '进程句柄' },
+    // Linux 设备显示系统内存使用量，Windows 显示进程内存
+    { key: 'memory' as MetricKey, label: isLinuxDevice.value ? '内存使用量' : '进程内存' },
+    // Linux 设备不显示提交内存（无此概念）
+    ...(isLinuxDevice.value ? [] : [{ key: 'commitMemory' as MetricKey, label: '提交内存' }]),
+    // Linux 设备不显示进程句柄（无进程数据）
+    ...(isLinuxDevice.value ? [] : [{ key: 'handles' as MetricKey, label: '进程句柄' }]),
   ];
 
   // 如果选择了 HWiNFO 指标，添加到列表
@@ -413,6 +416,15 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
     time: d.relative_time,
     value: d.cpu_usage || 0,
   }));
+
+  // Linux 设备只显示系统数据，不显示进程数据
+  if (isLinuxDevice.value) {
+    return [
+      { name: 'CPU 总使用率', data: systemData, color: '#409eff', unit: '%' },
+    ];
+  }
+
+  // Windows 设备显示系统 + 进程数据
   const processData = data.map((d) => {
     const totalCpu =
       d.target_processes?.reduce((sum, p) => sum + p.total_cpu, 0) || 0;
@@ -460,7 +472,19 @@ const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
 const memoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
   if (!data.length) return [];
-  // 显示进程内存总和（MB单位）
+
+  // Linux 设备显示系统内存使用量（GB单位）
+  if (isLinuxDevice.value) {
+    const memoryData = data.map((d) => ({
+      time: d.relative_time,
+      value: d.memory_usage || 0,  // 来自 /proc/meminfo 的系统内存使用量（GB）
+    }));
+    return [
+      { name: '内存使用量', data: memoryData, color: '#409eff', unit: 'GB' },
+    ];
+  }
+
+  // Windows 设备显示进程内存总和（MB单位）
   const processData = data.map((d) => {
     const totalMemMB =
       d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
@@ -1245,6 +1269,7 @@ async function loadMoreData(start_time: number, end_time: number) {
         <MetricSearchPopup
           :visible="showMorePopup"
           :collect-id="currentCollectId || ''"
+          :is-linux-device="isLinuxDevice"
           @update:visible="showMorePopup = $event"
           @select="handleHwinfoMetricSelect"
         />

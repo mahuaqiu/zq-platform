@@ -8,10 +8,12 @@ import { getMetricLabel } from '../hwinfo-metrics-config';
 interface Props {
   visible: boolean;
   collectId?: string;
+  isLinuxDevice?: boolean;  // 是否为 Linux 设备，用于过滤重复指标
 }
 
 const props = withDefaults(defineProps<Props>(), {
   collectId: '',
+  isLinuxDevice: false,
 });
 
 const emit = defineEmits<{
@@ -88,13 +90,25 @@ const filteredMetrics = computed(() => {
   );
 });
 
+// Linux 设备下，过滤掉与快捷按钮重复的核心指标
+// Linux CPU Usage -> 对应 CPU 快捷按钮
+// Linux Memory Usage -> 对应 内存 快捷按钮
+const linuxMetricsFiltered = computed(() => {
+  const metricsList = filteredMetrics.value.filter(m => m.source === 'linux');
+  if (props.isLinuxDevice) {
+    // 过滤掉重复的核心指标
+    return metricsList.filter(m =>
+      m.key !== 'Linux CPU Usage' && m.key !== 'Linux Memory Usage'
+    );
+  }
+  return metricsList;
+});
+
 // 分组显示：进程指标、Linux 系统指标、HWiNFO 指标
 const systemMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'system')
 );
-const linuxMetrics = computed(() =>
-  filteredMetrics.value.filter(m => m.source === 'linux')
-);
+const linuxMetrics = computed(() => linuxMetricsFiltered.value);
 const hwinfoMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'hwinfo')
 );
