@@ -11,35 +11,35 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import async_session_factory
+from app.database import AsyncSessionLocal
 from core.performance_monitor.model import PerformanceMetricMapping
 from sqlalchemy import select
 
 
 # Linux 指标映射数据
 LINUX_METRIC_MAPPINGS = [
-    {"hwinfo_key": "cpu_us", "display_name": "CPU用户态", "unit": "%", "display_unit": "%", "category": "cpu", "is_primary": True, "sort": 1},
-    {"hwinfo_key": "cpu_sy", "display_name": "CPU系统态", "unit": "%", "display_unit": "%", "category": "cpu", "is_primary": True, "sort": 2},
-    {"hwinfo_key": "cpu_id", "display_name": "CPU空闲", "unit": "%", "display_unit": "%", "category": "cpu", "is_primary": True, "sort": 3},
-    {"hwinfo_key": "cpu_wa", "display_name": "CPU等待IO", "unit": "%", "display_unit": "%", "category": "cpu", "sort": 4},
-    {"hwinfo_key": "cpu_hi", "display_name": "CPU硬件中断", "unit": "%", "display_unit": "%", "category": "cpu", "sort": 5},
-    {"hwinfo_key": "cpu_si", "display_name": "CPU软件中断", "unit": "%", "display_unit": "%", "category": "cpu", "sort": 6},
-    {"hwinfo_key": "cpu_st", "display_name": "CPU虚拟化偷取", "unit": "%", "display_unit": "%", "category": "cpu", "sort": 7},
-    {"hwinfo_key": "cpu_ni", "display_name": "CPU优先级进程", "unit": "%", "display_unit": "%", "category": "cpu", "sort": 8},
-    {"hwinfo_key": "mem_total", "display_name": "内存总量", "unit": "MiB", "display_unit": "GB", "category": "memory", "is_primary": True, "sort": 10},
-    {"hwinfo_key": "mem_free", "display_name": "内存空闲", "unit": "MiB", "display_unit": "GB", "category": "memory", "is_primary": True, "sort": 11},
-    {"hwinfo_key": "mem_used", "display_name": "内存使用", "unit": "MiB", "display_unit": "GB", "category": "memory", "is_primary": True, "sort": 12},
-    {"hwinfo_key": "mem_buff_cache", "display_name": "内存缓冲缓存", "unit": "MiB", "display_unit": "GB", "category": "memory", "sort": 13},
-    {"hwinfo_key": "swap_total", "display_name": "Swap总量", "unit": "MiB", "display_unit": "GB", "category": "swap", "sort": 20},
-    {"hwinfo_key": "swap_free", "display_name": "Swap空闲", "unit": "MiB", "display_unit": "GB", "category": "swap", "sort": 21},
-    {"hwinfo_key": "swap_used", "display_name": "Swap使用", "unit": "MiB", "display_unit": "GB", "category": "swap", "sort": 22},
-    {"hwinfo_key": "swap_avail_mem", "display_name": "可用内存", "unit": "MiB", "display_unit": "GB", "category": "swap", "sort": 23},
+    {"hwinfo_key": "cpu_us", "display_name": "CPU用户态", "unit": "%", "category": "cpu", "is_primary": True, "sort": 1},
+    {"hwinfo_key": "cpu_sy", "display_name": "CPU系统态", "unit": "%", "category": "cpu", "is_primary": True, "sort": 2},
+    {"hwinfo_key": "cpu_id", "display_name": "CPU空闲", "unit": "%", "category": "cpu", "is_primary": True, "sort": 3},
+    {"hwinfo_key": "cpu_wa", "display_name": "CPU等待IO", "unit": "%", "category": "cpu", "sort": 4},
+    {"hwinfo_key": "cpu_hi", "display_name": "CPU硬件中断", "unit": "%", "category": "cpu", "sort": 5},
+    {"hwinfo_key": "cpu_si", "display_name": "CPU软件中断", "unit": "%", "category": "cpu", "sort": 6},
+    {"hwinfo_key": "cpu_st", "display_name": "CPU虚拟化偷取", "unit": "%", "category": "cpu", "sort": 7},
+    {"hwinfo_key": "cpu_ni", "display_name": "CPU优先级进程", "unit": "%", "category": "cpu", "sort": 8},
+    {"hwinfo_key": "mem_total", "display_name": "内存总量", "unit": "MiB", "category": "memory", "is_primary": True, "sort": 10},
+    {"hwinfo_key": "mem_free", "display_name": "内存空闲", "unit": "MiB", "category": "memory", "is_primary": True, "sort": 11},
+    {"hwinfo_key": "mem_used", "display_name": "内存使用", "unit": "MiB", "category": "memory", "is_primary": True, "sort": 12},
+    {"hwinfo_key": "mem_buff_cache", "display_name": "内存缓冲缓存", "unit": "MiB", "category": "memory", "sort": 13},
+    {"hwinfo_key": "swap_total", "display_name": "Swap总量", "unit": "MiB", "category": "swap", "sort": 20},
+    {"hwinfo_key": "swap_free", "display_name": "Swap空闲", "unit": "MiB", "category": "swap", "sort": 21},
+    {"hwinfo_key": "swap_used", "display_name": "Swap使用", "unit": "MiB", "category": "swap", "sort": 22},
+    {"hwinfo_key": "swap_avail_mem", "display_name": "可用内存", "unit": "MiB", "category": "swap", "sort": 23},
 ]
 
 
 async def init_linux_metric_mapping():
     """初始化 Linux 指标映射"""
-    async with async_session_factory() as db:
+    async with AsyncSessionLocal() as db:
         added_count = 0
         skipped_count = 0
 
