@@ -34,6 +34,18 @@ async def init_scheduler_jobs():
             'remark': '内部任务，自动管理',
         },
         {
+            'name': '使用超时检测',
+            'code': 'env_machine_timeout_check',
+            'description': '检测 last_keepusing_time 超过 2 分钟的 using 状态机器，自动释放',
+            'group': 'env_machine',
+            'trigger_type': 'interval',
+            'interval_seconds': 30,  # 每30秒
+            'task_func': 'core.env_machine.scheduler.check_timeout_machines',
+            'status': 1,  # 启用
+            'priority': 10,
+            'remark': '内部任务，自动管理',
+        },
+        {
             'name': '测试报告分析',
             'code': 'test_report_analyze',
             'description': '检查超时的测试报告并触发汇总分析',
