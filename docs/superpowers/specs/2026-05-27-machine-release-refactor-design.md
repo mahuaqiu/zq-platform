@@ -42,11 +42,11 @@
 # 任务配置
 任务名称: 使用超时检测
 任务编码: env_machine_timeout_check
-执行间隔: 每 2 分钟
+执行间隔: 每 30 秒
 触发阈值: last_keepusing_time 超过 2 分钟
 
 # 执行逻辑
-每2分钟执行：
+每30秒执行：
 1. 查询 status='using' AND last_keepusing_time < now()-2分钟 的机器
 2. 批量调用 release_machine 释放（完整流程，含升级队列检查）
 3. 同步 Redis 缓存
@@ -103,7 +103,7 @@
     'description': '检测 last_keepusing_time 超过 2 分钟的 using 状态机器，自动释放',
     'group': 'env_machine',
     'trigger_type': 'interval',
-    'interval_seconds': 120,  # 每 2 分钟
+    'interval_seconds': 30,  # 每 30 秒
     'task_func': 'core.env_machine.scheduler.check_timeout_machines',
     'status': 1,
     'priority': 10,
@@ -134,7 +134,7 @@ keepusing 接口
                   ↓
             [数据库持久化]
 
-周期任务 (每2分钟)
+周期任务 (每30秒)
     │
     ├─ 查询: status='using' AND last_keepusing_time < now()-2min
     │
