@@ -52,20 +52,16 @@ async def lifespan(app: FastAPI):
     # ========== 调度器初始化结束 ==========
 
     # ========== 执行机管理模块启动初始化 ==========
-    from core.env_machine.scheduler import reset_using_machines, reload_machine_status_after_restart
     from core.env_machine.pool_manager import EnvPoolManager
     from app.database import AsyncSessionLocal
 
-    # 1. 重置 using 状态的机器为 online（服务重启后任务丢失）
-    # 所有 worker 执行，数据库事务保护
-    await reset_using_machines()
-
-    # 2. 加载机器池到 Redis（所有 worker 执行，保证 Redis 缓存初始化）
+    # 1. 加载机器池到 Redis（所有 worker 执行，保证 Redis 缓存初始化）
     async with AsyncSessionLocal() as db:
         await EnvPoolManager.load_machine_pool(db)
 
-    # 3. 启动后台任务：延迟10秒后主动访问设备验证状态（仅主 worker 执行）
+    # 2. 启动后台任务：延迟10秒后主动访问设备验证状态（仅主 worker 执行）
     if is_main_worker:
+        from core.env_machine.scheduler import reload_machine_status_after_restart
         asyncio.create_task(reload_machine_status_after_restart())
     # ========== 执行机管理模块启动初始化结束 ==========
 

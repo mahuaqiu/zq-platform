@@ -191,7 +191,8 @@
       "Bash(docker restart zq-platform-frontend-1 *)",
       "Bash(not exist *)",
       "Bash(New-Item -ItemType Directory -Force -Path \"D:\\\\code\\\\zq-platform\\\\docs\\\\superpowers\\\\specs\")",
-      "Bash(Out-Null)"
+      "Bash(Out-Null)",
+      "Bash(Select-Object -First 20)"
     ]
   }
 }
