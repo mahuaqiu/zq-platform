@@ -326,13 +326,18 @@ watch(
   },
 );
 
+// 搜索最小字符长度
+const MIN_SEARCH_LENGTH = 4;
+
 /**
  * 监听搜索关键词变化
+ * 少于 MIN_SEARCH_LENGTH 个字符时不进行搜索，避免短关键词匹配太多内容导致卡顿
  */
 watch(
   [searchKeyword, logLines],
   ([keyword, lines]) => {
-    if (!keyword || lines.length === 0) {
+    // 少于最小长度时不进行搜索
+    if (!keyword || keyword.length < MIN_SEARCH_LENGTH || lines.length === 0) {
       allMatchIndices.value = [];
       currentMatchIndex.value = -1;
       return;
@@ -504,7 +509,7 @@ function handleDialogClose() {
         <div class="log-search">
           <ElInput
             v-model="searchKeyword"
-            placeholder="🔍 搜索日志..."
+            placeholder="🔍 搜索日志(至少4字符)..."
             size="small"
             class="log-search-input"
             @keydown="handleSearchKeydown"
