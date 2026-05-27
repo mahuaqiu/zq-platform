@@ -210,5 +210,29 @@ if queue_item:
 2. 修改 `pool_manager.py`：移除定时任务调用
 3. 修改 `api.py`：简化 keepusing 接口
 4. 修改 `init_scheduler_jobs.py`：添加新任务配置
-5. 运行 `init_scheduler_jobs.py` 初始化新任务
-6. 测试验证
+5. 测试验证
+
+---
+
+## 部署步骤
+
+代码部署到各环境后，**需要运行初始化脚本**添加新的定时任务：
+
+```bash
+# 在后端目录执行
+cd backend-fastapi
+python scripts/init_scheduler_jobs.py
+```
+
+脚本逻辑会自动判断：
+- 任务不存在 → 创建新任务
+- 任务已存在 → 更新任务配置
+
+**各环境部署清单**：
+| 环境 | 操作 |
+|------|------|
+| 开发环境 | 代码合并后运行脚本 |
+| UAT 环境 | 部署代码后运行脚本 |
+| 生产环境 | 部署代码后运行脚本 |
+
+> 注意：脚本只添加任务配置到数据库，任务会在服务重启后由 `scheduler_service.init_scheduler()` 自动加载执行。
