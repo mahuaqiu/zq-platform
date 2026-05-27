@@ -34,7 +34,7 @@ async def init_scheduler_jobs():
             'remark': '内部任务，自动管理',
         },
         {
-            'name': '使用超时检测',
+            'name': '保活超时释放',
             'code': 'env_machine_timeout_check',
             'description': '检测 last_keepusing_time 超过 2 分钟的 using 状态机器，自动释放',
             'group': 'env_machine',
