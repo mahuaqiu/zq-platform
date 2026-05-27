@@ -24,9 +24,6 @@ from core.env_machine.log_schema import EnvMachineLogCreate, EnvMachineLogUpdate
 from utils.logging_config import get_logger
 from utils.redis import RedisClient, cache
 
-# 延迟释放任务管理
-from core.env_machine.scheduler import create_release_job, remove_release_job, modify_release_job
-
 logger = get_logger("env_machine")
 
 
@@ -612,10 +609,6 @@ class EnvPoolManager:
                     f"requests={requests}"
                 )
 
-                # 10. 创建延迟释放任务（使用 APScheduler）
-                for machine_id in allocated_machine_ids:
-                    await create_release_job(machine_id)
-
                 return True, allocations
 
         except LockAcquireError as e:
@@ -664,9 +657,6 @@ class EnvPoolManager:
         machine.status = "online"
         machine.last_keepusing_time = None
         await db.commit()
-
-        # 从延迟释放任务中移除（使用 APScheduler）
-        await remove_release_job(machine_id)
 
         # 如果 available=true，重新加入缓存
         if machine.available and machine.namespace != cls.MANUAL_NAMESPACE:
