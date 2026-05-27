@@ -213,9 +213,13 @@ function isCurrentMatch(lineIndex: number): boolean {
 
 /**
  * 高亮搜索关键词
+ * 少于 MIN_SEARCH_LENGTH 个字符时不执行高亮，避免性能问题
  */
 function highlightSearch(text: string): string {
-  if (!searchKeyword.value) return escapeHtml(text);
+  // 少于最小长度时不进行高亮处理
+  if (!searchKeyword.value || searchKeyword.value.length < MIN_SEARCH_LENGTH) {
+    return escapeHtml(text);
+  }
   const escaped = escapeHtml(text);
   const keyword = escapeHtml(searchKeyword.value);
   const regex = new RegExp(
