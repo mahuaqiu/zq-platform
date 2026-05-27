@@ -188,7 +188,10 @@
       "Bash(docker-compose logs *)",
       "PowerShell(New-Item *)",
       "Bash(pnpm build:ele)",
-      "Bash(docker restart zq-platform-frontend-1 *)"
+      "Bash(docker restart zq-platform-frontend-1 *)",
+      "Bash(not exist *)",
+      "Bash(New-Item -ItemType Directory -Force -Path \"D:\\\\code\\\\zq-platform\\\\docs\\\\superpowers\\\\specs\")",
+      "Bash(Out-Null)"
     ]
   }
 }
