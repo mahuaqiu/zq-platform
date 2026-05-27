@@ -47,7 +47,6 @@ from core.env_machine.schema import (
 )
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
-from core.env_machine.scheduler import modify_release_job, remove_release_job
 from core.env_machine.auth import verify_env_apply_auth
 
 logger = logging.getLogger(__name__)
@@ -321,11 +320,11 @@ async def keepusing_env_machines(
     """
     保持使用执行机接口
 
-    延长执行机的使用时间，防止被自动释放。
+    更新 last_keepusing_time，防止被周期任务超时释放。
 
     逻辑：
     1. 遍历请求中的机器 ID
-    2. 对于每台机器：更新 last_keepusing_time，延迟释放任务执行时间
+    2. 对于每台机器：更新 last_keepusing_time
     3. 忽略不存在或非 using 状态的机器
     """
     now = datetime.now()
@@ -344,9 +343,6 @@ async def keepusing_env_machines(
 
             # 更新最后保持使用时间
             machine.last_keepusing_time = now
-
-            # 延迟释放任务执行时间
-            await modify_release_job(item.id)
 
         # 提交数据库更改
         await db.commit()
