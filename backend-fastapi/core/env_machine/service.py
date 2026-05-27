@@ -279,6 +279,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             missing_cols = [cls.VIRTUAL_EXCEL_COLUMNS[k] for k in missing_keys]
             return 0, [{"row": 0, "reason": f"缺少必填列: {','.join(missing_cols)}"}]
 
+        # 用于检测 Excel 内部重复的集合
+        seen_keys = set()
+
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if not any(row):
                 continue
@@ -290,12 +293,28 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             # 检查重复（namespace + ip 组合）
             namespace = row_dict.get("namespace")
             ip = row_dict.get("ip")
+            device_type = row_dict.get("device_type")
             if namespace and ip:
-                existing = await cls.get_by_ip(db, ip, namespace)
-                if existing:
-                    failed_items.append({
-                        "row": row_idx,
-                        "reason": f"重复：命名空间 '{namespace}' 下已存在 IP '{ip}'"
+                # Linux 设备不拦截（PostgreSQL 唯一约束对 NULL 不生效）
+                if device_type != 'linux':
+                    # 构建唯一键用于检测 Excel 内部重复
+                    unique_key = (namespace, ip, device_type or "")
+
+                    # 检查 Excel 文件内部重复
+                    if unique_key in seen_keys:
+                        failed_items.append({
+                            "row": row_idx,
+                            "reason": f"Excel 内部重复：命名空间 '{namespace}'、IP '{ip}' 已在文件中出现"
+                        })
+                        continue
+                    seen_keys.add(unique_key)
+
+                    # 检查数据库中已存在的记录
+                    existing = await cls.get_by_ip(db, ip, namespace)
+                    if existing:
+                        failed_items.append({
+                            "row": row_idx,
+                            "reason": f"数据库已存在：命名空间 '{namespace}' 下已存在 IP '{ip}'"
                     })
                     continue
 

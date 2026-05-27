@@ -595,7 +595,7 @@ async def delete_env_machine(
     machine_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """删除执行机（软删除）"""
+    """删除执行机（物理删除）"""
     machine = await EnvMachineService.get_by_id(db, machine_id)
     if not machine:
         raise HTTPException(status_code=404, detail="执行机不存在")
@@ -603,7 +603,7 @@ async def delete_env_machine(
     # 记录 namespace 用于缓存清理
     namespace = machine.namespace
 
-    await EnvMachineService.delete(db, machine_id)
+    await EnvMachineService.delete(db, machine_id, hard=True)
     await db.commit()
 
     # 从 Redis 缓存中移除
@@ -1080,7 +1080,7 @@ async def batch_delete_env_machines(
     """
     批量删除设备（支持虚拟和真实设备）
 
-    - 软删除：设置 is_deleted=True
+    - 物理删除：直接从数据库删除记录
     - 从 Redis 缓存中移除
     """
     success_count = 0
@@ -1093,7 +1093,7 @@ async def batch_delete_env_machines(
             continue
 
         namespace = machine.namespace
-        await EnvMachineService.delete(db, machine_id)
+        await EnvMachineService.delete(db, machine_id, hard=True)
         await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
         success_count += 1
 
