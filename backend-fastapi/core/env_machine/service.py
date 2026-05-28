@@ -315,8 +315,8 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
                         failed_items.append({
                             "row": row_idx,
                             "reason": f"数据库已存在：命名空间 '{namespace}' 下已存在 IP '{ip}'"
-                    })
-                    continue
+                        })
+                        continue
 
             machine, error_reason = cls._virtual_import_processor(row_dict)
             if machine:
