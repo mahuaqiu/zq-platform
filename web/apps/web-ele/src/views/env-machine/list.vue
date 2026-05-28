@@ -281,6 +281,9 @@ function handleDelete(row: EnvMachine) {
     try {
       await deleteEnvMachineApi(row.id);
       ElMessage.success('删除成功');
+      // 清除被删除设备的选中状态
+      selectedIds.value.delete(row.id);
+      selectedMachinesMap.value.delete(row.id);
       loadData();
     } catch {
       ElMessage.error('删除失败');
