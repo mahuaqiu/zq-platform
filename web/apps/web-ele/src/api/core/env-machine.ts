@@ -160,7 +160,7 @@ export async function getMachineLogsApi(
 
   return requestClient.get<MachineLogResponse>(
     `/api/core/env/machine/${machineId}/logs`,
-    { params: queryParams },
+    { params: queryParams, timeout: 40000 },
   );
 }
 
