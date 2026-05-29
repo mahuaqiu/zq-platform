@@ -102,8 +102,13 @@ class EnvMachineLogService:
         namespaces: Optional[List[str]] = None
     ) -> DeviceStats:
         """获取设备统计"""
-        # 基础查询条件（排除虚拟设备）
-        base_filter = [EnvMachine.is_deleted.is_(False), EnvMachine.is_virtual.is_(False)]
+        # 基础查询条件（排除虚拟设备和 Linux 设备）
+        # Linux 设备没有实体机器，不参与台数统计
+        base_filter = [
+            EnvMachine.is_deleted.is_(False),
+            EnvMachine.is_virtual.is_(False),
+            EnvMachine.device_type != 'linux',
+        ]
         if namespaces:
             base_filter.append(EnvMachine.namespace.in_(namespaces))
 
@@ -332,6 +337,7 @@ class EnvMachineLogService:
             EnvMachine.available.is_(True),
             EnvMachine.status == "offline",
             EnvMachine.is_virtual.is_(False),  # 排除虚拟设备
+            EnvMachine.device_type != 'linux',  # 排除 Linux 设备（无实体机器）
         ]
         if namespaces:
             filters.append(EnvMachine.namespace.in_(namespaces))
