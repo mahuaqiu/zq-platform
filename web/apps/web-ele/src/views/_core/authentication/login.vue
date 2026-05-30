@@ -36,6 +36,11 @@ const formSchema = computed((): VbenFormSchema[] => {
     },
   ];
 });
+
+// 游客登录
+function handleGuestLogin() {
+  authStore.authLogin({ username: 'guest', password: '123456' });
+}
 </script>
 
 <template>
@@ -44,5 +49,21 @@ const formSchema = computed((): VbenFormSchema[] => {
     :loading="authStore.loginLoading"
     :show-third-party-login="false"
     @submit="authStore.authLogin"
-  />
+  >
+    <template #title>
+      <div class="mb-7 flex items-center gap-3">
+        <h2 class="text-foreground text-3xl font-bold leading-9 tracking-tight lg:text-4xl">
+          {{ $t('authentication.welcomeBack') }} 👋🏻
+        </h2>
+        <button
+          type="button"
+          class="text-primary cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-80 transition-opacity"
+          :disabled="authStore.loginLoading"
+          @click="handleGuestLogin"
+        >
+          游客
+        </button>
+      </div>
+    </template>
+  </AuthenticationLogin>
 </template>
