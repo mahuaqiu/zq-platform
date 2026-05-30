@@ -57,7 +57,7 @@ function handleGuestLogin() {
         </h2>
         <button
           type="button"
-          class="text-primary cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-80 transition-opacity"
+          class="cursor-pointer rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
           :disabled="authStore.loginLoading"
           @click="handleGuestLogin"
         >
