@@ -56,12 +56,11 @@ async def get_role_list(
     name: Optional[str] = Query(None, description="角色名称"),
     code: Optional[str] = Query(None, description="角色编码"),
     status: Optional[bool] = Query(None, description="角色状态"),
-    role_type: Optional[int] = Query(None, alias="role_type", description="角色类型"),
     db: AsyncSession = Depends(get_db)
 ):
     """获取角色列表（分页）"""
     from core.role.model import Role
-    
+
     filters = []
     if name:
         filters.append(Role.name.ilike(f"%{name}%"))
@@ -69,9 +68,7 @@ async def get_role_list(
         filters.append(Role.code.ilike(f"%{code}%"))
     if status is not None:
         filters.append(Role.status == status)
-    if role_type is not None:
-        filters.append(Role.role_type == role_type)
-    
+
     items, total = await RoleService.get_list(db, page=page, page_size=page_size, filters=filters)
     response_items = [await _build_role_response(db, item) for item in items]
     return PaginatedResponse(items=response_items, total=total)
@@ -296,19 +293,17 @@ async def patch_role(role_id: str, data: RoleUpdate, db: AsyncSession = Depends(
     role = await RoleService.get_by_id(db, role_id)
     if role is None:
         raise HTTPException(status_code=404, detail="角色不存在")
-    
+
     # 编码唯一性校验
     if data.code:
         if not await RoleService.check_unique(db, field="code", value=data.code, exclude_id=role_id):
             raise HTTPException(status_code=400, detail=f"角色编码已存在: {data.code}")
-    
-    # 系统角色不能修改角色类型和编码
+
+    # 系统角色不能修改编码
     if role.is_system_role():
-        if data.role_type is not None and data.role_type != 0:
-            raise HTTPException(status_code=400, detail="系统角色不能修改角色类型")
         if data.code and data.code != role.code:
             raise HTTPException(status_code=400, detail="系统角色不能修改角色编码")
-    
+
     role = await RoleService.update(db, record_id=role_id, data=data)
     return await _build_role_response(db, role)
 
@@ -346,19 +341,17 @@ async def update_role(role_id: str, data: RoleUpdate, db: AsyncSession = Depends
     role = await RoleService.get_by_id(db, role_id)
     if role is None:
         raise HTTPException(status_code=404, detail="角色不存在")
-    
+
     # 编码唯一性校验
     if data.code:
         if not await RoleService.check_unique(db, field="code", value=data.code, exclude_id=role_id):
             raise HTTPException(status_code=400, detail=f"角色编码已存在: {data.code}")
-    
-    # 系统角色不能修改角色类型和编码
+
+    # 系统角色不能修改编码
     if role.is_system_role():
-        if data.role_type is not None and data.role_type != 0:
-            raise HTTPException(status_code=400, detail="系统角色不能修改角色类型")
         if data.code and data.code != role.code:
             raise HTTPException(status_code=400, detail="系统角色不能修改角色编码")
-    
+
     role = await RoleService.update(db, record_id=role_id, data=data)
     return await _build_role_response(db, role)
 
@@ -383,13 +376,11 @@ async def delete_role(
 async def _build_role_response(db: AsyncSession, role) -> RoleResponse:
     """构建角色响应"""
     user_count = await RoleService.get_user_count(db, role.id)
-    
+
     return RoleResponse(
         id=role.id,
         name=role.name,
         code=role.code,
-        role_type=role.role_type,
-        role_type_display=role.get_role_type_display(),
         status=role.status,
         priority=role.priority,
         description=role.description,
@@ -408,13 +399,11 @@ async def _build_role_response(db: AsyncSession, role) -> RoleResponse:
 async def _build_role_detail(db: AsyncSession, role) -> RoleDetail:
     """构建角色详情响应"""
     user_count = await RoleService.get_user_count(db, role.id)
-    
+
     return RoleDetail(
         id=role.id,
         name=role.name,
         code=role.code,
-        role_type=role.role_type,
-        role_type_display=role.get_role_type_display(),
         status=role.status,
         priority=role.priority,
         description=role.description,

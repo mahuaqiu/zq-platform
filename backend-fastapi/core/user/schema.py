@@ -24,7 +24,6 @@ class UserBase(BaseModel):
     avatar: Optional[str] = Field(None, max_length=36, description="头像UUID")
     name: Optional[str] = Field(None, max_length=64, description="真实姓名")
     gender: int = Field(default=0, ge=0, le=2, description="性别：0-未知, 1-男, 2-女")
-    user_type: int = Field(default=1, ge=0, le=2, description="用户类型：0-系统用户, 1-普通用户, 2-外部用户")
     user_status: int = Field(default=1, ge=0, le=2, description="用户状态：0-禁用, 1-正常, 2-锁定")
     birthday: Optional[date] = Field(None, description="生日")
     city: Optional[str] = Field(None, max_length=100, description="所在城市")
@@ -53,15 +52,7 @@ class UserBase(BaseModel):
         if v not in [0, 1, 2]:
             raise ValueError("用户状态必须为 0(禁用)、1(正常) 或 2(锁定)")
         return v
-    
-    @field_validator("user_type")
-    @classmethod
-    def validate_user_type(cls, v):
-        """验证用户类型"""
-        if v not in [0, 1, 2]:
-            raise ValueError("用户类型必须为 0(系统用户)、1(普通用户) 或 2(外部用户)")
-        return v
-    
+
     @field_validator("gender")
     @classmethod
     def validate_gender(cls, v):
@@ -85,7 +76,6 @@ class UserUpdate(BaseModel):
     avatar: Optional[str] = Field(None, max_length=36, description="头像UUID")
     name: Optional[str] = Field(None, max_length=64, description="真实姓名")
     gender: Optional[int] = Field(None, ge=0, le=2, description="性别")
-    user_type: Optional[int] = Field(None, ge=0, le=2, description="用户类型")
     user_status: Optional[int] = Field(None, ge=0, le=2, description="用户状态")
     birthday: Optional[date] = Field(None, description="生日")
     city: Optional[str] = Field(None, max_length=100, description="所在城市")
@@ -116,15 +106,7 @@ class UserUpdate(BaseModel):
         if v is not None and v not in [0, 1, 2]:
             raise ValueError("用户状态必须为 0(禁用)、1(正常) 或 2(锁定)")
         return v
-    
-    @field_validator("user_type")
-    @classmethod
-    def validate_user_type(cls, v):
-        """验证用户类型"""
-        if v is not None and v not in [0, 1, 2]:
-            raise ValueError("用户类型必须为 0(系统用户)、1(普通用户) 或 2(外部用户)")
-        return v
-    
+
     @field_validator("gender")
     @classmethod
     def validate_gender(cls, v):
@@ -144,8 +126,6 @@ class UserResponse(BaseModel):
     name: Optional[str] = None
     gender: int = 0
     gender_display: Optional[str] = None
-    user_type: int = 1
-    user_type_display: Optional[str] = None
     user_status: int = 1
     user_status_display: Optional[str] = None
     birthday: Optional[date] = None

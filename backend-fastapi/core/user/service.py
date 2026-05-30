@@ -44,7 +44,6 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
         "email": "邮箱",
         "mobile": "手机号",
         "gender": "性别",
-        "user_type": "用户类型",
         "user_status": "用户状态",
     }
     excel_sheet_name = "用户列表"
@@ -68,7 +67,6 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
             "email": item.email or "",
             "mobile": item.mobile or "",
             "gender": item.get_gender_display(),
-            "user_type": item.get_user_type_display(),
             "user_status": item.get_user_status_display(),
         }
     
@@ -83,12 +81,7 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
         gender_map = {"未知": 0, "男": 1, "女": 2}
         gender_str = row.get("gender", "未知")
         gender = gender_map.get(gender_str, 0)
-        
-        # 用户类型映射
-        type_map = {"系统用户": 0, "普通用户": 1, "外部用户": 2}
-        type_str = row.get("user_type", "普通用户")
-        user_type = type_map.get(type_str, 1)
-        
+
         # 用户状态映射
         status_map = {"禁用": 0, "正常": 1, "锁定": 2}
         status_str = row.get("user_status", "正常")
@@ -101,7 +94,6 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
             email=str(row.get("email") or "") or None,
             mobile=str(row.get("mobile") or "") or None,
             gender=gender,
-            user_type=user_type,
             user_status=user_status,
         )
     

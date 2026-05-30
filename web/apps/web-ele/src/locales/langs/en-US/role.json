@@ -3,7 +3,6 @@
   "title": "Role Management",
   "roleName": "Role Name",
   "roleCode": "Role Code",
-  "roleType": "Role Type",
   "dataScope": "Data Scope",
   "priority": "Role Priority",
   "priorityHelp": "Higher value means higher priority",
@@ -15,10 +14,6 @@
   "operation": "Operation",
   "edit": "Edit",
   "codeFormatError": "Role code can only contain letters, numbers and underscores",
-  "types": {
-    "system": "System Role",
-    "custom": "Custom Role"
-  },
   "dataScopes": {
     "self": "Own Data Only",
     "dept": "Department Data",

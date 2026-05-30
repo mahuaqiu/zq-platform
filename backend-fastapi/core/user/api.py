@@ -62,13 +62,12 @@ async def get_user_list(
     mobile: Optional[str] = Query(None, description="手机号"),
     email: Optional[str] = Query(None, description="邮箱"),
     user_status: Optional[int] = Query(None, alias="user_status", description="用户状态"),
-    user_type: Optional[int] = Query(None, alias="user_type", description="用户类型"),
     dept_id: Optional[str] = Query(None, alias="dept_ids", description="部门ID"),
     db: AsyncSession = Depends(get_db)
 ):
     """获取用户列表（分页）"""
     from core.user.model import User
-    
+
     filters = []
     if name:
         filters.append(User.name.ilike(f"%{name}%"))
@@ -80,8 +79,6 @@ async def get_user_list(
         filters.append(User.email.ilike(f"%{email}%"))
     if user_status is not None:
         filters.append(User.user_status == user_status)
-    if user_type is not None:
-        filters.append(User.user_type == user_type)
     if dept_id:
         filters.append(User.dept_id == dept_id)
     
@@ -305,7 +302,7 @@ async def delete_user(
         raise HTTPException(status_code=404, detail="用户不存在")
     
     if not user.can_delete():
-        raise HTTPException(status_code=400, detail="系统用户或超级管理员不能删除")
+        raise HTTPException(status_code=400, detail="超级管理员不能删除")
     
     success = await UserService.delete(db, record_id=user_id, hard=hard)
     if not success:
@@ -324,8 +321,6 @@ def _build_user_response(user) -> UserResponse:
         name=user.name,
         gender=user.gender or 0,
         gender_display=user.get_gender_display(),
-        user_type=user.user_type or 1,
-        user_type_display=user.get_user_type_display(),
         user_status=user.user_status or 1,
         user_status_display=user.get_user_status_display(),
         birthday=user.birthday,

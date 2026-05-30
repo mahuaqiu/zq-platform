@@ -20,7 +20,6 @@ import { useZqTable } from '#/components/zq-table';
 import {
   getLoginTypeOptions,
   getStatusOptions,
-  getUserTypeOptions,
   useSearchFormSchema,
   useZqTableColumns,
 } from './data';
@@ -33,7 +32,6 @@ const selectedRows = ref<User[]>([]);
 
 // 状态映射
 const statusOptions = getStatusOptions();
-const userTypeOptions = getUserTypeOptions();
 const loginTypeOptions = getLoginTypeOptions();
 
 type TagType = 'danger' | 'info' | 'primary' | 'success' | 'warning';
@@ -271,13 +269,6 @@ function refreshGrid() {
             {{ (row.name || row.username || 'U').charAt(0).toUpperCase() }}
           </div>
         </div>
-      </template>
-
-      <!-- 用户类型列 -->
-      <template #cell-user_type="{ row }">
-        <ElTag :type="getTagType(row.user_type, userTypeOptions)" size="small">
-          {{ getTagLabel(row.user_type, userTypeOptions) }}
-        </ElTag>
       </template>
 
       <!-- 状态列 -->

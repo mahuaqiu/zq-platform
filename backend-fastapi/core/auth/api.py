@@ -441,7 +441,6 @@ async def get_me(
         avatar=current_user.avatar,
         is_superuser=current_user.is_superuser,
         dept_id=current_user.dept_id,
-        user_type=current_user.user_type or 1,
         user_status=current_user.user_status or 1,
     )
 

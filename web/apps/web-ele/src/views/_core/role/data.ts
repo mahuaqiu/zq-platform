@@ -27,16 +27,6 @@ export function useSearchFormSchema(): VbenFormSchema[] {
 }
 
 /**
- * 获取角色类型选项
- */
-export function getRoleTypeOptions() {
-  return [
-    { label: $t('role.types.system'), value: 0 },
-    { label: $t('role.types.custom'), value: 1 },
-  ];
-}
-
-/**
  * 获取角色树列配置
  */
 export function useRoleTreeColumns(
@@ -74,15 +64,6 @@ export function useFormSchema(): VbenFormSchema[] {
         .min(2, $t('ui.formRules.minLength', [$t('role.roleCode'), 2]))
         .max(64, $t('ui.formRules.maxLength', [$t('role.roleCode'), 64]))
         .regex(/^\w+$/, $t('role.codeFormatError')),
-    },
-    {
-      component: 'Select',
-      componentProps: {
-        options: getRoleTypeOptions(),
-      },
-      defaultValue: 1,
-      fieldName: 'role_type',
-      label: $t('role.roleType'),
     },
     {
       component: 'InputNumber',

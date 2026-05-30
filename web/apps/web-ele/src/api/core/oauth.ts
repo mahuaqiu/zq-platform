@@ -29,7 +29,6 @@ export namespace OAuthApi {
       id: string;
       is_superuser: boolean;
       name: string;
-      user_type: number;
       username: string;
     };
   }

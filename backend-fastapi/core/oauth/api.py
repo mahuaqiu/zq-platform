@@ -105,7 +105,6 @@ async def oauth_callback(
             'name': user.name,
             'email': user.email,
             'avatar': user.avatar,
-            'user_type': user.user_type,
             'is_superuser': user.is_superuser,
         }
 

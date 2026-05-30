@@ -22,7 +22,7 @@ from app.base_model import BaseModel
 class User(BaseModel):
     """
     用户模型 - 系统用户管理
-    
+
     字段说明：
     - username: 用户名（唯一）
     - password: 密码（加密存储）
@@ -32,7 +32,6 @@ class User(BaseModel):
     - avatar: 头像
     - name: 真实姓名
     - gender: 性别（0-未知, 1-男, 2-女）
-    - user_type: 用户类型（0-系统用户, 1-普通用户, 2-外部用户）
     - user_status: 用户状态（0-禁用, 1-正常, 2-锁定）
     - dept_id: 所属部门ID
     - manager_id: 直属上级ID
@@ -66,10 +65,7 @@ class User(BaseModel):
     
     # 性别：0-未知, 1-男, 2-女
     gender = Column(Integer, default=0, nullable=True, comment="性别")
-    
-    # 用户类型：0-系统用户, 1-普通用户, 2-外部用户
-    user_type = Column(Integer, default=1, index=True, comment="用户类型")
-    
+
     # 用户状态：0-禁用, 1-正常, 2-锁定
     user_status = Column(Integer, default=1, index=True, comment="用户状态")
     
@@ -122,12 +118,7 @@ class User(BaseModel):
     
     def __repr__(self):
         return f"<User {self.name or self.username} ({self.username})>"
-    
-    def get_user_type_display(self) -> str:
-        """获取用户类型的显示名称"""
-        type_map = {0: "系统用户", 1: "普通用户", 2: "外部用户"}
-        return type_map.get(self.user_type, "未知")
-    
+
     def get_user_status_display(self) -> str:
         """获取用户状态的显示名称"""
         status_map = {0: "禁用", 1: "正常", 2: "锁定"}
@@ -151,5 +142,5 @@ class User(BaseModel):
         return self.user_status == 0
     
     def can_delete(self) -> bool:
-        """判断用户是否可以删除（系统用户和超级管理员不能删除）"""
-        return self.user_type != 0 and not self.is_superuser
+        """判断用户是否可以删除（超级管理员不能删除）"""
+        return not self.is_superuser

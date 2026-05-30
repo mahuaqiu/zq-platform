@@ -46,33 +46,26 @@ role_dept = Table(
 class Role(BaseModel):
     """
     角色模型 - 用于用户角色管理和权限分配
-    
+
     字段说明：
     - name: 角色名称
-    - code: 角色编码（唯一）
-    - role_type: 角色类型（0-系统角色, 1-自定义角色）
+    - code: 角色编码（唯一，系统角色 admin/super_admin 不可删除）
     - status: 角色状态
     - priority: 角色优先级
     - description: 角色描述
     - remark: 备注
     """
     __tablename__ = "core_role"
-    
-    # 角色类型选择
-    ROLE_TYPE_CHOICES = {
-        0: '系统角色',
-        1: '自定义角色',
-    }
+
+    # 系统角色编码列表（不可删除）
+    SYSTEM_ROLE_CODES = ['admin', 'super_admin']
     
     # 角色名称
     name = Column(String(64), nullable=False, index=True, comment="角色名称")
     
     # 角色编码
     code = Column(String(64), unique=True, nullable=False, index=True, comment="角色编码")
-    
-    # 角色类型
-    role_type = Column(Integer, default=1, index=True, comment="角色类型（0-系统角色, 1-自定义角色）")
-    
+
     # 角色状态
     status = Column(Boolean, default=True, index=True, comment="角色状态（启用/禁用）")
     
@@ -92,15 +85,11 @@ class Role(BaseModel):
     
     def __str__(self):
         return f"{self.name} ({self.code})"
-    
+
     def is_system_role(self) -> bool:
-        """判断是否为系统角色"""
-        return self.role_type == 0
-    
+        """判断是否为系统角色（通过 code 判断）"""
+        return self.code in self.SYSTEM_ROLE_CODES
+
     def can_delete(self) -> bool:
         """判断是否可以删除（系统角色不可删除）"""
-        return self.role_type != 0
-    
-    def get_role_type_display(self) -> str:
-        """获取角色类型的显示名称"""
-        return self.ROLE_TYPE_CHOICES.get(self.role_type, '未知')
+        return self.code not in self.SYSTEM_ROLE_CODES

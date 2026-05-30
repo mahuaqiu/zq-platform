@@ -154,13 +154,13 @@ class RoleService(BaseService[Role, RoleCreate, RoleUpdate]):
         count = 0
         for role_id in ids:
             role = await cls.get_by_id(db, role_id)
-            if role and role.role_type == 1:  # 只更新自定义角色
+            if role and not role.is_system_role():  # 只更新非系统角色
                 role.status = status
                 count += 1
-        
+
         if count > 0:
             await db.commit()
-        
+
         return count
     
     @classmethod
@@ -364,7 +364,6 @@ class RoleService(BaseService[Role, RoleCreate, RoleUpdate]):
         new_role = Role(
             name=new_name,
             code=new_code,
-            role_type=1,  # 复制的角色都是自定义角色
             status=source_role.status,
             data_scope=source_role.data_scope,
             priority=source_role.priority,

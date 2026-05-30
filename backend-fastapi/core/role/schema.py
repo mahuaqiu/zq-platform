@@ -20,13 +20,12 @@ class RoleBase(BaseModel):
     """角色基础Schema"""
     name: str = Field(..., min_length=1, max_length=64, description="角色名称")
     code: str = Field(..., min_length=1, max_length=64, description="角色编码")
-    role_type: int = Field(default=1, description="角色类型（0-系统角色, 1-自定义角色）")
     status: bool = Field(default=True, description="角色状态")
     priority: int = Field(default=0, description="角色优先级")
     description: Optional[str] = Field(None, description="角色描述")
     remark: Optional[str] = Field(None, description="备注")
     sort: int = Field(default=0, description="排序")
-    
+
     @field_validator("code")
     @classmethod
     def validate_code(cls, v):
@@ -36,15 +35,7 @@ class RoleBase(BaseModel):
         if not v.replace('_', '').isalnum():
             raise ValueError("角色编码只能包含字母、数字和下划线")
         return v
-    
-    @field_validator("role_type")
-    @classmethod
-    def validate_role_type(cls, v):
-        """验证角色类型"""
-        if v not in [0, 1]:
-            raise ValueError("角色类型必须为 0(系统角色) 或 1(自定义角色)")
-        return v
-    
+
     @field_validator("priority")
     @classmethod
     def validate_priority(cls, v):
@@ -65,7 +56,6 @@ class RoleUpdate(BaseModel):
     """角色更新Schema - 所有字段可选"""
     name: Optional[str] = Field(None, min_length=1, max_length=64, description="角色名称")
     code: Optional[str] = Field(None, min_length=1, max_length=64, description="角色编码")
-    role_type: Optional[int] = Field(None, description="角色类型")
     status: Optional[bool] = Field(None, description="角色状态")
     priority: Optional[int] = Field(None, description="角色优先级")
     description: Optional[str] = Field(None, description="角色描述")
@@ -74,7 +64,7 @@ class RoleUpdate(BaseModel):
     menu_ids: Optional[List[str]] = Field(None, description="菜单ID列表")
     permission_ids: Optional[List[str]] = Field(None, description="权限ID列表")
     dept_ids: Optional[List[str]] = Field(None, description="部门ID列表")
-    
+
     @field_validator("code")
     @classmethod
     def validate_code(cls, v):
@@ -85,15 +75,7 @@ class RoleUpdate(BaseModel):
             if not v.replace('_', '').isalnum():
                 raise ValueError("角色编码只能包含字母、数字和下划线")
         return v
-    
-    @field_validator("role_type")
-    @classmethod
-    def validate_role_type(cls, v):
-        """验证角色类型"""
-        if v is not None and v not in [0, 1]:
-            raise ValueError("角色类型必须为 0(系统角色) 或 1(自定义角色)")
-        return v
-    
+
     @field_validator("priority")
     @classmethod
     def validate_priority(cls, v):
@@ -108,8 +90,6 @@ class RoleResponse(BaseModel):
     id: str
     name: str
     code: str
-    role_type: int
-    role_type_display: Optional[str] = None
     status: bool
     priority: int
     description: Optional[str] = None
@@ -122,7 +102,7 @@ class RoleResponse(BaseModel):
     is_deleted: bool = False
     sys_create_datetime: Optional[datetime] = None
     sys_update_datetime: Optional[datetime] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -139,8 +119,7 @@ class RoleSimple(BaseModel):
     name: str
     code: str
     status: bool
-    role_type: int
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -3,7 +3,6 @@
   "title": "角色管理",
   "roleName": "角色名称",
   "roleCode": "角色编码",
-  "roleType": "角色类型",
   "dataScope": "数据范围",
   "priority": "角色优先级",
   "priorityHelp": "数字越大优先级越高",
@@ -15,10 +14,6 @@
   "operation": "操作",
   "edit": "编辑",
   "codeFormatError": "角色编码只能包含字母、数字和下划线",
-  "types": {
-    "system": "系统角色",
-    "custom": "自定义角色"
-  },
   "dataScopes": {
     "self": "仅本人数据",
     "dept": "本部门数据",

@@ -7,12 +7,10 @@ export interface Role {
   id: string;
   name: string;
   code: string;
-  role_type: number;
   status: boolean;
   priority: number;
   description?: string;
   remark?: string;
-  role_type_display?: string;
   user_count?: number;
   menu_count?: number;
   permission_count?: number;
@@ -24,7 +22,6 @@ export interface Role {
 export interface RoleCreateInput {
   name: string;
   code: string;
-  role_type?: number;
   status?: boolean;
   priority?: number;
   description?: string;
@@ -55,7 +52,6 @@ export interface RoleListParams {
   name?: string;
   code?: string;
   status?: boolean;
-  role_type?: number;
   id?: string[];
 }
 

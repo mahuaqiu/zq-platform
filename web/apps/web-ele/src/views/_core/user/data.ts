@@ -28,17 +28,6 @@ export function getStatusOptions() {
 }
 
 /**
- * 获取用户类型选项
- */
-export function getUserTypeOptions() {
-  return [
-    { label: $t('user.systemUser'), value: 0 },
-    { label: $t('user.normalUser'), value: 1 },
-    { label: $t('user.externalUser'), value: 2 },
-  ];
-}
-
-/**
  * 获取登录方式选项
  */
 export function getLoginTypeOptions() {
@@ -156,17 +145,6 @@ export function getFormSchema(): VbenFormSchema[] {
       component: 'RadioGroup',
       componentProps: {
         buttonStyle: 'solid',
-        options: getUserTypeOptions(),
-        isButton: true,
-      },
-      defaultValue: 1,
-      fieldName: 'user_type',
-      label: $t('user.userType'),
-    },
-    {
-      component: 'RadioGroup',
-      componentProps: {
-        buttonStyle: 'solid',
         options: getStatusOptions(),
         isButton: true,
       },
@@ -212,13 +190,6 @@ export function useZqTableColumns(): Column[] {
       dataKey: 'mobile',
       title: $t('user.mobile'),
       width: 130,
-    },
-    {
-      key: 'user_type',
-      title: $t('user.userType'),
-      width: 100,
-      align: 'center' as const,
-      slots: { default: 'cell-user_type' },
     },
     {
       key: 'dept_name',

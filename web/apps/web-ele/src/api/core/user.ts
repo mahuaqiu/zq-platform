@@ -13,7 +13,6 @@ export interface User {
   avatar?: string; // UUID string
   name?: string;
   gender?: number;
-  user_type?: number;
   user_status?: number;
   birthday?: string;
   city?: string;
@@ -21,9 +20,10 @@ export interface User {
   bio?: string;
   dept_id?: string; // UUID string
   dept_name?: string;
+  role_id?: string; // UUID string
+  role_name?: string;
   manager_id?: string; // UUID string
   manager_name?: string;
-  user_type_display?: string;
   user_status_display?: string;
   gender_display?: string;
   role_names?: string[];
@@ -40,7 +40,6 @@ export interface UserCreateInput {
   avatar?: string;
   name?: string;
   gender?: number;
-  user_type?: number;
   user_status?: number;
   birthday?: string;
   city?: string;
@@ -92,7 +91,6 @@ export interface UserListParams {
   name?: string;
   username?: string;
   user_status?: number;
-  user_type?: number;
   dept_ids?: string[];
   mobile?: string;
   email?: string;

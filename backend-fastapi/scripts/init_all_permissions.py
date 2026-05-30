@@ -250,7 +250,7 @@ async def clear_and_init_permissions():
         # 5. 为管理员角色分配所有权限
         print("\n[5] 分配权限给管理员角色...")
         result = await session.execute(
-            text("SELECT id, name, code FROM core_role WHERE code = 'admin' OR code = 'super_admin' OR role_type = 0 LIMIT 1")
+            text("SELECT id, name, code FROM core_role WHERE code = 'admin' OR code = 'super_admin' LIMIT 1")
         )
         admin_row = result.fetchone()
 

@@ -46,10 +46,6 @@
     "bio": "Bio",
     "bioPlaceholder": "Please enter bio",
     "manager": "Manager",
-    "selectManager": "Please select manager",
-    "userType": "User Type",
-    "systemUser": "System User",
-    "normalUser": "Normal User",
-    "externalUser": "External User"
+    "selectManager": "Please select manager"
   }
 }

@@ -280,7 +280,6 @@ class BaseOAuthService(ABC):
                 'bio': bio,
                 user_id_field: provider_id,
                 'oauth_provider': cls.PROVIDER_NAME,
-                'user_type': 1,  # 普通用户
                 'user_status': 1,  # 正常状态
                 'is_active': True,
                 'is_superuser': is_superadmin,

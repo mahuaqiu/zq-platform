@@ -51,7 +51,6 @@ class LoginUserInfo(BaseModel):
     avatar: Optional[str] = None
     is_superuser: bool = False
     dept_id: Optional[str] = None
-    user_type: int = 1
     user_status: int = 1
 
 
