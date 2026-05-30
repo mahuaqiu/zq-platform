@@ -22,24 +22,24 @@ from app.database import Base
 role_menu = Table(
     'core_role_menu',
     Base.metadata,
-    Column('role_id', String(21), ForeignKey('core_role.id', ondelete='CASCADE'), primary_key=True),
-    Column('menu_id', String(21), ForeignKey('core_menu.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', String(50), ForeignKey('core_role.id', ondelete='CASCADE'), primary_key=True),
+    Column('menu_id', String(50), ForeignKey('core_menu.id', ondelete='CASCADE'), primary_key=True),
 )
 
 # 角色-权限关联表
 role_permission = Table(
     'core_role_permission',
     Base.metadata,
-    Column('role_id', String(21), ForeignKey('core_role.id', ondelete='CASCADE'), primary_key=True),
-    Column('permission_id', String(21), ForeignKey('core_permission.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', String(50), ForeignKey('core_role.id', ondelete='CASCADE'), primary_key=True),
+    Column('permission_id', String(50), ForeignKey('core_permission.id', ondelete='CASCADE'), primary_key=True),
 )
 
 # 角色-部门关联表
 role_dept = Table(
     'core_role_dept',
     Base.metadata,
-    Column('role_id', String(21), ForeignKey('core_role.id', ondelete='CASCADE'), primary_key=True),
-    Column('dept_id', String(21), ForeignKey('core_dept.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', String(50), ForeignKey('core_role.id', ondelete='CASCADE'), primary_key=True),
+    Column('dept_id', String(50), ForeignKey('core_dept.id', ondelete='CASCADE'), primary_key=True),
 )
 
 
