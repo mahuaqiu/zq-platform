@@ -4,6 +4,9 @@ import { ElMessage } from 'element-plus';
 
 import type { WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
 import { buildWebSocketUrl } from '../utils';
+import { detectFrameType, FrameType } from '../utils/stream';
+import { useH264Decoder } from './useH264Decoder';
+import { useMJPEGRenderer } from './useMJPEGRenderer';
 
 const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 2000; // 2秒
@@ -24,6 +27,30 @@ export function useWebSocket() {
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
   let idleTimer: ReturnType<typeof setInterval> | null = null;
   let lastActivityTime = Date.now();
+
+  // 当前帧类型
+  let currentFrameType = FrameType.JPEG;
+
+  // H.264 解码器
+  const h264Decoder = useH264Decoder({
+    width: 1920,
+    height: 1080,
+    onReady: () => console.log('H264 decoder ready'),
+    onError: (e) => console.error('H264 error:', e),
+  });
+
+  // MJPEG 渲染器
+  const mjpegRenderer = useMJPEGRenderer();
+
+  // Canvas ref 用于渲染
+  const canvasRef = ref<HTMLCanvasElement | null>(null);
+
+  // 初始化渲染器
+  function initRenderers(canvas: HTMLCanvasElement) {
+    canvasRef.value = canvas;
+    mjpegRenderer.init(canvas);
+    h264Decoder.canvasRef.value = canvas;
+  }
 
   // 保存连接参数用于重连
   let savedHost = '';
@@ -103,27 +130,48 @@ export function useWebSocket() {
     };
 
     ws.onmessage = (event) => {
-      // event.data 是 ArrayBuffer，JPEG 原始数据
+      // event.data 是 ArrayBuffer
       const arrayBuffer = event.data as ArrayBuffer;
-      const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
-      const url = URL.createObjectURL(blob);
 
-      // 释放之前的 URL
-      if (screenshotBase64.value && screenshotBase64.value.startsWith('blob:')) {
-        URL.revokeObjectURL(screenshotBase64.value);
+      // 检测帧类型
+      const frameType = detectFrameType(arrayBuffer);
+      currentFrameType = frameType;
+
+      switch (frameType) {
+        case FrameType.H264:
+          // H.264: 发送到解码器
+          h264Decoder.appendFrame(arrayBuffer);
+          break;
+
+        case FrameType.MJPEG:
+          // MJPEG: 渲染到 canvas
+          mjpegRenderer.render(arrayBuffer);
+          break;
+
+        case FrameType.JPEG:
+        default:
+          // JPEG: 使用 Blob URL
+          const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+          const url = URL.createObjectURL(blob);
+
+          // 释放之前的 URL
+          if (screenshotBase64.value && screenshotBase64.value.startsWith('blob:')) {
+            URL.revokeObjectURL(screenshotBase64.value);
+          }
+
+          screenshotBase64.value = url;
+
+          // 解析图片尺寸
+          const img = new Image();
+          img.onload = () => {
+            screenSize.value = { width: img.width, height: img.height };
+          };
+          img.src = url;
+          break;
       }
-
-      screenshotBase64.value = url;
 
       // 更新帧率计数
       fpsFrameCount++;
-
-      // 解析图片尺寸
-      const img = new Image();
-      img.onload = () => {
-        screenSize.value = { width: img.width, height: img.height };
-      };
-      img.src = url;
     };
 
     ws.onclose = (event) => {
@@ -220,5 +268,7 @@ export function useWebSocket() {
     disconnect,
     reconnect,
     resetActivityTime,
+    initRenderers,
+    h264Decoder,
   };
 }
