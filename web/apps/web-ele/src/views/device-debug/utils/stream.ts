@@ -27,9 +27,17 @@ export function detectFrameType(data: ArrayBuffer): FrameType {
   // 检测 JPEG/MJPEG 魔数: FFD8
   const magic = view.getUint16(0);
   if (magic === 0xFFD8) {
-    // 检测是否为 MJPEG (多个 FFD8 连在一起)
-    if (data.byteLength >= 6 && view.getUint8(2) === 0xFF) {
-      return FrameType.MJPEG;
+    // 检测是否为 MJPEG：需要检测到多个连续的 FFD8
+    // JPEG: FFD8 FF... (只有一个 FFD8)
+    // MJPEG: FFD8 FF... FFD8 FF... (多个 FFD8)
+    let jpegCount = 0;
+    for (let i = 0; i < data.byteLength - 1; i += 2) {
+      if (view.getUint16(i) === 0xFFD8) {
+        jpegCount++;
+        if (jpegCount >= 2) {
+          return FrameType.MJPEG;
+        }
+      }
     }
     return FrameType.JPEG;
   }

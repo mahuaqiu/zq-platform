@@ -58,6 +58,7 @@ export function useWebSocket() {
   let savedUdid = '';
   let savedDeviceType = '';
   let savedScreenIndex: number | undefined = undefined;
+  let savedCodec = 'jpeg';
 
   /**
    * 重置活动时间（用户操作时调用）
@@ -97,13 +98,16 @@ export function useWebSocket() {
   /**
    * 连接 WebSocket
    */
-  function connect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number): void {
+  function connect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number, codec: string = 'jpeg'): void {
     // 保存参数用于重连
     savedHost = host;
     savedPort = port;
     savedUdid = udid;
     savedDeviceType = deviceType;
     savedScreenIndex = screenIndex;
+    savedCodec = codec;
+
+    console.log(`[WebSocket] Connecting to ${host}:${port}, deviceType=${deviceType}, codec=${codec}`);
 
     // 关闭旧连接（使用 code=1000 表示正常关闭，不触发自动重连）
     if (ws) {
@@ -116,7 +120,7 @@ export function useWebSocket() {
     errorMessage.value = '';
     closeInfo.value = null;
 
-    const url = buildWebSocketUrl(host, port, udid, deviceType, screenIndex);
+    const url = buildWebSocketUrl(host, port, udid, deviceType, screenIndex, codec);
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
@@ -132,10 +136,14 @@ export function useWebSocket() {
     ws.onmessage = (event) => {
       // event.data 是 ArrayBuffer
       const arrayBuffer = event.data as ArrayBuffer;
+      const dataSize = arrayBuffer.byteLength;
 
       // 检测帧类型
       const frameType = detectFrameType(arrayBuffer);
       currentFrameType = frameType;
+
+      // 关键日志：帧类型和大小
+      console.log(`[WebSocket] Received frame: type=${frameType}, size=${dataSize}bytes`);
 
       switch (frameType) {
         case FrameType.H264:
@@ -180,12 +188,15 @@ export function useWebSocket() {
       status.value = 'disconnected';
       closeInfo.value = { code: event.code, reason: event.reason };
 
+      console.log(`[WebSocket] Connection closed: code=${event.code}, reason=${event.reason}, retryCount=${retryCount}`);
+
       // 非正常关闭时尝试重连
       if (event.code !== 1000 && retryCount < MAX_RETRIES) {
         retryCount++;
         setTimeout(() => {
           if (retryCount <= MAX_RETRIES) {
-            connect(savedHost, savedPort, savedUdid, savedDeviceType, savedScreenIndex);
+            console.log(`[WebSocket] Attempting reconnect #${retryCount} with codec=${savedCodec}`);
+            connect(savedHost, savedPort, savedUdid, savedDeviceType, savedScreenIndex, savedCodec);
           }
         }, RETRY_INTERVAL);
       } else if (event.code !== 1000 && retryCount >= MAX_RETRIES) {
@@ -194,9 +205,10 @@ export function useWebSocket() {
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (event) => {
       status.value = 'error';
       errorMessage.value = 'WebSocket 连接失败';
+      console.error(`[WebSocket] Error:`, event);
     };
   }
 
@@ -217,9 +229,10 @@ export function useWebSocket() {
   /**
    * 重新连接
    */
-  function reconnect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number): void {
+  function reconnect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number, codec: string = 'jpeg'): void {
+    console.log(`[WebSocket] Reconnecting with codec=${codec}`);
     retryCount = 0;
-    connect(host, port, udid, deviceType, screenIndex);
+    connect(host, port, udid, deviceType, screenIndex, codec);
   }
 
   /**

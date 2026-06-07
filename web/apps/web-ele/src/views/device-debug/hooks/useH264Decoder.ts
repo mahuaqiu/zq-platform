@@ -8,119 +8,66 @@ export interface H264DecoderOptions {
 }
 
 export function useH264Decoder(options: H264DecoderOptions) {
-  const videoRef = ref<HTMLVideoElement | null>(null);
-  const mediaSource = ref<MediaSource | null>(null);
-  const sourceBuffer = ref<SourceBuffer | null>(null);
-  const isReady = ref(false);
-  const isMSE = ref(false); // 是否使用 MSE
-
-  // WASM 解码器 fallback
-  const wasmDecoder = ref<any>(null);
   const canvasRef = ref<HTMLCanvasElement | null>(null);
+  const isReady = ref(false);
 
-  const initMSE = (sps: Uint8Array, pps: Uint8Array) => {
-    if (!MediaSource.isTypeSupported(`video/mp4; codecs="avc1.42001e, mp4a.40.2"`)) {
-      // MSE 不支持，fallback 到 WASM
-      console.log('MSE not supported, falling back to WASM');
-      initWASM();
-      return;
-    }
+  // WASM 解码器 (Broadway/h264bsd)
+  const decoder = ref<any>(null);
 
+  const initDecoder = async () => {
     try {
-      mediaSource.value = new MediaSource();
-      if (videoRef.value) {
-        videoRef.value.src = URL.createObjectURL(mediaSource.value);
-      }
+      console.log('[H264Decoder] Initializing WASM decoder...');
 
-      mediaSource.value.addEventListener('sourceopen', () => {
-        try {
-          sourceBuffer.value = mediaSource.value!.addSourceBuffer(
-            `video/mp4; codecs="avc1.42001e, mp4a.40.2"`
-          );
-          isReady.value = true;
-          isMSE.value = true;
-          options.onReady?.();
-        } catch (e) {
-          console.error('MSE init error:', e);
-          initWASM();
-        }
+      // 动态加载 Broadway WASM 解码器
+      // 注意：需要安装 broadway_decoder 或使用其他 H.264 WASM 解码器
+      // 这里使用占位符，实际需要 npm install broadway_decoder
+      const Broadway = await import('broadway_decoder');
+
+      decoder.value = new Broadway.Decoder({
+        canvas: canvasRef.value!,
+        output: 'rgb',
       });
-    } catch (e) {
-      console.error('MSE init error:', e);
-      initWASM();
-    }
-  };
 
-  const initWASM = async () => {
-    try {
-      // 动态加载 WASM 解码器
-      // 注意：需要安装 h264wasm-decoder 或 jsmpeg
-      // 这里使用占位符，实际需要 npm install h264wasm-decoder
-      console.log('WASM decoder not implemented yet, using fallback to JPEG');
-
-      // 降级到 JPEG 模式
+      await decoder.value.ready;
       isReady.value = true;
-      isMSE.value = false;
+
+      console.log('[H264Decoder] ✅ Broadway WASM decoder ready');
       options.onReady?.();
     } catch (e) {
-      console.error('WASM decoder init error:', e);
+      console.error('[H264Decoder] ❌ WASM decoder init failed:', e);
       options.onError?.(e as Error);
     }
   };
 
   const appendFrame = (data: ArrayBuffer) => {
-    if (!isReady.value) return;
-
-    if (isMSE.value && sourceBuffer.value) {
-      // MSE 模式：直接将数据写入 SourceBuffer
-      // 注意：需要将 H.264 数据转换为 MP4 片段格式
-      if (!sourceBuffer.value.updating && data.byteLength > 0) {
-        try {
-          sourceBuffer.value.appendBuffer(data);
-        } catch (e) {
-          console.error('MSE append error:', e);
-        }
-      }
-    } else if (wasmDecoder.value) {
-      // WASM 模式：解码并渲染到 canvas
-      try {
-        const frame = wasmDecoder.value.decode(data);
-        if (frame && canvasRef.value) {
-          const ctx = canvasRef.value.getContext('2d');
-          ctx?.drawImage(frame, 0, 0);
-        }
-      } catch (e) {
-        console.error('WASM decode error:', e);
-      }
+    if (!isReady.value || !decoder.value) {
+      // 解码器未就绪，忽略帧
+      return;
     }
-    // 如果都没初始化，忽略帧数据
+
+    try {
+      // 解码 H.264 NAL 单元并渲染到 canvas
+      decoder.value.decode(new Uint8Array(data));
+    } catch (e) {
+      console.error('[H264Decoder] ❌ Decode error:', e);
+    }
   };
 
   const dispose = () => {
-    try {
-      mediaSource.value?.endOfStream();
-    } catch (e) {
-      // ignore
+    if (decoder.value?.delete) {
+      decoder.value.delete();
     }
-    mediaSource.value = null;
-    sourceBuffer.value = null;
-    if (wasmDecoder.value?.delete) {
-      wasmDecoder.value.delete();
-    }
-    wasmDecoder.value = null;
+    decoder.value = null;
     isReady.value = false;
-    isMSE.value = false;
+    console.log('[H264Decoder] Decoder disposed');
   };
 
   onUnmounted(dispose);
 
   return {
-    videoRef,
     canvasRef,
     isReady,
-    isMSE,
-    initMSE,
-    initWASM,
+    initDecoder,
     appendFrame,
     dispose,
   };

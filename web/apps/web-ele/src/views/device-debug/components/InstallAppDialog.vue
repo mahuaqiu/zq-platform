@@ -5,7 +5,7 @@ import { ElDialog, ElButton, ElMessage, ElProgress } from 'element-plus';
 
 interface Props {
   visible: boolean;
-  deviceType: string;
+  deviceType?: string;
 }
 
 interface Emits {
@@ -36,7 +36,7 @@ const allowedExtensions = computed(() => {
     case 'mac':
       return '.dmg, .pkg';
     default:
-      return '';
+      return '.apk,.ipa,.exe,.dmg,.pkg';
   }
 });
 

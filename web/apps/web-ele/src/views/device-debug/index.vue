@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElAlert } from 'element-plus';
 import { useTabs } from '@vben/hooks';
 
 import { getEnvMachineDetailApi } from '#/api/core/env-machine';
@@ -31,6 +31,9 @@ const loading = ref(true);
 
 // 导航栏固定状态
 const navbarFixed = ref(false);
+
+// 当前使用的编码格式（默认 H264，失败后降级）
+const currentCodec = ref('h264');
 
 // WebSocket
 const {
@@ -185,7 +188,7 @@ async function loadDeviceDetail() {
     const deviceType = result.device_type;
 
     if (workerHost && workerPort && deviceType) {
-      connect(workerHost, workerPort, udid || '', deviceType, currentScreenIndex.value);
+      connect(workerHost, workerPort, udid || '', deviceType, currentScreenIndex.value, currentCodec.value);
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
     }
@@ -214,7 +217,7 @@ function handleReconnect() {
     const workerPort = parseInt(deviceDetail.value.port, 10);
     const udid = deviceDetail.value.device_sn || '';
     const deviceType = deviceDetail.value.device_type;
-    reconnect(workerHost, workerPort, udid, deviceType, currentScreenIndex.value);
+    reconnect(workerHost, workerPort, udid, deviceType, currentScreenIndex.value, currentCodec.value);
   }
 }
 
@@ -228,7 +231,8 @@ function handleScreenChange(screenIndex: number) {
       parseInt(deviceDetail.value.port, 10),
       deviceDetail.value.device_sn || '',
       deviceDetail.value.device_type,
-      screenIndex
+      screenIndex,
+      currentCodec.value
     );
   }
 }

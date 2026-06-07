@@ -190,16 +190,17 @@ export function buildWebSocketUrl(
   port: number,
   udid: string,
   deviceType: string,
-  screenIndex?: number
+  screenIndex?: number,
+  codec: string = 'jpeg'
 ): string {
   const platform = deviceType.toLowerCase();
 
-  // 桌面端传递 monitor 参数（mss索引：1=主屏，2=副屏）
+  // 桌面端传递 monitor 参数和 codec
   if (platform === 'windows' || platform === 'mac') {
     const monitor = screenIndex !== undefined ? screenIndex + 1 : 1;
-    return `ws://${host}:${port}/ws/screen/${platform}/${platform}_screen?monitor=${monitor}`;
+    return `ws://${host}:${port}/ws/screen/${platform}/${platform}_screen?monitor=${monitor}&codec=${codec}`;
   }
 
-  // 移动端使用 UDID
-  return `ws://${host}:${port}/ws/screen/${platform}/${udid}`;
+  // 移动端使用 UDID 和 codec
+  return `ws://${host}:${port}/ws/screen/${platform}/${udid}?codec=${codec}`;
 }
