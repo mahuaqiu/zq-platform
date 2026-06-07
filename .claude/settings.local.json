@@ -193,7 +193,9 @@
       "Bash(New-Item -ItemType Directory -Force -Path \"D:\\\\code\\\\zq-platform\\\\docs\\\\superpowers\\\\specs\")",
       "Bash(Out-Null)",
       "Bash(Select-Object -First 20)",
-      "PowerShell(docker restart zq-platform-backend-1 *)"
+      "PowerShell(docker restart zq-platform-backend-1 *)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" pnpm check:type)",
+      "Bash(cargo build *)"
     ]
   }
 }
