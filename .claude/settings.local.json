@@ -199,7 +199,17 @@
       "Bash(npm search *)",
       "Bash(npm view *)",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")",
-      "Bash(CLAUDE_CODE_TMPDIR=/tmp/zq-review mkdir -p /tmp/zq-review)"
+      "Bash(CLAUDE_CODE_TMPDIR=/tmp/zq-review mkdir -p /tmp/zq-review)",
+      "Bash(cargo doc *)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c ' *)",
+      "Read(//mnt/c/Program Files/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(cargo check *)",
+      "Bash(python3 -m py_compile worker/screen/manager.py)",
+      "Bash(python3 *)"
     ]
   }
 }
