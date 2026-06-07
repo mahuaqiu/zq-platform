@@ -18,11 +18,6 @@ const FRAME_TYPE_P = 0x03;
 // NAL 单元类型
 const NAL_TYPE_SPS = 7;
 const NAL_TYPE_PPS = 8;
-const NAL_TYPE_IDR = 5;
-
-// Annex-B 起始码
-const START_CODE_3 = [0x00, 0x00, 0x01];
-const START_CODE_4 = [0x00, 0x00, 0x00, 0x01];
 
 export interface WebCodecsDecoderOptions {
   width: number;
@@ -39,9 +34,8 @@ export function useWebCodecsDecoder(options: WebCodecsDecoderOptions) {
   let decoder: VideoDecoder | null = null;
   let spsData: Uint8Array | null = null;
   let ppsData: Uint8Array | null = null;
-  let configWidth = 0;
-  let configHeight = 0;
   let fallbackTriggered = false;
+  let pendingKeyFrame: Uint8Array | null = null;
 
   /**
    * 检测浏览器是否支持 WebCodecs VideoDecoder
@@ -56,28 +50,31 @@ export function useWebCodecsDecoder(options: WebCodecsDecoderOptions) {
    */
   function extractNalUnits(data: Uint8Array): Uint8Array[] {
     const nalUnits: Uint8Array[] = [];
-    const starts: number[] = [];
+    let startIdx: number | null = null;
 
-    // 找出所有起始码位置
     for (let i = 0; i < data.length - 3; i++) {
-      // 检测 4 字节起始码
-      if (data[i] === 0x00 && data[i + 1] === 0x00 && data[i + 2] === 0x00 && data[i + 3] === 0x01) {
-        starts.push(i + 4); // NAL 单元数据起始位置
-        i += 3; // 跳过起始码
+      // 检测 4 字节起始码 0x00 0x00 0x00 0x01
+      if (i + 4 <= data.length &&
+          data[i] === 0x00 && data[i + 1] === 0x00 && data[i + 2] === 0x00 && data[i + 3] === 0x01) {
+        if (startIdx !== null) {
+          nalUnits.push(data.slice(startIdx, i));
+        }
+        startIdx = i + 4; // 跳过 4 字节起始码
+        i += 3;
       }
-      // 检测 3 字节起始码
+      // 检测 3 字节起始码 0x00 0x00 0x01
       else if (data[i] === 0x00 && data[i + 1] === 0x00 && data[i + 2] === 0x01) {
-        starts.push(i + 3); // NAL 单元数据起始位置
-        i += 2; // 跳过起始码
+        if (startIdx !== null) {
+          nalUnits.push(data.slice(startIdx, i));
+        }
+        startIdx = i + 3; // 跳过 3 字节起始码
+        i += 2;
       }
     }
 
-    // 根据 NAL 单元起始位置切片
-    for (let i = 0; i < starts.length; i++) {
-      const start = starts[i];
-      // 下一个起始码之前的位置就是当前 NAL 单元的结束位置
-      const end = i + 1 < starts.length ? starts[i + 1] - (data[starts[i + 1] - 4] === 0x00 ? 4 : 3) : data.length;
-      nalUnits.push(data.slice(start, end));
+    // 添加最后一个 NAL 单元
+    if (startIdx !== null && startIdx < data.length) {
+      nalUnits.push(data.slice(startIdx));
     }
 
     return nalUnits;
@@ -190,8 +187,8 @@ export function useWebCodecsDecoder(options: WebCodecsDecoderOptions) {
 
     const codec = buildCodecString(spsData);
     const description = buildDescription(spsData, ppsData);
-    const width = configWidth || options.width;
-    const height = configHeight || options.height;
+    const width = options.width;
+    const height = options.height;
 
     const config: VideoDecoderConfig = {
       codec,
@@ -293,13 +290,16 @@ export function useWebCodecsDecoder(options: WebCodecsDecoderOptions) {
       case FRAME_TYPE_IDR: {
         // IDR 关键帧
         if (!decoder || decoder.state === 'closed') {
-          // 解码器未初始化，尝试初始化
+          // 解码器未初始化，缓存当前 IDR 帧，初始化后入队
           if (spsData && ppsData) {
+            pendingKeyFrame = payload;
             initDecoder().then(() => {
-              if (decoder && decoder.state === 'configured') {
-                enqueueFrame(payload, 'key');
+              if (pendingKeyFrame && decoder && decoder.state === 'configured') {
+                enqueueFrame(pendingKeyFrame, 'key');
+                pendingKeyFrame = null;
               }
             }).catch(() => {
+              pendingKeyFrame = null;
               triggerFallback();
             });
           }
@@ -378,9 +378,7 @@ export function useWebCodecsDecoder(options: WebCodecsDecoderOptions) {
   function dispose(): void {
     if (decoder) {
       try {
-        if (decoder.state === 'configured') {
-          decoder.flush();
-        }
+        // close() 会自动清理队列，不需要先 flush()
         decoder.close();
       } catch {
         // 忽略关闭时的错误
