@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus';
 import type { WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
 import { buildWebSocketUrl } from '../utils';
 import { detectFrameType, FrameType } from '../utils/stream';
-import { useH264Decoder } from './useH264Decoder';
+import { useWebCodecsDecoder } from './useWebCodecsDecoder';
 import { useMJPEGRenderer } from './useMJPEGRenderer';
 
 const MAX_RETRIES = 3;
@@ -31,12 +31,17 @@ export function useWebSocket() {
   // 当前帧类型
   let currentFrameType = FrameType.JPEG;
 
-  // H.264 解码器
-  const h264Decoder = useH264Decoder({
+  // H.264 解码器 (WebCodecs)
+  const h264Decoder = useWebCodecsDecoder({
     width: 1920,
     height: 1080,
-    onReady: () => console.log('H264 decoder ready'),
-    onError: (e) => console.error('H264 error:', e),
+    onReady: () => console.log('[WebSocket] H264 decoder ready (WebCodecs)'),
+    onError: (e) => console.error('[WebSocket] H264 decode error:', e),
+    onFallback: () => {
+      console.warn('[WebSocket] H264 failed, falling back to JPEG');
+      // 重新连接使用 JPEG 模式
+      reconnect(savedHost, savedPort, savedUdid, savedDeviceType, savedScreenIndex, 'jpeg');
+    },
   });
 
   // MJPEG 渲染器
@@ -148,7 +153,7 @@ export function useWebSocket() {
       switch (frameType) {
         case FrameType.H264:
           // H.264: 发送到解码器
-          h264Decoder.appendFrame(arrayBuffer);
+          h264Decoder.decodeFrame(arrayBuffer);
           break;
 
         case FrameType.MJPEG:
