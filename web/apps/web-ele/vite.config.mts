@@ -17,17 +17,17 @@ export default defineConfig(async () => {
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/basic-api/, ''),
             // 后端API代理目标地址
-            target: 'http://192.168.0.102:8000',
+            target: 'http://192.168.0.100:8000',
             ws: true,
           },
           '/ws': {
             changeOrigin: true,
-            target: 'ws://192.168.0.102:8000',
+            target: 'ws://192.168.0.100:8000',
             ws: true,
           },
           '/test-reports-html': {
             changeOrigin: true,
-            target: 'http://192.168.0.102:8000',
+            target: 'http://192.168.0.100:8000',
           },
         },
       },
