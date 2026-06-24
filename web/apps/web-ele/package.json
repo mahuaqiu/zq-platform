@@ -91,6 +91,7 @@
     "grid-layout-plus": "^1.1.1",
     "gsap": "^3.14.2",
     "html2canvas": "^1.4.1",
+    "jmuxer": "^2.1.0",
     "jspdf": "^3.0.4",
     "marked": "^17.0.1",
     "monaco-editor": "^0.55.1",
@@ -105,6 +106,7 @@
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
+    "@types/jmuxer": "^2.0.7",
     "@types/qrcode": "^1.5.5",
     "@types/uuid": "^11.0.0",
     "@vitejs/plugin-basic-ssl": "^2.1.0",

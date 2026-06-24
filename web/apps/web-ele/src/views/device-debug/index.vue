@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, useTemplateRef, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ElMessage, ElAlert } from 'element-plus';
@@ -41,11 +41,32 @@ const {
   screenshotBase64,
   screenSize,
   fps,
+  videoMode,
   connect,
   disconnect,
   reconnect,
   resetActivityTime,
+  attachVideoEl,
 } = useWebSocket();
+
+// ScreenDisplay 组件实例引用：用于取出内部暴露的 <video> 元素并绑定给 MSE 解码器。
+// 桌面端和移动端各用一个 ScreenDisplay，通过 useTemplateRef 按顺序绑定。
+const desktopScreenRef = useTemplateRef<InstanceType<typeof ScreenDisplay>>('desktopScreen');
+const mobileScreenRef = useTemplateRef<InstanceType<typeof ScreenDisplay>>('mobileScreen');
+
+// 监听 videoMode 变化，在进入 H264 模式时把对应 ScreenDisplay 的 <video> 绑定给解码器。
+// 实际依赖父组件重渲染后 ref 已就绪，故用 nextTick + watchEffect。
+// 这里采用简单做法：connect 后由 ScreenDisplay 渲染 <video>，在其 ref 就绪后绑定。
+watch(
+  videoMode,
+  async (_mode) => {
+    await nextTick();
+    const targetRef = desktopScreenRef.value || mobileScreenRef.value;
+    const el = targetRef?.videoRef ?? null;
+    attachVideoEl(el);
+  },
+  { immediate: true }
+);
 
 // 屏幕交互
 const {
@@ -298,11 +319,15 @@ async function handleScreenContextMenu(event: MouseEvent) {
 
   // Windows/Mac 透传右键点击到设备
   if (isDesktop.value) {
-    const img = event.target as HTMLImageElement;
-    const rect = img.getBoundingClientRect();
+    const media = event.target as HTMLImageElement | HTMLVideoElement;
+    const rect = media.getBoundingClientRect();
 
-    // 防止图片尚未加载完成
-    if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+    // 获取媒体源尺寸：img 用 naturalWidth，video 用 videoWidth
+    const sourceW = 'naturalWidth' in media ? media.naturalWidth : media.videoWidth;
+    const sourceH = 'naturalHeight' in media ? media.naturalHeight : media.videoHeight;
+
+    // 防止媒体尚未加载完成
+    if (sourceW === 0 || sourceH === 0) {
       return;
     }
 
@@ -314,8 +339,8 @@ async function handleScreenContextMenu(event: MouseEvent) {
     const renderInfo = calculateContainRenderArea(
       rect.width,
       rect.height,
-      img.naturalWidth,
-      img.naturalHeight,
+      sourceW,
+      sourceH,
       mouseX,
       mouseY
     );
@@ -331,8 +356,8 @@ async function handleScreenContextMenu(event: MouseEvent) {
       renderInfo.adjustedY,
       renderInfo.renderedWidth,
       renderInfo.renderedHeight,
-      screenSize.value.width || img.naturalWidth,
-      screenSize.value.height || img.naturalHeight
+      screenSize.value.width || sourceW,
+      screenSize.value.height || sourceH
     );
 
     // 发送右键点击（桌面端传递 monitor 参数）
@@ -450,6 +475,7 @@ onUnmounted(() => {
       <!-- 桌面端布局：单屏幕展示 -->
       <template v-if="isDesktop">
         <ScreenDisplay
+          ref="desktopScreen"
           :screenshot-url="screenshotBase64"
           :screen-size="screenSize"
           :ws-status="wsStatus"
@@ -459,6 +485,7 @@ onUnmounted(() => {
           :is-dragging="isDragging"
           :drag-start="dragStart"
           :drag-end="dragEnd"
+          :video-mode="videoMode"
           @mousedown="handleScreenMouseDown"
           @mousemove="handleScreenMouseMove"
           @mouseup="handleScreenMouseUp"
@@ -472,6 +499,7 @@ onUnmounted(() => {
         <div class="mobile-layout">
           <div class="mobile-screen">
             <ScreenDisplay
+              ref="mobileScreen"
               :screenshot-url="screenshotBase64"
               :screen-size="screenSize"
               :ws-status="wsStatus"
@@ -481,6 +509,7 @@ onUnmounted(() => {
               :is-dragging="isDragging"
               :drag-start="dragStart"
               :drag-end="dragEnd"
+              :video-mode="videoMode"
               @mousedown="handleScreenMouseDown"
               @mousemove="handleScreenMouseMove"
               @mouseup="handleScreenMouseUp"

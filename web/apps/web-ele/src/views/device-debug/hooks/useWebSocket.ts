@@ -1,11 +1,11 @@
-import { onUnmounted, ref } from 'vue';
+import { onUnmounted, ref, shallowRef } from 'vue';
 
 import { ElMessage } from 'element-plus';
 
 import type { WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
 import { buildWebSocketUrl } from '../utils';
 import { detectFrameType, FrameType } from '../utils/stream';
-import { useWebCodecsDecoder } from './useWebCodecsDecoder';
+import { useMseDecoder } from './useMseDecoder';
 import { useMJPEGRenderer } from './useMJPEGRenderer';
 
 const MAX_RETRIES = 3;
@@ -28,34 +28,64 @@ export function useWebSocket() {
   let idleTimer: ReturnType<typeof setInterval> | null = null;
   let lastActivityTime = Date.now();
 
-  // 当前帧类型
-  let currentFrameType = FrameType.JPEG;
+  // H264 视频元素（由 ScreenDisplay 挂载后通过 attachVideoEl 传入）。
+  // MSE/jmuxer 需要绑定 <video> 元素，生命周期归 ScreenDisplay，
+  // 解码逻辑归本 hook，故用 shallowRef 持有引用并在就绪时 init decoder。
+  const videoEl = shallowRef<HTMLVideoElement | null>(null);
 
-  // H.264 解码器 (WebCodecs)
-  const h264Decoder = useWebCodecsDecoder({
-    width: 1920,
-    height: 1080,
-    onReady: () => console.log('[WebSocket] H264 decoder ready (WebCodecs)'),
-    onError: (e) => console.error('[WebSocket] H264 decode error:', e),
+  // 是否处于 H264(MSE) 渲染模式（true 时 ScreenDisplay 渲染 <video>，否则 <img>）
+  const videoMode = ref(false);
+
+  // H.264 解码器 (MSE + jmuxer)。
+  // 替代原 WebCodecs 方案：WebCodecs VideoDecoder 是 Secure Context-only API，
+  // HTTP 内网（非 localhost）下不可用；MSE 无此限制。
+  const mseDecoder = useMseDecoder({
+    videoEl,
+    fps: 10,
+    onReady: () => console.log('[WebSocket] H264 decoder ready (MSE/jmuxer)'),
+    onError: (e) => console.error('[WebSocket] H264 MSE error:', e),
     onFallback: () => {
-      console.warn('[WebSocket] H264 failed, falling back to JPEG');
-      // 重新连接使用 JPEG 模式
+      console.warn('[WebSocket] H264 MSE failed, falling back to JPEG');
+      // 退出 video 模式，重新连接使用 JPEG
+      videoMode.value = false;
       reconnect(savedHost, savedPort, savedUdid, savedDeviceType, savedScreenIndex, 'jpeg');
     },
   });
 
+  // 由 ScreenDisplay 在 <video> 挂载后调用，绑定元素并初始化 MSE 解码器
+  // 保存当前绑定的 video 元素和监听器，用于 disconnect 时清理
+  let currentVideoEl: HTMLVideoElement | null = null;
+  let loadedMetaHandler: (() => void) | null = null;
+
+  function attachVideoEl(el: HTMLVideoElement | null): void {
+    // 先清理之前的监听器
+    if (currentVideoEl && loadedMetaHandler) {
+      currentVideoEl.removeEventListener('loadedmetadata', loadedMetaHandler);
+      currentVideoEl = null;
+      loadedMetaHandler = null;
+    }
+
+    videoEl.value = el;
+    if (!el) return;
+
+    // H264 模式下没有 JPEG，无法通过 Image 获取 screenSize。
+    // 从 video 的 loadedmetadata 读取视频源尺寸（jmuxer 从 SPS 解析后写入 video）。
+    const onLoadedMeta = () => {
+      if (el.videoWidth > 0 && el.videoHeight > 0) {
+        screenSize.value = { width: el.videoWidth, height: el.videoHeight };
+      }
+    };
+    el.addEventListener('loadedmetadata', onLoadedMeta);
+    currentVideoEl = el;
+    loadedMetaHandler = onLoadedMeta;
+
+    if (videoMode.value) {
+      mseDecoder.init();
+    }
+  }
+
   // MJPEG 渲染器
   const mjpegRenderer = useMJPEGRenderer();
-
-  // Canvas ref 用于渲染
-  const canvasRef = ref<HTMLCanvasElement | null>(null);
-
-  // 初始化渲染器
-  function initRenderers(canvas: HTMLCanvasElement) {
-    canvasRef.value = canvas;
-    mjpegRenderer.init(canvas);
-    h264Decoder.canvasRef.value = canvas;
-  }
 
   // 保存连接参数用于重连
   let savedHost = '';
@@ -121,6 +151,14 @@ export function useWebSocket() {
       ws = null;
     }
 
+    // 根据 codec 决定渲染模式：H264 → <video>(MSE)，JPEG/MJPEG → <img>
+    const isH264 = codec === 'h264';
+    if (isH264) {
+      // 进入 MSE 模式前先销毁旧的 jmuxer 实例，避免重复初始化
+      mseDecoder.dispose();
+    }
+    videoMode.value = isH264;
+
     status.value = 'connecting';
     errorMessage.value = '';
     closeInfo.value = null;
@@ -136,24 +174,22 @@ export function useWebSocket() {
       fpsLastSecond = Date.now();
       startFpsTimer();
       startIdleTimer(); // 启动超时检测
+
+      // H264 模式：连接建立后初始化 MSE 解码器（此时 video 元素应已通过 attachVideoEl 绑定）
+      if (isH264) {
+        mseDecoder.init();
+      }
     };
 
     ws.onmessage = (event) => {
       // event.data 是 ArrayBuffer
       const arrayBuffer = event.data as ArrayBuffer;
-      const dataSize = arrayBuffer.byteLength;
 
-      // 检测帧类型
-      const frameType = detectFrameType(arrayBuffer);
-      currentFrameType = frameType;
-
-      // 关键日志：帧类型和大小
-      console.log(`[WebSocket] Received frame: type=${frameType}, size=${dataSize}bytes`);
-
-      switch (frameType) {
+      // 检测帧类型（不再每帧打日志，避免控制台对象累积导致内存泄漏）
+      switch (detectFrameType(arrayBuffer)) {
         case FrameType.H264:
-          // H.264: 发送到解码器
-          h264Decoder.decodeFrame(arrayBuffer);
+          // H.264: 喂入 MSE 解码器（jmuxer 自动处理 SPS/PPS/IDR/P）
+          mseDecoder.feedFrame(arrayBuffer);
           break;
 
         case FrameType.MJPEG:
@@ -228,6 +264,18 @@ export function useWebSocket() {
     }
     stopFpsTimer();
     stopIdleTimer();
+    // 释放 MSE 解码器资源
+    mseDecoder.dispose();
+    videoMode.value = false;
+
+    // 清理 video 元素的事件监听器，防止内存泄漏
+    if (currentVideoEl && loadedMetaHandler) {
+      currentVideoEl.removeEventListener('loadedmetadata', loadedMetaHandler);
+      currentVideoEl = null;
+      loadedMetaHandler = null;
+    }
+    videoEl.value = null;
+
     status.value = 'disconnected';
   }
 
@@ -282,11 +330,11 @@ export function useWebSocket() {
     fps,
     closeInfo,
     errorMessage,
+    videoMode,
     connect,
     disconnect,
     reconnect,
     resetActivityTime,
-    initRenderers,
-    h264Decoder,
+    attachVideoEl,
   };
 }

@@ -21,15 +21,42 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
   const dragEnd = ref<{ x: number; y: number } | null>(null);
 
   /**
-   * 获取图片上的坐标（相对于展示区域）
+   * 从事件源元素提取"源内容尺寸"。
+   *
+   * 兼容两种渲染元素：
+   * - <img>：用 naturalWidth/naturalHeight（图片原始尺寸）
+   * - <video>：用 videoWidth/videoHeight（视频源尺寸）
+   *
+   * MSE 方案渲染 <video>，JPEG 方案渲染 <img>，两者都走 object-fit: contain，
+   * 因此坐标换算逻辑完全一致，仅需统一尺寸来源。
+   */
+  function getMediaSourceSize(
+    target: EventTarget | null
+  ): { el: HTMLElement; naturalW: number; naturalH: number } | null {
+    const el = target as HTMLImageElement | HTMLVideoElement | null;
+    if (!el) return null;
+
+    if ('naturalWidth' in el) {
+      // HTMLImageElement
+      return { el, naturalW: el.naturalWidth, naturalH: el.naturalHeight };
+    }
+    // HTMLVideoElement
+    return { el, naturalW: el.videoWidth, naturalH: el.videoHeight };
+  }
+
+  /**
+   * 获取媒体元素上的坐标（相对于展示区域）
    * 考虑 object-fit: contain 的实际渲染区域
    */
   function getDisplayCoords(event: MouseEvent): { x: number; y: number } | null {
-    const img = event.currentTarget as HTMLImageElement;
-    const rect = img.getBoundingClientRect();
+    const info = getMediaSourceSize(event.currentTarget);
+    if (!info) return null;
+    const { el, naturalW, naturalH } = info;
 
-    // 防止图片尚未加载完成
-    if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+    const rect = el.getBoundingClientRect();
+
+    // 防止媒体尚未加载完成
+    if (naturalW === 0 || naturalH === 0) {
       return null;
     }
 
@@ -40,8 +67,8 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
     const renderInfo = calculateContainRenderArea(
       rect.width,
       rect.height,
-      img.naturalWidth,
-      img.naturalHeight,
+      naturalW,
+      naturalH,
       mouseX,
       mouseY
     );
@@ -51,7 +78,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
       return null;
     }
 
-    // 返回相对于实际渲染图片的坐标
+    // 返回相对于实际渲染媒体区域的坐标
     return {
       x: Math.round(renderInfo.adjustedX),
       y: Math.round(renderInfo.adjustedY)
@@ -63,20 +90,23 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
    * 返回 null 表示点击在屏幕之外
    */
   function getDeviceCoords(event: MouseEvent): { x: number; y: number } | null {
+    const info = getMediaSourceSize(event.currentTarget);
+    if (!info) return null;
+    const { el, naturalW, naturalH } = info;
+
     const display = getDisplayCoords(event);
     if (display === null) {
       return null; // 点击在屏幕之外
     }
 
-    const img = event.currentTarget as HTMLImageElement;
-    const rect = img.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
 
     // 计算 object-fit: contain 下的实际渲染尺寸
     const renderInfo = calculateContainRenderArea(
       rect.width,
       rect.height,
-      img.naturalWidth,
-      img.naturalHeight,
+      naturalW,
+      naturalH,
       0, // mouseX 不重要，只需要渲染尺寸
       0
     );

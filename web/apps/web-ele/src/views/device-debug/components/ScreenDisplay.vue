@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { ref } from 'vue';
+
 import type { WebSocketStatus, ScreenSize } from '../types';
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
   isDragging: boolean;
   dragStart: { x: number; y: number } | null;
   dragEnd: { x: number; y: number } | null;
+  /** 渲染模式：H264(MSE) 时为 true，渲染 <video>；JPEG/MJPEG 时为 false，渲染 <img> */
+  videoMode?: boolean;
 }
 
 interface Emits {
@@ -24,8 +28,14 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
+// MSE 方案渲染的 <video> 元素。
+// MSE 解码器（useMseDecoder）需要绑定此元素，由父组件通过 ref 拿到后传入 useWebSocket.attachVideoEl。
+const videoRef = ref<HTMLVideoElement | null>(null);
+
+defineExpose({ videoRef });
+
 function handleMouseDown(event: MouseEvent) {
-  // 阻止图片默认拖拽行为
+  // 阻止图片/视频默认拖拽行为
   event.preventDefault();
   emit('mousedown', event);
 }
@@ -111,8 +121,25 @@ function getIndicatorPercent(coord: number, size: number): string {
         :class="{ 'cursor-crosshair': props.isInScreen }"
         @contextmenu="handleContextMenu"
       >
+        <!-- H264 (MSE) 模式：渲染 <video>，事件绑定与 <img> 完全一致 -->
+        <video
+          v-if="props.videoMode"
+          ref="videoRef"
+          class="screen-img"
+          autoplay
+          muted
+          playsinline
+          @mousedown="handleMouseDown"
+          @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp"
+          @mouseleave="handleMouseLeave"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
+        ></video>
+        <!-- JPEG/MJPEG 模式：渲染 <img> -->
         <img
-          v-if="screenshotUrl"
+          v-else-if="screenshotUrl"
           :src="screenshotUrl"
           class="screen-img"
           draggable="false"
@@ -220,6 +247,8 @@ function getIndicatorPercent(coord: number, size: number): string {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  /* video 默认 display:inline 会留 baseline 间隙，统一改为 block */
+  display: block;
   /* 阻止触摸设备上的默认行为 */
   touch-action: none;
   user-select: none;
