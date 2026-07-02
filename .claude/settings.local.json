@@ -209,7 +209,8 @@
       "Read(//c/Program Files/**)",
       "Bash(cargo check *)",
       "Bash(python3 -m py_compile worker/screen/manager.py)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(git show *)"
     ]
   }
 }
