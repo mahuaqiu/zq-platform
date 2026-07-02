@@ -32,8 +32,13 @@ const loading = ref(true);
 // 导航栏固定状态
 const navbarFixed = ref(false);
 
-// 当前使用的编码格式（默认 H264，失败后降级）
-const currentCodec = ref('h264');
+// 当前使用的编码格式（Windows 走 H264，其它平台走 JPEG；H264 失败后内部自动降级为 JPEG）
+const currentCodec = computed(() => {
+  if (deviceDetail.value?.device_type === 'windows') {
+    return 'h264';
+  }
+  return 'jpeg';
+});
 
 // WebSocket
 const {
