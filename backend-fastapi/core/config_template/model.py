@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 @Author: 臧成龙
@@ -18,8 +18,9 @@ class ConfigTemplate(BaseModel):
 
     字段说明：
     - name: 模板名称（唯一）
-    - type: 模板类型（config/script）
+    - type: 模板类型（config/script/command）
     - script_name: 脚本名称（仅脚本类型）
+    - command: 命令内容（仅command类型）
     - namespace: 适用命名空间（可选，null表示全部）
     - note: 备注说明
     - config_content: YAML 配置内容或脚本内容
@@ -30,11 +31,14 @@ class ConfigTemplate(BaseModel):
     # 模板名称（唯一）
     name = Column(String(64), nullable=False, unique=True, comment="模板名称")
 
-    # 模板类型（config/script）
+    # 模板类型（config/script/command）
     type = Column(String(20), nullable=False, default="config", comment="模板类型")
 
     # 脚本名称（仅脚本类型使用）
     script_name = Column(String(128), nullable=True, comment="脚本名称")
+
+    # 命令内容（仅command类型使用）
+    command = Column(Text, nullable=True, comment="命令内容")
 
     # 适用命名空间（可选）
     namespace = Column(String(64), nullable=True, comment="适用命名空间")

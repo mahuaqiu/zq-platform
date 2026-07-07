@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 @Author: 臧成龙
@@ -75,4 +75,28 @@ async def cleanup_env_machine_log_task(job_code: str = None, days: int = 7, **kw
         return f"清理了 {count} 条执行机申请日志，保留最近 {days} 天"
     except Exception as e:
         logger.error(f"[{job_code}] 执行机日志清理任务执行失败: {str(e)}")
+        raise
+
+
+async def cleanup_command_task_task(job_code: str = None, days: int = 7, **kwargs):
+    """
+    清理命令任务历史记录
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        days: 保留最近N天的数据，默认7天
+        **kwargs: 其他参数
+    """
+    logger.info(f"[{job_code}] 命令任务历史清理任务开始，保留最近 {days} 天数据")
+
+    try:
+        from core.config_template.command_task_service import CommandTaskService
+
+        async with AsyncSessionLocal() as db:
+            count = await CommandTaskService.cleanup_old_tasks(db, days)
+
+        logger.info(f"[{job_code}] 命令任务历史清理任务完成，删除了 {count} 条记录")
+        return f"清理了 {count} 条命令任务历史记录，保留最近 {days} 天"
+    except Exception as e:
+        logger.error(f"[{job_code}] 命令任务历史清理任务执行失败: {str(e)}")
         raise

@@ -1,5 +1,11 @@
 <script lang="ts" setup>
-import type { ConfigTemplate, ConfigPreviewResponse, ConfigPreviewMachine, DeployRequest } from '#/api/core/env-machine-config';
+import type {
+  ConfigTemplate,
+  ConfigPreviewResponse,
+  ConfigPreviewMachine,
+  DeployRequest,
+  MachineSelectionTemplate,
+} from '#/api/core/env-machine-config';
 
 import { computed, onMounted, ref } from 'vue';
 
@@ -10,10 +16,13 @@ import {
   ElDialog,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElSelect,
   ElTable,
   ElTableColumn,
+  ElTabPane,
+  ElTabs,
 } from 'element-plus';
 
 import {
@@ -23,14 +32,21 @@ import {
   deleteConfigTemplateApi,
   getConfigPreviewApi,
   deployConfigApi,
+  getMachineSelectionTemplateListApi,
+  createMachineSelectionTemplateApi,
+  deleteMachineSelectionTemplateApi,
 } from '#/api/core/env-machine-config';
 
 import { useNamespaceStore } from './store';
+import CommandTaskHistory from './modules/CommandTaskHistory.vue';
 
 defineOptions({ name: 'EnvMachineConfigPage' });
 
 // 命名空间 Store
 const namespaceStore = useNamespaceStore();
+
+// Tab 切换：下发列表 / 任务历史
+const activeTab = ref<'deploy' | 'history'>('deploy');
 
 // 模板列表数据
 const templateList = ref<ConfigTemplate[]>([]);
@@ -44,13 +60,22 @@ const templateDialogVisible = ref(false);
 const templateDialogTitle = ref('新建模板');
 const templateForm = ref({
   name: '',
-  type: 'config' as 'config' | 'script',
+  type: 'config' as 'config' | 'script' | 'command',
   script_name: '',
+  command: '',
   namespace: '',
   config_content: '',
   note: '',
 });
 const templateFormLoading = ref(false);
+
+// IP 模板相关
+const ipTemplateList = ref<MachineSelectionTemplate[]>([]);
+const ipTemplateLoading = ref(false);
+const saveIpTemplateVisible = ref(false);
+const useIpTemplateVisible = ref(false);
+const ipTemplateForm = ref({ name: '', note: '' });
+const ipTemplateSaving = ref(false);
 
 // 删除确认弹窗
 const deleteDialogVisible = ref(false);
@@ -121,8 +146,14 @@ const deployButtonText = computed(() => {
   if (selectedTemplate.value?.type === 'script') {
     return '下发脚本';
   }
+  if (selectedTemplate.value?.type === 'command') {
+    return '运行命令';
+  }
   return '下发配置';
 });
+
+// 当前模板是否为运行命令类型
+const isCommandTemplate = computed(() => selectedTemplate.value?.type === 'command');
 
 // 获取模板适用命名空间的显示文本
 function getTemplateNamespaceDisplay(namespace?: string): string {
@@ -160,7 +191,15 @@ async function loadTemplates() {
 function handleCreateTemplate() {
   templateDialogTitle.value = '新建模板';
   selectedTemplate.value = null;
-  templateForm.value = { name: '', type: 'config', script_name: '', namespace: '', config_content: '', note: '' };
+  templateForm.value = {
+    name: '',
+    type: 'config',
+    script_name: '',
+    command: '',
+    namespace: '',
+    config_content: '',
+    note: '',
+  };
   templateDialogVisible.value = true;
 }
 
@@ -171,6 +210,7 @@ function handleEditTemplate(template: ConfigTemplate) {
     name: template.name,
     type: template.type || 'config',
     script_name: template.script_name || '',
+    command: template.command || '',
     namespace: template.namespace || '',
     config_content: template.config_content,
     note: template.note || '',
@@ -199,7 +239,16 @@ async function handleSaveTemplate() {
     }
   }
 
-  if (!templateForm.value.config_content.trim()) {
+  // 运行命令类型校验
+  if (templateForm.value.type === 'command') {
+    if (!templateForm.value.command.trim()) {
+      ElMessage.warning('请输入命令内容');
+      return;
+    }
+  }
+
+  // 配置/脚本类型必须有内容；命令类型 config_content 可为空
+  if (templateForm.value.type !== 'command' && !templateForm.value.config_content.trim()) {
     ElMessage.warning('请输入配置内容');
     return;
   }
@@ -207,25 +256,20 @@ async function handleSaveTemplate() {
   const isNewTemplate = selectedTemplate.value === null;
   templateFormLoading.value = true;
   try {
+    const payload: Partial<ConfigTemplate> = {
+      name: templateForm.value.name,
+      type: templateForm.value.type,
+      script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
+      command: templateForm.value.type === 'command' ? templateForm.value.command : undefined,
+      namespace: templateForm.value.namespace || undefined,
+      config_content: templateForm.value.type === 'command' ? '' : templateForm.value.config_content,
+      note: templateForm.value.note,
+    };
     if (isNewTemplate) {
-      await createConfigTemplateApi({
-        name: templateForm.value.name,
-        type: templateForm.value.type,
-        script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
-        namespace: templateForm.value.namespace || undefined,
-        config_content: templateForm.value.config_content,
-        note: templateForm.value.note,
-      });
+      await createConfigTemplateApi(payload);
       ElMessage.success('创建成功');
     } else {
-      await updateConfigTemplateApi(selectedTemplate.value!.id, {
-        name: templateForm.value.name,
-        type: templateForm.value.type,
-        script_name: templateForm.value.type === 'script' ? templateForm.value.script_name : undefined,
-        namespace: templateForm.value.namespace || undefined,
-        config_content: templateForm.value.config_content,
-        note: templateForm.value.note,
-      });
+      await updateConfigTemplateApi(selectedTemplate.value!.id, payload);
       ElMessage.success('更新成功');
     }
     templateDialogVisible.value = false;
@@ -275,9 +319,11 @@ async function loadPreview() {
   try {
     const data = await getConfigPreviewApi(
       selectedTemplate.value.id,
-      filterForm.value.namespace === 'all' ? undefined : filterForm.value.namespace,
-      filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type,
-      filterForm.value.ip || undefined
+      {
+        namespace: filterForm.value.namespace === 'all' ? undefined : filterForm.value.namespace,
+        device_type: filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type,
+        ip: filterForm.value.ip || undefined,
+      }
     );
     previewData.value = data;
     selectedMachineIds.value = [];
@@ -360,8 +406,18 @@ async function executeDeploy() {
     const params: DeployRequest = {
       template_id: selectedTemplate.value.id,
       machine_ids: selectedMachineIds.value,
+      // 运行命令类型：带上模板中的命令内容（允许后端覆盖）
+      command: selectedTemplate.value.type === 'command' ? selectedTemplate.value.command : undefined,
     };
     const result = await deployConfigApi(params);
+
+    // 运行命令类型：后端异步执行，返回 task_id，跳转到任务历史
+    if (selectedTemplate.value.type === 'command') {
+      ElMessage.success(`命令已提交执行，共 ${selectedMachineIds.value.length} 台机器，请到“任务历史”查看进度`);
+      deployDialogVisible.value = false;
+      activeTab.value = 'history';
+      return;
+    }
 
     // 查找失败详情
     const failedDetails = result.details.filter(d => d.status === 'failed');
@@ -379,7 +435,7 @@ async function executeDeploy() {
     deployDialogVisible.value = false;
     await loadPreview();
   } catch (error) {
-    ElMessage.error('下发失败');
+    ElMessage.error(selectedTemplate.value.type === 'command' ? '命令提交失败' : '下发失败');
   } finally {
     deployLoading.value = false;
   }
@@ -445,6 +501,92 @@ function getNamespaceDisplay(namespace: string): string {
   return namespaceStore.getNamespaceText(namespace);
 }
 
+// ========== IP 模板相关 ==========
+
+// 加载 IP 模板列表
+async function loadIpTemplates() {
+  ipTemplateLoading.value = true;
+  try {
+    const data = await getMachineSelectionTemplateListApi({ page: 1, page_size: 100 });
+    ipTemplateList.value = data.items || [];
+  } catch (error) {
+    ElMessage.error('加载 IP 模板失败');
+  } finally {
+    ipTemplateLoading.value = false;
+  }
+}
+
+// 打开"保存为 IP 模板"弹窗
+function openSaveIpTemplate() {
+  if (selectedMachineIds.value.length === 0) {
+    ElMessage.warning('请先选择要保存的机器');
+    return;
+  }
+  ipTemplateForm.value = { name: '', note: '' };
+  saveIpTemplateVisible.value = true;
+}
+
+// 确认保存 IP 模板
+async function confirmSaveIpTemplate() {
+  if (!ipTemplateForm.value.name.trim()) {
+    ElMessage.warning('请输入模板名称');
+    return;
+  }
+  ipTemplateSaving.value = true;
+  try {
+    await createMachineSelectionTemplateApi({
+      name: ipTemplateForm.value.name,
+      machine_ids: [...selectedMachineIds.value],
+      note: ipTemplateForm.value.note || undefined,
+    });
+    ElMessage.success('IP 模板保存成功');
+    saveIpTemplateVisible.value = false;
+    await loadIpTemplates();
+  } catch (error) {
+    ElMessage.error('保存 IP 模板失败');
+  } finally {
+    ipTemplateSaving.value = false;
+  }
+}
+
+// 打开"使用 IP 模板"弹窗
+async function openUseIpTemplate() {
+  if (ipTemplateList.value.length === 0) {
+    await loadIpTemplates();
+  }
+  useIpTemplateVisible.value = true;
+}
+
+// 应用某个 IP 模板到当前选中机器
+function applyIpTemplate(template: MachineSelectionTemplate) {
+  if (!template.machine_ids || template.machine_ids.length === 0) {
+    ElMessage.warning('该 IP 模板没有保存机器列表');
+    return;
+  }
+  // 只选中当前预览列表中实际存在的机器
+  const allMachineIds = previewData.value?.machines.map(m => m.id) || [];
+  const validIds = template.machine_ids.filter(id => allMachineIds.includes(id));
+  selectedMachineIds.value = validIds;
+  ElMessage.success(`已应用 IP 模板“${template.name}”，选中 ${validIds.length} 台机器`);
+  useIpTemplateVisible.value = false;
+}
+
+// 删除 IP 模板
+async function handleDeleteIpTemplate(template: MachineSelectionTemplate) {
+  try {
+    await ElMessageBox.confirm(`确定要删除 IP 模板“${template.name}”吗？`, '提示', {
+      type: 'warning',
+    });
+    await deleteMachineSelectionTemplateApi(template.id);
+    ElMessage.success('删除成功');
+    await loadIpTemplates();
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败');
+    }
+  }
+}
+
 // 初始化
 onMounted(async () => {
   // 加载命名空间配置
@@ -457,7 +599,9 @@ onMounted(async () => {
 
 <template>
   <Page auto-content-height>
-    <div class="config-page">
+    <ElTabs v-model="activeTab" class="config-tabs">
+      <ElTabPane label="下发列表" name="deploy">
+        <div class="config-page">
       <!-- 左侧：模板列表 -->
       <div class="template-panel">
         <div class="panel-header">
@@ -475,13 +619,23 @@ onMounted(async () => {
               @click="handleSelectTemplate(item)"
             >
               <div class="template-info">
-                <div class="template-name">{{ item.name }}</div>
+                <div class="template-name">
+                  <span class="template-type-tag" :class="`type-tag-${item.type}`">
+                    {{ item.type === 'script' ? '脚本' : item.type === 'command' ? '命令' : '配置' }}
+                  </span>
+                  <span>{{ item.name }}</span>
+                </div>
                 <div class="template-meta">适用：{{ getTemplateNamespaceDisplay(item.namespace) }}</div>
 
                 <!-- 脚本类型：显示脚本名称和目标系统 -->
                 <div v-if="item.type === 'script'" class="template-script-info">
                   <span class="script-name">{{ item.script_name }}</span>
                   <span class="script-os">{{ getTargetOsDisplay(item.script_name) }}</span>
+                </div>
+
+                <!-- 运行命令类型：显示命令内容预览 -->
+                <div v-if="item.type === 'command'" class="template-script-info">
+                  <code class="script-name command-preview">{{ item.command }}</code>
                 </div>
 
                 <div class="template-version">版本：{{ item.version }}</div>
@@ -559,7 +713,7 @@ onMounted(async () => {
                       class="native-checkbox"
                       :checked="isAllSelected"
                       :indeterminate.prop="isIndeterminate"
-                      @change="handleSelectAllChange($event.target.checked)"
+                      @change="handleSelectAllChange(($event.target as HTMLInputElement).checked)"
                     />
                   </template>
                   <template #default="{ row }">
@@ -568,7 +722,7 @@ onMounted(async () => {
                       class="native-checkbox"
                       :checked="selectedMachineIds.includes(row.id)"
                       :disabled="!isSelectable(row.config_status, row.device_type)"
-                      @change="handleCheckboxChange(row.id, $event.target.checked)"
+                      @change="handleCheckboxChange(row.id, ($event.target as HTMLInputElement).checked)"
                     />
                   </template>
                 </ElTableColumn>
@@ -620,7 +774,11 @@ onMounted(async () => {
             <!-- 操作按钮 -->
             <div class="action-row">
               <div class="selected-count">已选择 <strong class="count-num">{{ selectedMachineIds.length }}</strong> 台机器</div>
-              <ElButton type="primary" @click="openDeployDialog">{{ deployButtonText }}</ElButton>
+              <div class="action-buttons">
+                <ElButton size="small" plain @click="openSaveIpTemplate">保存为IP模板</ElButton>
+                <ElButton size="small" plain @click="openUseIpTemplate">使用IP模板</ElButton>
+                <ElButton type="primary" @click="openDeployDialog">{{ deployButtonText }}</ElButton>
+              </div>
             </div>
           </div>
         </div>
@@ -658,6 +816,7 @@ onMounted(async () => {
                   <ElSelect v-model="templateForm.type" style="width: 100%">
                     <ElOption label="配置" value="config" />
                     <ElOption label="脚本" value="script" />
+                    <ElOption label="运行命令" value="command" />
                   </ElSelect>
                 </div>
               </div>
@@ -669,6 +828,19 @@ onMounted(async () => {
                   <ElInput
                     v-model="templateForm.script_name"
                     placeholder="如 play_ppt.ps1，扩展名仅支持 .ps1/.bat/.sh"
+                  />
+                </div>
+              </div>
+
+              <!-- 命令内容：仅运行命令类型显示 -->
+              <div v-if="templateForm.type === 'command'" class="form-row">
+                <div class="form-col-full">
+                  <label class="form-label">命令内容 <span class="required">*</span></label>
+                  <ElInput
+                    v-model="templateForm.command"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="如：dir C:\\Users 或 ipconfig /all"
                   />
                 </div>
               </div>
@@ -688,8 +860,8 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- 配置内容/脚本内容 -->
-          <div class="form-section">
+          <!-- 配置内容/脚本内容（运行命令类型不需要） -->
+          <div v-if="templateForm.type !== 'command'" class="form-section">
             <div class="section-title">
               {{ templateForm.type === 'config' ? '配置内容 (YAML)' : '脚本内容' }}
             </div>
@@ -758,15 +930,17 @@ onMounted(async () => {
             </svg>
           </div>
           <div class="dialog-title">
-            {{ selectedTemplate?.type === 'script' ? '确认下发脚本' : '确认下发配置' }}
+            {{ isCommandTemplate ? '确认运行命令' : selectedTemplate?.type === 'script' ? '确认下发脚本' : '确认下发配置' }}
           </div>
         </div>
 
         <div class="dialog-body">
           <p class="dialog-desc">
-            {{ selectedTemplate?.type === 'script'
-              ? '即将把脚本下发到选中的设备，下发后设备将保存脚本文件。'
-              : '即将把配置下发到选中的设备，下发后设备将应用新配置。'
+            {{ isCommandTemplate
+              ? '即将在选中的设备上执行命令，命令可能改变设备状态，请确认命令内容。'
+              : selectedTemplate?.type === 'script'
+                ? '即将把脚本下发到选中的设备，下发后设备将保存脚本文件。'
+                : '即将把配置下发到选中的设备，下发后设备将应用新配置。'
             }}
           </p>
 
@@ -775,9 +949,13 @@ onMounted(async () => {
               <span class="info-label">模板:</span>
               <span class="info-value">{{ selectedTemplate?.name }}</span>
             </div>
+            <div v-if="isCommandTemplate && selectedTemplate?.command" class="info-row">
+              <span class="info-label">命令:</span>
+              <code class="info-value command-code">{{ selectedTemplate.command }}</code>
+            </div>
             <div class="count-card">
               <div class="count-number">{{ selectedMachineIds.length }}</div>
-              <div class="count-label">台机器待下发</div>
+              <div class="count-label">台机器待执行</div>
             </div>
           </div>
 
@@ -786,16 +964,85 @@ onMounted(async () => {
               <path fill="#fa8c16" d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
             </svg>
             <span class="warning-text">
-              {{ selectedTemplate?.type === 'script' ? '脚本下发后将保存到设备，请确认脚本内容正确' : '配置下发后将立即生效，请确认配置内容正确' }}
+              {{ isCommandTemplate ? '命令将在设备上实时执行，请确认命令内容安全' : selectedTemplate?.type === 'script' ? '脚本下发后将保存到设备，请确认脚本内容正确' : '配置下发后将立即生效，请确认配置内容正确' }}
             </span>
           </div>
         </div>
 
         <div class="dialog-footer">
           <ElButton class="btn-cancel" @click="deployDialogVisible = false">取消</ElButton>
-          <ElButton class="btn-confirm" :loading="deployLoading" @click="executeDeploy">确认下发</ElButton>
+          <ElButton class="btn-confirm" :loading="deployLoading" @click="executeDeploy">
+            {{ isCommandTemplate ? '确认执行' : '确认下发' }}
+          </ElButton>
         </div>
       </div>
+    </ElDialog>
+      </ElTabPane>
+
+      <!-- 任务历史 Tab -->
+      <ElTabPane label="任务历史" name="history">
+        <CommandTaskHistory v-if="activeTab === 'history'" />
+      </ElTabPane>
+    </ElTabs>
+
+    <!-- 保存为 IP 模板弹窗 -->
+    <ElDialog
+      v-model="saveIpTemplateVisible"
+      title="保存为 IP 模板"
+      width="440px"
+      :close-on-click-modal="false"
+    >
+      <div class="ip-template-dialog-body">
+        <div class="ip-form-row">
+          <label class="ip-form-label">模板名称 <span class="required">*</span></label>
+          <ElInput v-model="ipTemplateForm.name" placeholder="如：全部测试机" />
+        </div>
+        <div class="ip-form-row">
+          <label class="ip-form-label">备注</label>
+          <ElInput v-model="ipTemplateForm.note" placeholder="选填，模板用途说明" />
+        </div>
+        <div class="ip-preview">
+          预览：已选择 <strong>{{ selectedMachineIds.length }}</strong> 台机器
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="saveIpTemplateVisible = false">取消</ElButton>
+        <ElButton type="primary" :loading="ipTemplateSaving" @click="confirmSaveIpTemplate">保存</ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 使用 IP 模板弹窗 -->
+    <ElDialog
+      v-model="useIpTemplateVisible"
+      title="使用 IP 模板"
+      width="560px"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="ipTemplateLoading" class="ip-template-list">
+        <div v-if="ipTemplateList.length === 0 && !ipTemplateLoading" class="ip-empty">
+          暂无 IP 模板，请先在下方机器列表选择机器后“保存为IP模板”
+        </div>
+        <div
+          v-for="tpl in ipTemplateList"
+          :key="tpl.id"
+          class="ip-template-item"
+        >
+          <div class="ip-template-info">
+            <div class="ip-template-name">{{ tpl.name }}</div>
+            <div class="ip-template-meta">
+              包含 {{ tpl.machine_ids?.length || 0 }} 台机器
+              <span v-if="tpl.note"> · {{ tpl.note }}</span>
+            </div>
+          </div>
+          <div class="ip-template-actions">
+            <ElButton size="small" type="primary" @click="applyIpTemplate(tpl)">使用</ElButton>
+            <ElButton size="small" type="danger" plain @click="handleDeleteIpTemplate(tpl)">删除</ElButton>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="useIpTemplateVisible = false">关闭</ElButton>
+      </template>
     </ElDialog>
   </Page>
 </template>
@@ -1484,6 +1731,142 @@ onMounted(async () => {
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
   box-shadow: 0 4px 12px rgb(24 144 255 / 40%);
   transform: translateY(-1px);
+}
+
+/* Tab 容器 */
+.config-tabs {
+  height: 100%;
+}
+
+.config-tabs :deep(.el-tabs__content) {
+  height: calc(100% - 40px);
+  overflow: auto;
+}
+
+.config-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+/* 模板类型标签 */
+.template-type-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 6px;
+  font-size: 11px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.type-tag-config {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.type-tag-script {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.type-tag-command {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.command-preview {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fa8c16;
+}
+
+/* 操作按钮行 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 下发确认弹窗中的命令代码 */
+.command-code {
+  display: block;
+  padding: 6px 8px;
+  margin-top: 4px;
+  background: #f5f5f5;
+  border-radius: 3px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* IP 模板弹窗 */
+.ip-template-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ip-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ip-form-label {
+  font-size: 13px;
+  color: #333;
+}
+
+.ip-form-label .required {
+  color: #ff4d4f;
+}
+
+.ip-preview {
+  padding: 8px 12px;
+  background: #f0f5ff;
+  border-radius: 4px;
+  color: #1890ff;
+  font-size: 13px;
+}
+
+.ip-template-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ip-empty {
+  padding: 32px;
+  text-align: center;
+  color: #999;
+}
+
+.ip-template-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+
+.ip-template-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.ip-template-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #999;
+}
+
+.ip-template-actions {
+  display: flex;
+  gap: 8px;
 }
 </style>
 

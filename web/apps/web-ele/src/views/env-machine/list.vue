@@ -45,7 +45,6 @@ import {
   isMobileDevice,
 } from './types';
 import LogDialogV2 from './LogDialogV2.vue';
-import BatchCommandDialog from './modules/BatchCommandDialog.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineList' });
@@ -114,9 +113,6 @@ const importResult = ref<{
   success_count: number;
   failed_items: Array<{ row: number; reason: string }>;
 } | null>(null);
-
-// 批量命令弹窗
-const batchCommandVisible = ref(false);
 
 // 打开日志弹窗
 function handleViewLogs(row: EnvMachine) {
@@ -342,15 +338,6 @@ function handleBatchDelete() {
   });
 }
 
-// 打开批量命令弹窗
-function handleOpenBatchCommand() {
-  if (selectedIds.value.size === 0) {
-    ElMessage.warning('请先选择要执行命令的设备');
-    return;
-  }
-  batchCommandVisible.value = true;
-}
-
 // 批量启用（Linux 设备不支持启用，需过滤）
 async function handleBatchEnable() {
   const machines = getSelectedMachines();
@@ -447,9 +434,6 @@ function handleBatchCommand(command: string) {
       break;
     case 'delete':
       handleBatchDelete();
-      break;
-    case 'execute':
-      handleOpenBatchCommand();
       break;
     case 'enable':
       handleBatchEnable();
@@ -752,9 +736,6 @@ onMounted(async () => {
                   <ElDropdownItem command="delete" :disabled="selectedIds.size === 0">
                     批量删除{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
                   </ElDropdownItem>
-                  <ElDropdownItem command="execute" :disabled="selectedIds.size === 0">
-                    批量执行命令{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
-                  </ElDropdownItem>
                   <ElDropdownItem command="enable" :disabled="selectedIds.size === 0">
                     批量启用{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
                   </ElDropdownItem>
@@ -1010,13 +991,6 @@ onMounted(async () => {
         </ElButton>
       </template>
     </ElDialog>
-
-    <!-- 批量命令弹窗 -->
-    <BatchCommandDialog
-      v-model:visible="batchCommandVisible"
-      :selected-ids="Array.from(selectedIds)"
-      :selected-machines="getSelectedMachines()"
-    />
   </Page>
 </template>
 

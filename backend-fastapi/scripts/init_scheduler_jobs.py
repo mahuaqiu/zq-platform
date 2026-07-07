@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 初始化定时任务数据
@@ -120,6 +120,19 @@ async def init_scheduler_jobs():
             'status': 1,  # 启用
             'priority': 5,
             'remark': '内部任务，自动管理',
+        },
+        {
+            'name': '命令任务历史清理',
+            'code': 'command_task_cleanup',
+            'description': '清理过期的命令任务历史记录',
+            'group': 'config_template',
+            'trigger_type': 'cron',
+            'cron_expression': '0 4 * * *',  # 每天4:00
+            'task_func': 'core.scheduler.tasks.cleanup_command_task_task',
+            'task_kwargs': '{"days": 7}',
+            'status': 1,  # 启用
+            'priority': 1,
+            'remark': '清理7天前的命令任务历史记录',
         },
     ]
 

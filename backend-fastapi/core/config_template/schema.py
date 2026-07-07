@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 @Author: 臧成龙
@@ -16,8 +16,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationIn
 class ConfigTemplateCreate(BaseModel):
     """创建配置模板请求 Schema"""
     name: str = Field(..., max_length=64, description="模板名称")
-    type: str = Field(default="config", description="模板类型: config/script")
+    type: str = Field(default="config", description="模板类型: config/script/command")
     script_name: Optional[str] = Field(None, max_length=128, description="脚本名称")
+    command: Optional[str] = Field(None, description="命令内容（仅command类型）")
     namespace: Optional[str] = Field(None, max_length=64, description="命名空间")
     note: Optional[str] = Field(None, description="备注")
     config_content: str = Field(..., description="配置内容")
@@ -25,8 +26,8 @@ class ConfigTemplateCreate(BaseModel):
     @field_validator('type')
     @classmethod
     def validate_type(cls, v: str) -> str:
-        if v not in ('config', 'script'):
-            raise ValueError('模板类型必须是 config 或 script')
+        if v not in ('config', 'script', 'command'):
+            raise ValueError('模板类型必须是 config、script 或 command')
         return v
 
     @field_validator('script_name')
@@ -35,13 +36,19 @@ class ConfigTemplateCreate(BaseModel):
         # 脚本类型时 script_name 必填
         if info.data.get('type') == 'script' and not v:
             raise ValueError('脚本类型必须填写脚本名称')
-
         # 校验扩展名
         if v:
             ext = v.lower().split('.')[-1] if '.' in v else ''
             if ext not in ('ps1', 'bat', 'sh'):
                 raise ValueError('脚本扩展名必须是 .ps1, .bat 或 .sh')
+        return v
 
+    @field_validator('command')
+    @classmethod
+    def validate_command(cls, v: Optional[str], info: ValidationInfo) -> Optional[str]:
+        # command 类型时 command 必填
+        if info.data.get('type') == 'command' and not v:
+            raise ValueError('运行命令类型必须填写命令内容')
         return v
 
 
@@ -50,6 +57,7 @@ class ConfigTemplateUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=64, description="模板名称")
     type: Optional[str] = Field(None, description="模板类型")
     script_name: Optional[str] = Field(None, max_length=128, description="脚本名称")
+    command: Optional[str] = Field(None, description="命令内容")
     namespace: Optional[str] = Field(None, max_length=64, description="命名空间")
     note: Optional[str] = Field(None, description="备注")
     config_content: Optional[str] = Field(None, description="配置内容")
@@ -57,8 +65,8 @@ class ConfigTemplateUpdate(BaseModel):
     @field_validator('type')
     @classmethod
     def validate_type(cls, v: Optional[str]) -> Optional[str]:
-        if v and v not in ('config', 'script'):
-            raise ValueError('模板类型必须是 config 或 script')
+        if v and v not in ('config', 'script', 'command'):
+            raise ValueError('模板类型必须是 config、script 或 command')
         return v
 
 
@@ -68,6 +76,7 @@ class ConfigTemplateResponse(BaseModel):
     name: str = Field(..., description="模板名称")
     type: str = Field(..., description="模板类型")
     script_name: Optional[str] = Field(None, description="脚本名称")
+    command: Optional[str] = Field(None, description="命令内容")
     namespace: Optional[str] = Field(None, description="命名空间")
     note: Optional[str] = Field(None, description="备注")
     config_content: str = Field(..., description="配置内容")
@@ -82,6 +91,8 @@ class DeployRequest(BaseModel):
     """下发配置请求 Schema"""
     template_id: str = Field(..., description="模板ID")
     machine_ids: List[str] = Field(..., description="机器ID列表")
+    # command 类型时支持覆盖命令内容
+    command: Optional[str] = Field(None, description="命令内容（仅command类型使用，可选覆盖）")
 
 
 class DeployDetail(BaseModel):
@@ -95,6 +106,7 @@ class DeployDetail(BaseModel):
 
 class DeployResponse(BaseModel):
     """下发配置响应 Schema"""
+    task_id: Optional[str] = Field(None, description="任务ID（command类型异步执行时返回）")
     success_count: int = Field(0, description="成功数量")
     failed_count: int = Field(0, description="失败数量")
     skipped_count: int = Field(0, description="跳过数量")
@@ -120,3 +132,68 @@ class ConfigPreviewResponse(BaseModel):
     updating_count: int = Field(..., description="更新中数量")
     offline_count: int = Field(..., description="离线数量")
     machines: List[ConfigPreviewMachine] = Field(..., description="机器列表")
+
+
+# ========== IP 模板 Schema ==========
+
+class MachineSelectionTemplateCreate(BaseModel):
+    """创建机器选择模板请求 Schema"""
+    name: str = Field(..., max_length=64, description="模板名称")
+    namespace: Optional[str] = Field(None, max_length=64, description="命名空间筛选")
+    device_type: Optional[str] = Field(None, max_length=20, description="设备类型筛选")
+    ip_pattern: Optional[str] = Field(None, max_length=64, description="IP模糊匹配")
+    machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
+    note: Optional[str] = Field(None, description="备注")
+
+
+class MachineSelectionTemplateUpdate(BaseModel):
+    """更新机器选择模板请求 Schema"""
+    name: Optional[str] = Field(None, max_length=64, description="模板名称")
+    namespace: Optional[str] = Field(None, max_length=64, description="命名空间筛选")
+    device_type: Optional[str] = Field(None, max_length=20, description="设备类型筛选")
+    ip_pattern: Optional[str] = Field(None, max_length=64, description="IP模糊匹配")
+    machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
+    note: Optional[str] = Field(None, description="备注")
+
+
+class MachineSelectionTemplateResponse(BaseModel):
+    """机器选择模板响应 Schema"""
+    id: str = Field(..., description="模板ID")
+    name: str = Field(..., description="模板名称")
+    namespace: Optional[str] = Field(None, description="命名空间筛选")
+    device_type: Optional[str] = Field(None, description="设备类型筛选")
+    ip_pattern: Optional[str] = Field(None, description="IP模糊匹配")
+    machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
+    note: Optional[str] = Field(None, description="备注")
+    version: str = Field(..., description="版本号")
+    sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
+    sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ========== 命令任务 Schema ==========
+
+class CommandTaskResponse(BaseModel):
+    """命令任务响应 Schema"""
+    id: str = Field(..., description="任务ID")
+    template_id: Optional[str] = Field(None, description="关联模板ID")
+    template_type: str = Field(..., description="模板类型: config/script/command")
+    template_name: str = Field(..., description="模板名称")
+    command: Optional[str] = Field(None, description="命令内容")
+    machine_count: int = Field(..., description="目标机器数量")
+    status: str = Field(..., description="任务状态: running/success/failed/partial")
+    success_count: int = Field(..., description="成功数量")
+    failed_count: int = Field(..., description="失败数量")
+    result_detail: Optional[List[dict]] = Field(None, description="执行结果详情")
+    sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
+    finished_datetime: Optional[datetime] = Field(None, description="结束时间")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CommandTaskDetailResponse(CommandTaskResponse):
+    """命令任务详情响应 Schema（包含机器详细信息）"""
+    machines: Optional[List[dict]] = Field(None, description="目标机器列表")
+
+    model_config = ConfigDict(from_attributes=True)
