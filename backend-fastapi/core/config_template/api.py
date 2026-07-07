@@ -10,6 +10,7 @@
 import asyncio
 import logging
 import time
+from itertools import islice
 from typing import List, Optional
 
 import httpx
@@ -219,21 +220,33 @@ async def _execute_command_deploy(
     )
 
 
+# 单批并发机器数上限：与前端列表分页对齐，避免一次性打爆 worker 网络层
+COMMAND_BATCH_SIZE = 20
+
+
 async def _execute_commands_async(task_id: str, machines: List[dict], command: str):
-    """异步执行命令（后台任务，使用独立 session）"""
+    """异步执行命令（后台任务，使用独立 session）。
+
+    机器数超过 COMMAND_BATCH_SIZE 时分批并发：批内 asyncio.gather 并发执行，
+    批与批之间串行。每台机器各自有独立的 worker task_id 与轮询，互不阻塞。
+    """
     from app.database import AsyncSessionLocal
 
     results = []
     success_count = 0
     failed_count = 0
 
-    for machine in machines:
-        result = await _execute_single_command(machine, command)
-        results.append(result)
-        if result["success"]:
-            success_count += 1
-        else:
-            failed_count += 1
+    it = iter(machines)
+    while batch := list(islice(it, COMMAND_BATCH_SIZE)):
+        batch_results = await asyncio.gather(
+            *(_execute_single_command(m, command) for m in batch)
+        )
+        for result in batch_results:
+            results.append(result)
+            if result["success"]:
+                success_count += 1
+            else:
+                failed_count += 1
 
     # 更新任务结果（使用独立 session）
     status = "success" if failed_count == 0 else ("partial" if success_count > 0 else "failed")
@@ -273,8 +286,9 @@ async def _execute_single_command(machine: dict, command: str) -> dict:
                 data = resp.json()
                 task_id = data.get("task_id")
 
-                # 等待任务完成（轮询）
-                result = await _wait_task_result(ip, port, task_id, duration)
+                # 等待任务完成（轮询）—— 用默认总超时，不能用 POST 阶段的 duration
+                # （duration 只是发起请求的耗时，约 0.x 秒，当 timeout 会导致一次都不查就超时）
+                result = await _wait_task_result(ip, port, task_id)
                 return {
                     "machine_id": machine_id,
                     "ip": ip,
@@ -319,9 +333,18 @@ async def _execute_single_command(machine: dict, command: str) -> dict:
 
 
 async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 300) -> dict:
-    """等待任务完成并返回结果"""
+    """等待任务完成并返回结果。
+
+    worker 的 /task/{task_id} 是一次性查询接口：查询时若任务处于终态，
+    返回结果后任务立即从内存销毁，再次查询返回 404。
+    因此拿到终态必须立即返回，不能重复查询。
+    status enum 见 Api.yaml：[pending, running, success, failed, timeout, cancelled]
+    """
     worker_url = f"http://{ip}:{port}/task/{task_id}"
     start_time = time.time()
+
+    # 首次查询前加短暂延迟，给 worker 把任务跑起来的时间，避免过早查到 running
+    await asyncio.sleep(0.5)
 
     while time.time() - start_time < timeout:
         try:
@@ -330,28 +353,41 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
                 if resp.status_code == 200:
                     data = resp.json()
                     status = data.get("status")
-                    if status == "running":
+                    actions = data.get("actions", []) or []
+                    action0 = actions[0] if actions else {}
+                    duration = data.get("duration_ms", 0) / 1000
+
+                    if status in ("pending", "running"):
+                        # 任务尚未结束，继续轮询
                         await asyncio.sleep(2)
                         continue
-                    elif status in ("success", "completed"):
-                        # 获取 action 结果
-                        actions = data.get("actions", [])
-                        stdout = ""
-                        stderr = ""
-                        if actions:
-                            stdout = actions[0].get("stdout", "")
-                            stderr = actions[0].get("stderr", "")
-                        duration = data.get("duration_ms", 0) / 1000
-                        return {"success": True, "stdout": stdout, "stderr": stderr, "duration": duration}
+                    elif status == "success":
+                        # 终态：这是最后一次能拿到数据的机会
+                        return {
+                            "success": True,
+                            "stdout": action0.get("stdout", ""),
+                            "stderr": action0.get("stderr", ""),
+                            "duration": duration,
+                        }
                     else:
-                        # failed
-                        actions = data.get("actions", [])
-                        stderr = actions[0].get("error", "执行失败") if actions else "执行失败"
-                        return {"success": False, "stdout": "", "stderr": stderr, "duration": time.time() - start_time}
+                        # failed / timeout / cancelled
+                        stderr = action0.get("error") or action0.get("stderr") or f"执行失败: {status}"
+                        return {
+                            "success": False,
+                            "stdout": action0.get("stdout", ""),
+                            "stderr": stderr,
+                            "duration": duration or (time.time() - start_time),
+                        }
                 elif resp.status_code == 404:
-                    # 任务不存在，可能已完成并被清理
-                    return {"success": False, "stdout": "", "stderr": "任务未找到", "duration": time.time() - start_time}
+                    # 任务不存在：可能已被前一次终态查询消费掉，或从未创建
+                    return {
+                        "success": False,
+                        "stdout": "",
+                        "stderr": "任务结果已销毁/未找到",
+                        "duration": time.time() - start_time,
+                    }
         except Exception:
+            # 网络异常等，继续重试
             pass
 
         await asyncio.sleep(2)

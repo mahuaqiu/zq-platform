@@ -42,6 +42,9 @@ class CommandTaskService(BaseService):
         auto_commit: bool = True
     ) -> CommandTask:
         """创建任务记录"""
+        # 显式赋值创建时间：base_model 用 server_default=func.now()，依赖数据库端填充，
+        # 异步会话 refresh 在某些驱动下不会回填该值，导致前端拿到 sys_create_datetime=null，
+        # 时间显示为空、按时间倒序排序失效。这里显式赋值，保证值一定存在。
         db_obj = CommandTask(
             template_id=template_id,
             template_type=template_type,
@@ -51,6 +54,7 @@ class CommandTaskService(BaseService):
             status="running",
             success_count=0,
             failed_count=0,
+            sys_create_datetime=datetime.now(),
         )
         db.add(db_obj)
 
@@ -108,7 +112,7 @@ class CommandTaskService(BaseService):
         if template_type:
             query = query.where(CommandTask.template_type == template_type)
         
-        query = query.order_by(CommandTask.sys_create_datetime.desc())
+        query = query.order_by(CommandTask.sys_create_datetime.desc(), CommandTask.id.desc())
         
         # 获取总数
         from sqlalchemy import func

@@ -1,7 +1,7 @@
 ﻿<script lang="ts" setup>
 import type { CommandTask } from '#/api/core/env-machine-config';
 import { getCommandTaskListApi, deleteCommandTaskApi } from '#/api/core/env-machine-config';
-import { ref, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 defineOptions({ name: 'CommandTaskHistory' });
@@ -18,10 +18,40 @@ const pageSize = ref(20);
 // 展开的任务ID
 const expandedTasks = ref<Set<string>>(new Set());
 
+// 每台机器 stdout/stderr 折叠状态：key = `${task.id}::${machine_id}::${kind}`
+// 默认折叠，避免机器多/输出长导致列表只剩一两条
+const expandedOutputs = ref<Set<string>>(new Set());
+
+function outputKey(taskId: string, machineId: string, kind: string): string {
+  return `${taskId}::${machineId}::${kind}`;
+}
+
+function toggleOutput(taskId: string, machineId: string, kind: string): void {
+  const k = outputKey(taskId, machineId, kind);
+  if (expandedOutputs.value.has(k)) {
+    expandedOutputs.value.delete(k);
+  } else {
+    expandedOutputs.value.add(k);
+  }
+}
+
+// 是否存在未结束的任务（running/pending），用于驱动轮询
+const hasRunning = computed(() =>
+  taskList.value.some(
+    (t) => t.status === 'running' || t.status === 'pending',
+  ),
+);
+
+// 轮询定时器
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+const POLL_INTERVAL = 3000;
+
 // 格式化时间
-function formatTime(time?: string): string {
-  if (!time) return '-';
-  return new Date(time).toLocaleString('zh-CN');
+// 优先用 sys_create_datetime，回退到 finished_datetime（兼容历史任务 create 为 null 的情况）
+function formatTime(time?: string, fallback?: string): string {
+  const val = time || fallback;
+  if (!val) return '-';
+  return new Date(val).toLocaleString('zh-CN');
 }
 
 // 获取状态显示
@@ -36,19 +66,40 @@ function getStatusDisplay(status: string): { text: string; type: string } {
 }
 
 // 加载任务列表
-async function loadTasks() {
-  loading.value = true;
+// silent=true 时为轮询触发：不显示 loading、不弹错误 toast，避免界面闪烁和反复弹窗
+async function loadTasks(silent: boolean = false) {
+  if (!silent) {
+    loading.value = true;
+  }
   try {
     const data = await getCommandTaskListApi({
       page: currentPage.value,
       page_size: pageSize.value,
     });
-    taskList.value = data.items || [];
+    // 客户端按时间倒序再排一次，保证「最近执行」在最上面
+    // 主排序键 sys_create_datetime，回退到 finished_datetime（兼容历史脏数据）
+    // 历史任务 sys_create_datetime 可能为 null，回退到 finished_datetime 才能正确排序
+    const items = (data.items || []).slice();
+    items.sort((a, b) => {
+      const parseTime = (val: any): number => {
+        if (!val) return 0;
+        const t = new Date(val).getTime();
+        return isNaN(t) ? 0 : t;
+      };
+      const ta = parseTime(a.sys_create_datetime) || parseTime(a.finished_datetime);
+      const tb = parseTime(b.sys_create_datetime) || parseTime(b.finished_datetime);
+      return tb - ta;
+    });
+    taskList.value = items;
     total.value = data.total;
   } catch (error) {
-    ElMessage.error('加载任务历史失败');
+    if (!silent) {
+      ElMessage.error('加载任务历史失败');
+    }
   } finally {
-    loading.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
   }
 }
 
@@ -77,15 +128,50 @@ async function handleDelete(task: CommandTask) {
   }
 }
 
-// 翻页
+// 启动轮询
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    loadTasks(true);
+  }, POLL_INTERVAL);
+}
+
+// 停止轮询
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// 监听 running 状态：有 running 时启动轮询，全部完成后停止
+watch(hasRunning, (running) => {
+  if (running) {
+    startPolling();
+  } else {
+    stopPolling();
+  }
+});
+
+// 翻页时停止轮询，避免列表切换期间产生无意义请求
 function handlePageChange(page: number) {
+  stopPolling();
   currentPage.value = page;
   loadTasks();
 }
 
 // 初始化
-onMounted(() => {
-  loadTasks();
+onMounted(async () => {
+  await loadTasks();
+  // 首次加载如果已经有 running 任务，启动轮询等待后端写结果
+  if (hasRunning.value) {
+    startPolling();
+  }
+});
+
+// 组件销毁时清理定时器
+onUnmounted(() => {
+  stopPolling();
 });
 </script>
 
@@ -111,8 +197,13 @@ onMounted(() => {
         <!-- 任务概览 -->
         <div class="task-header" @click="toggleExpand(task.id)">
           <div class="task-info">
-            <span class="task-name">{{ task.template_name }}</span>
-            <span class="task-type-badge">{{ task.template_type === 'command' ? '运行命令' : task.template_type === 'script' ? '脚本' : '配置' }}</span>
+            <div class="task-title-row">
+              <span class="task-name">{{ task.template_name }}</span>
+              <span class="task-type-badge">{{ task.template_type === 'command' ? '运行命令' : task.template_type === 'script' ? '脚本' : '配置' }}</span>
+            </div>
+            <div class="task-time" :title="`执行时间: ${formatTime(task.sys_create_datetime, task.finished_datetime)}`">
+              🕒 {{ formatTime(task.sys_create_datetime, task.finished_datetime) }}
+            </div>
           </div>
           <div class="task-stats">
             <el-tag :type="getStatusDisplay(task.status).type" size="small">
@@ -125,9 +216,6 @@ onMounted(() => {
               失败: <strong class="failed">{{ task.failed_count }}</strong>
             </span>
             <span class="stat-item">/ {{ task.machine_count }} 台</span>
-          </div>
-          <div class="task-time">
-            {{ formatTime(task.sys_create_datetime) }}
           </div>
           <div class="task-actions" @click.stop>
             <el-button type="danger" size="small" link @click="handleDelete(task)">
@@ -157,14 +245,40 @@ onMounted(() => {
                 <span class="result-device">({{ result.device_type }})</span>
                 <span class="result-duration">{{ result.duration_seconds?.toFixed(1) }}s</span>
               </div>
-              <div v-if="result.stdout" class="result-output">
-                <div class="output-label">stdout:</div>
-                <pre>{{ result.stdout }}</pre>
-              </div>
-              <div v-if="result.stderr" class="result-output result-stderr">
-                <div class="output-label">stderr:</div>
-                <pre>{{ result.stderr }}</pre>
-              </div>
+              <template v-if="result.stdout">
+                <div class="output-toggle">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click.stop="toggleOutput(task.id, result.machine_id, 'stdout')"
+                  >
+                    <template v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stdout'))">
+                      收起 stdout
+                    </template>
+                    <template v-else>
+                      展开 stdout ({{ result.stdout.length }} 字)
+                    </template>
+                  </el-button>
+                </div>
+                <pre v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stdout'))" class="result-output-expanded">{{ result.stdout }}</pre>
+              </template>
+              <template v-if="result.stderr">
+                <div class="output-toggle output-toggle-stderr">
+                  <el-button
+                    type="danger"
+                    size="small"
+                    @click.stop="toggleOutput(task.id, result.machine_id, 'stderr')"
+                  >
+                    <template v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stderr'))">
+                      收起 stderr
+                    </template>
+                    <template v-else>
+                      展开 stderr ({{ result.stderr.length }} 字)
+                    </template>
+                  </el-button>
+                </div>
+                <pre v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stderr'))" class="result-output-expanded result-stderr">{{ result.stderr }}</pre>
+              </template>
             </div>
           </div>
         </div>
@@ -233,14 +347,26 @@ onMounted(() => {
 
 .task-info {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .task-name {
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
 }
 
 .task-type-badge {
@@ -249,6 +375,14 @@ onMounted(() => {
   background: #e6f7ff;
   color: #1890ff;
   border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.task-time {
+  font-size: 13px;
+  color: #1890ff;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .task-stats {
@@ -256,6 +390,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   font-size: 13px;
+  flex-shrink: 0;
 }
 
 .stat-item .success {
@@ -266,13 +401,9 @@ onMounted(() => {
   color: #ff4d4f;
 }
 
-.task-time {
-  font-size: 12px;
-  color: #999;
-}
-
 .task-actions {
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .task-detail {
@@ -358,18 +489,16 @@ onMounted(() => {
   margin-left: auto;
 }
 
-.result-output {
+.output-toggle {
   margin-top: 8px;
 }
 
-.output-label {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 4px;
+.output-toggle-stderr {
+  margin-top: 4px;
 }
 
-.result-output pre {
-  margin: 0;
+.result-output-expanded {
+  margin: 4px 0 0 0;
   padding: 8px;
   font-size: 12px;
   font-family: Consolas, Monaco, monospace;
@@ -379,8 +508,13 @@ onMounted(() => {
   word-break: break-all;
 }
 
-.result-stderr pre {
+.result-output-expanded.result-stderr {
   color: #ff4d4f;
+}
+
+/* 全局样式穿透：确保 el-button 在 scoped 下也能正常渲染 */
+.result-item :deep(.el-button) {
+  font-size: 12px;
 }
 
 .pagination {
