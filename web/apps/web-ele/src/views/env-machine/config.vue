@@ -775,8 +775,18 @@ onMounted(async () => {
             <div class="action-row">
               <div class="selected-count">已选择 <strong class="count-num">{{ selectedMachineIds.length }}</strong> 台机器</div>
               <div class="action-buttons">
-                <ElButton size="small" plain @click="openSaveIpTemplate">保存为IP模板</ElButton>
-                <ElButton size="small" plain @click="openUseIpTemplate">使用IP模板</ElButton>
+                <button class="ip-btn ip-btn-save" @click="openSaveIpTemplate" :disabled="selectedMachineIds.length === 0">
+                  <svg class="ip-btn-icon" viewBox="0 0 24 24" width="15" height="15">
+                    <path fill="currentColor" d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                  </svg>
+                  <span>保存为IP模板</span>
+                </button>
+                <button class="ip-btn ip-btn-use" @click="openUseIpTemplate">
+                  <svg class="ip-btn-icon" viewBox="0 0 24 24" width="15" height="15">
+                    <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                  </svg>
+                  <span>使用IP模板</span>
+                </button>
                 <ElButton type="primary" @click="openDeployDialog">{{ deployButtonText }}</ElButton>
               </div>
             </div>
@@ -1784,8 +1794,91 @@ onMounted(async () => {
 /* 操作按钮行 */
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
+}
+
+/* IP 模板按钮通用样式 */
+.ip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+  outline: none;
+}
+
+.ip-btn-icon {
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 保存为IP模板 - Default 风格（描边型） */
+.ip-btn-save {
+  color: #1890ff;
+  background: #fff;
+  border: 1px solid #91d5ff;
+  box-shadow: 0 1px 2px rgb(24 144 255 / 8%);
+}
+
+.ip-btn-save:hover {
+  color: #096dd9;
+  background: #e6f7ff;
+  border-color: #69c0ff;
+  box-shadow: 0 2px 6px rgb(24 144 255 / 15%);
+  transform: translateY(-1px);
+}
+
+.ip-btn-save:active {
+  color: #0050b3;
+  background: #bae7ff;
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 rgb(24 144 255 / 0%);
+  transform: translateY(0);
+}
+
+.ip-btn-save:disabled {
+  color: #bfbfbf;
+  background: #f5f5f5;
+  border-color: #d9d9d9;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ip-btn-save:disabled .ip-btn-icon {
+  opacity: 0.4;
+}
+
+/* 使用IP模板 - 轻量 Primary 风格（渐变浅底） */
+.ip-btn-use {
+  color: #fff;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border: none;
+  box-shadow: 0 2px 6px rgb(24 144 255 / 25%);
+}
+
+.ip-btn-use:hover {
+  background: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+  box-shadow: 0 4px 12px rgb(24 144 255 / 35%);
+  transform: translateY(-1px);
+}
+
+.ip-btn-use:active {
+  background: linear-gradient(135deg, #096dd9 0%, #0050b3 100%);
+  box-shadow: 0 0 0 rgb(24 144 255 / 0%);
+  transform: translateY(0);
+}
+
+.ip-btn-use:hover .ip-btn-icon {
+  transform: scale(1.1);
 }
 
 /* 下发确认弹窗中的命令代码 */
