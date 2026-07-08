@@ -216,7 +216,9 @@
       "Bash(node -e ' *)",
       "Bash(findstr -i \"2054c5680962\")",
       "Bash(pnpm --filter @vben/web-ele check:type)",
-      "Bash(pnpm typecheck *)"
+      "Bash(pnpm typecheck *)",
+      "Read(//c/Users/Administrator/.claude/plugins/cache/caveman/caveman/0d95a81d35a9/skills/caveman-compress/scripts/**)",
+      "Read(//c/Users/Administrator/.claude/plugins/cache/caveman/caveman/0d95a81d35a9/skills/caveman-compress/**)"
     ]
   }
 }
