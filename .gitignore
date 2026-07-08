@@ -4,6 +4,7 @@
 *.png
 *.pptx
 .worktrees/
+.superpowers/
 /backend-fastapi/temp_exports
 /node_modules
 create_ppt.js
