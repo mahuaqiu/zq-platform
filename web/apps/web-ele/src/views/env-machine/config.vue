@@ -175,10 +175,17 @@ async function loadTemplates() {
   templateLoading.value = true;
   try {
     const data = await getConfigTemplateListApi();
+    const oldSelectedId = selectedTemplate.value?.id;
     templateList.value = data.items || [];
-    // 默认选中第一个
-    if (templateList.value.length > 0 && !selectedTemplate.value) {
-      selectedTemplate.value = templateList.value[0];
+    // 保持当前选中模板，但用刷新后的新对象替换旧引用，避免编辑保存后
+    // selectedTemplate 仍指向内存里的旧对象（运行命令时取到旧 command）。
+    // 没有选中项时默认选第一个；原选中项已被删除时也回退到第一个。
+    if (templateList.value.length > 0) {
+      selectedTemplate.value = oldSelectedId
+        ? templateList.value.find((t) => t.id === oldSelectedId) ?? templateList.value[0]
+        : templateList.value[0];
+    } else {
+      selectedTemplate.value = null;
     }
   } catch (error) {
     ElMessage.error('加载模板列表失败');
