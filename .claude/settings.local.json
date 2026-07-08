@@ -214,7 +214,9 @@
       "Bash(sort -t: -k1)",
       "PowerShell($out = git --no-pager diff --ignore-all-space HEAD -- web/apps/web-ele/src/views/env-machine/list.vue 2>&1 | Out-String; $out.Length; $out.Substring\\(0, [Math]::Min\\(3000, $out.Length\\)\\))",
       "Bash(node -e ' *)",
-      "Bash(findstr -i \"2054c5680962\")"
+      "Bash(findstr -i \"2054c5680962\")",
+      "Bash(pnpm --filter @vben/web-ele check:type)",
+      "Bash(pnpm typecheck *)"
     ]
   }
 }
