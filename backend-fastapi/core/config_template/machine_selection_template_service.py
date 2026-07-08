@@ -19,7 +19,11 @@ from core.config_template.schema import (
     MachineSelectionTemplateCreate,
     MachineSelectionTemplateUpdate,
     MachineSelectionTemplateResponse,
+    MachineSelectionTemplateStatsResponse,
+    MachineDetailResponse,
+    MachineSelectionTemplateDetailResponse,
 )
+from core.env_machine.model import EnvMachine
 
 logger = logging.getLogger(__name__)
 
@@ -108,3 +112,104 @@ class MachineSelectionTemplateService(BaseService):
     ) -> bool:
         """检查名称是否唯一"""
         return await cls.check_unique(db, "name", name, exclude_id)
+
+    @classmethod
+    async def resolve_stats(
+        cls,
+        db: AsyncSession,
+        template: MachineSelectionTemplate
+    ) -> MachineSelectionTemplateStatsResponse:
+        """解析单条模板的机器统计：total/available/online/offline/lost。
+
+        - total: 模板 machine_ids 总数
+        - available: 在 EnvMachine 中且 is_deleted=false 且 is_virtual=false 的数量
+        - online: available 中 status="online" 的数量
+        - offline: available 中 status!="online" 的数量
+        - lost: machine_ids 中不在 EnvMachine（已删除/虚拟）的数量
+        空 machine_ids 全 0。
+        """
+        machine_ids = template.machine_ids or []
+        total = len(machine_ids)
+        if total == 0:
+            return MachineSelectionTemplateStatsResponse()
+
+        # 批量查询存在的机器（未删除、非虚拟）
+        result = await db.execute(
+            select(EnvMachine).where(
+                EnvMachine.id.in_(machine_ids),
+                EnvMachine.is_deleted == False,  # noqa: E712
+                EnvMachine.is_virtual == False,  # noqa: E712
+            )
+        )
+        existing = list(result.scalars().all())
+
+        available = len(existing)
+        online = sum(1 for m in existing if m.status == "online")
+        offline = available - online
+        lost = total - available
+
+        return MachineSelectionTemplateStatsResponse(
+            total=total,
+            available=available,
+            online=online,
+            offline=offline,
+            lost=lost,
+        )
+
+    @classmethod
+    async def get_machines_detail(
+        cls,
+        db: AsyncSession,
+        template_id: str
+    ) -> Optional[MachineSelectionTemplateDetailResponse]:
+        """获取某模板全部 machine_ids 的明细。
+
+        对每个 id 回填：存在的机器填 ip/device_type/status 且 exists=true；
+        不存在的 id 填 null 且 exists=false。明细不含 config_status/config_version。
+        模板不存在时返回 None。
+        """
+        template = await cls.get_by_id(db, template_id)
+        if not template:
+            return None
+
+        machine_ids = template.machine_ids or []
+
+        if not machine_ids:
+            return MachineSelectionTemplateDetailResponse(
+                template_id=str(template.id),
+                machines=[],
+            )
+
+        result = await db.execute(
+            select(EnvMachine).where(
+                EnvMachine.id.in_(machine_ids),
+                EnvMachine.is_deleted == False,  # noqa: E712
+                EnvMachine.is_virtual == False,  # noqa: E712
+            )
+        )
+        existing_map = {str(m.id): m for m in result.scalars().all()}
+
+        machines: List[MachineDetailResponse] = []
+        for mid in machine_ids:
+            m = existing_map.get(str(mid))
+            if m is not None:
+                machines.append(MachineDetailResponse(
+                    id=str(m.id),
+                    ip=m.ip,
+                    device_type=m.device_type,
+                    status=m.status,
+                    exists=True,
+                ))
+            else:
+                machines.append(MachineDetailResponse(
+                    id=str(mid),
+                    ip=None,
+                    device_type=None,
+                    status=None,
+                    exists=False,
+                ))
+
+        return MachineSelectionTemplateDetailResponse(
+            template_id=str(template.id),
+            machines=machines,
+        )
