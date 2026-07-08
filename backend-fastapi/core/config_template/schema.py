@@ -136,6 +136,30 @@ class ConfigPreviewResponse(BaseModel):
 
 # ========== IP 模板 Schema ==========
 
+class MachineSelectionTemplateStatsResponse(BaseModel):
+    """IP 模板机器统计响应 Schema"""
+    total: int = Field(0, description="模板 machine_ids 总数")
+    available: int = Field(0, description="在 EnvMachine 中且未删除且非虚拟的数量")
+    online: int = Field(0, description="available 中 status=online 的数量")
+    offline: int = Field(0, description="available 中 status!=online 的数量")
+    lost: int = Field(0, description="machine_ids 中已不在 EnvMachine（已删除）的数量")
+
+
+class MachineDetailResponse(BaseModel):
+    """IP 模板内单台机器明细响应 Schema"""
+    id: str = Field(..., description="机器ID（模板保存的原始ID）")
+    ip: Optional[str] = Field(None, description="机器IP，已删除时为 null")
+    device_type: Optional[str] = Field(None, description="设备类型，已删除时为 null")
+    status: Optional[str] = Field(None, description="机器状态 online/using/offline，已删除时为 null")
+    exists: bool = Field(True, description="是否在 EnvMachine 中存在（未删除且非虚拟）")
+
+
+class MachineSelectionTemplateDetailResponse(BaseModel):
+    """IP 模板机器明细响应 Schema"""
+    template_id: str = Field(..., description="模板ID")
+    machines: List[MachineDetailResponse] = Field(default_factory=list, description="机器明细列表")
+
+
 class MachineSelectionTemplateCreate(BaseModel):
     """创建机器选择模板请求 Schema"""
     name: str = Field(..., max_length=64, description="模板名称")
@@ -165,6 +189,10 @@ class MachineSelectionTemplateResponse(BaseModel):
     ip_pattern: Optional[str] = Field(None, description="IP模糊匹配")
     machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
     note: Optional[str] = Field(None, description="备注")
+    resolved_stats: MachineSelectionTemplateStatsResponse = Field(
+        default_factory=MachineSelectionTemplateStatsResponse,
+        description="模板机器统计（批量解析后回填）"
+    )
     version: str = Field(..., description="版本号")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
