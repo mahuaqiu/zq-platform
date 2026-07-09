@@ -30,6 +30,7 @@ from core.config_template.schema import (
     MachineSelectionTemplateCreate,
     MachineSelectionTemplateUpdate,
     MachineSelectionTemplateResponse,
+    MachineSelectionTemplateDetailResponse,
     CommandTaskResponse,
     CommandTaskDetailResponse,
 )
@@ -470,14 +471,16 @@ async def list_machine_selection_templates(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: AsyncSession = Depends(get_db)
 ) -> PaginatedResponse[MachineSelectionTemplateResponse]:
-    """获取IP模板列表"""
+    """获取IP模板列表（每项含 resolved_stats 机器统计）"""
     templates, total = await MachineSelectionTemplateService.get_list(
         db, page=page, page_size=page_size
     )
-    return PaginatedResponse(
-        items=[MachineSelectionTemplateResponse.model_validate(t) for t in templates],
-        total=total,
-    )
+    items: List[MachineSelectionTemplateResponse] = []
+    for t in templates:
+        resp = MachineSelectionTemplateResponse.model_validate(t)
+        resp.resolved_stats = await MachineSelectionTemplateService.resolve_stats(db, t)
+        items.append(resp)
+    return PaginatedResponse(items=items, total=total)
 
 
 @IP_TEMPLATE_ROUTER.post("", response_model=MachineSelectionTemplateResponse, summary="新建IP模板")
@@ -497,6 +500,22 @@ async def create_machine_selection_template(
         await db.rollback()
         logger.error(f"创建IP模板失败: {e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
+
+
+@IP_TEMPLATE_ROUTER.get(
+    "/{template_id}/machines",
+    response_model=MachineSelectionTemplateDetailResponse,
+    summary="获取IP模板机器明细",
+)
+async def get_machine_selection_template_machines(
+    template_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> MachineSelectionTemplateDetailResponse:
+    """获取某 IP 模板全部 machine_ids 的明细（含已删除标记，不含 config_status/config_version）"""
+    detail = await MachineSelectionTemplateService.get_machines_detail(db, template_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    return detail
 
 
 @IP_TEMPLATE_ROUTER.get("/{template_id}", response_model=MachineSelectionTemplateResponse, summary="获取IP模板详情")
