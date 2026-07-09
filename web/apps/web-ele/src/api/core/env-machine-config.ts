@@ -140,6 +140,36 @@ export async function deployConfigApi(data: DeployRequest) {
 // ========== IP 模板 API ==========
 
 /**
+ * IP 模板机器统计
+ */
+export interface MachineSelectionTemplateStats {
+  total: number;
+  available: number;
+  online: number;
+  offline: number;
+  lost: number;
+}
+
+/**
+ * IP 模板内单台机器明细
+ */
+export interface MachineDetail {
+  id: string;
+  ip?: string | null;
+  device_type?: string | null;
+  status?: string | null;
+  exists: boolean;
+}
+
+/**
+ * IP 模板机器明细响应
+ */
+export interface MachineSelectionTemplateDetail {
+  template_id: string;
+  machines: MachineDetail[];
+}
+
+/**
  * IP 模板
  */
 export interface MachineSelectionTemplate {
@@ -151,6 +181,7 @@ export interface MachineSelectionTemplate {
   machine_ids?: string[];
   note?: string;
   version: string;
+  resolved_stats?: MachineSelectionTemplateStats;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
 }
@@ -181,6 +212,15 @@ export async function updateMachineSelectionTemplateApi(id: string, data: Partia
  */
 export async function deleteMachineSelectionTemplateApi(id: string) {
   return requestClient.delete(`/api/core/machine-selection-template/${id}`);
+}
+
+/**
+ * 获取 IP 模板机器明细
+ */
+export async function getIpTemplateMachinesApi(id: string) {
+  return requestClient.get<MachineSelectionTemplateDetail>(
+    `/api/core/machine-selection-template/${id}/machines`,
+  );
 }
 
 // ========== 命令任务历史 API ==========
