@@ -218,7 +218,32 @@
       "Bash(pnpm --filter @vben/web-ele check:type)",
       "Bash(pnpm typecheck *)",
       "Read(//c/Users/Administrator/.claude/plugins/cache/caveman/caveman/0d95a81d35a9/skills/caveman-compress/scripts/**)",
-      "Read(//c/Users/Administrator/.claude/plugins/cache/caveman/caveman/0d95a81d35a9/skills/caveman-compress/**)"
+      "Read(//c/Users/Administrator/.claude/plugins/cache/caveman/caveman/0d95a81d35a9/skills/caveman-compress/**)",
+      "PowerShell(& \"C:\\\\python\\\\python.exe\" --version; & \"C:\\\\python\\\\python.exe\" -c \"from unittest.mock import AsyncMock; import pytest; print\\('pytest', pytest.__version__\\)\")",
+      "Bash(npx eslint *)",
+      "Bash(grep -oE \"[a-z-]+/[a-z-]+$|prettier/prettier|html-closing-bracket-newline|html-closing\")",
+      "Bash(awk 'NR==1648{print length\": \"$0}' apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(awk 'NR==701 || NR==695 {print NR\": \"length\"列 \"$0}')",
+      "Bash(pnpm --filter @vben/web-ele exec vsh lint --format apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(./node_modules/.bin/vsh lint *)",
+      "Bash(./node_modules/.bin/prettier --write apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(grep -oE \"error +[A-Za-z].*$\" /tmp/lint_config.txt)",
+      "Bash(grep -oE \"[a-z-]+/[a-z-]+$|[a-z-]+/[a-z-]+\")",
+      "Bash(awk 'NR>=940 && NR<=1080 && /<ElTable|<\\\\/ElTable>|<ElTableColumn|<\\\\/ElTableColumn/ {printf \"%d: %s\\\\n\", NR, $0}' apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(awk '/<\\\\/ElTable>|<\\\\/ElTableColumn>/{printf \"%d: %s\\\\n\", NR, $0}' apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(awk 'NR>=1 && NR<=798' apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(awk 'NR>1 && NR<799' apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(cp ./_script_body.ts ./_script_test.ts)",
+      "Bash(cp apps/web-ele/src/views/env-machine/config.vue ./_full.vue)",
+      "Bash(awk 'NR>=2 && NR<=797' apps/web-ele/src/views/env-machine/config.vue)",
+      "Bash(grep -cE \"^<template>|^<template>$\")",
+      "Bash(awk 'NR>=2 && /^<\\\\/script>$/{exit} {print}' ./_head_full.vue)",
+      "Bash(node --stack-size=8192 -e ' *)",
+      "Bash(sed -i 's#prettier/index.js#prettier/index.mjs#' ./_probe.mjs)",
+      "Bash(node ./_probe.mjs)",
+      "Read(//c/Users/Administrator/.claude/projects/D--code-zq-platform/**)",
+      "Read(//c/Users/Administrator/.claude/projects/D--code-zq-platform/memory/**)",
+      "Bash(/d/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m pytest /d/code/zq-platform/backend-fastapi/tests/test_machine_selection_template_service.py -v)"
     ]
   }
 }
