@@ -244,12 +244,14 @@ export function useMseDecoder(options: MseDecoderOptions) {
         lastLiveEdgeSeekAt = now;
         liveEdgeInitialized = true;
         el.playbackRate = 1;
-        console.info('[MSEDecoder] live edge seek', {
-          reason: shouldInitialSeek ? 'initial' : 'lag',
-          lagSeconds: lag,
-          bufferedEnd,
-          targetTime,
-        });
+        if (shouldInitialSeek) {
+          console.info('[MSEDecoder] live edge seek', {
+            reason: 'initial',
+            lagSeconds: lag,
+            bufferedEnd,
+            targetTime,
+          });
+        }
       } catch (error) {
         console.warn('[MSEDecoder] live edge seek failed:', error);
       }
