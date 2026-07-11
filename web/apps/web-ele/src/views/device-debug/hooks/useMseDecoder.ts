@@ -205,14 +205,10 @@ export function useMseDecoder(options: MseDecoderOptions) {
       presentedFrameCount += 1;
       firstPresentedAtMs ??= performance.now();
       lastPresentedMediaTime = metadata.mediaTime;
-      if (presentedFrameCount === 1 || presentedFrameCount % 30 === 0) {
-        console.info('[MSEDecoder] video frame presented', {
-          presentedFrameCount,
+      if (presentedFrameCount === 1) {
+        console.info('[MSEDecoder] first video frame presented', {
           mediaTime: metadata.mediaTime,
-          presentedFrames: metadata.presentedFrames,
-          expectedDisplayTime: metadata.expectedDisplayTime,
-          currentTime: el.currentTime,
-          bufferedEnd: getBufferedEnd(),
+          elapsedMs: performance.now() - firstPresentedAtMs,
         });
       }
       el.requestVideoFrameCallback?.(callback);
@@ -266,10 +262,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
       );
       if (Math.abs(el.playbackRate - catchUpRate) > 0.01) {
         el.playbackRate = catchUpRate;
-        console.info('[MSEDecoder] live edge catch-up rate', {
-          lagSeconds: lag,
-          playbackRate: catchUpRate,
-        });
       }
     } else if (lag < LIVE_EDGE_RATE_RECOVER_SECONDS && el.playbackRate !== 1) {
       el.playbackRate = 1;

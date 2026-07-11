@@ -24,6 +24,7 @@ export function useWebSocket() {
   let retryCount = 0;
   let fpsFrameCount = 0;
   let fpsLastSecond = 0;
+  let streamSummaryLast = 0;
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
   let idleTimer: ReturnType<typeof setInterval> | null = null;
   let lastActivityTime = Date.now();
@@ -184,6 +185,7 @@ export function useWebSocket() {
       retryCount = 0;
       fpsFrameCount = 0;
       fpsLastSecond = Date.now();
+      streamSummaryLast = Date.now();
       startFpsTimer();
       startIdleTimer(); // 启动超时检测
 
@@ -199,14 +201,6 @@ export function useWebSocket() {
       streamPacketCount += 1;
       streamTotalPacketCount += 1;
       streamBytes += arrayBuffer.byteLength;
-      if (isH264 && (streamTotalPacketCount <= 15 || new Uint8Array(arrayBuffer, 0, 1)[0] === 0x02)) {
-        console.info('[stream-diag] browser packet', {
-          packet: streamTotalPacketCount,
-          prefix: new Uint8Array(arrayBuffer, 0, 1)[0],
-          bytes: arrayBuffer.byteLength,
-          sinceOpenMs: performance.now() - streamOpenedAt,
-        });
-      }
 
       // 检测帧类型（不再每帧打日志，避免控制台对象累积导致内存泄漏）
       switch (detectFrameType(arrayBuffer)) {
@@ -320,8 +314,8 @@ export function useWebSocket() {
       const elapsedSeconds = (now - fpsLastSecond) / 1000;
       if (elapsedSeconds >= 1) {
         fps.value = Math.round(fpsFrameCount / elapsedSeconds);
-        if (videoMode.value) {
-          console.info('[stream-diag] browser summary', {
+        if (videoMode.value && now - streamSummaryLast >= 5000) {
+          console.debug('[stream-diag] browser summary', {
             elapsedMs: performance.now() - streamConnectStarted,
             packets: streamPacketCount,
             bytes: streamBytes,
@@ -330,6 +324,7 @@ export function useWebSocket() {
           });
           streamPacketCount = 0;
           streamBytes = 0;
+          streamSummaryLast = now;
         }
         fpsFrameCount = 0;
         fpsLastSecond = now;
