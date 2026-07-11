@@ -356,7 +356,13 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
                     status = data.get("status")
                     actions = data.get("actions", []) or []
                     action0 = actions[0] if actions else {}
-                    duration = data.get("duration_ms", 0) / 1000
+                    # Worker 可能没有返回 duration_ms，或在极短任务中返回 0；此时使用轮询耗时兜底。
+                    elapsed = max(time.time() - start_time, 0.0)
+                    try:
+                        duration_ms = float(data.get("duration_ms") or 0)
+                    except (TypeError, ValueError):
+                        duration_ms = 0.0
+                    duration = duration_ms / 1000 if duration_ms > 0 else elapsed
 
                     if status in ("pending", "running"):
                         # 任务尚未结束，继续轮询

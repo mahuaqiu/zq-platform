@@ -15,7 +15,21 @@ import type {
 
 import { computed, onMounted, ref } from 'vue';
 
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { Page } from '@vben/common-ui';
+
+import {
+  ElButton,
+  ElDialog,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+  ElTabPane,
+  ElTabs,
+} from 'element-plus';
 
 import {
   createConfigTemplateApi,
@@ -30,6 +44,7 @@ import {
   updateConfigTemplateApi,
 } from '#/api/core/env-machine-config';
 
+import CommandTaskHistory from './modules/CommandTaskHistory.vue';
 import { useNamespaceStore } from './store';
 
 defineOptions({ name: 'EnvMachineConfigPage' });
@@ -188,10 +203,11 @@ async function loadTemplates() {
     // selectedTemplate 仍指向内存里的旧对象（运行命令时取到旧 command）。
     // 没有选中项时默认选第一个；原选中项已被删除时也回退到第一个。
     if (templateList.value.length > 0) {
-      selectedTemplate.value = oldSelectedId
-        ? (templateList.value.find((t) => t.id === oldSelectedId) ??
-          templateList.value[0])
-        : templateList.value[0];
+      const fallbackTemplate = templateList.value[0];
+      selectedTemplate.value =
+        (oldSelectedId
+          ? templateList.value.find((t) => t.id === oldSelectedId)
+          : undefined) ?? fallbackTemplate;
     } else {
       selectedTemplate.value = null;
     }
@@ -558,6 +574,16 @@ async function loadIpTemplates() {
       page_size: 100,
     });
     ipTemplateList.value = data.items || [];
+    if (
+      currentIpTemplate.value &&
+      !ipTemplateList.value.some(
+        (template) => template.id === currentIpTemplate.value?.id,
+      )
+    ) {
+      currentIpTemplate.value = null;
+      ipTemplateDetail.value = null;
+      selectedDetailIds.value = [];
+    }
   } catch {
     ElMessage.error('加载 IP 模板失败');
   } finally {
@@ -990,17 +1016,21 @@ onMounted(async () => {
                           "
                         />
                       </template>
-                      <template #default="{ row }">
+                      <template #default="scope">
                         <input
+                          v-if="scope?.row"
                           type="checkbox"
                           class="native-checkbox"
-                          :checked="selectedMachineIds.includes(row.id)"
+                          :checked="selectedMachineIds.includes(scope.row.id)"
                           :disabled="
-                            !isSelectable(row.config_status, row.device_type)
+                            !isSelectable(
+                              scope.row.config_status,
+                              scope.row.device_type,
+                            )
                           "
                           @change="
                             handleCheckboxChange(
-                              row.id,
+                              scope.row.id,
                               ($event.target as HTMLInputElement).checked,
                             )
                           "
@@ -1008,8 +1038,10 @@ onMounted(async () => {
                       </template>
                     </ElTableColumn>
                     <ElTableColumn prop="ip" label="IP地址" min-width="140">
-                      <template #default="{ row }">
-                        <code class="ip-code">{{ row.ip }}</code>
+                      <template #default="scope">
+                        <code v-if="scope?.row" class="ip-code">{{
+                          scope.row.ip
+                        }}</code>
                       </template>
                     </ElTableColumn>
                     <ElTableColumn
@@ -1017,8 +1049,10 @@ onMounted(async () => {
                       label="命名空间"
                       min-width="100"
                     >
-                      <template #default="{ row }">
-                        {{ getNamespaceDisplay(row.namespace) }}
+                      <template #default="scope">
+                        <template v-if="scope?.row">
+                          {{ getNamespaceDisplay(scope.row.namespace) }}
+                        </template>
                       </template>
                     </ElTableColumn>
                     <ElTableColumn
@@ -1026,14 +1060,16 @@ onMounted(async () => {
                       label="设备类型"
                       min-width="80"
                     >
-                      <template #default="{ row }">
-                        {{
-                          row.device_type === 'windows'
-                            ? 'Windows'
-                            : row.device_type === 'mac'
-                              ? 'Mac'
-                              : row.device_type
-                        }}
+                      <template #default="scope">
+                        <template v-if="scope?.row">
+                          {{
+                            scope.row.device_type === 'windows'
+                              ? 'Windows'
+                              : scope.row.device_type === 'mac'
+                                ? 'Mac'
+                                : scope.row.device_type
+                          }}
+                        </template>
                       </template>
                     </ElTableColumn>
                     <ElTableColumn
@@ -1041,9 +1077,12 @@ onMounted(async () => {
                       label="机器状态"
                       min-width="100"
                     >
-                      <template #default="{ row }">
-                        <span :style="{ color: getStatusColor(row.status) }">
-                          {{ getStatusText(row.status) }}
+                      <template #default="scope">
+                        <span
+                          v-if="scope?.row"
+                          :style="{ color: getStatusColor(scope.row.status) }"
+                        >
+                          {{ getStatusText(scope.row.status) }}
                         </span>
                       </template>
                     </ElTableColumn>
@@ -1052,17 +1091,19 @@ onMounted(async () => {
                       label="下发状态"
                       min-width="100"
                     >
-                      <template #default="{ row }">
+                      <template #default="scope">
                         <span
+                          v-if="scope?.row"
                           class="status-tag"
                           :style="{
-                            background: getConfigStatusStyle(row.config_status)
-                              .bg,
-                            color: getConfigStatusStyle(row.config_status)
+                            background: getConfigStatusStyle(
+                              scope.row.config_status,
+                            ).bg,
+                            color: getConfigStatusStyle(scope.row.config_status)
                               .color,
                           }"
                         >
-                          {{ getConfigStatusText(row.config_status) }}
+                          {{ getConfigStatusText(scope.row.config_status) }}
                         </span>
                       </template>
                     </ElTableColumn>
@@ -1071,13 +1112,16 @@ onMounted(async () => {
                       label="下发版本"
                       min-width="140"
                     >
-                      <template #default="{ row }">
+                      <template #default="scope">
                         <span
+                          v-if="scope?.row"
                           :style="{
-                            color: getConfigVersionColor(row.config_status),
+                            color: getConfigVersionColor(
+                              scope.row.config_status,
+                            ),
                           }"
                         >
-                          {{ getDisplayVersion(row) }}
+                          {{ getDisplayVersion(scope.row) }}
                         </span>
                       </template>
                     </ElTableColumn>

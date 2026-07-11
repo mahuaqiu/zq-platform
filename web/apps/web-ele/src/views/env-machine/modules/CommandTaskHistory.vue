@@ -1,8 +1,14 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import type { CommandTask } from '#/api/core/env-machine-config';
-import { getCommandTaskListApi, deleteCommandTaskApi } from '#/api/core/env-machine-config';
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
 import { ElMessage, ElMessageBox } from 'element-plus';
+
+import {
+  deleteCommandTaskApi,
+  getCommandTaskListApi,
+} from '#/api/core/env-machine-config';
 
 defineOptions({ name: 'CommandTaskHistory' });
 
@@ -37,13 +43,11 @@ function toggleOutput(taskId: string, machineId: string, kind: string): void {
 
 // 是否存在未结束的任务（running/pending），用于驱动轮询
 const hasRunning = computed(() =>
-  taskList.value.some(
-    (t) => t.status === 'running' || t.status === 'pending',
-  ),
+  taskList.value.some((t) => t.status === 'running' || t.status === 'pending'),
 );
 
 // 轮询定时器
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTimer: null | ReturnType<typeof setInterval> = null;
 const POLL_INTERVAL = 3000;
 
 // 格式化时间
@@ -52,6 +56,20 @@ function formatTime(time?: string, fallback?: string): string {
   const val = time || fallback;
   if (!val) return '-';
   return new Date(val).toLocaleString('zh-CN');
+}
+
+// Worker 未返回有效耗时时，历史数据中的 0 不能误显示为 0.0 秒
+function formatDuration(seconds?: null | number): string {
+  if (
+    seconds === null ||
+    seconds === undefined ||
+    !Number.isFinite(seconds) ||
+    seconds <= 0
+  ) {
+    return '未记录';
+  }
+  if (seconds < 0.1) return '<0.1s';
+  return `${seconds.toFixed(1)}s`;
 }
 
 // 获取状态显示
@@ -79,20 +97,22 @@ async function loadTasks(silent: boolean = false) {
     // 客户端按时间倒序再排一次，保证「最近执行」在最上面
     // 主排序键 sys_create_datetime，回退到 finished_datetime（兼容历史脏数据）
     // 历史任务 sys_create_datetime 可能为 null，回退到 finished_datetime 才能正确排序
-    const items = (data.items || []).slice();
+    const items = [...(data.items || [])];
     items.sort((a, b) => {
       const parseTime = (val: any): number => {
         if (!val) return 0;
         const t = new Date(val).getTime();
-        return isNaN(t) ? 0 : t;
+        return Number.isNaN(t) ? 0 : t;
       };
-      const ta = parseTime(a.sys_create_datetime) || parseTime(a.finished_datetime);
-      const tb = parseTime(b.sys_create_datetime) || parseTime(b.finished_datetime);
+      const ta =
+        parseTime(a.sys_create_datetime) || parseTime(a.finished_datetime);
+      const tb =
+        parseTime(b.sys_create_datetime) || parseTime(b.finished_datetime);
       return tb - ta;
     });
     taskList.value = items;
     total.value = data.total;
-  } catch (error) {
+  } catch {
     if (!silent) {
       ElMessage.error('加载任务历史失败');
     }
@@ -115,9 +135,13 @@ function toggleExpand(taskId: string) {
 // 删除任务
 async function handleDelete(task: CommandTask) {
   try {
-    await ElMessageBox.confirm(`确定要删除任务"${task.template_name}"吗？`, '提示', {
-      type: 'warning',
-    });
+    await ElMessageBox.confirm(
+      `确定要删除任务"${task.template_name}"吗？`,
+      '提示',
+      {
+        type: 'warning',
+      },
+    );
     await deleteCommandTaskApi(task.id);
     ElMessage.success('删除成功');
     await loadTasks();
@@ -199,10 +223,20 @@ onUnmounted(() => {
           <div class="task-info">
             <div class="task-title-row">
               <span class="task-name">{{ task.template_name }}</span>
-              <span class="task-type-badge">{{ task.template_type === 'command' ? '运行命令' : task.template_type === 'script' ? '脚本' : '配置' }}</span>
+              <span class="task-type-badge">{{
+                task.template_type === 'command'
+                  ? '运行命令'
+                  : task.template_type === 'script'
+                    ? '脚本'
+                    : '配置'
+              }}</span>
             </div>
-            <div class="task-time" :title="`执行时间: ${formatTime(task.sys_create_datetime, task.finished_datetime)}`">
-              🕒 {{ formatTime(task.sys_create_datetime, task.finished_datetime) }}
+            <div
+              class="task-time"
+              :title="`执行时间: ${formatTime(task.sys_create_datetime, task.finished_datetime)}`"
+            >
+              🕒
+              {{ formatTime(task.sys_create_datetime, task.finished_datetime) }}
             </div>
           </div>
           <div class="task-stats">
@@ -218,7 +252,12 @@ onUnmounted(() => {
             <span class="stat-item">/ {{ task.machine_count }} 台</span>
           </div>
           <div class="task-actions" @click.stop>
-            <el-button type="danger" size="small" link @click="handleDelete(task)">
+            <el-button
+              type="danger"
+              size="small"
+              link
+              @click="handleDelete(task)"
+            >
               删除
             </el-button>
           </div>
@@ -237,47 +276,92 @@ onUnmounted(() => {
               v-for="result in task.result_detail"
               :key="result.machine_id"
               class="result-item"
-              :class="{ 'result-success': result.success, 'result-failed': !result.success }"
+              :class="{
+                'result-success': result.success,
+                'result-failed': !result.success,
+              }"
             >
               <div class="result-header">
-                <span class="result-icon">{{ result.success ? '✓' : '✗' }}</span>
+                <span class="result-icon">{{
+                  result.success ? '✓' : '✗'
+                }}</span>
                 <span class="result-ip">{{ result.ip }}</span>
                 <span class="result-device">({{ result.device_type }})</span>
-                <span class="result-duration">{{ result.duration_seconds?.toFixed(1) }}s</span>
+                <span class="result-duration">{{
+                  formatDuration(result.duration_seconds)
+                }}</span>
               </div>
               <template v-if="result.stdout">
                 <div class="output-toggle">
+                  <div class="output-summary">
+                    <span class="output-stream-dot" aria-hidden="true"></span>
+                    <span class="output-stream-name">stdout</span>
+                    <span class="output-length"
+                      >{{ result.stdout.length }} 字</span
+                    >
+                  </div>
                   <el-button
-                    type="primary"
+                    class="output-toggle-button"
                     size="small"
-                    @click.stop="toggleOutput(task.id, result.machine_id, 'stdout')"
+                    @click.stop="
+                      toggleOutput(task.id, result.machine_id, 'stdout')
+                    "
                   >
-                    <template v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stdout'))">
-                      收起 stdout
-                    </template>
-                    <template v-else>
-                      展开 stdout ({{ result.stdout.length }} 字)
-                    </template>
+                    {{
+                      expandedOutputs.has(
+                        outputKey(task.id, result.machine_id, 'stdout'),
+                      )
+                        ? '收起'
+                        : '展开'
+                    }}
                   </el-button>
                 </div>
-                <pre v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stdout'))" class="result-output-expanded">{{ result.stdout }}</pre>
+                <pre
+                  v-if="
+                    expandedOutputs.has(
+                      outputKey(task.id, result.machine_id, 'stdout'),
+                    )
+                  "
+                  class="result-output-expanded"
+                  >{{ result.stdout }}</pre
+                >
+                >
               </template>
               <template v-if="result.stderr">
                 <div class="output-toggle output-toggle-stderr">
+                  <div class="output-summary">
+                    <span class="output-stream-dot" aria-hidden="true"></span>
+                    <span class="output-stream-name">stderr</span>
+                    <span class="output-length"
+                      >{{ result.stderr.length }} 字</span
+                    >
+                  </div>
                   <el-button
-                    type="danger"
+                    class="output-toggle-button"
                     size="small"
-                    @click.stop="toggleOutput(task.id, result.machine_id, 'stderr')"
+                    @click.stop="
+                      toggleOutput(task.id, result.machine_id, 'stderr')
+                    "
                   >
-                    <template v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stderr'))">
-                      收起 stderr
-                    </template>
-                    <template v-else>
-                      展开 stderr ({{ result.stderr.length }} 字)
-                    </template>
+                    {{
+                      expandedOutputs.has(
+                        outputKey(task.id, result.machine_id, 'stderr'),
+                      )
+                        ? '收起'
+                        : '展开'
+                    }}
                   </el-button>
                 </div>
-                <pre v-if="expandedOutputs.has(outputKey(task.id, result.machine_id, 'stderr'))" class="result-output-expanded result-stderr">{{ result.stderr }}</pre>
+                <pre
+                  v-if="
+                    expandedOutputs.has(
+                      outputKey(task.id, result.machine_id, 'stderr'),
+                    )
+                  "
+                  class="result-output-expanded result-stderr"
+                  >{{ result.stderr }}</pre
+                >
+                >
               </template>
             </div>
           </div>
@@ -486,35 +570,152 @@ onUnmounted(() => {
 
 .result-duration {
   color: #999;
-  margin-left: auto;
 }
 
 .output-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
   margin-top: 8px;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
 }
 
+.output-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.output-stream-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  background: #16a34a;
+  border-radius: 50%;
+}
+
+.output-toggle-stderr .output-stream-dot {
+  background: #dc2626;
+}
+
+.output-stream-name {
+  color: #334155;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.output-toggle-stderr .output-stream-name {
+  color: #b91c1c;
+}
+
+.output-length {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.output-toggle-stderr .output-length {
+  color: #f87171;
+}
 .output-toggle-stderr {
-  margin-top: 4px;
+  margin-top: 6px;
+  background: #fffafa;
+  border-color: #fecaca;
 }
 
 .result-output-expanded {
-  margin: 4px 0 0 0;
-  padding: 8px;
+  max-height: 360px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px 16px;
+  color: #dbeafe;
   font-size: 12px;
+  line-height: 1.65;
   font-family: Consolas, Monaco, monospace;
-  background: #f5f5f5;
-  border-radius: 4px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
   white-space: pre-wrap;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  scrollbar-color: #64748b #1e293b;
+  scrollbar-width: thin;
+}
+
+.result-output-expanded::selection {
+  color: #fff;
+  background: #2563eb;
 }
 
 .result-output-expanded.result-stderr {
-  color: #ff4d4f;
+  color: #fecaca;
+  background: #2b1111;
+  border-color: #7f1d1d;
+  scrollbar-color: #b91c1c #450a0a;
+}
+
+.result-output-expanded::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.result-output-expanded::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+.result-output-expanded::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 4px;
+}
+
+.result-output-expanded.result-stderr::-webkit-scrollbar-track {
+  background: #450a0a;
+}
+
+.result-output-expanded.result-stderr::-webkit-scrollbar-thumb {
+  background: #b91c1c;
 }
 
 /* 全局样式穿透：确保 el-button 在 scoped 下也能正常渲染 */
 .result-item :deep(.el-button) {
   font-size: 12px;
+}
+
+.result-item :deep(.output-toggle .el-button) {
+  height: 28px;
+  min-width: 52px;
+  margin-left: 4px;
+  padding: 4px 10px;
+  font-weight: 500;
+  color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  border-radius: 4px;
+}
+
+.result-item :deep(.output-toggle .el-button:hover),
+.result-item :deep(.output-toggle .el-button:focus-visible) {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.result-item :deep(.output-toggle-stderr .el-button) {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.result-item :deep(.output-toggle-stderr .el-button:hover),
+.result-item :deep(.output-toggle-stderr .el-button:focus-visible) {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 .pagination {
