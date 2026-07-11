@@ -27,6 +27,11 @@ export function useWebSocket() {
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
   let idleTimer: ReturnType<typeof setInterval> | null = null;
   let lastActivityTime = Date.now();
+  let streamConnectStarted = 0;
+  let streamOpenedAt = 0;
+  let streamPacketCount = 0;
+  let streamTotalPacketCount = 0;
+  let streamBytes = 0;
 
   // H264 视频元素（由 ScreenDisplay 挂载后通过 attachVideoEl 传入）。
   // MSE/jmuxer 需要绑定 <video> 元素，生命周期归 ScreenDisplay，
@@ -143,6 +148,11 @@ export function useWebSocket() {
     savedCodec = codec;
 
     console.log(`[WebSocket] Connecting to ${host}:${port}, deviceType=${deviceType}, codec=${codec}`);
+    streamConnectStarted = performance.now();
+    streamOpenedAt = 0;
+    streamPacketCount = 0;
+    streamTotalPacketCount = 0;
+    streamBytes = 0;
 
     // 关闭旧连接（使用 code=1000 表示正常关闭，不触发自动重连）
     if (ws) {
@@ -169,6 +179,8 @@ export function useWebSocket() {
 
     ws.onopen = () => {
       status.value = 'connected';
+      streamOpenedAt = performance.now();
+      console.info('[stream-diag] websocket open', { connectMs: streamOpenedAt - streamConnectStarted, codec });
       retryCount = 0;
       fpsFrameCount = 0;
       fpsLastSecond = Date.now();
@@ -184,6 +196,17 @@ export function useWebSocket() {
     ws.onmessage = (event) => {
       // event.data 是 ArrayBuffer
       const arrayBuffer = event.data as ArrayBuffer;
+      streamPacketCount += 1;
+      streamTotalPacketCount += 1;
+      streamBytes += arrayBuffer.byteLength;
+      if (isH264 && (streamTotalPacketCount <= 15 || new Uint8Array(arrayBuffer, 0, 1)[0] === 0x02)) {
+        console.info('[stream-diag] browser packet', {
+          packet: streamTotalPacketCount,
+          prefix: new Uint8Array(arrayBuffer, 0, 1)[0],
+          bytes: arrayBuffer.byteLength,
+          sinceOpenMs: performance.now() - streamOpenedAt,
+        });
+      }
 
       // 检测帧类型（不再每帧打日志，避免控制台对象累积导致内存泄漏）
       switch (detectFrameType(arrayBuffer)) {
@@ -297,6 +320,17 @@ export function useWebSocket() {
       const elapsedSeconds = (now - fpsLastSecond) / 1000;
       if (elapsedSeconds >= 1) {
         fps.value = Math.round(fpsFrameCount / elapsedSeconds);
+        if (videoMode.value) {
+          console.info('[stream-diag] browser summary', {
+            elapsedMs: performance.now() - streamConnectStarted,
+            packets: streamPacketCount,
+            bytes: streamBytes,
+            fps: fps.value,
+            mse: mseDecoder.getDiagnostics(),
+          });
+          streamPacketCount = 0;
+          streamBytes = 0;
+        }
         fpsFrameCount = 0;
         fpsLastSecond = now;
       }
