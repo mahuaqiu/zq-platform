@@ -27,6 +27,7 @@ from core.env_machine.upgrade_service import (
     WorkerUpgradeConfigService,
     WorkerUpgradeQueueService,
     UpgradeService,
+    SUPPORTED_WORKER_UPGRADE_TYPES,
     send_upgrade_to_worker,
 )
 
@@ -63,6 +64,8 @@ async def get_worker_upgrade_info(
     db: AsyncSession = Depends(get_db),
 ) -> WorkerUpgradeInfo:
     """Worker 获取最新版本信息"""
+    if device_type not in SUPPORTED_WORKER_UPGRADE_TYPES:
+        raise HTTPException(status_code=400, detail="该设备类型暂不支持 Worker 升级")
     config = await WorkerUpgradeConfigService.get_by_device_type(db, device_type)
     if not config:
         raise HTTPException(status_code=404, detail="未找到该设备类型的升级配置")
@@ -81,6 +84,9 @@ async def worker_start_upgrade(
     machine = await EnvMachineService.get_by_id(db, data.machine_id)
     if not machine:
         raise HTTPException(status_code=404, detail="机器不存在")
+
+    if machine.device_type not in SUPPORTED_WORKER_UPGRADE_TYPES:
+        raise HTTPException(status_code=400, detail="鸿蒙 HDC 设备暂不支持 Worker 升级")
 
     if machine.status != "online":
         raise HTTPException(status_code=400, detail=f"机器状态为 {machine.status}，无法升级")
@@ -111,12 +117,15 @@ async def batch_upgrade(
     if not data.machine_ids and not data.namespace and not data.device_type:
         raise HTTPException(status_code=400, detail="请指定升级范围")
 
-    response = await UpgradeService.batch_upgrade(
-        db,
-        machine_ids=data.machine_ids,
-        namespace=data.namespace,
-        device_type=data.device_type,
-    )
+    try:
+        response = await UpgradeService.batch_upgrade(
+            db,
+            machine_ids=data.machine_ids,
+            namespace=data.namespace,
+            device_type=data.device_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     logger.info(f"批量升级完成: upgraded={response.upgraded_count}, waiting={response.waiting_count}, failed={response.failed_count}")
 
@@ -131,7 +140,10 @@ async def get_upgrade_preview(
     db: AsyncSession = Depends(get_db),
 ) -> UpgradePreviewResponse:
     """获取升级预览信息"""
-    preview = await UpgradeService.get_preview(db, namespace, device_type, ip)
+    try:
+        preview = await UpgradeService.get_preview(db, namespace, device_type, ip)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return UpgradePreviewResponse(**preview)
 
 

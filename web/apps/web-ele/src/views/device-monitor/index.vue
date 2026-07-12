@@ -25,14 +25,6 @@ const isAllSelected = computed(() => {
   return selectedNamespaces.value.length === namespaceOptions.value.length;
 });
 
-// 自定义显示文本
-const selectDisplayText = computed(() => {
-  if (isAllSelected.value) {
-    return '全部';
-  }
-  return '';
-});
-
 // 数据
 const loading = ref(false);
 const stats = ref<DashboardStatsResponse | null>(null);
@@ -93,12 +85,9 @@ const deviceTypeNames: Record<string, string> = {
   mac: 'Mac',
   android: 'Android',
   ios: 'iOS',
+  harmony_mobile: '鸿蒙移动',
+  harmony_pc: '鸿蒙 PC',
 };
-
-// 判断是否为移动设备
-function isMobileDevice(deviceType: string): boolean {
-  return deviceType === 'android' || deviceType === 'ios';
-}
 
 // 获取设备显示名称（主位置）- 优先显示name，其次IP
 function getDeviceDisplayName(item: { name?: string; ip?: string }): string {

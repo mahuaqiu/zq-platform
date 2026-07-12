@@ -74,6 +74,10 @@ export function buildScreenWsUrl(
   monitor: number = 1,
   codec: string = 'jpeg'
 ): string {
+  if (platform === 'harmony_mobile' || platform === 'harmony_pc') {
+    return '';
+  }
+
   const isDesktop = platform === 'windows' || platform === 'mac';
   const path = isDesktop
     ? `/ws/screen/${platform}/${platform}_screen?monitor=${monitor}&codec=${codec}`

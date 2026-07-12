@@ -756,7 +756,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
 
         # 按设备类型统计
         type_stats = {}
-        for device_type in ["windows", "mac", "android", "ios", "linux"]:
+        for device_type in ["windows", "mac", "android", "ios", "harmony_mobile", "harmony_pc", "linux"]:
             type_query = select(func.count(EnvMachine.id)).where(
                 *base_filter,
                 EnvMachine.device_type == device_type

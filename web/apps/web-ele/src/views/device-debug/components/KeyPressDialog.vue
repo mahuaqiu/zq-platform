@@ -34,11 +34,12 @@ const activeModifiers = ref<string[]>([]);
 
 // 判断是否为桌面端设备
 const isDesktop = computed(() =>
-  props.deviceType === 'windows' || props.deviceType === 'mac'
+  props.deviceType === 'windows' || props.deviceType === 'mac' || props.deviceType === 'harmony_pc'
 );
 
 // 判断是否为 Mac 设备
 const isMac = computed(() => props.deviceType === 'mac');
+const isHarmonyPc = computed(() => props.deviceType === 'harmony_pc');
 
 // 根据平台选择快捷键列表（精简为6个）
 const shortcuts = computed(() =>
@@ -65,7 +66,7 @@ const filteredShiftRow = computed(() =>
 );
 
 // 精简的底行修饰键（去掉右侧重复，添加编辑键）
-const customBottomRow = computed(() => {
+const customBottomRow = computed<KeyDefinition[]>(() => {
   if (isMac.value) {
     return [
       { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
@@ -112,6 +113,10 @@ function handleKeyClick(key: string, keyType: string) {
     return;
   }
   if (activeModifiers.value.length > 0) {
+    if (isHarmonyPc.value) {
+      activeModifiers.value = [];
+      return;
+    }
     const combinedKey = combineKeys(activeModifiers.value, key);
     emit('press', combinedKey);
     activeModifiers.value = [];

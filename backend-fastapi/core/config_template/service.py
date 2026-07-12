@@ -37,6 +37,10 @@ settings = get_settings()
 # Worker 配置接口超时时间（秒）
 WORKER_CONFIG_TIMEOUT = 10
 
+# 当前配置/脚本下发接口操作的是运行 Worker 的宿主机，鸿蒙设备是 HDC
+# 外接 target，不具备这套 Worker 配置下发语义。
+SUPPORTED_CONFIG_DEVICE_TYPES = {"windows", "mac"}
+
 # 合法的命名空间列表（用于配置下发筛选，从配置动态获取）
 VALID_NAMESPACE_LIST = list(settings.namespace_map.keys())
 
@@ -223,6 +227,8 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
             if target_os:
                 conditions.append(EnvMachine.device_type == target_os)
         elif device_type:
+            if device_type not in SUPPORTED_CONFIG_DEVICE_TYPES:
+                raise ValueError(f"设备类型 {device_type} 暂不支持配置下发")
             # 配置类型：使用前端传入的筛选条件
             conditions.append(EnvMachine.device_type == device_type)
         else:
@@ -370,6 +376,9 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
         Returns:
             (是否需要下发, 跳过原因)
         """
+        if machine.device_type not in SUPPORTED_CONFIG_DEVICE_TYPES:
+            return False, "该设备类型暂不支持配置下发"
+
         # 状态校验
         if machine.status != "online":
             return False, f"机器状态为 {machine.status}"

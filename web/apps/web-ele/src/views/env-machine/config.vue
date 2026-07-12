@@ -1067,7 +1067,11 @@ onMounted(async () => {
                               ? 'Windows'
                               : scope.row.device_type === 'mac'
                                 ? 'Mac'
-                                : scope.row.device_type
+                                : scope.row.device_type === 'harmony_mobile'
+                                  ? '鸿蒙移动'
+                                  : scope.row.device_type === 'harmony_pc'
+                                    ? '鸿蒙 PC'
+                                    : scope.row.device_type
                           }}
                         </template>
                       </template>

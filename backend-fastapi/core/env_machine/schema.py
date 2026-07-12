@@ -43,10 +43,10 @@ class EnvMachineListRequest(BaseModel):
 class EnvMachineCreateRequest(BaseModel):
     """新增执行机请求 Schema"""
     namespace: str = Field(..., description="机器分类")
-    device_type: str = Field(..., description="机器类型：windows/mac/ios/android/linux")
+    device_type: str = Field(..., description="机器类型：windows/mac/ios/android/harmony_mobile/harmony_pc/linux")
     asset_number: Optional[str] = Field(None, description="资产编号（Linux 可选）")
     ip: Optional[str] = Field(None, description="IP地址（Windows/Mac/Linux）")
-    device_sn: Optional[str] = Field(None, description="设备SN（iOS/Android）")
+    device_sn: Optional[str] = Field(None, description="设备SN/UDID（移动设备和鸿蒙设备）")
     note: Optional[str] = Field(None, description="备注")
     is_virtual: bool = Field(default=True, description="是否为虚拟设备")  # 新增，默认为虚拟设备
     extra_message: Optional[Dict[str, Any]] = Field(None, description="扩展信息（Linux 设备存储 SSH 认证）")
@@ -123,7 +123,7 @@ class EnvMachineResponse(BaseModel):
 
 class DebugActionRequest(BaseModel):
     """设备调试操作请求 Schema"""
-    action_type: str = Field(..., description="操作类型：click/swipe/input/press/screenshot/unlock_screen")
+    action_type: str = Field(..., description="操作类型：click/double_click/swipe/input/press/screenshot/unlock_screen")
     params: Dict[str, Any] = Field(default_factory=dict, description="操作参数")
     screen_index: Optional[int] = Field(default=0, description="屏幕索引，0=主屏幕，1+=副屏幕")
 

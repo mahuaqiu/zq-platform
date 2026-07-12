@@ -146,8 +146,8 @@ async def register_env_machine(
                     )
                     db.add(new_machine)
 
-            elif device_type in ("android", "ios"):
-                # Android/iOS：根据 device_sn 列表，每个 sn 插入一条记录
+            elif device_type in ("android", "ios", "harmony_mobile", "harmony_pc"):
+                # 移动设备和鸿蒙 PC：根据 UDID/SN 列表，每个设备插入一条记录
                 # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
                 for device_item in device_sns:
                     if not device_item:
@@ -745,6 +745,7 @@ async def debug_device_action(
     代理转发调试操作到 Worker，支持以下操作：
     - screenshot: 获取截图
     - click: 点击坐标
+    - double_click: 双击坐标
     - swipe: 滑动操作
     - input: 文本输入
     - press: 按键操作
@@ -763,8 +764,10 @@ async def debug_device_action(
         raise HTTPException(status_code=404, detail="设备不存在")
 
     # 校验设备类型（支持所有设备类型）
-    if machine.device_type not in ("ios", "android", "windows", "mac"):
-        raise HTTPException(status_code=400, detail="仅支持 iOS/Android/Windows/Mac 设备调试")
+    if machine.device_type not in (
+        "ios", "android", "windows", "mac", "harmony_mobile", "harmony_pc"
+    ):
+        raise HTTPException(status_code=400, detail="不支持该设备类型调试")
 
     # 校验设备状态
     if machine.status != "online":
@@ -787,6 +790,11 @@ async def debug_device_action(
         actions.append(action)
     elif action_type == "click":
         action = {"action_type": "click", "x": params.get("x"), "y": params.get("y")}
+        if monitor:
+            action["monitor"] = monitor
+        actions.append(action)
+    elif action_type == "double_click":
+        action = {"action_type": "double_click", "x": params.get("x"), "y": params.get("y")}
         if monitor:
             action["monitor"] = monitor
         actions.append(action)
@@ -835,7 +843,19 @@ async def debug_device_action(
 
     try:
         async with httpx.AsyncClient(timeout=request_timeout, trust_env=False, verify=False) as client:
-            resp = await client.post(worker_url, json=worker_request)
+            resp = None
+            for attempt in range(3):
+                resp = await client.post(worker_url, json=worker_request)
+                if resp.status_code != 503 or attempt == 2:
+                    break
+                logger.warning(
+                    "Worker 返回 503，准备重试调试操作: machine_id=%s attempt=%s",
+                    machine_id,
+                    attempt + 1,
+                )
+                await asyncio.sleep(0.4 * (attempt + 1))
+
+            assert resp is not None
             if resp.status_code == 200:
                 worker_result = resp.json()
 
@@ -911,8 +931,8 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
     )
 
     # 过滤不支持批量命令执行的设备类型
-    if machine.device_type in ("ios", "android"):
-        result.stderr = "iOS/Android 设备不支持批量命令执行"
+    if machine.device_type in ("ios", "android", "harmony_mobile", "harmony_pc"):
+        result.stderr = "移动设备和鸿蒙设备不支持批量命令执行"
         return result
 
     # 过滤虚拟设备
@@ -931,7 +951,7 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
         return result
 
     # 构造 Worker API 请求
-    # cmd_exec 同时支持 Windows CMD 和 Mac Shell
+    # 鸿蒙设备通过 HDC 控制，不执行 Worker 宿主机命令。
     action_type = "cmd_exec"
 
     worker_url = f"http://{machine.ip}:{machine.port}/task/execute"

@@ -91,7 +91,7 @@ export function useDeviceAction(deviceId: string) {
         }
         return true;
       } else {
-        const errorMsg = result?.result?.error || result?.error || '操作失败';
+        const errorMsg = result?.result?.error || '操作失败';
         if (!isAuto) {
           updateHistoryStatus('failed', errorMsg);
           ElMessage.error(errorMsg);
@@ -164,6 +164,36 @@ export function useDeviceAction(deviceId: string) {
     return executeOperation('unlock_screen', { value: password || '' });
   }
 
+  /** 获取一次截图，鸿蒙设备使用 HTTP action，不依赖实时流。 */
+  async function screenshot(): Promise<string | null> {
+    const now = Date.now();
+    const elapsed = now - lastOperationTime.value;
+    if (elapsed < MIN_OPERATION_INTERVAL) {
+      await sleep(MIN_OPERATION_INTERVAL - elapsed);
+    }
+
+    isOperating.value = true;
+    lastOperationTime.value = Date.now();
+    try {
+      const result = await debugDeviceActionApi(
+        deviceId,
+        { action_type: 'screenshot', params: {} },
+        OPERATION_TIMEOUT,
+      );
+      if (result?.success && result.result?.screenshot_base64) {
+        return result.result.screenshot_base64;
+      }
+      const errorMsg = result?.result?.error || '截图失败';
+      ElMessage.error(errorMsg);
+      return null;
+    } catch (error: any) {
+      ElMessage.error(error?.message || '截图失败');
+      return null;
+    } finally {
+      isOperating.value = false;
+    }
+  }
+
   return {
     isOperating,
     operationHistory,
@@ -174,5 +204,6 @@ export function useDeviceAction(deviceId: string) {
     inputText,
     pressKey,
     unlockScreen,
+    screenshot,
   };
 }

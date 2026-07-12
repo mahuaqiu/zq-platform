@@ -7,8 +7,6 @@ import { Page } from '@vben/common-ui';
 
 import {
   ElButton,
-  ElCard,
-  ElCheckbox,
   ElDialog,
   ElInput,
   ElMessage,
@@ -169,7 +167,8 @@ async function loadQueue() {
 }
 
 // 全选切换
-function handleSelectAllChange(val: boolean) {
+function handleSelectAllChange(event: Event) {
+  const val = (event.target as HTMLInputElement).checked;
   if (val) {
     selectedMachineIds.value = selectableMachines.value.map(m => m.id);
   } else {
@@ -178,7 +177,8 @@ function handleSelectAllChange(val: boolean) {
 }
 
 // 单选切换
-function handleCheckboxChange(machineId: string, checked: boolean) {
+function handleCheckboxChange(machineId: string, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
   if (checked) {
     if (!selectedMachineIds.value.includes(machineId)) {
       selectedMachineIds.value.push(machineId);
@@ -447,7 +447,7 @@ onMounted(async () => {
                       class="native-checkbox"
                       :checked="isAllSelected"
                       :indeterminate.prop="isIndeterminate"
-                      @change="handleSelectAllChange($event.target.checked)"
+                      @change="handleSelectAllChange"
                     />
                     <span class="select-label">全选</span>
                   </div>
@@ -458,7 +458,7 @@ onMounted(async () => {
                     class="native-checkbox"
                     :checked="selectedMachineIds.includes(row.id)"
                     :disabled="!isSelectable(row.upgrade_status)"
-                    @change="handleCheckboxChange(row.id, $event.target.checked)"
+                    @change="handleCheckboxChange(row.id, $event)"
                   />
                 </template>
               </ElTableColumn>
@@ -469,7 +469,7 @@ onMounted(async () => {
               </ElTableColumn>
               <ElTableColumn prop="device_type" label="设备类型" min-width="100">
                 <template #default="{ row }">
-                  {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
+                  {{ row.device_type === 'windows' ? 'Windows' : row.device_type === 'mac' ? 'Mac' : row.device_type === 'harmony_mobile' ? '鸿蒙移动' : '鸿蒙 PC' }}
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="version" label="当前版本" min-width="120">
@@ -526,7 +526,7 @@ onMounted(async () => {
               </ElTableColumn>
               <ElTableColumn prop="device_type" label="设备类型" min-width="100">
                 <template #default="{ row }">
-                  {{ row.device_type === 'windows' ? 'Windows' : 'Mac' }}
+                  {{ row.device_type === 'windows' ? 'Windows' : row.device_type === 'mac' ? 'Mac' : row.device_type === 'harmony_mobile' ? '鸿蒙移动' : '鸿蒙 PC' }}
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="target_version" label="目标版本" min-width="120" />

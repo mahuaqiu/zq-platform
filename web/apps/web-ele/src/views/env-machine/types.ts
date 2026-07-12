@@ -1,7 +1,7 @@
 /**
  * 设备类型
  */
-export type DeviceType = 'windows' | 'mac' | 'ios' | 'android' | 'linux';
+export type DeviceType = 'windows' | 'mac' | 'ios' | 'android' | 'harmony_mobile' | 'harmony_pc' | 'linux';
 
 /**
  * 设备状态
@@ -11,7 +11,16 @@ export type DeviceStatus = 'online' | 'using' | 'offline' | 'upgrading';
 /**
  * 标签允许的前缀列表
  */
-export const ALLOWED_TAG_PREFIXES = ['windows', 'web', 'android', 'ios', 'mac', 'api'] as const;
+export const ALLOWED_TAG_PREFIXES = [
+  'windows',
+  'web',
+  'android',
+  'ios',
+  'mac',
+  'harmony_mobile',
+  'harmony_pc',
+  'api',
+] as const;
 
 /**
  * Namespace 映射（用于后端 API 参数转换，如 gamma -> meeting_gamma）
@@ -33,6 +42,8 @@ export const DEVICE_TYPE_OPTIONS = [
   { label: 'Mac', value: 'mac' },
   { label: 'iOS', value: 'ios' },
   { label: 'Android', value: 'android' },
+  { label: '鸿蒙移动', value: 'harmony_mobile' },
+  { label: '鸿蒙 PC', value: 'harmony_pc' },
   { label: 'Linux', value: 'linux' },
 ];
 
@@ -58,7 +69,7 @@ export const AVAILABLE_OPTIONS = [
  * 判断是否为移动端设备
  */
 export function isMobileDevice(deviceType: DeviceType): boolean {
-  return deviceType === 'ios' || deviceType === 'android';
+  return deviceType === 'ios' || deviceType === 'android' || deviceType === 'harmony_mobile';
 }
 
 /**
@@ -77,14 +88,16 @@ export function validateSingleTag(tag: string): { valid: boolean; error: string 
     return { valid: false, error: '标签必须小写' };
   }
 
-  const prefix = tag.split('_')[0];
-  if (!ALLOWED_TAG_PREFIXES.includes(prefix as any)) {
+  const prefix = ALLOWED_TAG_PREFIXES.find(
+    (item) => tag === item || tag.startsWith(`${item}_`),
+  );
+  if (!prefix) {
     return { valid: false, error: `标签前缀必须是 ${ALLOWED_TAG_PREFIXES.join('/')} 之一` };
   }
 
   // 检查下划线后是否有内容
   if (tag.includes('_')) {
-    const suffix = tag.split('_')[1];
+    const suffix = tag.slice(prefix.length + 1);
     if (!suffix) {
       return { valid: false, error: '标签下划线后必须有内容' };
     }

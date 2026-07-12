@@ -34,7 +34,7 @@ from core.config_template.schema import (
     CommandTaskResponse,
     CommandTaskDetailResponse,
 )
-from core.config_template.service import ConfigTemplateService
+from core.config_template.service import ConfigTemplateService, SUPPORTED_CONFIG_DEVICE_TYPES
 from core.config_template.machine_selection_template_service import MachineSelectionTemplateService
 from core.config_template.command_task_service import CommandTaskService
 from core.env_machine.model import EnvMachine
@@ -188,6 +188,14 @@ async def _execute_command_deploy(
         )
     )
     machines = result.scalars().all()
+
+    unsupported = [
+        machine.device_type
+        for machine in machines
+        if machine.device_type not in SUPPORTED_CONFIG_DEVICE_TYPES
+    ]
+    if unsupported:
+        raise HTTPException(status_code=400, detail="鸿蒙、Android、iOS 设备不支持宿主机命令下发")
 
     if not machines:
         raise HTTPException(status_code=400, detail="没有可执行的机器")

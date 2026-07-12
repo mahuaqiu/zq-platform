@@ -140,6 +140,12 @@ export function useWebSocket() {
    * 连接 WebSocket
    */
   function connect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number, codec: string = 'jpeg'): void {
+    // 鸿蒙当前没有 sidecar/frame source，禁止建立不存在的实时流连接。
+    if (deviceType === 'harmony_mobile' || deviceType === 'harmony_pc') {
+      disconnect();
+      return;
+    }
+
     // 保存参数用于重连
     savedHost = host;
     savedPort = port;

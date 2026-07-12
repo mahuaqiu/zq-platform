@@ -137,7 +137,7 @@ class EnvMachineLogService:
 
         # 按类型统计
         type_stats = []
-        device_types = ["windows", "mac", "android", "ios"]
+        device_types = ["windows", "mac", "android", "ios", "harmony_mobile", "harmony_pc"]
         for dt in device_types:
             type_total_result = await db.execute(
                 select(func.count(EnvMachine.id)).where(

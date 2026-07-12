@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class UpgradeConfigResponse(BaseModel):
     """升级配置响应"""
     id: str = Field(..., description="配置ID")
-    device_type: str = Field(..., description="设备类型: windows/mac")
+    device_type: str = Field(..., description="设备类型: windows/mac；鸿蒙 HDC 设备暂不支持 Worker 升级")
     version: str = Field(..., description="目标版本号")
     download_url: str = Field(..., description="下载地址")
     note: Optional[str] = Field(None, description="备注")

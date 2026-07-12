@@ -15,7 +15,7 @@ class WorkerUpgradeConfig(BaseModel):
     """Worker 升级配置表 - 存储 Windows/Mac 最新版本信息"""
     __tablename__ = "worker_upgrade_config"
 
-    device_type = Column(String(20), nullable=False, unique=True, comment="设备类型: windows/mac")
+    device_type = Column(String(20), nullable=False, unique=True, comment="设备类型: windows/mac；鸿蒙 HDC 设备暂不支持")
     version = Column(String(32), nullable=False, comment="目标版本号(时间戳格式)")
     download_url = Column(String(512), nullable=False, comment="安装包下载地址")
     note = Column(Text, nullable=True, comment="备注")

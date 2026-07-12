@@ -98,6 +98,7 @@ const {
   inputText,
   pressKey,
   unlockScreen,
+  screenshot,
 } = useDeviceAction(deviceId);
 
 // 操作统计
@@ -124,6 +125,14 @@ const screenCount = computed(() => {
 // 设备类型判断
 const isDesktop = computed(() => deviceDetail.value && isDesktopDevice(deviceDetail.value.device_type));
 const isMobile = computed(() => deviceDetail.value && isMobileDevice(deviceDetail.value.device_type));
+const isHarmony = computed(() =>
+  deviceDetail.value?.device_type === 'harmony_mobile' || deviceDetail.value?.device_type === 'harmony_pc',
+);
+const harmonyScreenshotUrl = ref('');
+const displayedWsStatus = computed(() => {
+  if (!isHarmony.value) return wsStatus.value;
+  return harmonyScreenshotUrl.value ? 'connected' : 'disconnected';
+});
 
 // 设备状态警告（使用中状态时显示）
 const deviceStatusWarning = computed(() => {
@@ -207,13 +216,15 @@ async function loadDeviceDetail() {
     );
     setTabTitle(title);
 
-    // 连接 WebSocket（使用现有字段：ip、port、device_sn、device_type）
+    // 鸿蒙没有实时帧源，先通过 HTTP action 获取截图；其它平台连接实时流。
     const workerHost = result.ip;
     const workerPort = parseInt(result.port, 10);
     const udid = result.device_sn; // 移动设备 udid = device_sn
     const deviceType = result.device_type;
 
-    if (workerHost && workerPort && deviceType) {
+    if (isHarmony.value) {
+      await refreshHarmonyScreenshot();
+    } else if (workerHost && workerPort && deviceType) {
       connect(workerHost, workerPort, udid || '', deviceType, currentScreenIndex.value, currentCodec.value);
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
@@ -238,6 +249,10 @@ function handleDisconnect() {
 
 // 重新连接
 function handleReconnect() {
+  if (isHarmony.value) {
+    refreshHarmonyScreenshot();
+    return;
+  }
   if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
     const workerHost = deviceDetail.value.ip;
     const workerPort = parseInt(deviceDetail.value.port, 10);
@@ -250,6 +265,10 @@ function handleReconnect() {
 // 屏幕切换
 function handleScreenChange(screenIndex: number) {
   currentScreenIndex.value = screenIndex;
+  if (isHarmony.value) {
+    refreshHarmonyScreenshot();
+    return;
+  }
   // 重连 WebSocket 到新屏幕
   if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
     reconnect(
@@ -268,7 +287,7 @@ function handleScreenMouseDown(event: MouseEvent) {
   // 右键点击由 contextmenu 事件处理，这里忽略
   if (event.button === 2) return;
 
-  if (isOperating.value || wsStatus.value !== 'connected') return;
+  if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected')) return;
   // 如果点击在屏幕之外，返回 null，不开始操作
   const coords = handleDragStart(event);
   if (coords === null) {
@@ -285,6 +304,7 @@ async function handleScreenMouseUp(event: MouseEvent) {
   if (event.button === 2) return;
 
   if (isOperating.value) return;
+  if (!isHarmony.value && wsStatus.value !== 'connected') return;
   // 重置活动时间（用户有操作）
   resetActivityTime();
   const result = handleDragEnd(event);
@@ -294,7 +314,10 @@ async function handleScreenMouseUp(event: MouseEvent) {
     if (result.type === 'click') {
       const clickParams = result.params as { x: number; y: number };
       const success = await click(clickParams.x, clickParams.y, monitor);
-      if (success) clickCount.value++;
+      if (success) {
+        clickCount.value++;
+        if (isHarmony.value) await refreshHarmonyScreenshot();
+      }
     } else if (result.type === 'swipe') {
       const swipeParams = result.params as { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
       const success = await swipe(
@@ -305,7 +328,10 @@ async function handleScreenMouseUp(event: MouseEvent) {
         swipeParams.duration,
         monitor
       );
-      if (success) swipeCount.value++;
+      if (success) {
+        swipeCount.value++;
+        if (isHarmony.value) await refreshHarmonyScreenshot();
+      }
     }
   }
 }
@@ -317,10 +343,10 @@ function handleScreenMouseLeave() {
 // 右键菜单处理：Windows/Mac 透传右键，iOS/Android 忽略
 // 同样需要检查点击是否在屏幕区域内
 async function handleScreenContextMenu(event: MouseEvent) {
-  if (isOperating.value || wsStatus.value !== 'connected') return;
+  if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected')) return;
 
   // iOS/Android 不支持右键，忽略
-  if (isMobile.value) return;
+  if (isMobile.value || isHarmony.value) return;
 
   // Windows/Mac 透传右键点击到设备
   if (isDesktop.value) {
@@ -381,13 +407,29 @@ function handleKeyPress(key: string) {
 // 输入文本
 function handleInputText(text: string) {
   resetActivityTime();
-  inputText(text);
+  inputText(text).then((success) => {
+    if (success && isHarmony.value) refreshHarmonyScreenshot();
+  });
 }
 
 // 解锁屏幕
 function handleUnlock(password?: string) {
   resetActivityTime();
-  unlockScreen(password);
+  unlockScreen(password).then((success) => {
+    if (success && isHarmony.value) refreshHarmonyScreenshot();
+  });
+}
+
+async function refreshHarmonyScreenshot() {
+  if (!isHarmony.value) return;
+  const screenshotData = await screenshot();
+  if (!screenshotData) return;
+  harmonyScreenshotUrl.value = `data:image/jpeg;base64,${screenshotData}`;
+  const image = new Image();
+  image.onload = () => {
+    screenSize.value = { width: image.width, height: image.height };
+  };
+  image.src = harmonyScreenshotUrl.value;
 }
 
 // 安装 APP
@@ -398,9 +440,10 @@ function handleInstallApp(_file: File) {
 
 // 截图保存
 function handleScreenshot() {
-  if (screenshotBase64.value) {
+  const screenshotUrl = isHarmony.value ? harmonyScreenshotUrl.value : screenshotBase64.value;
+  if (screenshotUrl) {
     const link = document.createElement('a');
-    link.href = screenshotBase64.value;
+    link.href = screenshotUrl;
     link.download = `screenshot_${Date.now()}.png`;
     link.click();
   } else {
@@ -410,6 +453,9 @@ function handleScreenshot() {
 
 // 打开按键弹窗
 function handleOpenKeyPressDialog() {
+  if (isHarmony.value) {
+    ElMessage.info('鸿蒙当前仅支持单键操作');
+  }
   keyPressDialogVisible.value = true;
 }
 
@@ -447,7 +493,7 @@ onUnmounted(() => {
       :asset-number="deviceDetail.asset_number || deviceDetail.ip"
       :device-sn="deviceDetail.device_sn"
       :resolution="deviceResolution"
-      :ws-status="wsStatus"
+      :ws-status="displayedWsStatus"
       :fps="fps"
       :screen-count="screenCount"
       :current-screen="currentScreenIndex"
@@ -481,9 +527,9 @@ onUnmounted(() => {
       <template v-if="isDesktop">
         <ScreenDisplay
           ref="desktopScreen"
-          :screenshot-url="screenshotBase64"
+          :screenshot-url="isHarmony ? harmonyScreenshotUrl : screenshotBase64"
           :screen-size="screenSize"
-          :ws-status="wsStatus"
+          :ws-status="displayedWsStatus"
           :mouse-coord="mouseCoord"
           :is-in-screen="isInScreen"
           :click-indicator="clickIndicator"
@@ -505,9 +551,9 @@ onUnmounted(() => {
           <div class="mobile-screen">
             <ScreenDisplay
               ref="mobileScreen"
-              :screenshot-url="screenshotBase64"
+              :screenshot-url="isHarmony ? harmonyScreenshotUrl : screenshotBase64"
               :screen-size="screenSize"
-              :ws-status="wsStatus"
+              :ws-status="displayedWsStatus"
               :mouse-coord="mouseCoord"
               :is-in-screen="isInScreen"
               :click-indicator="clickIndicator"

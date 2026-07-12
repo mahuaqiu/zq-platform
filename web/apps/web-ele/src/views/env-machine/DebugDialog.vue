@@ -556,7 +556,7 @@ function handleDialogOpen() {
     <KeyPressDialog
       v-model:visible="keyPressDialogVisible"
       :disabled="isOperating"
-      :device-type="machine?.device_type"
+      :device-type="machine?.device_type as any"
       @press="handleKeyPress"
     />
   </ElDialog>

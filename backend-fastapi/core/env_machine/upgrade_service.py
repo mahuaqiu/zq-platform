@@ -30,6 +30,10 @@ WORKER_UPGRADE_TIMEOUT = 10
 # 最大并发升级数量（全局限制）
 MAX_CONCURRENT_UPGRADES = 10
 
+# 鸿蒙设备是 HDC 外接 target，不是运行 Worker 的宿主机，当前没有独立的
+# 鸿蒙 Worker 安装包，因此不能进入 Worker 升级链路。
+SUPPORTED_WORKER_UPGRADE_TYPES = {"windows", "mac"}
+
 
 class WorkerUpgradeConfigService:
     """升级配置服务"""
@@ -296,6 +300,15 @@ class UpgradeConcurrencyService:
         # 3. 遍历下发升级
         processed_count = 0
         for item in queue_items:
+            if item.device_type not in SUPPORTED_WORKER_UPGRADE_TYPES:
+                await WorkerUpgradeQueueService.mark_failed(db, item.id)
+                logger.warning(
+                    "跳过不支持的 Worker 升级队列项: machine_id=%s device_type=%s",
+                    item.machine_id,
+                    item.device_type,
+                )
+                continue
+
             # 获取机器信息
             result = await db.execute(
                 select(EnvMachine).where(EnvMachine.id == item.machine_id)
@@ -379,6 +392,9 @@ class UpgradeService:
         device_type: Optional[str] = None,
     ) -> BatchUpgradeResponse:
         """批量升级（带并发控制，最多同时10台升级）"""
+        if device_type and device_type not in SUPPORTED_WORKER_UPGRADE_TYPES:
+            raise ValueError(f"设备类型 {device_type} 暂不支持 Worker 升级")
+
         # 获取版本配置
         configs = await WorkerUpgradeConfigService.get_all(db)
         config_map = {c.device_type: c for c in configs}
@@ -395,6 +411,8 @@ class UpgradeService:
             conditions.append(EnvMachine.namespace == namespace)
         if device_type:
             conditions.append(EnvMachine.device_type == device_type)
+        else:
+            conditions.append(EnvMachine.device_type.in_(SUPPORTED_WORKER_UPGRADE_TYPES))
 
         result = await db.execute(select(EnvMachine).where(and_(*conditions)))
         machines = result.scalars().all()
@@ -519,6 +537,9 @@ class UpgradeService:
     @staticmethod
     async def get_preview(db: AsyncSession, namespace: Optional[str] = None, device_type: Optional[str] = None, ip: Optional[str] = None) -> dict:
         """获取升级预览"""
+        if device_type and device_type not in SUPPORTED_WORKER_UPGRADE_TYPES:
+            raise ValueError(f"设备类型 {device_type} 暂不支持 Worker 升级")
+
         configs = await WorkerUpgradeConfigService.get_all(db)
         config_map = {c.device_type: c for c in configs}
 
@@ -531,6 +552,8 @@ class UpgradeService:
             conditions.append(EnvMachine.namespace == namespace)
         if device_type:
             conditions.append(EnvMachine.device_type == device_type)
+        else:
+            conditions.append(EnvMachine.device_type.in_(SUPPORTED_WORKER_UPGRADE_TYPES))
         if ip:
             conditions.append(EnvMachine.ip.contains(ip))
 

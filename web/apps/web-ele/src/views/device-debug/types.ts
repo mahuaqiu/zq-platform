@@ -1,7 +1,7 @@
 /**
  * 设备类型
  */
-export type DeviceType = 'windows' | 'mac' | 'ios' | 'android';
+export type DeviceType = 'windows' | 'mac' | 'ios' | 'android' | 'harmony_mobile' | 'harmony_pc';
 
 /**
  * WebSocket 连接状态

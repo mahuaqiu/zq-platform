@@ -54,7 +54,10 @@ class EnvPoolManager:
     PUBLIC_NAMESPACE = "public"  # 公共机器池
 
     # 标签允许的前缀列表
-    ALLOWED_TAG_PREFIXES = ("windows", "web", "android", "ios", "mac", "api")
+    ALLOWED_TAG_PREFIXES = (
+        "windows", "web", "android", "ios", "mac", "harmony_mobile",
+        "harmony_pc", "api"
+    )
 
     @classmethod
     def validate_single_tag(cls, tag: str) -> tuple[bool, str]:
@@ -78,8 +81,12 @@ class EnvPoolManager:
         if not tag.islower():
             return False, "标签必须小写"
 
-        prefix = tag.split("_")[0]
-        if prefix not in cls.ALLOWED_TAG_PREFIXES:
+        prefix = next(
+            (item for item in cls.ALLOWED_TAG_PREFIXES
+             if tag == item or tag.startswith(f"{item}_")),
+            None,
+        )
+        if prefix is None:
             return False, f"标签前缀必须是 {cls.ALLOWED_TAG_PREFIXES} 之一"
 
         # 检查下划线后是否有内容
@@ -340,7 +347,7 @@ class EnvPoolManager:
             dict: 合并后的分配信息
         """
         # 从申请标签提取 device_type（取前缀）
-        device_type = request_tag.split("_")[0]
+        device_type = cls._device_type_from_tag(request_tag)
 
         # 判断是否为虚拟设备
         is_virtual = machine_data.get("is_virtual", False)
@@ -366,9 +373,17 @@ class EnvPoolManager:
         return result
 
     @classmethod
+    def _device_type_from_tag(cls, request_tag: str) -> str:
+        """从申请标签提取平台类型，鸿蒙类型保留完整名称。"""
+        for device_type in ("harmony_mobile", "harmony_pc"):
+            if request_tag == device_type or request_tag.startswith(f"{device_type}_"):
+                return device_type
+        return request_tag.split("_")[0]
+
+    @classmethod
     def _is_mobile_device(cls, device_type: str) -> bool:
-        """判断是否为移动端设备"""
-        return device_type in ("android", "ios")
+        """判断是否按独立设备目标占用资源。"""
+        return device_type in ("android", "ios", "harmony_mobile", "harmony_pc")
 
     @classmethod
     def _allocate_single(
@@ -542,7 +557,7 @@ class EnvPoolManager:
                             namespace=namespace,
                             machine_id="",
                             ip=None,
-                            device_type=request_tag.split("_")[0],
+                            device_type=cls._device_type_from_tag(request_tag),
                             device_sn=None,
                             mark=request_tag,
                             testcase_id=testcase_id,

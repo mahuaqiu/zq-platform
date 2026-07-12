@@ -114,14 +114,14 @@ export function calculateContainRenderArea(
  * 判断是否为移动端设备
  */
 export function isMobileDevice(deviceType: string): boolean {
-  return ['ios', 'android'].includes(deviceType);
+  return ['ios', 'android', 'harmony_mobile'].includes(deviceType);
 }
 
 /**
  * 判断是否为桌面端设备
  */
 export function isDesktopDevice(deviceType: string): boolean {
-  return ['windows', 'mac'].includes(deviceType);
+  return ['windows', 'mac', 'harmony_pc'].includes(deviceType);
 }
 
 /**
@@ -199,6 +199,11 @@ export function buildWebSocketUrl(
   if (platform === 'windows' || platform === 'mac') {
     const monitor = screenIndex !== undefined ? screenIndex + 1 : 1;
     return `ws://${host}:${port}/ws/screen/${platform}/${platform}_screen?monitor=${monitor}&codec=${codec}`;
+  }
+
+  // 鸿蒙没有 Worker 实时帧源，页面层应使用截图 action。
+  if (platform === 'harmony_mobile' || platform === 'harmony_pc') {
+    return '';
   }
 
   // 移动端使用 UDID 和 codec
