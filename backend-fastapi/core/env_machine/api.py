@@ -51,6 +51,19 @@ from core.env_machine.auth import verify_env_apply_auth
 
 logger = logging.getLogger(__name__)
 
+def _worker_error_message(payload: dict, fallback: str) -> str:
+    """提取 Worker 结构化错误，同时兼容旧字符串错误。"""
+    error = payload.get("error")
+    if isinstance(error, dict):
+        return str(error.get("message") or error.get("code") or fallback)
+    if error:
+        return str(error)
+    detail = payload.get("detail")
+    if isinstance(detail, dict):
+        return str(detail.get("message") or detail.get("code") or fallback)
+    return str(detail or fallback)
+
+
 router = APIRouter(prefix="/env", tags=["执行机管理"])
 
 
@@ -861,7 +874,7 @@ async def debug_device_action(
 
                 # 首先检查 worker 顶层状态（如设备未找到等情况）
                 worker_status = worker_result.get("status", "")
-                worker_error = worker_result.get("error", "")
+                worker_error = _worker_error_message(worker_result, "设备操作失败")
                 if worker_status == "failed":
                     return DebugActionResponse(
                         success=False,
@@ -979,7 +992,7 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
                 # 检查 Worker 顶层状态
                 worker_status = worker_result.get("status", "")
                 if worker_status == "failed":
-                    result.stderr = worker_result.get("error", "命令执行失败")
+                    result.stderr = _worker_error_message(worker_result, "命令执行失败")
                     return result
 
                 # 检查 action 执行状态

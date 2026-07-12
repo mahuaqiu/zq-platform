@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 @Author: 臧成龙
@@ -8,6 +8,7 @@
 @Desc: ConfigTemplate API - 配置模板管理接口
 """
 import asyncio
+import hashlib
 import logging
 import time
 from itertools import islice
@@ -40,6 +41,18 @@ from core.config_template.command_task_service import CommandTaskService
 from core.env_machine.model import EnvMachine
 
 logger = logging.getLogger(__name__)
+
+def _worker_http_error_message(response: httpx.Response, fallback: str) -> str:
+    """提取 Worker HTTP 错误，兼容结构化 detail 和旧文本响应。"""
+    try:
+        payload = response.json()
+    except ValueError:
+        return fallback
+    detail = payload.get("detail") if isinstance(payload, dict) else None
+    if isinstance(detail, dict):
+        return str(detail.get("message") or detail.get("code") or fallback)
+    return str(detail or payload.get("message") or fallback) if isinstance(payload, dict) else fallback
+
 
 router = APIRouter(prefix="/config-template", tags=["设备配置管理"])
 
@@ -248,7 +261,7 @@ async def _execute_commands_async(task_id: str, machines: List[dict], command: s
     it = iter(machines)
     while batch := list(islice(it, COMMAND_BATCH_SIZE)):
         batch_results = await asyncio.gather(
-            *(_execute_single_command(m, command) for m in batch)
+            *(_execute_single_command(m, command, task_id) for m in batch)
         )
         for result in batch_results:
             results.append(result)
@@ -270,7 +283,7 @@ async def _execute_commands_async(task_id: str, machines: List[dict], command: s
         )
 
 
-async def _execute_single_command(machine: dict, command: str) -> dict:
+async def _execute_single_command(machine: dict, command: str, parent_task_id: str) -> dict:
     """执行单台机器的命令（machine 为机器快照 dict: id/ip/port/device_type）"""
     start_time = time.time()
     machine_id = machine["id"]
@@ -285,10 +298,17 @@ async def _execute_single_command(machine: dict, command: str) -> dict:
         "device_id": machine_id,
         "actions": [{"action_type": "cmd_exec", "value": command}],
     }
+    idempotency_key = hashlib.sha256(
+        f"{parent_task_id}:{machine_id}:{command}".encode("utf-8")
+    ).hexdigest()
 
     try:
         async with httpx.AsyncClient(timeout=60.0, trust_env=False, verify=False) as client:
-            resp = await client.post(worker_url, json=worker_request)
+            resp = await client.post(
+                worker_url,
+                json=worker_request,
+                headers={"Idempotency-Key": idempotency_key},
+            )
             duration = time.time() - start_time
 
             if resp.status_code == 200:
@@ -314,7 +334,7 @@ async def _execute_single_command(machine: dict, command: str) -> dict:
                     "device_type": device_type,
                     "success": False,
                     "stdout": "",
-                    "stderr": f"Worker 返回错误: {resp.status_code}",
+                    "stderr": _worker_http_error_message(resp, f"Worker 返回错误: {resp.status_code}"),
                     "duration_seconds": duration,
                 }
     except httpx.TimeoutException:
@@ -344,10 +364,8 @@ async def _execute_single_command(machine: dict, command: str) -> dict:
 async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 300) -> dict:
     """等待任务完成并返回结果。
 
-    worker 的 /task/{task_id} 是一次性查询接口：查询时若任务处于终态，
-    返回结果后任务立即从内存销毁，再次查询返回 404。
-    因此拿到终态必须立即返回，不能重复查询。
-    status enum 见 Api.yaml：[pending, running, success, failed, timeout, cancelled]
+    Worker 的 /task/{task_id} 是幂等查询接口，结果可重复读取。
+    只有明确终态才结束轮询，cancelling 等中间状态继续等待。
     """
     worker_url = f"http://{ip}:{port}/task/{task_id}"
     start_time = time.time()
@@ -372,7 +390,7 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
                         duration_ms = 0.0
                     duration = duration_ms / 1000 if duration_ms > 0 else elapsed
 
-                    if status in ("pending", "running"):
+                    if status in ("accepted", "pending", "running", "cancelling"):
                         # 任务尚未结束，继续轮询
                         await asyncio.sleep(2)
                         continue
@@ -384,8 +402,7 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
                             "stderr": action0.get("stderr", ""),
                             "duration": duration,
                         }
-                    else:
-                        # failed / timeout / cancelled
+                    elif status in ("failed", "timeout", "cancelled", "interrupted"):
                         stderr = action0.get("error") or action0.get("stderr") or f"执行失败: {status}"
                         return {
                             "success": False,
@@ -393,12 +410,19 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
                             "stderr": stderr,
                             "duration": duration or (time.time() - start_time),
                         }
-                elif resp.status_code == 404:
-                    # 任务不存在：可能已被前一次终态查询消费掉，或从未创建
+                elif status not in ("success", "failed", "timeout", "cancelled", "interrupted"):
                     return {
                         "success": False,
                         "stdout": "",
-                        "stderr": "任务结果已销毁/未找到",
+                        "stderr": f"Worker 返回未知任务状态: {status}",
+                        "duration": duration or (time.time() - start_time),
+                    }
+                elif resp.status_code == 404:
+                    # 任务不存在：可能已过期或从未创建
+                    return {
+                        "success": False,
+                        "stdout": "",
+                        "stderr": "任务已过期或未找到",
                         "duration": time.time() - start_time,
                     }
         except Exception:

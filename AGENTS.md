@@ -173,3 +173,16 @@ web/
 后端启动后访问：
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
+## Worker 任务 API 约束（2026-07-12）
+
+- Worker 任务 API 路径保持不变；异步提交必须传递稳定的 `Idempotency-Key`，网络重试不得重复创建任务。
+- `GET /task/{task_id}` 是幂等查询，可重复轮询同一任务结果；Worker 不因查询删除记录。
+- `DELETE /task/{task_id}` 只发起取消，先返回 `cancelling`，后续查询应看到 `cancelled` 或其他终态。
+- 平台识别 `accepted`、`running`、`cancelling`、`success`、`failed`、`timeout`、`cancelled`、`interrupted` 状态。
+- 失败响应使用稳定的 `error.code`、`error.message`、`error.retryable` 和 `error.details`；是否重试以 `retryable` 为准。
+- 平台前端仅在 API 契约确有变化时调整；本阶段 API 路径保持不变，因此只适配平台后端。
+
+## Worker 执行内核协作约束
+- Worker 任务统一经过 TaskService，平台接口沿用现有 API 路径。
+- 平台后端只依赖 Worker 的任务状态、错误码和附件引用，不读取 Worker SQLite 文件。
+- 首期保留前端兼容字段；前端不读取 Worker SQLite，Worker 兼容保留 Base64 结果字段。
