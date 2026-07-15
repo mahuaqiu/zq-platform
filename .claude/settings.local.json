@@ -245,7 +245,11 @@
       "Read(//c/Users/Administrator/.claude/projects/D--code-zq-platform/memory/**)",
       "Bash(/d/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m pytest /d/code/zq-platform/backend-fastapi/tests/test_machine_selection_template_service.py -v)",
       "PowerShell(docker exec zq-platform-backend-1 *)",
-      "PowerShell(D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -m pip install --force-reinstall --no-deps \"D:\\\\code\\\\perfwin\\\\target\\\\wheels\\\\perfwin-0.4.0-cp312-cp312-win_amd64.whl\"; D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -c \"import perfwin; print\\(perfwin.__file__\\); print\\(getattr\\(perfwin,'__version__',None\\)\\)\")"
+      "PowerShell(D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -m pip install --force-reinstall --no-deps \"D:\\\\code\\\\perfwin\\\\target\\\\wheels\\\\perfwin-0.4.0-cp312-cp312-win_amd64.whl\"; D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -c \"import perfwin; print\\(perfwin.__file__\\); print\\(getattr\\(perfwin,'__version__',None\\)\\)\")",
+      "PowerShell(Set-Location D:\\\\code\\\\perfwin; $env:PYO3_PYTHON = \"D:\\\\code\\\\perfwin\\\\.venv\\\\Scripts\\\\python.exe\"; $env:LIB = \"C:\\\\python\\\\libs;$env:LIB\"; .\\\\.venv\\\\Scripts\\\\python.exe build_wheel.py; if \\($LASTEXITCODE -ne 0\\) { exit $LASTEXITCODE }; D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -m pip install --force-reinstall --no-deps \"D:\\\\code\\\\perfwin\\\\target\\\\wheels\\\\perfwin-0.4.0-cp312-cp312-win_amd64.whl\"; D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -m py_compile \"D:\\\\code\\\\autotest\\\\worker\\\\performance_monitor.py\"; \"ALL_OK\")",
+      "PowerShell(cargo test *)",
+      "PowerShell(D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -m pip show perfwin)",
+      "PowerShell(Select-String -Path \"D:\\\\code\\\\zq-platform\\\\backend-fastapi\\\\core\\\\performance_monitor\\\\service.py\" -Pattern \"COLLECTING_STATUSES|is_collecting|STALE_STOPPING|superseded|ACTIVE_STATUSES\" | ForEach-Object { \"$\\($_.LineNumber\\):$\\($_.Line.Trim\\(\\)\\)\" })"
     ]
   }
 }
