@@ -42,9 +42,93 @@ class PerformanceCollectService(BaseService):
     """采集记录服务"""
     model = PerformanceCollect
 
+    # 活跃状态：前端会据此禁用“开始采集”
+    ACTIVE_STATUSES = ("pending", "starting", "running", "stopping")
+    TERMINAL_STATUSES = ("stopped", "failed", "timed_out", "interrupted")
+    # Worker 重启后若未回传终态，这些状态会卡住；按心跳/启动时间做对账
+    STALE_STARTING_SECONDS = 60
+    STALE_STOPPING_SECONDS = 90
+    STALE_RUNNING_MIN_SECONDS = 60
+
+    @classmethod
+    def _stale_threshold_seconds(cls, collect: PerformanceCollect) -> int:
+        """计算僵尸采集判定阈值（秒）。"""
+        interval = max(int(collect.interval or 5), 1)
+        if collect.status == "stopping":
+            return max(cls.STALE_STOPPING_SECONDS, interval * 6)
+        if collect.status in ("pending", "starting"):
+            return max(cls.STALE_STARTING_SECONDS, interval * 4)
+        # running：允许短暂网络抖动，但心跳断流过久视为中断
+        return max(cls.STALE_RUNNING_MIN_SECONDS, interval * 6)
+
+    @classmethod
+    def _reference_time(cls, collect: PerformanceCollect) -> Optional[datetime]:
+        """僵尸判定参考时间：优先心跳，其次更新时间，最后启动时间。"""
+        return collect.last_heartbeat_at or collect.sys_update_datetime or collect.start_time
+
+    @classmethod
+    async def reconcile_stale_collects(
+        cls, db: AsyncSession, device_id: Optional[str] = None
+    ) -> int:
+        """将对账超时的活跃采集标记为 interrupted，返回处理条数。
+
+        Worker 重启/进程被杀时可能来不及上报终态，平台侧会长期卡在
+        starting/running/stopping，导致前端 is_collecting=true 无法重新开始。
+        """
+        conditions = [PerformanceCollect.status.in_(list(cls.ACTIVE_STATUSES))]
+        if device_id:
+            conditions.append(PerformanceCollect.device_id == device_id)
+
+        result = await db.execute(select(PerformanceCollect).where(and_(*conditions)))
+        collects = result.scalars().all()
+        if not collects:
+            return 0
+
+        now = datetime.utcnow()
+        fixed = 0
+        for collect in collects:
+            ref = cls._reference_time(collect)
+            if not ref:
+                continue
+            age = (now - ref).total_seconds()
+            if age < cls._stale_threshold_seconds(collect):
+                continue
+            prev_status = collect.status
+            collect.status = "interrupted"
+            collect.end_time = now
+            collect.end_reason = "stale_reconcile"
+            collect.failure_code = collect.failure_code or "WORKER_STALE"
+            collect.failure_message = (
+                collect.failure_message
+                or f"Worker 长时间无心跳/终态（状态={prev_status}，参考时间距今 {int(age)}s），自动中断"
+            )
+            fixed += 1
+
+        if fixed:
+            await db.commit()
+            logger.warning("对账中断僵尸采集 %s 条, device_id=%s", fixed, device_id)
+        return fixed
+
     @classmethod
     async def start_collect(cls, db: AsyncSession, request: CollectStartRequest) -> str:
         """开始采集"""
+        # Worker 重启后可能残留 starting/stopping，先对账再创建
+        await cls.reconcile_stale_collects(db, request.device_id)
+
+        active = await db.execute(
+            select(PerformanceCollect).where(
+                and_(
+                    PerformanceCollect.device_id == request.device_id,
+                    PerformanceCollect.status.in_(list(cls.ACTIVE_STATUSES)),
+                )
+            ).order_by(desc(PerformanceCollect.start_time)).limit(1)
+        )
+        existing = active.scalar_one_or_none()
+        if existing:
+            raise ValueError(
+                f"设备已有采集任务（{existing.id}, status={existing.status}），请先停止"
+            )
+
         # 使用 timezone-aware UTC 时间
         start_time_utc = datetime.now(timezone.utc)
         collect = PerformanceCollect(
@@ -65,7 +149,7 @@ class PerformanceCollectService(BaseService):
         if collect_id:
             collect = await db.get(PerformanceCollect, collect_id)
             if collect and collect.device_id == device_id:
-                if collect.status not in ("stopped", "failed", "timed_out", "interrupted"):
+                if collect.status not in cls.TERMINAL_STATUSES:
                     collect.status = "stopping"
                 collect.end_reason = "user_stop"
                 await db.commit()
@@ -74,7 +158,7 @@ class PerformanceCollectService(BaseService):
         stmt = select(PerformanceCollect).where(
             and_(
                 PerformanceCollect.device_id == device_id,
-                PerformanceCollect.status.in_(["pending", "starting", "running", "stopping"]),
+                PerformanceCollect.status.in_(list(cls.ACTIVE_STATUSES)),
             )
         )
         result = await db.execute(stmt)
@@ -84,11 +168,18 @@ class PerformanceCollectService(BaseService):
             collect.end_reason = "user_stop"
         await db.commit()
         return len(collects) > 0
+
     @classmethod
     async def get_collect_status(cls, db: AsyncSession, device_id: str) -> Optional[Dict[str, Any]]:
         """获取采集状态"""
+        # 查询前先清理僵尸状态，避免前端长期禁用开始按钮
+        await cls.reconcile_stale_collects(db, device_id)
+
         stmt = select(PerformanceCollect).where(
-            and_(PerformanceCollect.device_id == device_id, PerformanceCollect.status.in_(["pending", "starting", "running", "stopping"]))
+            and_(
+                PerformanceCollect.device_id == device_id,
+                PerformanceCollect.status.in_(list(cls.ACTIVE_STATUSES)),
+            )
         ).order_by(desc(PerformanceCollect.start_time)).limit(1)
         result = await db.execute(stmt)
         collect = result.scalar_one_or_none()
@@ -251,10 +342,19 @@ class PerformanceDataService(BaseService):
             top_n_cpu_dict = [p.model_dump() for p in top_n_cpu] if top_n_cpu else []
             top_n_gpu_dict = [p.model_dump() for p in top_n_gpu] if top_n_gpu else []
 
-            # HWiNFO 只负责扩展传感器；系统 CPU/GPU 使用 Rust 指标。
+            # 系统 CPU 优先 Rust；GPU 在 PDH 空/假 0 时回退 HWiNFO。
             process_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
             cpu_usage = system_metrics.get("cpu_percent")
             gpu_usage = system_metrics.get("gpu_percent")
+            gpu_adapters = system_metrics.get("gpu_adapters") or []
+            if (
+                (gpu_usage is None or (gpu_usage == 0 and not gpu_adapters))
+                and process_metrics.get("gpu_usage") is not None
+            ):
+                gpu_usage = process_metrics["gpu_usage"]
+                system_metrics = dict(system_metrics)
+                system_metrics["gpu_percent"] = gpu_usage
+                system_metrics["gpu_source"] = "hwinfo_fallback"
             process_memory = process_metrics.get("process_memory")
             process_committed_memory = process_metrics.get("process_committed_memory")
 
@@ -332,19 +432,23 @@ class PerformanceDataService(BaseService):
 
     @classmethod
     async def get_collect_data_by_range(
-        cls, db: AsyncSession, collect_id: str, start_time: int, end_time: int
+        cls, db: AsyncSession, collect_id: str, start_time: float, end_time: float
     ) -> List[PerformanceData]:
-        """按时间范围获取采集数据（用于查看特定时间窗口）"""
+        """按时间范围获取采集数据（用于查看特定时间窗口）
+
+        start_time/end_time 为相对秒数，支持毫秒精度（如 10.022）。
+        过滤优先使用 elapsed_ms（毫秒），旧数据回退到 relative_time（秒）。
+        """
         conditions = [PerformanceData.collect_id == collect_id]
         if start_time > 0:
             conditions.append(or_(
-                PerformanceData.elapsed_ms >= start_time * 1000,
-                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time >= start_time),
+                PerformanceData.elapsed_ms >= int(start_time * 1000),
+                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time >= int(start_time)),
             ))
         if end_time > 0:
             conditions.append(or_(
-                PerformanceData.elapsed_ms <= end_time * 1000,
-                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time <= end_time),
+                PerformanceData.elapsed_ms <= int(end_time * 1000),
+                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time <= int(end_time)),
             ))
 
         stmt = select(PerformanceData).where(

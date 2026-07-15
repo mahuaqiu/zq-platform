@@ -43,11 +43,25 @@ def extract_core_metrics(
             if value is not None:
                 result["cpu_usage"] = float(value)
 
-        # 系统GPU使用率 - 使用 "GPU D3D Usage"
-        if "GPU D3D Usage" in hwinfo_raw:
-            value = hwinfo_raw["GPU D3D Usage"].get("value")
-            if value is not None:
+        # 系统GPU使用率：优先 D3D，回退 Core Load 等常见 HWiNFO 字段
+        for gpu_key in (
+            "GPU D3D Usage",
+            "GPU Core Load",
+            "GPU Usage",
+            "Total GPU Usage",
+            "GPU Load",
+        ):
+            item = hwinfo_raw.get(gpu_key)
+            if not isinstance(item, dict):
+                continue
+            value = item.get("value")
+            if value is None:
+                continue
+            try:
                 result["gpu_usage"] = float(value)
+                break
+            except (TypeError, ValueError):
+                continue
 
     # 从 aggregated 汇总进程指标
     if aggregated:

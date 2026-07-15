@@ -192,13 +192,15 @@ const currentValues = computed(() => {
     const lastData = s.data[s.data.length - 1];
     const unit = s.unit || '%';
     let displayValue = '-';
-    if (lastData?.value != null) {
+    const raw = lastData?.value;
+    const num = typeof raw === 'number' ? raw : Number(raw);
+    if (raw != null && Number.isFinite(num)) {
       if (unit === 'GB') {
-        displayValue = lastData.value.toFixed(1);
+        displayValue = num.toFixed(1);
       } else if (unit === 'MB') {
-        displayValue = Math.round(lastData.value).toString();
+        displayValue = Math.round(num).toString();
       } else {
-        displayValue = lastData.value.toFixed(1);
+        displayValue = num.toFixed(1);
       }
     }
     return {
@@ -496,7 +498,12 @@ function updateChart() {
       type: 'category',
       data: xAxisData,
       axisLabel: {
-        formatter: (v: number) => `${v.toFixed(v < 10 ? 1 : 0)}s`,
+        // category 轴可能传入 string；毫秒时间轴也可能是小数秒
+        formatter: (v: number | string) => {
+          const num = typeof v === 'number' ? v : Number(v);
+          if (!Number.isFinite(num)) return `${v}s`;
+          return `${num.toFixed(num < 10 ? 1 : 0)}s`;
+        },
         interval: xAxisInterval.value,
       },
     },
@@ -507,18 +514,20 @@ function updateChart() {
       interval: yAxisConfig.value.interval,
       splitNumber: 4, // 固定分成4段，避免太密集
       axisLabel: {
-        formatter: (v: number) => {
+        formatter: (v: number | string) => {
+          const num = typeof v === 'number' ? v : Number(v);
+          if (!Number.isFinite(num)) return String(v ?? '');
           // Y轴不显示单位，单位在标题上显示
           if (mainUnit.value === 'GB') {
-            return v.toFixed(v < 1 ? 1 : 0);
+            return num.toFixed(num < 1 ? 1 : 0);
           } else if (mainUnit.value === 'MB') {
-            return Math.round(v);
+            return Math.round(num);
           }
           // 大数值（如句柄数）使用缩写格式
-          if (v >= 10000) {
-            return (v / 1000).toFixed(1) + 'k';
+          if (num >= 10000) {
+            return (num / 1000).toFixed(1) + 'k';
           }
-          return v;
+          return num;
         },
       },
     },

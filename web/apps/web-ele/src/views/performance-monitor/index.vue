@@ -366,13 +366,6 @@ const currentChartTitle = computed(() => {
 });
 
 // 当前图表类型
-const gpuSourceLabel = computed(() => {
-  const source = filteredPerformanceData.value.at(-1)?.system_metrics?.gpu_source;
-  if (source === 'rust_pdh') return 'Rust PDH';
-  if (source === 'hwinfo_fallback') return 'HWiNFO 回退';
-  return source ? '不可用' : '';
-});
-
 const currentChartType = computed(() => currentMetric.value);
 
 // TOP10 面板显示条件（仅 CPU/GPU 显示）
@@ -415,8 +408,10 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
     value: d.system_metrics?.gpu_percent ?? d.gpu_usage ?? null,
   }));
   const processData = data.map((d) => {
-    const totalGpu =
-      d.target_processes?.reduce((sum, p) => sum + (p.total_gpu || 0), 0) || 0;
+    // 接近任务管理器：目标进程 GPU 取 max，不再把多进程/多实例简单相加抬高
+    const totalGpu = d.target_processes?.length
+      ? Math.max(...d.target_processes.map((p) => p.total_gpu || 0), 0)
+      : 0;
     return { time: timeSeconds(d), value: totalGpu };
   });
   return [
@@ -1214,7 +1209,6 @@ async function loadMoreData(start_time: number, end_time: number) {
         <div v-if="collectStatus.is_collecting" class="collect-status-card">
           <span class="collect-label">采集状态：</span>
           <span class="collect-running">运行中</span>
-          <span v-if="gpuSourceLabel" class="gpu-source">GPU: {{ gpuSourceLabel }}</span>
           <span class="collect-duration">已采集: {{ formatCollectedDuration(performanceData.length > 0 ? timeSeconds(performanceData[performanceData.length - 1]) : 0) }}</span>
         </div>
 

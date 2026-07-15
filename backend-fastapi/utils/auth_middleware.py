@@ -74,7 +74,8 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     r"^/api/core/test-report/fail$",     # 推送失败用例记录
     r"^/api/core/test-report/upload$",   # 上传测试报告 HTML
     # 性能监控上报接口（供外部 worker 调用，无需认证）
-    r"^/api/core/performance-monitor/report$",  # 上报性能数据
+    r"^/api/core/performance-monitor/report$",  # 上报性能样本
+    r"^/api/core/performance-monitor/collect/worker-event$",  # 上报采集终态事件
     # 导出报告下载接口（通过任务ID验证，无需Token认证）
     r"^/api/core/performance-monitor/version/export/download/.*$",
 ]

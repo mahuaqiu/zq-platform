@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.database import get_db
+from app.database import get_db, AsyncSessionLocal
 from core.performance_monitor.model import PerformanceCollect, PerformanceVersion, ExportTask
 from core.env_machine.model import EnvMachine
 from core.performance_monitor.schema import (
@@ -100,146 +100,198 @@ async def get_processes(
 
 # ===== 采集管理 =====
 
-@router.post("/collect/start")
-async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends(get_db)):
-    """开始采集"""
-    # 1. 保存采集记录到数据库
-    collect_id = await PerformanceCollectService.start_collect(db, request)
+async def _notify_worker_start(
+    *,
+    device_id: str,
+    collect_id: str,
+    interval: int,
+    timeout: int,
+    target_processes: list | None,
+    device_ip: str,
+    device_port: str | int,
+) -> None:
+    """后台通知 Worker 开始采集；失败时把平台记录标为 failed。"""
+    worker_url = f"http://{device_ip}:{device_port}/api/worker/{device_id}/collect/start"
+    worker_request = {
+        "collect_id": collect_id,
+        "interval": interval,
+        "timeout": timeout,
+        "target_processes": target_processes or [],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
+            resp = await client.post(worker_url, json=worker_request)
+            if resp.status_code in (200, 201):
+                return
+            failure_message = resp.text[:500]
+            status_code = resp.status_code
+    except httpx.ConnectError:
+        failure_message = f"无法连接到 Worker: {device_ip}:{device_port}"
+        status_code = 503
+    except httpx.TimeoutException:
+        failure_message = "Worker 响应超时"
+        status_code = 504
+    except Exception as e:
+        failure_message = f"通知 Worker 异常: {e}"
+        status_code = 500
 
-    # 2. 从数据库获取设备信息
+    async with AsyncSessionLocal() as db:
+        collect = await db.get(PerformanceCollect, collect_id)
+        if collect and collect.status in ("pending", "starting", "running"):
+            collect.status = "failed"
+            collect.failure_code = "WORKER_START_FAILED"
+            collect.failure_message = failure_message
+            collect.end_time = datetime.utcnow()
+            collect.end_reason = "failed"
+            await db.commit()
+    # 仅写库，不抛给前端（前端已拿到 starting）
+    return
+
+
+async def _notify_worker_stop(
+    *,
+    device_id: str,
+    collect_id: str | None,
+    device_ip: str,
+    device_port: str | int,
+) -> None:
+    """后台通知 Worker 停止采集。"""
+    worker_url = f"http://{device_ip}:{device_port}/api/worker/{device_id}/collect/stop"
+    worker_request = {"collect_id": collect_id} if collect_id else {}
+    try:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
+            await client.post(worker_url, json=worker_request)
+    except Exception:
+        # 停止失败由对账逻辑兜底，不阻塞前端
+        return
+
+
+@router.post("/collect/start")
+async def start_collect(
+    request: CollectStartRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """开始采集。
+
+    快速返回：先落库 starting，再后台通知 Worker / 启动 Linux 任务。
+    前端可立刻刷新状态并轮询首样本。
+    """
+    try:
+        collect_id = await PerformanceCollectService.start_collect(db, request)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
     stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
 
-    if device:
-        # 3. 判断设备类型，选择采集方式
-        if device.device_type == "linux":
-            # Linux 设备：使用 SSH 采集
-            # 3.1 从 extra_message 获取认证信息
-            if not device.extra_message:
-                await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                raise HTTPException(status_code=400, detail="Linux 设备缺少 SSH 认证信息（extra_message）")
+    if not device:
+        collect = await db.get(PerformanceCollect, collect_id)
+        if collect:
+            collect.status = "failed"
+            collect.failure_code = "DEVICE_NOT_FOUND"
+            collect.failure_message = "设备不存在"
+            collect.end_time = datetime.utcnow()
+            collect.end_reason = "failed"
+            await db.commit()
+        raise HTTPException(status_code=404, detail="设备不存在")
 
+    if device.device_type == "linux":
+        # Linux 启动依赖 SSH 校验，仍同步完成；真正采集循环已在后台线程。
+        if not device.extra_message:
+            await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+            raise HTTPException(status_code=400, detail="Linux 设备缺少 SSH 认证信息（extra_message）")
+
+        try:
+            auth_info = LinuxAuthInfo.model_validate(device.extra_message)
+            ssh_pool = SSHConnectionPool()
+            ssh_pool.cache_auth(
+                device_id=request.device_id,
+                host=device.ip,
+                port=auth_info.port,
+                account=auth_info.account,
+                password=auth_info.password
+            )
             try:
-                # 解析认证信息
-                auth_info = LinuxAuthInfo.model_validate(device.extra_message)
-
-                # 3.2 建立 SSH 连接并缓存认证信息
-                ssh_pool = SSHConnectionPool()
-                ssh_pool.cache_auth(
+                ssh_pool.get_connection(
                     device_id=request.device_id,
                     host=device.ip,
                     port=auth_info.port,
                     account=auth_info.account,
                     password=auth_info.password
                 )
-
-                # 测试连接是否可用
-                try:
-                    ssh_pool.get_connection(
-                        device_id=request.device_id,
-                        host=device.ip,
-                        port=auth_info.port,
-                        account=auth_info.account,
-                        password=auth_info.password
-                    )
-                except Exception as e:
-                    await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                    raise HTTPException(status_code=503, detail=f"SSH 连接失败: {e}")
-
-                # 3.3 启动后台采集任务
-                ssh_auth = {
-                    "host": device.ip,
-                    "port": auth_info.port,
-                    "account": auth_info.account,
-                    "password": auth_info.password,
-                }
-                started = start_linux_collect_task(
-                    device_id=request.device_id,
-                    collect_id=collect_id,
-                    interval=request.interval,
-                    db_session_factory=None,  # linux_collector 内部使用 AsyncSessionLocal
-                    ssh_auth=ssh_auth,
-                    timeout=request.timeout,  # 使用前端传入的超时时间
-                )
-
-                if not started:
-                    await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                    raise HTTPException(status_code=400, detail="设备已有采集任务运行")
-
             except Exception as e:
                 await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                if "validation error" in str(e).lower():
-                    raise HTTPException(status_code=400, detail=f"SSH 认证信息格式错误: {e}")
-                raise HTTPException(status_code=500, detail=f"启动 Linux 采集失败: {e}")
+                raise HTTPException(status_code=503, detail=f"SSH 连接失败: {e}")
 
-        else:
-            # Windows/Mac 等设备：转发采集请求给 worker
-            worker_url = f"http://{device.ip}:{device.port}/api/worker/{request.device_id}/collect/start"
-            try:
-                async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
-                    # 构造 worker 请求参数（包含 collect_id）
-                    worker_request = {
-                        "collect_id": collect_id,
-                        "interval": request.interval,
-                        "timeout": request.timeout,  # 使用前端传入的超时时间
-                        "target_processes": request.target_processes or []
-                    }
-                    resp = await client.post(worker_url, json=worker_request)
-                    if resp.status_code not in (200, 201):
-                        collect = await db.get(PerformanceCollect, collect_id)
-                        if collect:
-                            collect.status = "failed"
-                            collect.failure_code = "WORKER_START_FAILED"
-                            collect.failure_message = resp.text[:500]
-                            collect.end_time = datetime.utcnow()
-                            await db.commit()
-                        raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
-            except httpx.ConnectError:
+            ssh_auth = {
+                "host": device.ip,
+                "port": auth_info.port,
+                "account": auth_info.account,
+                "password": auth_info.password,
+            }
+            started = start_linux_collect_task(
+                device_id=request.device_id,
+                collect_id=collect_id,
+                interval=request.interval,
+                db_session_factory=None,
+                ssh_auth=ssh_auth,
+                timeout=request.timeout,
+            )
+            if not started:
                 await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
-            except httpx.TimeoutException:
-                await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                raise HTTPException(status_code=504, detail="Worker 响应超时")
+                raise HTTPException(status_code=400, detail="设备已有采集任务运行")
+        except HTTPException:
+            raise
+        except Exception as e:
+            await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+            if "validation error" in str(e).lower():
+                raise HTTPException(status_code=400, detail=f"SSH 认证信息格式错误: {e}")
+            raise HTTPException(status_code=500, detail=f"启动 Linux 采集失败: {e}")
+    else:
+        # Windows：异步通知 Worker，前端不再等待 Worker 创建 Monitor
+        background_tasks.add_task(
+            _notify_worker_start,
+            device_id=request.device_id,
+            collect_id=collect_id,
+            interval=request.interval,
+            timeout=request.timeout,
+            target_processes=request.target_processes,
+            device_ip=device.ip,
+            device_port=device.port,
+        )
 
     collect = await db.get(PerformanceCollect, collect_id)
     return {"collect_id": collect_id, "status": collect.status if collect else "starting"}
 
 
 @router.post("/collect/stop")
-async def stop_collect(request: CollectStopRequest, db: AsyncSession = Depends(get_db)):
-    """停止采集"""
-    # 1. 更新数据库状态
+async def stop_collect(
+    request: CollectStopRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """停止采集。先更新平台 stopping，再后台通知 Worker。"""
     success = await PerformanceCollectService.stop_collect(db, request.collect_id, request.device_id)
     if request.collect_id and not success:
         raise HTTPException(status_code=404, detail="采集记录不存在或不属于指定设备")
 
-    # 2. 从数据库获取设备信息
     stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
 
     if device:
-        # 3. 判断设备类型，选择停止方式
         if device.device_type == "linux":
-            # Linux 设备：停止后台采集任务
-            stopped = stop_linux_collect_task(request.device_id)
-            if not stopped:
-                # 任务可能已经停止或不存在，但这不影响数据库状态更新
-                pass
+            stop_linux_collect_task(request.device_id)
         else:
-            # Windows/Mac 等设备：转发停止请求给 worker
-            worker_url = f"http://{device.ip}:{device.port}/api/worker/{request.device_id}/collect/stop"
-            try:
-                async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
-                    worker_request = {"collect_id": request.collect_id} if request.collect_id else {}
-                    resp = await client.post(worker_url, json=worker_request)
-                    if resp.status_code != 200:
-                        raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
-            except httpx.ConnectError:
-                raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
-            except httpx.TimeoutException:
-                raise HTTPException(status_code=504, detail="Worker 响应超时")
+            background_tasks.add_task(
+                _notify_worker_stop,
+                device_id=request.device_id,
+                collect_id=request.collect_id,
+                device_ip=device.ip,
+                device_port=device.port,
+            )
 
     return {"status": "stopping" if success else "not_found"}
 
@@ -300,8 +352,8 @@ async def get_collect_data(
 @router.get("/collect/{collect_id}/data/range")
 async def get_collect_data_by_range(
     collect_id: str,
-    start_time: int = Query(0, ge=0, description="开始时间（相对秒数）"),
-    end_time: int = Query(0, ge=0, description="结束时间（相对秒数）"),
+    start_time: float = Query(0, ge=0, description="开始时间（相对秒数，支持毫秒精度）"),
+    end_time: float = Query(0, ge=0, description="结束时间（相对秒数，支持毫秒精度）"),
     db: AsyncSession = Depends(get_db)
 ):
     """按时间范围获取采集数据（用于查看特定时间窗口，如最近15分钟）"""

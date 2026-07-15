@@ -148,9 +148,13 @@ const processChartSeries = computed<ChartSeries[]>(() => {
 
     v.collects.forEach((c) => {
       c.data.forEach((d) => {
-        const processValue = d.target_processes?.reduce((sum, p) => {
-          return sum + (currentMetric.value === 'cpu_usage' ? p.total_cpu : p.total_gpu || 0);
-        }, 0) || 0;
+        const values = d.target_processes?.map((p) =>
+          currentMetric.value === 'cpu_usage' ? (p.total_cpu || 0) : (p.total_gpu || 0),
+        ) || [];
+        // CPU 多进程可加总；GPU 接近任务管理器，用 max，避免高于系统
+        const processValue = values.length
+          ? (currentMetric.value === 'cpu_usage' ? values.reduce((s, v) => s + v, 0) : Math.max(...values, 0))
+          : 0;
         processData.push({
           time: sampleTimeSeconds(d),
           value: processValue,
@@ -376,7 +380,12 @@ const summaryData = computed<SummaryRow[]>(() => {
     // 辅助函数：计算区间内进程指标的最大值
     const getIntervalProcessPeak = (data: PerformanceData[], field: 'total_cpu' | 'total_gpu') => {
       if (data.length === 0) return 0;
-      return Math.max(...data.map(d => d.target_processes?.reduce((s, p) => s + (p[field] || 0), 0) || 0));
+      return Math.max(...data.map((d) => {
+        const values = d.target_processes?.map((p) => p[field] || 0) || [];
+        if (!values.length) return 0;
+        // GPU 用 max；CPU 仍可加总后取区间峰值
+        return field === 'total_gpu' ? Math.max(...values, 0) : values.reduce((s, v) => s + v, 0);
+      }));
     };
 
     // 辅助函数：计算区间内系统指标的平均值
@@ -389,7 +398,11 @@ const summaryData = computed<SummaryRow[]>(() => {
     // 辅助函数：计算区间内进程指标的平均值
     const getIntervalProcessMean = (data: PerformanceData[], field: 'total_cpu' | 'total_gpu') => {
       if (data.length === 0) return 0;
-      const values = data.map(d => d.target_processes?.reduce((s, p) => s + (p[field] || 0), 0) || 0);
+      const values = data.map((d) => {
+        const list = d.target_processes?.map((p) => p[field] || 0) || [];
+        if (!list.length) return 0;
+        return field === 'total_gpu' ? Math.max(...list, 0) : list.reduce((s, v) => s + v, 0);
+      });
       return values.reduce((a, b) => a + b, 0) / values.length;
     };
 
