@@ -289,7 +289,7 @@ const initChart = () => {
       const values: Record<string, number> = {};
       props.series.forEach(s => {
         const point = s.data.find(d => d.time === p.dataTime);
-        if (point) values[s.name] = point.value;
+        if (point?.value != null) values[s.name] = point.value;
       });
       emit('hover-change', { time: p.dataTime, values });
     }

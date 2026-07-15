@@ -8,7 +8,7 @@ interface Props {
   position: { x: number; y: number };
   containerRect: DOMRect | null;
   data: PerformanceData | undefined;
-  seriesData: { name: string; value: number; color: string; unit: string }[];
+  seriesData: { name: string; value: number | null; color: string; unit: string }[];
   chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
 }
 
@@ -95,7 +95,7 @@ function formatDateTime(timestamp: string): string {
           <span>{{ s.name }}</span>
         </div>
         <span class="series-value" :style="{ color: s.color }">
-          {{ s.unit === '个' ? Math.round(s.value) : s.value.toFixed(1) }}{{ s.unit }}
+          {{ s.value == null ? '-' : (s.unit === '个' ? Math.round(s.value) : s.value.toFixed(1)) }}{{ s.value == null ? '' : s.unit }}
         </span>
       </div>
     </div>

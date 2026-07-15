@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'timeRangeChange', range: { start: Date; end: Date }): void;
-  (e: 'addTag', tag: { name: string; type: 'peak' | 'stable'; start_time: string; end_time: string; note?: string }): void;
+  (e: 'addTag', tag: { name: string; type: 'peak' | 'stable'; start_time: number; end_time: number; note?: string }): void;
   (e: 'removeTag', tagId: string): void;
 }>();
 
@@ -49,7 +49,7 @@ const handleQuickRange = (minutes: number) => {
 };
 
 // Add tag
-const handleAddTag = (data: { name: string; type: 'peak' | 'stable'; start_time: string; end_time: string; note?: string }) => {
+const handleAddTag = (data: { name: string; type: 'peak' | 'stable'; start_time: number; end_time: number; note?: string }) => {
   emit('addTag', data);
   showAddDialog.value = false;
 };

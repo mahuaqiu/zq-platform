@@ -52,7 +52,7 @@ class PerformanceCollectService(BaseService):
             start_time=start_time_utc.replace(tzinfo=None),  # 存储为 naive datetime（UTC）
             interval=request.interval,
             target_processes=request.target_processes,
-            status="running"
+            status="starting"
         )
         db.add(collect)
         await db.commit()
@@ -61,33 +61,34 @@ class PerformanceCollectService(BaseService):
 
     @classmethod
     async def stop_collect(cls, db: AsyncSession, collect_id: Optional[str], device_id: str) -> bool:
-        """停止采集"""
+        """请求停止采集，最终状态由 Worker 终态事件确认。"""
         if collect_id:
             collect = await db.get(PerformanceCollect, collect_id)
-            if collect:
-                collect.status = "stopped"
-                collect.end_time = datetime.utcnow()
+            if collect and collect.device_id == device_id:
+                if collect.status not in ("stopped", "failed", "timed_out", "interrupted"):
+                    collect.status = "stopping"
+                collect.end_reason = "user_stop"
                 await db.commit()
                 return True
-        else:
-            # 停止该设备所有正在运行的采集
-            stmt = select(PerformanceCollect).where(
-                and_(PerformanceCollect.device_id == device_id, PerformanceCollect.status == "running")
+            return False
+        stmt = select(PerformanceCollect).where(
+            and_(
+                PerformanceCollect.device_id == device_id,
+                PerformanceCollect.status.in_(["pending", "starting", "running", "stopping"]),
             )
-            result = await db.execute(stmt)
-            collects = result.scalars().all()
-            for c in collects:
-                c.status = "stopped"
-                c.end_time = datetime.utcnow()
-            await db.commit()
-            return len(collects) > 0
-        return False
-
+        )
+        result = await db.execute(stmt)
+        collects = result.scalars().all()
+        for collect in collects:
+            collect.status = "stopping"
+            collect.end_reason = "user_stop"
+        await db.commit()
+        return len(collects) > 0
     @classmethod
     async def get_collect_status(cls, db: AsyncSession, device_id: str) -> Optional[Dict[str, Any]]:
         """获取采集状态"""
         stmt = select(PerformanceCollect).where(
-            and_(PerformanceCollect.device_id == device_id, PerformanceCollect.status == "running")
+            and_(PerformanceCollect.device_id == device_id, PerformanceCollect.status.in_(["pending", "starting", "running", "stopping"]))
         ).order_by(desc(PerformanceCollect.start_time)).limit(1)
         result = await db.execute(stmt)
         collect = result.scalar_one_or_none()
@@ -100,9 +101,35 @@ class PerformanceCollectService(BaseService):
                 "interval": collect.interval,
                 "target_processes": collect.target_processes,
                 "start_time": start_time_str,
-                "elapsed_seconds": int((datetime.utcnow() - collect.start_time).total_seconds())
+                "elapsed_seconds": int((datetime.utcnow() - collect.start_time).total_seconds()),
+                "last_heartbeat_at": collect.last_heartbeat_at,
+                "last_sequence": collect.last_sequence,
+                "last_elapsed_ms": collect.last_elapsed_ms,
+                "status": collect.status
             }
-        return {"is_collecting": False}
+        return {"is_collecting": False, "state": "idle"}
+
+    @classmethod
+    async def handle_worker_event(cls, db: AsyncSession, request) -> bool:
+        """处理 Worker 的终态通知，重复通知保持幂等。"""
+        collect = await db.get(PerformanceCollect, request.collect_id)
+        if not collect or collect.device_id != request.device_id:
+            return False
+        allowed = {"stopped", "failed", "timed_out", "interrupted"}
+        if request.status not in allowed:
+            return False
+        if collect.status in allowed:
+            return True
+        collect.status = request.status
+        collect.end_time = datetime.utcnow()
+        collect.end_reason = request.status
+        collect.failure_message = request.message if request.status in ("failed", "interrupted") else None
+        if request.last_sequence is not None:
+            collect.last_sequence = request.last_sequence
+        if request.last_elapsed_ms is not None:
+            collect.last_elapsed_ms = request.last_elapsed_ms
+        await db.commit()
+        return True
 
     @classmethod
     async def get_collect_list(cls, db: AsyncSession, device_id: Optional[str], page: int, page_size: int) -> Dict[str, Any]:
@@ -163,84 +190,89 @@ class PerformanceDataService(BaseService):
     model = PerformanceData
 
     @classmethod
-    async def report_data(cls, db: AsyncSession, request) -> bool:
-        """
-        接收 Worker 上报数据（批量）
-
-        系统指标从 hwinfo_raw 取 "Total CPU Usage" 和 "GPU D3D Usage"
-        进程指标从 aggregated 汇总数据取
-        relative_time 自动计算（不传时根据 collect.start_time 计算）
-        """
-        # 获取采集记录的 start_time，用于计算 relative_time
+    async def report_data(cls, db: AsyncSession, request) -> Dict[str, Any]:
+        """接收 Worker 批量样本，使用 Rust 单调时间并按 sample_key 幂等入库。"""
         collect = await db.get(PerformanceCollect, request.collect_id)
         if not collect:
-            logger.warning(f"采集记录不存在: {request.collect_id}")
-            return False
+            logger.warning("采集记录不存在: %s", request.collect_id)
+            return {"status": "failed", "accepted_count": 0}
+        if collect.device_id != request.device_id:
+            logger.warning("设备与采集记录不匹配: collect=%s device=%s", request.collect_id, request.device_id)
+            return {"status": "failed", "accepted_count": 0}
 
-        start_time = collect.start_time
-        if start_time is None:
-            logger.error(f"采集记录缺少 start_time: {request.collect_id}")
-            return False
+        sample_keys = [sample.sample_key for sample in request.samples if sample.sample_key]
+        existing_keys: set[str] = set()
+        if sample_keys:
+            result = await db.execute(
+                select(PerformanceData.sample_key).where(
+                    PerformanceData.sample_key.in_(sample_keys)
+                )
+            )
+            existing_keys = {key for key in result.scalars().all() if key}
+        batch_keys: set[str] = set()
 
         for sample in request.samples:
-            # 确保 timestamp 存在
+            if sample.sample_key and (
+                sample.sample_key in existing_keys or sample.sample_key in batch_keys
+            ):
+                continue
+            if sample.sample_key:
+                batch_keys.add(sample.sample_key)
+
             if sample.timestamp is None:
-                logger.warning(f"样本缺少 timestamp，跳过")
+                logger.warning("样本缺少 timestamp，跳过")
                 continue
 
-            # 将 timestamp 转换为 UTC naive datetime
             if sample.timestamp.tzinfo is not None:
-                timestamp_utc = sample.timestamp.astimezone(timezone.utc)
-                timestamp_naive = timestamp_utc.replace(tzinfo=None)
+                timestamp_naive = sample.timestamp.astimezone(timezone.utc).replace(tzinfo=None)
             else:
                 timestamp_naive = sample.timestamp
 
-            # 计算 relative_time：如果未提供则根据 timestamp 和 start_time 计算
-            relative_time = sample.relative_time
-            if relative_time is None:
-                try:
-                    delta = timestamp_naive - start_time
-                    relative_time = int(delta.total_seconds())
-                    relative_time = max(0, relative_time)
-                except Exception as e:
-                    logger.error(f"计算 relative_time 失败: {e}")
-                    relative_time = 0
+            # Rust Instant 产生的毫秒时间是主时间轴，relative_time 只用于兼容旧查询。
+            if sample.elapsed_ms is not None:
+                elapsed_ms = max(0, sample.elapsed_ms)
+                relative_time = elapsed_ms // 1000
+            elif sample.relative_time is not None:
+                elapsed_ms = max(0, sample.relative_time * 1000)
+                relative_time = max(0, sample.relative_time)
+            else:
+                elapsed_ms = 0
+                relative_time = 0
 
-            # 获取新字段
-            hwinfo_raw = getattr(sample, 'hwinfo_raw', None)
-            aggregated = getattr(sample, 'aggregated', None)
-            processes = getattr(sample, 'processes', None)
-            top_n_cpu = getattr(sample, 'top_n_cpu', None)
-            top_n_gpu = getattr(sample, 'top_n_gpu', None)
+            hwinfo_raw = sample.hwinfo_raw
+            system_metrics = sample.system or {}
+            aggregated = sample.aggregated
+            processes = sample.processes
+            top_n_cpu = sample.top_n_cpu
+            top_n_gpu = sample.top_n_gpu
 
-            # 将字段转换为字典格式
             aggregated_dict = [p.model_dump() for p in aggregated] if aggregated else []
             processes_dict = [p.model_dump() for p in processes] if processes else []
             top_n_cpu_dict = [p.model_dump() for p in top_n_cpu] if top_n_cpu else []
             top_n_gpu_dict = [p.model_dump() for p in top_n_gpu] if top_n_gpu else []
 
-            # 提取核心指标
-            core_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
-            cpu_usage = core_metrics.get("cpu_usage")
-            gpu_usage = core_metrics.get("gpu_usage")
-            process_cpu = core_metrics.get("process_cpu")
-            process_gpu = core_metrics.get("process_gpu")
-            process_memory = core_metrics.get("process_memory")
-            process_committed_memory = core_metrics.get("process_committed_memory")
+            # HWiNFO 只负责扩展传感器；系统 CPU/GPU 使用 Rust 指标。
+            process_metrics = extract_core_metrics(hwinfo_raw, aggregated_dict)
+            cpu_usage = system_metrics.get("cpu_percent")
+            gpu_usage = system_metrics.get("gpu_percent")
+            process_memory = process_metrics.get("process_memory")
+            process_committed_memory = process_metrics.get("process_committed_memory")
 
-            # 计算进程总句柄数（从 aggregated 数据汇总）
-            total_handles = 0
-            if aggregated_dict:
-                for proc in aggregated_dict:
-                    total_handles += proc.get("handle_count_total", 0)
-
-            # 转换为前端兼容的 target_processes 格式
-            target_processes_raw = convert_aggregated_to_target_processes(aggregated_dict, processes_dict)
+            total_handles = sum(
+                int(proc.get("handle_count_total", 0) or 0)
+                for proc in aggregated_dict
+            )
+            target_processes_raw = convert_aggregated_to_target_processes(
+                aggregated_dict, processes_dict
+            )
             top10_cpu_raw = convert_top_n_to_top10(top_n_cpu_dict, "cpu")
             top10_gpu_raw = convert_top_n_to_top10(top_n_gpu_dict, "gpu")
 
-            data = PerformanceData(
+            db.add(PerformanceData(
                 collect_id=request.collect_id,
+                sample_key=sample.sample_key,
+                sequence=sample.sequence,
+                elapsed_ms=elapsed_ms,
                 timestamp=timestamp_naive,
                 relative_time=relative_time,
                 cpu_usage=cpu_usage,
@@ -251,18 +283,30 @@ class PerformanceDataService(BaseService):
                 target_processes=target_processes_raw,
                 top10_cpu=top10_cpu_raw,
                 top10_gpu=top10_gpu_raw,
-                hwinfo_raw=hwinfo_raw
-            )
-            db.add(data)
-        await db.commit()
-        return True
+                hwinfo_raw=hwinfo_raw,
+                system_metrics=system_metrics,
+            ))
 
+        if request.samples:
+            last_sample = max(request.samples, key=lambda item: item.sequence)
+            collect.last_heartbeat_at = datetime.utcnow()
+            if collect.last_sequence is None or last_sample.sequence > collect.last_sequence:
+                collect.last_sequence = last_sample.sequence
+                collect.last_elapsed_ms = last_sample.elapsed_ms
+            if collect.status == "starting":
+                collect.status = "running"
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+        return {"status": "success", "accepted_through_sequence": collect.last_sequence}
     @classmethod
     async def get_collect_data(cls, db: AsyncSession, collect_id: str, page: int, page_size: int) -> Dict[str, Any]:
         """获取采集数据"""
         stmt = select(PerformanceData).where(
             PerformanceData.collect_id == collect_id
-        ).order_by(PerformanceData.relative_time)
+        ).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
 
         # 计算总数
         count_stmt = select(func.count()).select_from(PerformanceData).where(PerformanceData.collect_id == collect_id)
@@ -281,7 +325,7 @@ class PerformanceDataService(BaseService):
         """获取最新数据"""
         stmt = select(PerformanceData).where(
             PerformanceData.collect_id == collect_id
-        ).order_by(desc(PerformanceData.relative_time)).limit(limit)
+        ).order_by(desc(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000)), desc(PerformanceData.sequence), desc(PerformanceData.relative_time)).limit(limit)
         result = await db.execute(stmt)
         items = result.scalars().all()
         return list(reversed(items))
@@ -293,13 +337,19 @@ class PerformanceDataService(BaseService):
         """按时间范围获取采集数据（用于查看特定时间窗口）"""
         conditions = [PerformanceData.collect_id == collect_id]
         if start_time > 0:
-            conditions.append(PerformanceData.relative_time >= start_time)
+            conditions.append(or_(
+                PerformanceData.elapsed_ms >= start_time * 1000,
+                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time >= start_time),
+            ))
         if end_time > 0:
-            conditions.append(PerformanceData.relative_time <= end_time)
+            conditions.append(or_(
+                PerformanceData.elapsed_ms <= end_time * 1000,
+                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time <= end_time),
+            ))
 
         stmt = select(PerformanceData).where(
             and_(*conditions)
-        ).order_by(PerformanceData.relative_time)
+        ).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
         result = await db.execute(stmt)
         items = result.scalars().all()
         return items
@@ -375,14 +425,20 @@ class PerformanceDataService(BaseService):
         # 构建基础查询条件
         conditions = [PerformanceData.collect_id == request.collect_id]
         if request.start_time is not None:
-            conditions.append(PerformanceData.relative_time >= request.start_time)
+            conditions.append(or_(
+                PerformanceData.elapsed_ms >= request.start_time * 1000,
+                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time >= request.start_time),
+            ))
         if request.end_time is not None:
-            conditions.append(PerformanceData.relative_time <= request.end_time)
+            conditions.append(or_(
+                PerformanceData.elapsed_ms <= request.end_time * 1000,
+                and_(PerformanceData.elapsed_ms.is_(None), PerformanceData.relative_time <= request.end_time),
+            ))
 
         # 查询数据
         stmt = select(PerformanceData).where(
             and_(*conditions)
-        ).order_by(PerformanceData.relative_time)
+        ).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
         result = await db.execute(stmt)
         items = result.scalars().all()
 
@@ -554,7 +610,7 @@ class PerformanceVersionService(BaseService):
                     collect = await db.get(PerformanceCollect, cid)
                     if collect:
                         # 获取该采集的数据，并根据时间范围筛选
-                        stmt = select(PerformanceData).where(PerformanceData.collect_id == cid).order_by(PerformanceData.relative_time)
+                        stmt = select(PerformanceData).where(PerformanceData.collect_id == cid).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
                         result = await db.execute(stmt)
                         all_data = result.scalars().all()
 

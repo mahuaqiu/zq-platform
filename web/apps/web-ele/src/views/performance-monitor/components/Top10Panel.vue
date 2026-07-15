@@ -2,6 +2,10 @@
 import { computed } from 'vue';
 import type { PerformanceData } from '#/api/core/performance-monitor';
 
+function sampleTimeSeconds(data: PerformanceData): number {
+  return (data.elapsed_ms ?? data.relative_time * 1000) / 1000;
+}
+
 interface Props {
   data: PerformanceData[];
   clickedTime?: number;
@@ -17,7 +21,7 @@ const rankColors: string[] = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c'];
 const grayColor = '#606266';
 
 function getRankColor(rank: number): string {
-  if (rank <= 4) return rankColors[rank - 1];
+  if (rank <= 4) return rankColors[rank - 1] ?? grayColor;
   return grayColor;
 }
 
@@ -27,7 +31,7 @@ const selectedDataPoint = computed(() => {
 
   // 如果有点击时间，找到对应数据点
   if (props.clickedTime > 0) {
-    const point = props.data.find(d => d.relative_time === props.clickedTime);
+    const point = props.data.find(d => sampleTimeSeconds(d) === props.clickedTime);
     if (point) return point;
   }
 

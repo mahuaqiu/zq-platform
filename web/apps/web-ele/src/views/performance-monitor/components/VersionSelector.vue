@@ -36,18 +36,18 @@ const searchKeyword = ref('');
 
 // 已选版本列表（带颜色）
 const selectedVersions = computed<SelectedVersion[]>(() => {
-  return props.selectedIds
-    .map((id, index) => {
-      const version = props.versions.find((v) => v.id === id);
-      if (!version) return null;
-      return {
-        id: version.id,
-        name: version.name,
-        color: VERSION_COLORS[index % VERSION_COLORS.length],
-        createTime: version.sys_create_datetime,
-      };
-    })
-    .filter((v): v is SelectedVersion => v !== null);
+  const selected: SelectedVersion[] = [];
+  props.selectedIds.forEach((id, index) => {
+    const version = props.versions.find((item) => item.id === id);
+    if (!version) return;
+    selected.push({
+      id: version.id,
+      name: version.name,
+      color: VERSION_COLORS[index % VERSION_COLORS.length] ?? '#409eff',
+      createTime: version.sys_create_datetime,
+    });
+  });
+  return selected;
 });
 
 // 可选版本列表（过滤后的）
@@ -123,7 +123,7 @@ const formatRelativeTimeRange = (version: PerformanceVersion) => {
   if (!timeRanges) return '';
 
   const ranges: string[] = [];
-  for (const [collectId, range] of Object.entries(timeRanges)) {
+  for (const range of Object.values(timeRanges)) {
     const start = range.start;
     const end = range.end;
     if (end !== undefined) {

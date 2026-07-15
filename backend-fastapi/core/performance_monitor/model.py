@@ -42,16 +42,28 @@ class PerformanceCollect(BaseModel):
     # 目标进程配置
     target_processes = Column(JSON, nullable=True, comment="目标进程配置")
 
-    # 状态：running/stopped/error
-    status = Column(String(20), nullable=False, default="running", index=True, comment="状态：running/stopped/error")
+    # 状态：pending/starting/running/stopping/stopped/failed/timed_out/interrupted
+    status = Column(String(20), nullable=False, default="pending", index=True, comment="采集状态")
+    last_heartbeat_at = Column(DateTime, nullable=True, comment="Worker 最后心跳时间")
+    last_sequence = Column(Integer, nullable=True, comment="Worker 最后采样序号")
+    last_elapsed_ms = Column(Integer, nullable=True, comment="Worker 最后样本相对时间（毫秒）")
+    failure_code = Column(String(80), nullable=True, comment="失败错误码")
+    failure_message = Column(String(500), nullable=True, comment="失败消息")
+    end_reason = Column(String(40), nullable=True, comment="结束原因")
 
     # 保护标记（不被自动清理）
     is_protected = Column(Boolean, nullable=False, default=False, comment="保护标记")
 
     # 状态显示名称映射
     STATUS_DISPLAY = {
+        "pending": "等待启动",
+        "starting": "启动中",
         "running": "运行中",
+        "stopping": "停止中",
         "stopped": "已停止",
+        "failed": "启动失败",
+        "timed_out": "已超时",
+        "interrupted": "已中断",
         "error": "异常",
     }
 
@@ -82,7 +94,9 @@ class PerformanceData(BaseModel):
 
     # 采集记录ID（关联 performance_collect）
     collect_id = Column(String(21), ForeignKey("performance_collect.id"), nullable=False, index=True, comment="采集记录ID")
-
+    sample_key = Column(String(128), nullable=False, unique=True, index=True, comment="采样幂等键")
+    sequence = Column(Integer, nullable=False, comment="采样序号")
+    elapsed_ms = Column(Integer, nullable=False, comment="相对采集开始时间，毫秒")
     # 实际时间
     timestamp = Column(DateTime, nullable=False, comment="实际时间")
 
@@ -119,6 +133,7 @@ class PerformanceData(BaseModel):
 
     # HWiNFO原始传感器数据（完整）
     hwinfo_raw = Column(JSON, nullable=True, comment="HWiNFO原始传感器数据（完整）")
+    system_metrics = Column(JSON, nullable=True, comment="Rust 系统 CPU/GPU 指标")
 
 
 class PerformanceTag(BaseModel):

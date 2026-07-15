@@ -33,6 +33,10 @@ export interface PerformanceData {
   collect_id: string;
   timestamp: string;
   relative_time: number;
+  sample_key?: string;
+  sequence?: number;
+  elapsed_ms?: number;
+  system_metrics?: SystemMetrics;
   cpu_usage?: number;
   gpu_usage?: number;
   commit_memory?: number;
@@ -46,6 +50,17 @@ export interface PerformanceData {
   target_processes?: ProcessData[];
   top10_cpu?: Top10Process[];
   top10_gpu?: Top10Process[];
+}
+
+export interface SystemMetrics {
+  cpu_percent?: number | null;
+  gpu_percent?: number | null;
+  gpu_source?: 'rust_pdh' | 'hwinfo_fallback' | 'unavailable' | string;
+  gpu_adapters?: Array<{
+    luid: string;
+    name: string;
+    utilization_percent: number;
+  }>;
 }
 
 export interface ProcessData {

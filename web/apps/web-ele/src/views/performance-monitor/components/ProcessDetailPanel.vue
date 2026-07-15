@@ -6,7 +6,7 @@ import type { PerformanceData, ProcessInstance } from '#/api/core/performance-mo
 interface Props {
   visible: boolean;
   data: PerformanceData | null;
-  seriesData: { name: string; value: number; color: string; unit: string }[];
+  seriesData: { name: string; value: number | null; color: string; unit: string }[];
   chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
   clickPosition?: { x: number; y: number } | null;  // 点击位置
   containerWidth?: number;  // 图表容器宽度
@@ -91,7 +91,6 @@ function formatDateTime(timestamp: string): string {
 // 面板位置计算（fixed 定位，基于点击位置）
 const panelPosition = computed(() => {
   const panelWidth = 500;
-  const panelHeight = 180;
 
   // 如果没有点击位置和容器宽度，默认显示在屏幕中央
   if (!props.clickPosition || !props.containerWidth) {
@@ -161,7 +160,7 @@ const panelPosition = computed(() => {
           <span>{{ s.name }} {{ chartType === 'memory' || chartType === 'commitMemory' ? 'Memory' : 'CPU' }}</span>
         </div>
         <span class="series-value" :style="{ color: s.color }">
-          {{ s.value.toFixed(1) }}{{ s.unit }}
+          {{ s.value == null ? '-' : s.value.toFixed(1) }}{{ s.value == null ? '' : s.unit }}
         </span>
       </div>
     </div>

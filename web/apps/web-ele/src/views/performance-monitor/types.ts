@@ -1,7 +1,7 @@
 // 曲线图数据点
 export interface ChartDataPoint {
-  time: number; // relative_time
-  value: number;
+  time: number; // 相对时间（秒），由 elapsed_ms 换算
+  value: number | null;
 }
 
 // 图表系列
@@ -47,7 +47,18 @@ export interface Top10ProcessItem {
 
 // 性能数据点
 export interface PerformanceData {
+  id?: string;
+  collect_id?: string;
+  timestamp?: string;
   relative_time: number;
+  sample_key?: string;
+  sequence?: number;
+  elapsed_ms?: number;
+  system_metrics?: {
+    cpu_percent?: number | null;
+    gpu_percent?: number | null;
+    gpu_source?: string;
+  };
   cpu_usage?: number;
   gpu_usage?: number;
   commit_memory?: number;

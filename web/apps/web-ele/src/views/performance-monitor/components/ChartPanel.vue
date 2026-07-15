@@ -40,14 +40,14 @@ const emit = defineEmits<{
   (e: 'mini-tooltip-show', data: {
     position: { x: number; y: number };
     data: PerformanceData | undefined;
-    seriesData: { name: string; value: number; color: string; unit: string }[];
+    seriesData: { name: string; value: number | null; color: string; unit: string }[];
     chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
     containerRect: DOMRect;
   }): void;
   (e: 'mini-tooltip-hide'): void;
   (e: 'detail-click', data: {
     data: PerformanceData | undefined;
-    seriesData: { name: string; value: number; color: string; unit: string }[];
+    seriesData: { name: string; value: number | null; color: string; unit: string }[];
     chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
     chartKey: string;
     position: { x: number; y: number };
@@ -88,13 +88,13 @@ onMounted(() => {
           // pointInGrid[0] 是 x 轴索引（ dataIndex ）
           const dataIndex = Math.round(pointInGrid[0]);
 
-          if (dataIndex >= 0 && dataIndex < props.series[0].data.length) {
+          if (dataIndex >= 0 && dataIndex < (props.series[0]?.data.length ?? 0)) {
             const rawDataPoint = props.rawData?.[dataIndex];
 
             // 构建主曲线数据
             const seriesData = props.series.map((s) => ({
               name: s.name,
-              value: s.data[dataIndex]?.value || 0,
+              value: s.data[dataIndex]?.value ?? null,
               color: s.color,
               unit: s.unit || '%',
             }));
@@ -134,12 +134,12 @@ onMounted(() => {
         if (pointInGrid && pointInGrid[0] !== undefined) {
           const dataIndex = Math.round(pointInGrid[0]);
 
-          if (dataIndex >= 0 && dataIndex < props.series[0].data.length) {
+          if (dataIndex >= 0 && dataIndex < (props.series[0]?.data.length ?? 0)) {
             const rawDataPoint = props.rawData?.[dataIndex];
 
             const seriesData = props.series.map((s) => ({
               name: s.name,
-              value: s.data[dataIndex]?.value || 0,
+              value: s.data[dataIndex]?.value ?? null,
               color: s.color,
               unit: s.unit || '%',
             }));
@@ -192,7 +192,7 @@ const currentValues = computed(() => {
     const lastData = s.data[s.data.length - 1];
     const unit = s.unit || '%';
     let displayValue = '-';
-    if (lastData?.value !== undefined) {
+    if (lastData?.value != null) {
       if (unit === 'GB') {
         displayValue = lastData.value.toFixed(1);
       } else if (unit === 'MB') {
@@ -229,21 +229,10 @@ function initChart() {
   updateChart();
 }
 
-function formatDateTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  const second = String(date.getSeconds()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-}
-
 // 计算Y轴范围（智能分段，根据数据范围动态调整）
 const yAxisConfig = computed(() => {
   const unit = mainUnit.value;
-  const allValues = props.series.flatMap((s) => s.data.map((d) => d.value));
+  const allValues = props.series.flatMap((s) => s.data.map((d) => d.value).filter((value): value is number => value !== null));
 
   if (allValues.length === 0) {
     return { min: 0, max: 100, interval: 20, gridLeft: 40 };
@@ -366,7 +355,7 @@ function updateChart() {
     return;
   }
 
-  const seriesConfig = props.series.map((s) => ({
+  const seriesConfig: any[] = props.series.map((s) => ({
     name: s.name,
     type: 'line',
     data: s.data.map((d) => d.value),
@@ -406,7 +395,8 @@ function updateChart() {
         (d) => d.time === marker.start_time,
       );
       if (dataIndex !== undefined && dataIndex >= 0) {
-        const yValue = props.series[0].data[dataIndex].value;
+        const yValue = props.series[0]?.data[dataIndex]?.value;
+        if (yValue == null) return;
         markPointData.push({
           coord: [dataIndex, yValue],
           symbol: 'circle',
@@ -506,7 +496,7 @@ function updateChart() {
       type: 'category',
       data: xAxisData,
       axisLabel: {
-        formatter: (v: number) => `${v}s`,
+        formatter: (v: number) => `${v.toFixed(v < 10 ? 1 : 0)}s`,
         interval: xAxisInterval.value,
       },
     },

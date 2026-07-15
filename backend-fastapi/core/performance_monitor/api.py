@@ -24,7 +24,7 @@ from core.performance_monitor.schema import (
     # Response Schema（用于正确序列化 datetime）
     CollectResponse, DataResponse, PaginatedResponse,
     # v0.3.1
-    WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
+    WorkerReportRequestV3, WorkerTerminalEvent, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
     MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse,
     # 导出任务 Schema
     ExportTaskCreate, ExportTaskStatus, ExportTaskCreateResponse,
@@ -186,9 +186,14 @@ async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends
                         "target_processes": request.target_processes or []
                     }
                     resp = await client.post(worker_url, json=worker_request)
-                    if resp.status_code != 200:
-                        # worker 失败时更新状态
-                        await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+                    if resp.status_code not in (200, 201):
+                        collect = await db.get(PerformanceCollect, collect_id)
+                        if collect:
+                            collect.status = "failed"
+                            collect.failure_code = "WORKER_START_FAILED"
+                            collect.failure_message = resp.text[:500]
+                            collect.end_time = datetime.utcnow()
+                            await db.commit()
                         raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
             except httpx.ConnectError:
                 await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
@@ -197,7 +202,8 @@ async def start_collect(request: CollectStartRequest, db: AsyncSession = Depends
                 await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
                 raise HTTPException(status_code=504, detail="Worker 响应超时")
 
-    return {"collect_id": collect_id, "status": "started"}
+    collect = await db.get(PerformanceCollect, collect_id)
+    return {"collect_id": collect_id, "status": collect.status if collect else "starting"}
 
 
 @router.post("/collect/stop")
@@ -205,6 +211,8 @@ async def stop_collect(request: CollectStopRequest, db: AsyncSession = Depends(g
     """停止采集"""
     # 1. 更新数据库状态
     success = await PerformanceCollectService.stop_collect(db, request.collect_id, request.device_id)
+    if request.collect_id and not success:
+        raise HTTPException(status_code=404, detail="采集记录不存在或不属于指定设备")
 
     # 2. 从数据库获取设备信息
     stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
@@ -233,7 +241,16 @@ async def stop_collect(request: CollectStopRequest, db: AsyncSession = Depends(g
             except httpx.TimeoutException:
                 raise HTTPException(status_code=504, detail="Worker 响应超时")
 
-    return {"status": "stopped" if success else "not_found"}
+    return {"status": "stopping" if success else "not_found"}
+
+
+@router.post("/collect/worker-event")
+async def worker_event(request: WorkerTerminalEvent, db: AsyncSession = Depends(get_db)):
+    """接收 Worker 的终态事件。"""
+    success = await PerformanceCollectService.handle_worker_event(db, request)
+    if not success:
+        raise HTTPException(status_code=404, detail="采集记录不存在或终态事件无效")
+    return {"status": "accepted"}
 
 
 @router.get("/collect/status")
@@ -326,8 +343,10 @@ async def set_collect_protected(
 @router.post("/report")
 async def report_data(request: WorkerReportRequestV3, db: AsyncSession = Depends(get_db)):
     """Worker 上报数据（v0.3.1）"""
-    success = await PerformanceDataService.report_data(db, request)
-    return {"status": "success" if success else "failed"}
+    result = await PerformanceDataService.report_data(db, request)
+    if not result or result.get("status") != "success":
+        raise HTTPException(status_code=404, detail="采集记录不存在")
+    return result
 
 
 # ===== 标签管理 =====

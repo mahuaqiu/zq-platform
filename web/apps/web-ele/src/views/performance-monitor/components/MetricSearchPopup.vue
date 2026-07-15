@@ -104,16 +104,7 @@ const filteredMetrics = computed(() => {
 // Linux 设备下，过滤掉与快捷按钮重复的核心指标
 // Linux CPU Usage -> 对应 CPU 快捷按钮
 // Linux Memory Usage -> 对应 内存 快捷按钮
-const linuxMetricsFiltered = computed(() => {
-  const metricsList = filteredMetrics.value.filter(m => m.source === 'linux');
-  if (props.isLinuxDevice) {
-    // 过滤掉重复的核心指标
-    return metricsList.filter(m =>
-      m.key !== 'Linux CPU Usage' && m.key !== 'Linux Memory Usage'
-    );
-  }
-  return metricsList;
-});
+const linuxMetricsFiltered = computed<AvailableMetric[]>(() => []);
 
 // 分组显示：进程指标、Linux 系统指标、HWiNFO 指标
 const systemMetrics = computed(() =>

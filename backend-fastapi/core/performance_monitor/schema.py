@@ -123,8 +123,12 @@ class TopNProcessReport(BaseModel):
 
 class PerformanceSampleReportV3(BaseModel):
     """单个性能样本上报 Schema"""
+    sample_key: str = Field(..., max_length=128, description="采样幂等键")
+    sequence: int = Field(..., ge=0, description="Rust 采样序号")
+    elapsed_ms: int = Field(..., ge=0, description="相对采集开始时间，毫秒")
     timestamp: datetime = Field(..., description="实际时间")
     relative_time: Optional[int] = Field(None, ge=0, description="相对时间（秒），可选，不传则后端自动计算")
+    system: Dict[str, Any] = Field(default_factory=dict, description="Rust 系统 CPU/GPU 指标")
     hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
     processes: Optional[List[ProcessInfoReport]] = Field(None, description="目标进程列表（按配置筛选）")
     aggregated: Optional[List[AggregatedProcessInfoReport]] = Field(None, description="目标进程汇总")
@@ -136,7 +140,18 @@ class WorkerReportRequestV3(BaseModel):
     """Worker 上报数据请求 Schema"""
     collect_id: str = Field(..., description="采集记录ID")
     device_id: str = Field(..., description="设备ID")
+    batch_id: Optional[str] = Field(None, max_length=160, description="批次幂等键")
     samples: List[PerformanceSampleReportV3] = Field(default_factory=list, description="性能样本列表")
+
+
+class WorkerTerminalEvent(BaseModel):
+    """Worker 采集终态事件。"""
+    collect_id: str = Field(..., description="采集记录ID")
+    device_id: str = Field(..., description="设备ID")
+    status: str = Field(..., description="终态：stopped/failed/timed_out/interrupted")
+    message: Optional[str] = Field(None, max_length=500, description="终态说明")
+    last_sequence: Optional[int] = Field(None, ge=0, description="最后采样序号")
+    last_elapsed_ms: Optional[int] = Field(None, ge=0, description="最后样本相对时间（毫秒）")
 
 
 class PerformanceReportRequest(BaseModel):
@@ -240,9 +255,15 @@ class CollectResponse(BaseModel):
     end_time: Optional[datetime] = Field(None, description="结束时间")
     interval: int = Field(..., description="采集频率（秒）")
     target_processes: Optional[List[Dict[str, Any]]] = Field(None, description="目标进程配置")
-    status: str = Field(..., description="状态：running/stopped/error")
+    status: str = Field(..., description="采集状态")
     status_display: Optional[str] = Field(None, description="状态显示名称")
     is_protected: bool = Field(default=False, description="保护标记")
+    last_heartbeat_at: Optional[datetime] = Field(None, description="Worker 最后心跳时间")
+    last_sequence: Optional[int] = Field(None, description="最后采样序号")
+    last_elapsed_ms: Optional[int] = Field(None, description="最后样本相对时间（毫秒）")
+    failure_code: Optional[str] = Field(None, description="失败错误码")
+    failure_message: Optional[str] = Field(None, description="失败消息")
+    end_reason: Optional[str] = Field(None, description="结束原因")
     sort: int = Field(default=0, description="排序")
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
@@ -266,6 +287,9 @@ class DataResponse(BaseModel):
     """性能数据响应 Schema"""
     id: str = Field(..., description="数据ID")
     collect_id: str = Field(..., description="采集记录ID")
+    sample_key: Optional[str] = Field(None, description="采样幂等键")
+    sequence: Optional[int] = Field(None, description="采样序号")
+    elapsed_ms: Optional[int] = Field(None, description="相对采集开始时间，毫秒")
     timestamp: datetime = Field(..., description="实际时间")
     relative_time: int = Field(..., description="相对时间（秒）")
     cpu_usage: Optional[float] = Field(None, description="CPU使用率 %")
@@ -282,6 +306,7 @@ class DataResponse(BaseModel):
     top10_cpu: Optional[List[Dict[str, Any]]] = Field(None, description="CPU TOP10")
     top10_gpu: Optional[List[Dict[str, Any]]] = Field(None, description="GPU TOP10")
     hwinfo_raw: Optional[Dict[str, Any]] = Field(None, description="HWiNFO原始传感器数据")
+    system_metrics: Optional[Dict[str, Any]] = Field(None, description="Rust 系统 CPU/GPU 指标")
     sort: int = Field(default=0, description="排序")
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
@@ -325,6 +350,12 @@ class VersionResponse(BaseModel):
     name: str = Field(..., description="版本名称")
     collect_ids: List[str] = Field(..., description="包含的采集记录ID列表")
     is_protected: bool = Field(default=False, description="保护标记")
+    last_heartbeat_at: Optional[datetime] = Field(None, description="Worker 最后心跳时间")
+    last_sequence: Optional[int] = Field(None, description="最后采样序号")
+    last_elapsed_ms: Optional[int] = Field(None, description="最后样本相对时间（毫秒）")
+    failure_code: Optional[str] = Field(None, description="失败错误码")
+    failure_message: Optional[str] = Field(None, description="失败消息")
+    end_reason: Optional[str] = Field(None, description="结束原因")
     sort: int = Field(default=0, description="排序")
     is_deleted: bool = Field(default=False, description="是否删除")
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")

@@ -89,25 +89,38 @@ const isCpuOrGpuMetric = computed(() => {
   return currentMetric.value === 'cpu_usage' || currentMetric.value === 'gpu_usage';
 });
 
+function sampleTimeSeconds(data: PerformanceData): number {
+  return (data.elapsed_ms ?? data.relative_time * 1000) / 1000;
+}
+
+function systemMetricValue(data: PerformanceData, metric: 'cpu_usage' | 'gpu_usage'): number | null {
+  if (metric === 'cpu_usage') {
+    return data.system_metrics?.cpu_percent ?? data.cpu_usage ?? null;
+  }
+  return data.system_metrics?.gpu_percent ?? data.gpu_usage ?? null;
+}
+
 // 系统数据图表（归一化：每条线从0开始）
 const systemChartSeries = computed<ChartSeries[]>(() => {
   const result: ChartSeries[] = [];
   const metricField = currentMetric.value as keyof PerformanceData;
 
   compareData.value.versions.forEach((v, i) => {
-    const systemData: Array<{ time: number; value: number }> = [];
+    const systemData: Array<{ time: number; value: number | null }> = [];
 
     v.collects.forEach((c) => {
       c.data.forEach((d) => {
         systemData.push({
-          time: d.relative_time,
-          value: (d[metricField] as number) || 0,
+          time: sampleTimeSeconds(d),
+          value: isCpuOrGpuMetric.value
+            ? systemMetricValue(d, currentMetric.value as 'cpu_usage' | 'gpu_usage')
+            : (d[metricField] as number) || 0,
         });
       });
     });
 
     systemData.sort((a, b) => a.time - b.time);
-    const startTime = systemData.length > 0 ? systemData[0].time : 0;
+    const startTime = systemData.at(0)?.time ?? 0;
 
     const normalizedData = systemData.map(d => ({
       time: d.time - startTime,
@@ -139,14 +152,14 @@ const processChartSeries = computed<ChartSeries[]>(() => {
           return sum + (currentMetric.value === 'cpu_usage' ? p.total_cpu : p.total_gpu || 0);
         }, 0) || 0;
         processData.push({
-          time: d.relative_time,
+          time: sampleTimeSeconds(d),
           value: processValue,
         });
       });
     });
 
     processData.sort((a, b) => a.time - b.time);
-    const startTime = processData.length > 0 ? processData[0].time : 0;
+    const startTime = processData.at(0)?.time ?? 0;
 
     const normalizedData = processData.map(d => ({
       time: d.time - startTime,
@@ -223,13 +236,16 @@ async function handleHwinfoMetricSelect(metricKey: string) {
     for (const [index, v] of compareData.value.versions.entries()) {
       // 获取该版本的时间范围（从 compareData 中获取，用于筛选 HWiNFO 数据）
       const versionDataPoints = v.collects.flatMap(c => c.data);
-      versionDataPoints.sort((a, b) => a.relative_time - b.relative_time);
+      versionDataPoints.sort((a, b) => sampleTimeSeconds(a) - sampleTimeSeconds(b));
 
       if (versionDataPoints.length === 0) continue;
 
       // 该版本的时间范围
-      const versionStartTime = versionDataPoints[0].relative_time;
-      const versionEndTime = versionDataPoints[versionDataPoints.length - 1].relative_time;
+      const firstDataPoint = versionDataPoints.at(0);
+      const lastDataPoint = versionDataPoints.at(-1);
+      if (!firstDataPoint || !lastDataPoint) continue;
+      const versionStartTime = sampleTimeSeconds(firstDataPoint);
+      const versionEndTime = sampleTimeSeconds(lastDataPoint);
 
       // 遍历每个采集获取 HWiNFO 数据
       const allData: Array<{ time: number; value: number }> = [];
@@ -298,9 +314,7 @@ async function handleHwinfoMetricSelect(metricKey: string) {
 // 获取第一个采集ID（用于 MetricSearchPopup 加载指标列表）
 const firstCollectId = computed(() => {
   if (compareData.value.versions.length === 0) return '';
-  const firstVersion = compareData.value.versions[0];
-  if (firstVersion.collects.length === 0) return '';
-  return firstVersion.collects[0].collect.id || '';
+  return compareData.value.versions[0]?.collects[0]?.collect.id || '';
 });
 
 // 数据摘要（根据标签区间计算）
@@ -311,7 +325,7 @@ const summaryData = computed<SummaryRow[]>(() => {
 
   // HWiNFO 指标特殊处理
   if (currentMetric.value === 'hwinfo' && hwinfoChartData.value.length > 0) {
-    return hwinfoChartData.value.map((series, i) => {
+    return hwinfoChartData.value.map((series) => {
       // HWiNFO 数据已经是归一化的，可以直接用标签时间过滤
       const peakData = peakTag
         ? series.data.filter(d => d.time >= peakTag.start_time && d.time <= peakTag.end_time)
@@ -320,9 +334,11 @@ const summaryData = computed<SummaryRow[]>(() => {
         ? series.data.filter(d => d.time >= stableTag.start_time && d.time <= stableTag.end_time)
         : [];
 
-      const peakValue = peakData.length > 0 ? Math.max(...peakData.map(d => d.value)) : undefined;
-      const meanValue = stableData.length > 0
-        ? stableData.reduce((s, d) => s + d.value, 0) / stableData.length
+      const peakValues = peakData.map(d => d.value).filter((value): value is number => value !== null);
+      const meanValues = stableData.map(d => d.value).filter((value): value is number => value !== null);
+      const peakValue = peakValues.length > 0 ? Math.max(...peakValues) : undefined;
+      const meanValue = meanValues.length > 0
+        ? meanValues.reduce((sum, value) => sum + value, 0) / meanValues.length
         : undefined;
 
       return {
@@ -341,7 +357,7 @@ const summaryData = computed<SummaryRow[]>(() => {
     allData.sort((a, b) => a.relative_time - b.relative_time);
 
     // 找到该版本的起始时间（用于将归一化的标签时间转换为原始时间）
-    const versionStartTime = allData.length > 0 ? allData[0].relative_time : 0;
+    const versionStartTime = allData.at(0)?.relative_time ?? 0;
 
     // 辅助函数：获取区间内的数据（标签时间是归一化的，需要转换为原始时间）
     const getIntervalData = (normalizedStart: number, normalizedEnd: number) => {
