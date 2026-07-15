@@ -42,12 +42,14 @@ class PerformanceCollectService(BaseService):
     """采集记录服务"""
     model = PerformanceCollect
 
-    # 活跃状态：前端会据此禁用“开始采集”
+    # 活跃状态：平台侧仍有未终态记录
     ACTIVE_STATUSES = ("pending", "starting", "running", "stopping")
+    # 真正占用设备、应禁止再开新采集的状态（stopping 允许立刻重开）
+    COLLECTING_STATUSES = ("pending", "starting", "running")
     TERMINAL_STATUSES = ("stopped", "failed", "timed_out", "interrupted")
     # Worker 重启后若未回传终态，这些状态会卡住；按心跳/启动时间做对账
     STALE_STARTING_SECONDS = 60
-    STALE_STOPPING_SECONDS = 90
+    STALE_STOPPING_SECONDS = 30
     STALE_RUNNING_MIN_SECONDS = 60
 
     @classmethod
@@ -115,11 +117,28 @@ class PerformanceCollectService(BaseService):
         # Worker 重启后可能残留 starting/stopping，先对账再创建
         await cls.reconcile_stale_collects(db, request.device_id)
 
+        # stopping 不再阻塞新采集：用户已点停止，允许立刻重开；旧任务标记 interrupted
+        stopping = await db.execute(
+            select(PerformanceCollect).where(
+                and_(
+                    PerformanceCollect.device_id == request.device_id,
+                    PerformanceCollect.status == "stopping",
+                )
+            )
+        )
+        now = datetime.utcnow()
+        for old in stopping.scalars().all():
+            old.status = "interrupted"
+            old.end_time = now
+            old.end_reason = "superseded_by_new_collect"
+            old.failure_code = old.failure_code or "SUPERSEDED"
+            old.failure_message = old.failure_message or "用户在停止过程中启动了新采集"
+
         active = await db.execute(
             select(PerformanceCollect).where(
                 and_(
                     PerformanceCollect.device_id == request.device_id,
-                    PerformanceCollect.status.in_(list(cls.ACTIVE_STATUSES)),
+                    PerformanceCollect.status.in_(list(cls.COLLECTING_STATUSES)),
                 )
             ).order_by(desc(PerformanceCollect.start_time)).limit(1)
         )
@@ -171,7 +190,11 @@ class PerformanceCollectService(BaseService):
 
     @classmethod
     async def get_collect_status(cls, db: AsyncSession, device_id: str) -> Optional[Dict[str, Any]]:
-        """获取采集状态"""
+        """获取采集状态。
+
+        is_collecting 仅对 pending/starting/running 为 true。
+        stopping 视为已停止中（允许前端重新点开始），status 字段仍返回真实状态。
+        """
         # 查询前先清理僵尸状态，避免前端长期禁用开始按钮
         await cls.reconcile_stale_collects(db, device_id)
 
@@ -186,8 +209,9 @@ class PerformanceCollectService(BaseService):
         if collect:
             # 将 datetime 转换为带 Z 后缀的 UTC 格式字符串
             start_time_str = collect.start_time.strftime('%Y-%m-%dT%H:%M:%S') + 'Z' if collect.start_time else None
+            is_collecting = collect.status in cls.COLLECTING_STATUSES
             return {
-                "is_collecting": True,
+                "is_collecting": is_collecting,
                 "collect_id": collect.id,
                 "interval": collect.interval,
                 "target_processes": collect.target_processes,
@@ -196,7 +220,8 @@ class PerformanceCollectService(BaseService):
                 "last_heartbeat_at": collect.last_heartbeat_at,
                 "last_sequence": collect.last_sequence,
                 "last_elapsed_ms": collect.last_elapsed_ms,
-                "status": collect.status
+                "status": collect.status,
+                "state": collect.status,
             }
         return {"is_collecting": False, "state": "idle"}
 

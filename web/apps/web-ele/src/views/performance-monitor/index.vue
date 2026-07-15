@@ -808,7 +808,15 @@ async function handleStopClick() {
       device_id: deviceId.value,
     });
     ElMessage.success('采集已停止');
+    // 停止请求成功后立刻解锁“开始采集”，不等待 Worker 终态回写
     stopPolling();
+    collectStatus.value = {
+      is_collecting: false,
+      state: 'idle',
+      status: 'stopping',
+      collect_id: currentCollectId.value,
+    };
+    // 后台刷新真实状态；后端对 stopping 已返回 is_collecting=false
     refreshStatus();
     fetchCollectHistory();
   } catch (error) {

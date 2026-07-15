@@ -129,6 +129,8 @@ export interface CollectStatus {
   target_processes?: TargetProcessConfig[];
   start_time?: string;
   elapsed_seconds?: number;
+  status?: string;
+  state?: string;
 }
 
 // 标记类型
