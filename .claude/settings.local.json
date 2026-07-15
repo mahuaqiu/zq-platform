@@ -243,7 +243,9 @@
       "Bash(node ./_probe.mjs)",
       "Read(//c/Users/Administrator/.claude/projects/D--code-zq-platform/**)",
       "Read(//c/Users/Administrator/.claude/projects/D--code-zq-platform/memory/**)",
-      "Bash(/d/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m pytest /d/code/zq-platform/backend-fastapi/tests/test_machine_selection_template_service.py -v)"
+      "Bash(/d/code/zq-platform/backend-fastapi/.venv/Scripts/python.exe -m pytest /d/code/zq-platform/backend-fastapi/tests/test_machine_selection_template_service.py -v)",
+      "PowerShell(docker exec zq-platform-backend-1 *)",
+      "PowerShell(D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -m pip install --force-reinstall --no-deps \"D:\\\\code\\\\perfwin\\\\target\\\\wheels\\\\perfwin-0.4.0-cp312-cp312-win_amd64.whl\"; D:\\\\code\\\\autotest\\\\venv\\\\Scripts\\\\python.exe -c \"import perfwin; print\\(perfwin.__file__\\); print\\(getattr\\(perfwin,'__version__',None\\)\\)\")"
     ]
   }
 }
