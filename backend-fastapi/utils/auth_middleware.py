@@ -71,6 +71,8 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     # 测试报告 HTML 静态文件（公开访问）
     r"^/test-reports-html/.*",
     # 测试日志上报接口（供外部 worker 调用，无需认证）
+    # 外部系统触发已保存脚本下发，无需认证
+    r"^/api/core/config-template/deploy-script$",
     r"^/api/core/test-report/fail$",     # 推送失败用例记录
     r"^/api/core/test-report/upload$",   # 上传测试报告 HTML
     # 性能监控上报接口（供外部 worker 调用，无需认证）
