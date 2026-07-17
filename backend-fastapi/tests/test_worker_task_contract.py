@@ -45,6 +45,6 @@ async def test_wait_task_result_accepts_cancelling_then_terminal(monkeypatch) ->
 
     monkeypatch.setattr("core.config_template.api.httpx.AsyncClient", lambda **kwargs: Client())
     monkeypatch.setattr("core.config_template.api.asyncio.sleep", no_sleep)
-    result = await _wait_task_result("127.0.0.1", 8080, "task-1", timeout=1)
+    result = await _wait_task_result("127.0.0.1", 8080, "task-1")
     assert result["success"] is False
     assert result["stderr"] == "用户取消"

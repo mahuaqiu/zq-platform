@@ -361,14 +361,30 @@ async def _execute_single_command(machine: dict, command: str, parent_task_id: s
         }
 
 
-async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 300) -> dict:
+async def _wait_task_result(ip: str, port: int, task_id: str) -> dict:
     """等待任务完成并返回结果。
 
     Worker 的 /task/{task_id} 是幂等查询接口，结果可重复读取。
     只有明确终态才结束轮询，cancelling 等中间状态继续等待。
+
+    轮询策略（两段频率，总超时 10 分钟）：
+    - 前 60 秒：每 3 秒查询一次（快速感知短任务结束）
+    - 60 秒之后：每 20 秒查询一次（长任务降频，减少无效请求）
     """
     worker_url = f"http://{ip}:{port}/task/{task_id}"
     start_time = time.time()
+
+    # 总超时 10 分钟
+    timeout = 600.0
+    # 前 60 秒以 3 秒间隔轮询，之后以 20 秒间隔轮询的分界点
+    fast_phase_deadline = 60.0
+    fast_interval = 3.0
+    slow_interval = 20.0
+
+    def _next_interval() -> float:
+        """根据已耗时返回下一次轮询的等待间隔"""
+        elapsed = time.time() - start_time
+        return fast_interval if elapsed < fast_phase_deadline else slow_interval
 
     # 首次查询前加短暂延迟，给 worker 把任务跑起来的时间，避免过早查到 running
     await asyncio.sleep(0.5)
@@ -392,7 +408,7 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
 
                     if status in ("accepted", "pending", "running", "cancelling"):
                         # 任务尚未结束，继续轮询
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(_next_interval())
                         continue
                     elif status == "success":
                         # 终态：这是最后一次能拿到数据的机会
@@ -429,7 +445,7 @@ async def _wait_task_result(ip: str, port: int, task_id: str, timeout: float = 3
             # 网络异常等，继续重试
             pass
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(_next_interval())
 
     return {"success": False, "stdout": "", "stderr": "等待结果超时", "duration": timeout}
 
