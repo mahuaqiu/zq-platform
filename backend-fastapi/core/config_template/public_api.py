@@ -3,7 +3,8 @@
 """免鉴权脚本下发接口。"""
 import asyncio
 import time
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -41,6 +42,20 @@ class ScriptDeployResponse(BaseModel):
     message: str = Field(..., description="受理结果说明")
     task_id: str = Field(..., description="任务历史记录ID")
     status: str = Field("running", description="任务状态")
+
+
+class ScriptDeployStatusResponse(BaseModel):
+    """脚本异步下发任务进度查询响应。"""
+
+    task_id: str = Field(..., description="任务历史记录ID")
+    status: str = Field(..., description="任务状态: running/success/failed/partial")
+    template_name: str = Field(..., description="脚本模板名称")
+    machine_count: int = Field(..., description="目标机器数量")
+    success_count: int = Field(..., description="成功数量")
+    failed_count: int = Field(..., description="失败数量")
+    result_detail: Optional[List[dict]] = Field(None, description="每台机器执行结果详情")
+    sys_create_datetime: Optional[datetime] = Field(None, description="任务创建时间")
+    finished_datetime: Optional[datetime] = Field(None, description="任务结束时间")
 
 
 @router.post("/deploy-script", response_model=ScriptDeployResponse, summary="按名称异步下发脚本")
@@ -130,6 +145,33 @@ async def deploy_script_by_name(
         message="脚本下发任务已受理",
         task_id=task_id,
         status="running",
+    )
+
+
+@router.get(
+    "/deploy-script/{task_id}",
+    response_model=ScriptDeployStatusResponse,
+    summary="查询脚本异步下发任务进度",
+)
+async def get_script_deploy_status(
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> ScriptDeployStatusResponse:
+    """按任务 ID 查询脚本异步下发进度与结果。"""
+    task = await CommandTaskService.get_by_id(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    return ScriptDeployStatusResponse(
+        task_id=str(task.id),
+        status=task.status,
+        template_name=task.template_name,
+        machine_count=task.machine_count,
+        success_count=task.success_count,
+        failed_count=task.failed_count,
+        result_detail=task.result_detail,
+        sys_create_datetime=task.sys_create_datetime,
+        finished_datetime=task.finished_datetime,
     )
 
 
