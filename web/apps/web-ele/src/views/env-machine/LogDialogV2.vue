@@ -62,8 +62,6 @@ const allMatchIndices = ref<number[]>([]);
 // 日志容器 ref
 const logContainerRef = ref<HTMLElement | null>(null);
 
-const MAX_LOG_LINES = 2000;
-
 /**
  * 根据日志级别返回对应的 CSS 类
  */
@@ -256,7 +254,8 @@ function scrollToMatch(matchIdx: number) {
 /**
  * 处理搜索输入键盘事件
  */
-function handleSearchKeydown(e: KeyboardEvent) {
+function handleSearchKeydown(e: Event | KeyboardEvent) {
+  if (!(e instanceof KeyboardEvent)) return;
   if (e.key === 'Enter') {
     e.preventDefault();
     if (e.shiftKey) {
@@ -411,7 +410,7 @@ function handleDialogClose() {
           <!-- Lines 模式 -->
           <ElTabPane name="lines">
             <template #label>
-              <span>Lines 行数</span>
+              <span>最近日志</span>
             </template>
             <div class="query-content">
               <div class="query-row">
@@ -439,7 +438,7 @@ function handleDialogClose() {
                 <label class="query-label">请求 ID</label>
                 <ElInput
                   v-model="requestIdInput"
-                  placeholder="输入 request_id 进行 grep 搜索"
+                  placeholder="输入 Request ID 搜索当前及轮转日志"
                   size="small"
                   style="width: 300px"
                   clearable
@@ -513,7 +512,7 @@ function handleDialogClose() {
         <div class="log-search">
           <ElInput
             v-model="searchKeyword"
-            placeholder="🔍 搜索日志(至少4字符)..."
+            placeholder="搜索当前查询结果（至少 4 个字符）"
             size="small"
             class="log-search-input"
             @keydown="handleSearchKeydown"
@@ -579,13 +578,13 @@ function handleDialogClose() {
       <!-- 查询模式提示 -->
       <div class="mode-hint">
         <span v-if="queryMode === 'lines'">
-          ⓘ Lines 模式: 返回最后 {{ linesCount }} 行日志
+          当前仅加载最后 {{ linesCount }} 行；查询更早日志请使用 Request ID
         </span>
         <span v-else-if="queryMode === 'request_id'">
-          ⓘ Request ID 模式: grep 搜索所有日志文件中匹配的日志
+          扫描 Worker 当前日志及全部轮转日志中的精确 Request ID
         </span>
         <span v-else-if="queryMode === 'time_range'">
-          ⓘ Time Range 模式: 按时间区间过滤，最多 5 分钟
+          按时间区间扫描当前及轮转日志，区间最多 5 分钟
         </span>
       </div>
     </div>

@@ -30,7 +30,7 @@ import {
 import type { EnvMachineCreateParams, EnvMachineUpdateParams } from '#/api/core/env-machine';
 
 import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice } from './types';
-import LogDialog from './LogDialog.vue';
+import LogDialogV2 from './LogDialogV2.vue';
 
 defineOptions({ name: 'EnvMachinePage' });
 
@@ -727,7 +727,7 @@ onMounted(() => {
     </ElDialog>
 
     <!-- 日志弹窗 -->
-    <LogDialog
+    <LogDialogV2
       v-model:visible="logDialogVisible"
       :machine-id="logMachineId"
       :machine-ip="logMachineIp"

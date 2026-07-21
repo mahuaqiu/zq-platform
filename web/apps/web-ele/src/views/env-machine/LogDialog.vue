@@ -191,7 +191,8 @@ function scrollToMatch(matchIdx: number) {
 /**
  * 处理搜索输入键盘事件
  */
-function handleSearchKeydown(e: KeyboardEvent) {
+function handleSearchKeydown(e: Event | KeyboardEvent) {
+  if (!(e instanceof KeyboardEvent)) return;
   if (e.key === 'Enter') {
     e.preventDefault();
     if (e.shiftKey) {
