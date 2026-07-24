@@ -9,11 +9,13 @@ interface Props {
   visible: boolean;
   collectId?: string;
   isLinuxDevice?: boolean;  // 是否为 Linux 设备，用于过滤重复指标和隔离搜索记录
+  isHarmonyDevice?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   collectId: '',
   isLinuxDevice: false,
+  isHarmonyDevice: false,
 });
 
 const emit = defineEmits<{
@@ -23,7 +25,7 @@ const emit = defineEmits<{
 
 // 按设备类型隔离最近搜索记录
 const getRecentSearchKey = () => {
-  const deviceType = props.isLinuxDevice ? 'linux' : 'windows';
+  const deviceType = props.isHarmonyDevice ? 'harmony' : props.isLinuxDevice ? 'linux' : 'windows';
   return `performance-monitor-recent-metrics-${deviceType}`;
 };
 const MAX_RECENT = 5;
@@ -62,7 +64,7 @@ function saveRecentSearches(searches: string[]) {
 recentSearches.value = loadRecentSearches();
 
 // 监听设备类型变化，重新加载对应的最近搜索记录
-watch(() => props.isLinuxDevice, () => {
+watch(() => [props.isLinuxDevice, props.isHarmonyDevice], () => {
   recentSearches.value = loadRecentSearches();
 });
 
@@ -84,6 +86,9 @@ async function loadMetrics() {
 function getDisplayLabel(metric: AvailableMetric): string {
   if (metric.source === 'system') {
     return metric.label; // 进程指标已有中文
+  }
+  if (metric.source === 'harmony') {
+    return metric.label || getMetricLabel(metric.key);
   }
   // HWiNFO 指标尝试从配置文件获取中文翻译
   const translated = getMetricLabel(metric.key);
@@ -111,6 +116,7 @@ const systemMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'system')
 );
 const linuxMetrics = computed(() => linuxMetricsFiltered.value);
+const harmonyMetrics = computed(() => filteredMetrics.value.filter(m => m.source === 'harmony'));
 const hwinfoMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'hwinfo')
 );
@@ -226,6 +232,22 @@ onUnmounted(() => {
             >
               <span class="result-label">{{ getDisplayLabel(metric) }}</span>
               <span class="result-source linux-source">Linux</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HWiNFO 指标 -->
+        <div v-if="harmonyMetrics.length > 0" class="metric-group">
+          <span class="group-label">Harmony 指标 ({{ harmonyMetrics.length }})</span>
+          <div class="results-list">
+            <div
+              v-for="metric in harmonyMetrics"
+              :key="metric.key"
+              class="result-item harmony-item"
+              @click="handleSelect(metric.key)"
+            >
+              <span class="result-label">{{ getDisplayLabel(metric) }}</span>
+              <span class="result-source harmony-source">Harmony</span>
             </div>
           </div>
         </div>
@@ -481,6 +503,19 @@ onUnmounted(() => {
 .linux-source {
   color: #67c23a;
   background: #f0f9eb;
+}
+
+.harmony-item {
+  background: #fff7e6;
+}
+
+.harmony-item:hover {
+  background: #fff1d6;
+}
+
+.harmony-source {
+  color: #d48806;
+  background: #fff1b8;
 }
 
 .result-label {

@@ -510,6 +510,7 @@ async def get_versions(
     # 计算每个版本的时间区间
     items = []
     for v in versions:
+        device = await db.get(EnvMachine, v.device_id)
         start_time = None
         end_time = None
 
@@ -547,6 +548,7 @@ async def get_versions(
         items.append({
             "id": v.id,
             "device_id": v.device_id,
+            "device_type": device.device_type if device else None,
             "name": v.name,
             "collect_ids": v.collect_ids,
             "is_protected": v.is_protected,
@@ -563,7 +565,10 @@ async def get_versions(
 async def get_compare_data(version_ids: str, db: AsyncSession = Depends(get_db)):
     """获取版本对比数据"""
     ids = version_ids.split(",")
-    result = await PerformanceVersionService.get_compare_data(db, ids)
+    try:
+        result = await PerformanceVersionService.get_compare_data(db, ids)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
     return result
 
 

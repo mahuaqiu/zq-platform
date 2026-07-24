@@ -2,6 +2,7 @@
 interface Props {
   currentMetric: string;
   isLinuxDevice?: boolean;  // 是否为 Linux 设备
+  isHarmonyDevice?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -15,10 +16,10 @@ const emit = defineEmits<{
 const mainMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu_usage', label: 'CPU' },
-    ...(props.isLinuxDevice ? [] : [{ key: 'gpu_usage', label: 'GPU' }]),
+    ...((props.isLinuxDevice || props.isHarmonyDevice) ? [] : [{ key: 'gpu_usage', label: 'GPU' }]),
     { key: 'memory_usage', label: '内存' },
-    ...(props.isLinuxDevice ? [] : [{ key: 'commit_memory', label: '提交内存' }]),
-    ...(props.isLinuxDevice ? [] : [{ key: 'process_handles', label: '进程句柄' }]),
+    ...((props.isLinuxDevice || props.isHarmonyDevice) ? [] : [{ key: 'commit_memory', label: '提交内存' }]),
+    ...((props.isLinuxDevice || props.isHarmonyDevice) ? [] : [{ key: 'process_handles', label: '进程句柄' }]),
   ];
   return baseMetrics;
 });

@@ -47,6 +47,7 @@ export interface PerformanceData {
   process_handles?: number;
   upload_speed?: number;
   download_speed?: number;
+  hwinfo_raw?: Record<string, { value?: number; unit?: string } | number>;
   target_processes?: ProcessData[];
   top10_cpu?: Top10Process[];
   top10_gpu?: Top10Process[];
@@ -109,6 +110,7 @@ export interface PerformanceVersion {
   start_time?: string;
   end_time?: string;
   time_ranges?: Record<string, { start: number; end: number }>;
+  device_type?: 'windows' | 'linux' | 'harmony_pc' | 'harmony_mobile' | string;
 }
 
 // 对比标签类型（跨版本共享，使用相对时间）
@@ -499,7 +501,9 @@ export async function deleteCompareTag(tagId: string) {
 export interface AvailableMetric {
   key: string;
   label: string;
-  source: 'system' | 'hwinfo';
+  source: 'system' | 'linux' | 'harmony' | 'hwinfo';
+  unit?: string;
+  category?: string;
 }
 
 // ===== 导出任务 API =====

@@ -10,6 +10,21 @@ export interface HwinfoMetric {
   unit?: string;
 }
 
+export const HARMONY_METRICS: HwinfoMetric[] = [
+  { key: 'Harmony CPU Usage', label: '系统 CPU', unit: '%' },
+  { key: 'Harmony CPU User', label: 'CPU 用户态', unit: '%' },
+  { key: 'Harmony CPU System', label: 'CPU 系统态', unit: '%' },
+  { key: 'Harmony CPU Idle', label: 'CPU 空闲', unit: '%' },
+  { key: 'Harmony Mem Total', label: '内存总量', unit: 'MB' },
+  { key: 'Harmony Mem Used', label: '内存使用（系统 Used）', unit: 'MB' },
+  { key: 'Harmony Mem Available', label: '内存可用', unit: 'MB' },
+  { key: 'Harmony Net Upload', label: '上行速率', unit: 'KB/s' },
+  { key: 'Harmony Net Download', label: '下行速率', unit: 'KB/s' },
+  { key: 'Harmony Power', label: '估算功耗', unit: 'W' },
+  { key: 'Harmony CPU Temp', label: 'CPU 温度', unit: '°C' },
+  { key: 'Harmony GPU Usage', label: 'GPU 使用率', unit: '%' },
+];
+
 /**
  * Linux 系统指标（通过 SSH 采集）
  */
@@ -385,6 +400,7 @@ export const MISC_VOLTAGE_METRICS: HwinfoMetric[] = [
  * 所有指标合并列表
  */
 export const ALL_HWINFO_METRICS: HwinfoMetric[] = [
+  ...HARMONY_METRICS,
   ...LINUX_SYSTEM_METRICS,
   ...PRIMARY_HWINFO_METRICS,
   ...CPU_CORE_METRICS,

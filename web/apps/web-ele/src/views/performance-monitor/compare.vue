@@ -79,6 +79,22 @@ const compareTags = ref<CompareTag[]>([]);
 const loadingTags = ref(false);
 const showAddTagDialog = ref(false);
 
+const compareDeviceTypes = computed(() => new Set(
+  compareData.value.versions
+    .map((item) => item.version.device_type)
+    .filter((value): value is string => Boolean(value)),
+));
+const selectedDeviceTypes = computed(() => new Set(
+  selectedVersionIds.value
+    .map((id) => versions.value.find((version) => version.id === id)?.device_type)
+    .filter((value): value is string => Boolean(value)),
+));
+const isHarmonyCompare = computed(() => {
+  const types = compareDeviceTypes.value;
+  return types.size > 0 && [...types].every((type) => type === 'harmony_pc' || type === 'harmony_mobile');
+});
+const isLinuxCompare = computed(() => compareDeviceTypes.value.has('linux'));
+
 // 版本颜色映射
 function getVersionColor(index: number): string {
   return VERSION_COLORS[index % VERSION_COLORS.length] || '#67c23a';
@@ -642,6 +658,10 @@ async function handleCompare() {
     ElMessage.warning('请至少选择2个版本进行对比');
     return;
   }
+  if (selectedDeviceTypes.value.size > 1) {
+    ElMessage.warning('请选择相同设备类型的版本进行对比，Windows、Linux 和鸿蒙指标语义不同');
+    return;
+  }
 
   loadingCompare.value = true;
   try {
@@ -784,15 +804,19 @@ async function handleExport() {
     />
 
     <!-- 指标选择器和标签区域 -->
-    <div class="metric-bar" v-if="compareData.versions.length > 0">
+  <div class="metric-bar" v-if="compareData.versions.length > 0">
       <MetricSelector
         :current-metric="currentMetric"
+        :is-linux-device="isLinuxCompare"
+        :is-harmony-device="isHarmonyCompare"
         @change="currentMetric = $event"
         @more="showMorePopup = true"
       />
       <MetricSearchPopup
         :visible="showMorePopup"
         :collect-id="firstCollectId"
+        :is-linux-device="isLinuxCompare"
+        :is-harmony-device="isHarmonyCompare"
         @update:visible="showMorePopup = $event"
         @select="handleHwinfoMetricSelect"
       />

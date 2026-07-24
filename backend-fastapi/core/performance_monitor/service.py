@@ -16,6 +16,7 @@ from core.performance_monitor.model import (
     PerformanceCollect, PerformanceData, PerformanceTag, PerformanceVersion,
     PerformanceMetricMapping, PerformanceMarker, ExportTask
 )
+from core.env_machine.model import EnvMachine
 from core.performance_monitor.compare_model import CompareTag
 from core.performance_monitor.utils import (
     extract_core_metrics,
@@ -383,6 +384,23 @@ class PerformanceDataService(BaseService):
             process_memory = process_metrics.get("process_memory")
             process_committed_memory = process_metrics.get("process_committed_memory")
 
+            # Harmony 可以不选择目标进程，只采集系统指标。此时从稳定 raw key 映射系统
+            # 内存、网络和传感器字段，不能因为没有 aggregated 就把图表变成空数据。
+            def raw_value(key: str) -> float | None:
+                if not isinstance(hwinfo_raw, dict):
+                    return None
+                item = hwinfo_raw.get(key)
+                if isinstance(item, dict):
+                    item = item.get("value")
+                try:
+                    return float(item) if item is not None else None
+                except (TypeError, ValueError):
+                    return None
+
+            harmony_mem_used_mb = raw_value("Harmony Mem Used")
+            if process_memory is None and harmony_mem_used_mb is not None:
+                process_memory = harmony_mem_used_mb
+
             total_handles = sum(
                 int(proc.get("handle_count_total", 0) or 0)
                 for proc in aggregated_dict
@@ -526,13 +544,27 @@ class PerformanceDataService(BaseService):
         hwinfo_data = hwinfo_result.scalar_one_or_none()
 
         if hwinfo_data and hwinfo_data.hwinfo_raw:
+            mapping_stmt = select(PerformanceMetricMapping).where(
+                PerformanceMetricMapping.hwinfo_key.in_(list(hwinfo_data.hwinfo_raw.keys())),
+                PerformanceMetricMapping.is_deleted == False,
+            )
+            mapping_result = await db.execute(mapping_stmt)
+            mappings = {item.hwinfo_key: item for item in mapping_result.scalars().all()}
             for key in sorted(hwinfo_data.hwinfo_raw.keys()):
-                # Linux 指标（以 "Linux " 开头）分类为 linux 源，不是 hwinfo
-                source = "linux" if key.startswith("Linux ") else "hwinfo"
+                mapping = mappings.get(key)
+                # Linux 和 Harmony 原始指标独立分组，避免前端把所有非 Linux 数据误认为 HWiNFO。
+                if key.startswith("Linux "):
+                    source = "linux"
+                elif key.startswith("Harmony ") or (mapping and mapping.category.startswith("harmony_")):
+                    source = "harmony"
+                else:
+                    source = "hwinfo"
                 metrics.append({
                     "key": key,
-                    "label": key,  # 默认使用原键名，前端可以翻译
-                    "source": source
+                    "label": mapping.display_name if mapping else key,
+                    "source": source,
+                    "unit": mapping.unit if mapping else None,
+                    "category": mapping.category if mapping else None,
                 })
 
         return metrics
@@ -729,8 +761,24 @@ class PerformanceVersionService(BaseService):
     async def get_compare_data(cls, db: AsyncSession, version_ids: List[str]) -> Dict[str, Any]:
         """获取对比数据（根据版本的时间范围筛选数据）"""
         versions_data = []
+        version_devices: dict[str, EnvMachine | None] = {}
+        version_objects: list[PerformanceVersion] = []
         for vid in version_ids:
             version = await db.get(PerformanceVersion, vid)
+            if version:
+                version_objects.append(version)
+                version_devices[vid] = await db.get(EnvMachine, version.device_id)
+
+        device_types = {
+            (device.device_type or "").strip().lower()
+            for device in version_devices.values()
+            if device is not None
+        }
+        if len(device_types) > 1:
+            raise ValueError("不支持跨设备类型对比，请选择相同设备类型的版本")
+
+        for version in version_objects:
+            vid = version.id
             if version:
                 collect_ids = version.collect_ids  # 已经是字符串列表
                 time_ranges = version.time_ranges or {}  # 时间范围映射
@@ -768,8 +816,18 @@ class PerformanceVersionService(BaseService):
                             "data": serialized_data,
                             "tags": tags
                         })
+                version_payload = {
+                    "id": version.id,
+                    "device_id": version.device_id,
+                    "device_type": (version_devices.get(vid).device_type if version_devices.get(vid) else None),
+                    "name": version.name,
+                    "collect_ids": version.collect_ids,
+                    "time_ranges": version.time_ranges,
+                    "is_protected": version.is_protected,
+                    "sys_create_datetime": version.sys_create_datetime,
+                }
                 versions_data.append({
-                    "version": version,
+                    "version": version_payload,
                     "collects": collects
                 })
 

@@ -263,18 +263,37 @@ const isLinuxDevice = computed(() => {
   return device?.device_type === 'linux';
 });
 
-// 所有指标列表（Linux 设备不显示 GPU 指标，内存显示系统内存）
+const isHarmonyDevice = computed(() => {
+  const device = devices.value.find((d) => d.id === deviceId.value);
+  return device?.device_type === 'harmony_pc' || device?.device_type === 'harmony_mobile';
+});
+
+const deviceKind = computed<'windows' | 'linux' | 'harmony'>(() => {
+  if (isHarmonyDevice.value) return 'harmony';
+  if (isLinuxDevice.value) return 'linux';
+  return 'windows';
+});
+
+function hasHarmonyMetric(key: string): boolean {
+  return performanceData.value.some((item) => {
+    const raw = item.hwinfo_raw?.[key];
+    return raw !== undefined && raw !== null;
+  });
+}
+
+// 所有指标列表。Harmony 只显示已具备数据的系统能力，不复用 Windows 的 GPU/句柄语义。
 const allMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu' as MetricKey, label: 'CPU使用率' },
-    // Linux 设备没有 GPU 数据，不显示 GPU 指标
-    ...(isLinuxDevice.value ? [] : [{ key: 'gpu' as MetricKey, label: 'GPU使用率' }]),
-    // Linux 设备显示系统内存使用量，Windows 显示进程内存
-    { key: 'memory' as MetricKey, label: isLinuxDevice.value ? '内存使用量' : '进程内存' },
-    // Linux 设备不显示提交内存（无此概念）
-    ...(isLinuxDevice.value ? [] : [{ key: 'commitMemory' as MetricKey, label: '提交内存' }]),
-    // Linux 设备不显示进程句柄（无进程数据）
-    ...(isLinuxDevice.value ? [] : [{ key: 'handles' as MetricKey, label: '进程句柄' }]),
+    ...((isLinuxDevice.value || (isHarmonyDevice.value && !hasHarmonyMetric('Harmony GPU Usage')))
+      ? []
+      : [{ key: 'gpu' as MetricKey, label: 'GPU使用率' }]),
+    {
+      key: 'memory' as MetricKey,
+      label: isHarmonyDevice.value ? '系统内存（Used）' : isLinuxDevice.value ? '内存使用量' : '进程内存',
+    },
+    ...((isLinuxDevice.value || isHarmonyDevice.value) ? [] : [{ key: 'commitMemory' as MetricKey, label: '提交内存' }]),
+    ...((isLinuxDevice.value || isHarmonyDevice.value) ? [] : [{ key: 'handles' as MetricKey, label: '进程句柄' }]),
   ];
 
   // 如果选择了 HWiNFO 指标，添加到列表
@@ -354,6 +373,10 @@ const currentChartTitle = computed(() => {
       return '内存使用量（Linux Memory Usage） (MB)';
     }
   }
+  if (isHarmonyDevice.value) {
+    if (currentMetric.value === 'cpu') return '系统 CPU 使用率（Harmony CPU Usage） (%)';
+    if (currentMetric.value === 'memory') return '系统内存使用（Harmony Mem Used） (MB)';
+  }
 
   // CPU/GPU/内存/提交内存/句柄加单位
   const metric = allMetrics.value.find(m => m.key === currentMetric.value);
@@ -390,9 +413,14 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
   }));
 
   // Linux 设备只显示系统数据，不显示进程数据，tooltip 显示中英文双语
-  if (isLinuxDevice.value) {
+  if (isLinuxDevice.value || isHarmonyDevice.value) {
     return [
-      { name: 'CPU 总使用率（Linux CPU Usage）', data: systemData, color: '#409eff', unit: '%' },
+      {
+        name: isHarmonyDevice.value ? '系统 CPU（Harmony CPU Usage）' : 'CPU 总使用率（Linux CPU Usage）',
+        data: systemData,
+        color: '#409eff',
+        unit: '%',
+      },
     ];
   }
 
@@ -449,13 +477,18 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
 
   // Linux 设备显示系统内存使用量（MB单位，与更多指标统一）
   // memory_usage 字段存储的是 GB，需要转换为 MB
-  if (isLinuxDevice.value) {
+  if (isLinuxDevice.value || isHarmonyDevice.value) {
     const memoryData = data.map((d) => ({
       time: timeSeconds(d),
       value: (d.memory_usage || 0) * 1024,  // GB -> MB 转换
     }));
     return [
-      { name: '内存使用量（Linux Memory Usage）', data: memoryData, color: '#409eff', unit: 'MB' },
+      {
+        name: isHarmonyDevice.value ? '系统内存（Harmony Mem Used，PSS/RSS 语义待真机确认）' : '内存使用量（Linux Memory Usage）',
+        data: memoryData,
+        color: '#409eff',
+        unit: 'MB',
+      },
     ];
   }
 
@@ -850,9 +883,9 @@ async function handleDeviceChange() {
   hwinfoMetricData.value = [];
   hwinfoMetricInfo.value = { displayName: '', unit: '' };
 
-  // Linux 设备没有 GPU/提交内存/进程句柄数据，切换到 Linux 时自动切换回 CPU
+  // Linux/Harmony 不使用 Windows 的 GPU/提交内存/进程句柄语义，切换设备时回到 CPU。
   // HWiNFO 指标也需要清空
-  if (isLinuxDevice.value) {
+  if (isLinuxDevice.value || isHarmonyDevice.value) {
     if (['gpu', 'commitMemory', 'handles', 'hwinfo'].includes(currentMetric.value)) {
       currentMetric.value = 'cpu';
     }
@@ -1248,6 +1281,7 @@ async function loadMoreData(start_time: number, end_time: number) {
         <MetricSelector
           :current-metric="currentMetric"
           :is-linux-device="isLinuxDevice"
+          :is-harmony-device="isHarmonyDevice"
           @change="handleMetricChange"
           @more="showMorePopup = true"
         />
@@ -1255,6 +1289,7 @@ async function loadMoreData(start_time: number, end_time: number) {
           :visible="showMorePopup"
           :collect-id="currentCollectId || ''"
           :is-linux-device="isLinuxDevice"
+          :is-harmony-device="isHarmonyDevice"
           @update:visible="showMorePopup = $event"
           @select="handleHwinfoMetricSelect"
         />
@@ -1304,7 +1339,7 @@ async function loadMoreData(start_time: number, end_time: number) {
       </div>
 
       <!-- 底部面板区域 - 双面板布局（HWiNFO 指标和 Linux 设备不显示进程面板） -->
-      <div v-if="currentMetric !== 'hwinfo' && !isLinuxDevice" class="bottom-panels">
+      <div v-if="currentMetric !== 'hwinfo' && deviceKind === 'windows'" class="bottom-panels">
         <!-- 目标进程明细面板 -->
         <div class="panel-wrapper target-process-wrapper">
           <TargetProcessPanel
