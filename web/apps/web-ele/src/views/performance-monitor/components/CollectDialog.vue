@@ -195,6 +195,11 @@ function isProcessSelected(name: string, pid: number): boolean {
 function validateProcessName(name: string): boolean {
   if (!name || name.trim() === '') return false;
   const trimmed = name.trim();
+  // Harmony 进程通常是带点号的应用包名，例如 com.example.app；Windows
+  // 仍保持原有的 exe/无扩展名校验规则。
+  if (isHarmonyDevice.value) {
+    return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(trimmed);
+  }
   // 允许无扩展名或 .exe 后缀
   const hasNoExtension = !trimmed.includes('.');
   const hasExeExtension = trimmed.toLowerCase().endsWith('.exe');
