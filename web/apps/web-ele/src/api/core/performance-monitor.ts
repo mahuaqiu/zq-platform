@@ -209,10 +209,21 @@ export interface AdvancedMetricsResponse {
 // ===== API 函数 =====
 
 // 进程列表
-export async function getProcesses(deviceId: string, search?: string) {
+export async function getProcesses(
+  deviceId: string,
+  search?: string,
+  identity?: { device_type?: string; device_sn?: string },
+) {
   return requestClient.get<{ processes: ProcessInfo[] }>(
     '/api/core/performance-monitor/processes',
-    { params: { device_id: deviceId, search } },
+    {
+      params: {
+        device_id: deviceId,
+        search,
+        device_type: identity?.device_type,
+        device_sn: identity?.device_sn,
+      },
+    },
   );
 }
 
@@ -223,6 +234,8 @@ export async function startCollect(params: {
   interval: number;
   timeout?: number;  // 最大采集时间（秒）
   target_processes?: TargetProcessConfig[];
+  device_type?: string;
+  device_sn?: string;
 }) {
   return requestClient.post<{ collect_id: string; status: string }>(
     '/api/core/performance-monitor/collect/start',
@@ -233,6 +246,8 @@ export async function startCollect(params: {
 export async function stopCollect(params: {
   collect_id?: string;
   device_id: string;
+  device_type?: string;
+  device_sn?: string;
 }) {
   return requestClient.post<{ status: string }>(
     '/api/core/performance-monitor/collect/stop',
@@ -240,9 +255,19 @@ export async function stopCollect(params: {
   );
 }
 
-export async function getCollectStatus(deviceId: string) {
+export async function getCollectStatus(
+  deviceId: string,
+  identity?: { device_type?: string; device_sn?: string },
+) {
   return requestClient.get<CollectStatus>(
-    `/api/core/performance-monitor/collect/status?device_id=${deviceId}`,
+    '/api/core/performance-monitor/collect/status',
+    {
+      params: {
+        device_id: deviceId,
+        device_type: identity?.device_type,
+        device_sn: identity?.device_sn,
+      },
+    },
   );
 }
 

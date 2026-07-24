@@ -19,12 +19,16 @@ class CollectStartRequest(BaseModel):
     interval: int = Field(default=5, ge=1, le=1800, description="采集频率（秒），最大30分钟")
     timeout: int = Field(default=43200, ge=3600, le=259200, description="最大采集时间（秒），默认12小时，最大72小时")
     target_processes: Optional[List[Dict[str, Any]]] = Field(None, description="目标进程配置")
+    device_type: Optional[str] = Field(None, description="设备类型，由 EnvMachine 解析并透传给 Worker")
+    device_sn: Optional[str] = Field(None, description="设备物理标识，鸿蒙为 HDC UDID")
 
 
 class CollectStopRequest(BaseModel):
     """停止采集请求 Schema"""
     collect_id: Optional[str] = Field(None, description="采集记录ID（可选，不传则停止该设备所有采集）")
     device_id: str = Field(..., description="设备ID")
+    device_type: Optional[str] = Field(None, description="设备类型，由 EnvMachine 解析并透传给 Worker")
+    device_sn: Optional[str] = Field(None, description="设备物理标识，鸿蒙为 HDC UDID")
 
 
 class CollectListRequest(BaseModel):

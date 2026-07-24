@@ -8,7 +8,12 @@ import { getDisplayProcesses, saveProcessesToHistory } from '../config';
 const props = defineProps<{
   visible: boolean;
   deviceId: string;
-  deviceInfo?: { ip: string; status: string; device_type?: string };
+  deviceInfo?: {
+    ip: string;
+    status: string;
+    device_type?: string;
+    device_sn?: string;
+  };
 }>();
 
 const emit = defineEmits<{
@@ -19,6 +24,11 @@ const emit = defineEmits<{
 // 判断是否为 Linux 设备
 const isLinuxDevice = computed(() => {
   return props.deviceInfo?.device_type === 'linux';
+});
+
+// 鸿蒙允许不选目标进程，仅采集系统级 CPU/内存等 P0 指标。
+const isHarmonyDevice = computed(() => {
+  return ['harmony_pc', 'harmony_mobile'].includes(props.deviceInfo?.device_type || '');
 });
 
 // 设备显示信息
@@ -122,7 +132,10 @@ const finalTargetProcesses = computed<TargetProcessConfig[]>(() => {
 async function fetchProcesses() {
   loading.value = true;
   try {
-    const result = await getProcesses(props.deviceId, searchQuery.value);
+    const result = await getProcesses(props.deviceId, searchQuery.value, {
+      device_type: props.deviceInfo?.device_type,
+      device_sn: props.deviceInfo?.device_sn,
+    });
     processList.value = result.processes.map((p: ProcessInfo) => ({
       name: p.name,
       pid: p.pid,
@@ -231,6 +244,8 @@ async function handleStart() {
         interval: interval.value,
         timeout: collectTimeout.value * 3600,  // 小时转秒
         target_processes: [],  // Linux 设备不传进程列表，采集系统级数据
+        device_type: props.deviceInfo?.device_type,
+        device_sn: props.deviceInfo?.device_sn,
       });
       ElMessage.success('系统性能采集已开始');
       emit('started', result.collect_id);
@@ -243,8 +258,8 @@ async function handleStart() {
     return;
   }
 
-  // Windows 设备：需要选择进程
-  if (selectedCount.value === 0) {
+  // Windows 设备仍要求选择目标进程；鸿蒙可空选，仅采系统指标。
+  if (!isHarmonyDevice.value && selectedCount.value === 0) {
     ElMessage.warning('请选择目标进程');
     return;
   }
@@ -256,6 +271,8 @@ async function handleStart() {
       interval: interval.value,
       timeout: collectTimeout.value * 3600,  // 小时转秒
       target_processes: finalTargetProcesses.value,
+      device_type: props.deviceInfo?.device_type,
+      device_sn: props.deviceInfo?.device_sn,
     });
     // 保存到历史记录，下次优先显示
     const names = collectMode.value === 'name'

@@ -41,18 +41,26 @@ const deviceId = ref('');
 const devices = ref<EnvMachine[]>([]);
 const loadingDevices = ref(true);
 
-// 在线设备列表（过滤虚拟设备，虚拟设备无法进行性能采集）
-// Windows 和 Linux 设备都可以进行性能采集
+// 在线设备列表（过滤虚拟设备和不支持性能采集的类型）
 const onlineDevices = computed(() =>
   devices.value.filter((d) =>
-    (d.status === 'online' || d.status === 'using') && !d.is_virtual,
+    (d.status === 'online' || d.status === 'using') &&
+    !d.is_virtual &&
+    ['windows', 'linux', 'harmony_pc', 'harmony_mobile'].includes(d.device_type),
   ),
 );
 
 // 当前选中设备信息
 const currentDeviceInfo = computed(() => {
   const device = devices.value.find((d) => d.id === deviceId.value);
-  return device ? { ip: device.ip, status: device.status, device_type: device.device_type } : undefined;
+  return device
+    ? {
+        ip: device.ip,
+        status: device.status,
+        device_type: device.device_type,
+        device_sn: device.device_sn,
+      }
+    : undefined;
 });
 
 // 采集状态
@@ -630,7 +638,10 @@ onUnmounted(() => {
 async function refreshStatus() {
   if (!isMounted || !deviceId.value) return;
   try {
-    const status = await getCollectStatus(deviceId.value);
+    const status = await getCollectStatus(deviceId.value, {
+      device_type: currentDeviceInfo.value?.device_type,
+      device_sn: currentDeviceInfo.value?.device_sn,
+    });
     if (!isMounted) return; // 异步操作完成后再次检查
     collectStatus.value = status;
     if (status.is_collecting && status.collect_id) {
@@ -806,6 +817,8 @@ async function handleStopClick() {
     await stopCollect({
       collect_id: currentCollectId.value,
       device_id: deviceId.value,
+      device_type: currentDeviceInfo.value?.device_type,
+      device_sn: currentDeviceInfo.value?.device_sn,
     });
     ElMessage.success('采集已停止');
     // 停止请求成功后立刻解锁“开始采集”，不等待 Worker 终态回写
