@@ -591,6 +591,7 @@ watch(() => props.visible, (v) => {
 }
 .preset-tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -602,6 +603,12 @@ watch(() => props.visible, (v) => {
   font-size: 12px;
   cursor: pointer;
   border: 1px solid #91d5ff;
+  /* 长包名（如鸿蒙子进程名）单标签也不能撑破弹窗，超宽省略号截断 */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 .preset-tag:hover {
   background: #bae7ff;
