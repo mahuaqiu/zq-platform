@@ -87,12 +87,17 @@ function getDisplayLabel(metric: AvailableMetric): string {
   if (metric.source === 'system') {
     return metric.label; // 进程指标已有中文
   }
-  if (metric.source === 'harmony') {
-    return metric.label || getMetricLabel(metric.key);
-  }
-  // HWiNFO 指标尝试从配置文件获取中文翻译
+  // Harmony/Linux/HWiNFO 指标优先用配置表中文翻译，后端 label 可能回落英文 key
   const translated = getMetricLabel(metric.key);
   return translated !== metric.key ? translated : metric.label;
+}
+
+// 最近搜索标签同样优先显示中文
+function getRecentLabel(metricKey: string): string {
+  const metric = metrics.value.find(m => m.key === metricKey);
+  if (metric) return getDisplayLabel(metric);
+  const translated = getMetricLabel(metricKey);
+  return translated !== metricKey ? translated : metricKey;
 }
 
 // 过滤后的结果
@@ -193,7 +198,7 @@ onUnmounted(() => {
           :class="`recent-tag-${index + 1}`"
           @click="handleRecentClick(metricKey)"
         >
-          {{ metrics.find(m => m.key === metricKey)?.label || metricKey }}
+          {{ getRecentLabel(metricKey) }}
         </span>
       </div>
     </div>

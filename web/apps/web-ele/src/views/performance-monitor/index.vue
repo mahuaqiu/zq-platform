@@ -484,7 +484,7 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
     }));
     return [
       {
-        name: isHarmonyDevice.value ? '系统内存（Harmony Mem Used，PSS/RSS 语义待真机确认）' : '内存使用量（Linux Memory Usage）',
+        name: isHarmonyDevice.value ? '系统内存（Harmony Mem Used，hidumper --mem 实测已用内存）' : '内存使用量（Linux Memory Usage）',
         data: memoryData,
         color: '#409eff',
         unit: 'MB',

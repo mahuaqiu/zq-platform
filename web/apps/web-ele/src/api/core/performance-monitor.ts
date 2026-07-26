@@ -76,6 +76,8 @@ export interface ProcessData {
 
 export interface ProcessInstance {
   pid: number;
+  /** 实例自身进程名（鸿蒙子进程为 `包名:子进程名`），旧数据可能缺失 */
+  name?: string;
   cpu: number;
   memory: number;
   committed_memory?: number;

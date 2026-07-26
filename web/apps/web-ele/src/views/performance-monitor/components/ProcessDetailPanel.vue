@@ -179,7 +179,7 @@ const panelPosition = computed(() => {
             :key="instance.pid"
             class="instance-row"
           >
-            <span class="instance-name">{{ process.name }}</span>
+            <span class="instance-name">{{ instance.name || process.name }}</span>
             <span class="instance-pid">(PID:{{ instance.pid }})</span>
             <span class="instance-value">
               {{ formatValue(getInstanceValue(instance, chartType), chartType) }}

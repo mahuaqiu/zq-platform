@@ -15,11 +15,14 @@ export const HARMONY_METRICS: HwinfoMetric[] = [
   { key: 'Harmony CPU User', label: 'CPU 用户态', unit: '%' },
   { key: 'Harmony CPU System', label: 'CPU 系统态', unit: '%' },
   { key: 'Harmony CPU Idle', label: 'CPU 空闲', unit: '%' },
+  { key: 'Harmony CPU Freq Avg', label: 'CPU 平均主频', unit: 'MHz' },
   { key: 'Harmony Mem Total', label: '内存总量', unit: 'MB' },
   { key: 'Harmony Mem Used', label: '内存使用（系统 Used）', unit: 'MB' },
   { key: 'Harmony Mem Available', label: '内存可用', unit: 'MB' },
-  { key: 'Harmony Net Upload', label: '上行速率', unit: 'KB/s' },
-  { key: 'Harmony Net Download', label: '下行速率', unit: 'KB/s' },
+  { key: 'Harmony Net Upload', label: '网络上行速率', unit: 'KB/s' },
+  { key: 'Harmony Net Download', label: '网络下行速率', unit: 'KB/s' },
+  { key: 'Harmony Disk Read', label: '磁盘读取（目标进程）', unit: 'KB/s' },
+  { key: 'Harmony Disk Write', label: '磁盘写入（目标进程）', unit: 'KB/s' },
   { key: 'Harmony Power', label: '估算功耗', unit: 'W' },
   { key: 'Harmony CPU Temp', label: 'CPU 温度', unit: '°C' },
   { key: 'Harmony GPU Usage', label: 'GPU 使用率', unit: '%' },
@@ -417,7 +420,11 @@ export const ALL_HWINFO_METRICS: HwinfoMetric[] = [
  */
 export function getMetricLabel(key: string): string {
   const metric = ALL_HWINFO_METRICS.find(m => m.key === key);
-  return metric?.label || key;
+  if (metric) return metric.label;
+  // 鸿蒙各核主频指标核数动态，按模式翻译（如 Harmony CPU3 Freq → CPU3 主频）
+  const coreFreq = key.match(/^Harmony CPU(\d+) Freq$/);
+  if (coreFreq) return `CPU${coreFreq[1]} 主频`;
+  return key;
 }
 
 /**
@@ -425,5 +432,7 @@ export function getMetricLabel(key: string): string {
  */
 export function getMetricUnit(key: string): string | undefined {
   const metric = ALL_HWINFO_METRICS.find(m => m.key === key);
-  return metric?.unit;
+  if (metric) return metric.unit;
+  if (/^Harmony CPU\d+ Freq$/.test(key)) return 'MHz';
+  return undefined;
 }

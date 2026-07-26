@@ -115,26 +115,36 @@ def convert_aggregated_to_target_processes(
     if not aggregated:
         return []
 
-    # 按 name 构建 instances 映射
+    # 构建 pid -> instance 映射；同时保留按 name 的映射做兼容回退。
+    # 鸿蒙按应用汇总后，子进程名（包名:子进程）与汇总行名（包名）不相等，
+    # 按 name 关联会丢实例，必须用 aggregated.pids 关联。
+    instances_by_pid: Dict[int, Dict[str, Any]] = {}
     instances_map: Dict[str, List[Dict[str, Any]]] = {}
     if processes:
         for p in processes:
-            name = p.get("name", "")
-            if name not in instances_map:
-                instances_map[name] = []
-            instances_map[name].append({
+            instance = {
                 "pid": p.get("pid", 0),
+                "name": p.get("name", ""),
                 "cpu": p.get("cpu_percent", 0),
                 "memory": p.get("working_set_mb", 0),
                 "gpu": p.get("gpu_percent", 0),
                 "committed_memory": p.get("committed_memory_mb", 0),
                 "handles": p.get("handle_count", 0),
-            })
+            }
+            instances_by_pid[instance["pid"]] = instance
+            name = instance["name"]
+            if name not in instances_map:
+                instances_map[name] = []
+            instances_map[name].append(instance)
 
     # 构建 target_processes 格式
     result = []
     for agg in aggregated:
         name = agg.get("name", "")
+        pids = agg.get("pids") or []
+        instances = [instances_by_pid[pid] for pid in pids if pid in instances_by_pid]
+        if not instances:
+            instances = instances_map.get(name, [])
         proc_data = {
             "name": name,
             "total_cpu": agg.get("cpu_percent_total", 0),
@@ -142,7 +152,7 @@ def convert_aggregated_to_target_processes(
             "total_memory": agg.get("working_set_mb_total", 0),
             "total_committed_memory": agg.get("committed_memory_mb_total", 0),
             "total_handles": agg.get("handle_count_total", 0),
-            "instances": instances_map.get(name, []),
+            "instances": instances,
         }
         result.append(proc_data)
 

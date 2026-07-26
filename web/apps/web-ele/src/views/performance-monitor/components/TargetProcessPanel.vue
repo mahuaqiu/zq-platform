@@ -116,7 +116,7 @@ const formattedTimestamp = computed(() => {
             :key="instance.pid"
             class="instance-row"
           >
-            <span class="instance-name">{{ process.name.replace('.exe', '').replace('.EXE', '') }} (PID:{{ instance.pid }})</span>
+            <span class="instance-name">{{ (instance.name || process.name).replace('.exe', '').replace('.EXE', '') }} (PID:{{ instance.pid }})</span>
             <span class="instance-value">
               {{ formatValue(getInstanceValue(instance, chartType), chartType) }}
             </span>
