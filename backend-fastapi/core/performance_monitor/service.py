@@ -397,9 +397,16 @@ class PerformanceDataService(BaseService):
                 except (TypeError, ValueError):
                     return None
 
-            harmony_mem_used_mb = raw_value("Harmony Mem Used")
-            if process_memory is None and harmony_mem_used_mb is not None:
-                process_memory = harmony_mem_used_mb
+            harmony_mem_used_gb = raw_value("Harmony Mem Used")
+
+            # memory_usage 列统一以 GB 入库：
+            # - 鸿蒙：perfharmony 0.2.0 起 "Harmony Mem Used" 直接以 GB 上报，
+            #   内存曲线固定展示系统内存（总内存−可用），不再除 1024；
+            # - Windows/Linux：进程聚合内存为 MB，按原逻辑除 1024 转 GB。
+            if harmony_mem_used_gb is not None:
+                memory_usage_gb = harmony_mem_used_gb
+            else:
+                memory_usage_gb = process_memory / 1024 if process_memory else None
 
             total_handles = sum(
                 int(proc.get("handle_count_total", 0) or 0)
@@ -421,7 +428,7 @@ class PerformanceDataService(BaseService):
                 cpu_usage=cpu_usage,
                 gpu_usage=gpu_usage,
                 commit_memory=process_committed_memory / 1024 if process_committed_memory else None,
-                memory_usage=process_memory / 1024 if process_memory else None,
+                memory_usage=memory_usage_gb,
                 process_handles=total_handles if total_handles > 0 else None,
                 target_processes=target_processes_raw,
                 top10_cpu=top10_cpu_raw,

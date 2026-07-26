@@ -10,7 +10,7 @@ import MetricSelector from './components/MetricSelector.vue';
 import MetricSearchPopup from './components/MetricSearchPopup.vue';
 import MiniTooltip from './components/MiniTooltip.vue';
 import TargetProcessPanel from './components/TargetProcessPanel.vue';
-import { getMetricLabel } from './hwinfo-metrics-config';
+import { getMetricLabel, getMetricUnit } from './hwinfo-metrics-config';
 import {
   getCollectStatus,
   stopCollect,
@@ -285,9 +285,9 @@ function hasHarmonyMetric(key: string): boolean {
 const allMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu' as MetricKey, label: 'CPU使用率' },
-    ...((isLinuxDevice.value || (isHarmonyDevice.value && !hasHarmonyMetric('Harmony GPU Usage')))
+    ...((isLinuxDevice.value || (isHarmonyDevice.value && !hasHarmonyMetric('Harmony GPU Load')))
       ? []
-      : [{ key: 'gpu' as MetricKey, label: 'GPU使用率' }]),
+      : [{ key: 'gpu' as MetricKey, label: isHarmonyDevice.value ? 'GPU 负载' : 'GPU使用率' }]),
     {
       key: 'memory' as MetricKey,
       label: isHarmonyDevice.value ? '系统内存（Used）' : isLinuxDevice.value ? '内存使用量' : '进程内存',
@@ -351,7 +351,8 @@ const currentChartTitle = computed(() => {
   if (currentMetric.value === 'hwinfo') {
     const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
     const chineseName = getMetricLabel(hwinfoMetricKey.value);
-    const unit = hwinfoMetricInfo.value.unit;
+    // 后端映射缺失时（如鸿蒙逐核主频）回退到前端配置表单位。
+    const unit = hwinfoMetricInfo.value.unit || getMetricUnit(hwinfoMetricKey.value) || '';
 
     // 有中文翻译时显示 "中文（英文）"，否则显示英文
     let name = chineseName !== hwinfoMetricKey.value
@@ -375,7 +376,8 @@ const currentChartTitle = computed(() => {
   }
   if (isHarmonyDevice.value) {
     if (currentMetric.value === 'cpu') return '系统 CPU 使用率（Harmony CPU Usage） (%)';
-    if (currentMetric.value === 'memory') return '系统内存使用（Harmony Mem Used） (MB)';
+    if (currentMetric.value === 'gpu') return 'GPU 负载（Harmony GPU Load） (%)';
+    if (currentMetric.value === 'memory') return '系统内存使用（Harmony Mem Used） (GB)';
   }
 
   // CPU/GPU/内存/提交内存/句柄加单位
@@ -443,6 +445,12 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
     time: timeSeconds(d),
     value: d.system_metrics?.gpu_percent ?? d.gpu_usage ?? null,
   }));
+  // 鸿蒙：GPU 负载来自 SP_daemon gpuLoad，无逐进程 GPU 占用，只展示系统曲线。
+  if (isHarmonyDevice.value) {
+    return [
+      { name: 'GPU 负载（Harmony GPU Load）', data: systemData, color: '#409eff', unit: '%' },
+    ];
+  }
   const processData = data.map((d) => {
     // 接近任务管理器：目标进程 GPU 取 max，不再把多进程/多实例简单相加抬高
     const totalGpu = d.target_processes?.length
@@ -475,19 +483,19 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
   if (!data.length) return [];
 
-  // Linux 设备显示系统内存使用量（MB单位，与更多指标统一）
-  // memory_usage 字段存储的是 GB，需要转换为 MB
+  // Linux 设备显示系统内存使用量（MB单位，与更多指标统一）；鸿蒙按用户要求显示 GB。
+  // memory_usage 字段存储的是 GB
   if (isLinuxDevice.value || isHarmonyDevice.value) {
     const memoryData = data.map((d) => ({
       time: timeSeconds(d),
-      value: (d.memory_usage || 0) * 1024,  // GB -> MB 转换
+      value: isHarmonyDevice.value ? (d.memory_usage || 0) : (d.memory_usage || 0) * 1024,
     }));
     return [
       {
-        name: isHarmonyDevice.value ? '系统内存（Harmony Mem Used，hidumper --mem 实测已用内存）' : '内存使用量（Linux Memory Usage）',
+        name: isHarmonyDevice.value ? '系统内存（Harmony Mem Used，总内存−可用内存）' : '内存使用量（Linux Memory Usage）',
         data: memoryData,
         color: '#409eff',
-        unit: 'MB',
+        unit: isHarmonyDevice.value ? 'GB' : 'MB',
       },
     ];
   }
@@ -551,13 +559,14 @@ const hwinfoRawData = computed(() => {
 const hwinfoChartSeries = computed<ChartSeries[]>(() => {
   if (!hwinfoMetricData.value.length) return [];
 
-  // 转换数据格式：relative_time -> time
+  // 转换数据格式：relative_time -> time（鸿蒙内存 0.2.0 起后端直接上报 GB，无需前端换算）
   const data = hwinfoMetricData.value.map(d => ({
     time: timeSeconds(d),
     value: d.value,
   }));
 
-  const unit = hwinfoMetricInfo.value.unit || '';
+  // 后端映射缺失时（如鸿蒙逐核主频）回退到前端配置表单位。
+  const unit = hwinfoMetricInfo.value.unit || getMetricUnit(hwinfoMetricKey.value) || '';
   const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
   const chineseName = getMetricLabel(hwinfoMetricKey.value);
 

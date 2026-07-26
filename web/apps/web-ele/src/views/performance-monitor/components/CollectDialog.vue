@@ -26,7 +26,8 @@ const isLinuxDevice = computed(() => {
   return props.deviceInfo?.device_type === 'linux';
 });
 
-// 鸿蒙允许不选目标进程，仅采集系统级 CPU/内存等 P0 指标。
+// 鸿蒙 0.2.0：SP_daemon -PKG 一次仅支持一个应用（含主进程+子进程），
+// 不支持按 PID 筛选；可不选应用，仅采集系统级指标。
 const isHarmonyDevice = computed(() => {
   return ['harmony_pc', 'harmony_mobile'].includes(props.deviceInfo?.device_type || '');
 });
@@ -168,14 +169,18 @@ function toggleProcessPid(name: string, pid: number) {
   }
 }
 
-// 进程名模式：选中/取消选中进程名
+// 进程名模式：选中/取消选中进程名；鸿蒙单应用限制，选新的直接替换旧选择
 function toggleProcessName(name: string) {
   const idx = selectedProcessNames.value.indexOf(name);
   if (idx >= 0) {
     selectedProcessNames.value.splice(idx, 1);
-  } else {
-    selectedProcessNames.value.push(name);
+    return;
   }
+  if (isHarmonyDevice.value) {
+    selectedProcessNames.value = [name];
+    return;
+  }
+  selectedProcessNames.value.push(name);
 }
 
 // 判断是否选中（根据采集模式）
@@ -219,11 +224,22 @@ function handleManualAdd() {
 
   // 按逗号或分号分隔
   const names = input.split(/[;,]/).map((n) => n.trim()).filter((n) => n);
+  if (names.length === 0) return;
 
   // 验证格式
   const invalidNames = names.filter((n) => !validateProcessName(n));
   if (invalidNames.length > 0) {
     ElMessage.warning(`格式无效: ${invalidNames.join(', ')}，请使用 .exe 或无扩展名`);
+    return;
+  }
+
+  // 鸿蒙单应用限制：手动输入只取一个包名，替换当前选择
+  if (isHarmonyDevice.value) {
+    if (names.length > 1) {
+      ElMessage.warning('鸿蒙设备一次仅支持采集一个应用，已取第一个包名');
+    }
+    selectedProcessNames.value = [names[0]!];
+    manualInput.value = '';
     return;
   }
 
@@ -268,6 +284,11 @@ async function handleStart() {
     ElMessage.warning('请选择目标进程');
     return;
   }
+  // 鸿蒙 SP_daemon -PKG 单应用限制（UI 已约束，此处兑底）。
+  if (isHarmonyDevice.value && finalTargetProcesses.value.length > 1) {
+    ElMessage.warning('鸿蒙设备一次仅支持采集一个应用');
+    return;
+  }
 
   try {
     loading.value = true;
@@ -297,6 +318,8 @@ async function handleStart() {
 }
 
 function selectAll() {
+  // 鸿蒙单应用限制，不提供全选
+  if (isHarmonyDevice.value) return;
   // 全选时使用过滤后的列表（搜索结果），而不是完整列表
   if (collectMode.value === 'name') {
     // 进程名模式：选中过滤后的所有唯一进程名
@@ -323,6 +346,10 @@ watch(collectMode, () => {
 
 watch(() => props.visible, (v) => {
   if (v) {
+    // 鸿蒙只支持按应用包名采集（SP_daemon -PKG），强制进程名模式
+    if (isHarmonyDevice.value) {
+      collectMode.value = 'name';
+    }
     // Linux 设备不获取进程列表（采集系统级数据，无需选择进程）
     if (!isLinuxDevice.value) {
       fetchProcesses();
@@ -355,14 +382,21 @@ watch(() => props.visible, (v) => {
       <div v-if="isLinuxDevice" class="device-tip">
         Linux 设备将采集系统级 CPU/内存性能数据
       </div>
+      <!-- 鸿蒙单应用限制提示 -->
+      <div v-if="isHarmonyDevice" class="device-tip">
+        鸿蒙设备一次仅支持采集一个应用（含主进程与子进程）；不选应用时仅采集系统指标
+      </div>
     </div>
 
     <!-- 目标进程选择（仅 Windows 设备显示） -->
     <div v-if="!isLinuxDevice" class="process-section">
-      <div class="section-title">目标进程 <span class="subtitle">（可多选）</span></div>
+      <div class="section-title">
+        {{ isHarmonyDevice ? '目标应用' : '目标进程' }}
+        <span class="subtitle">{{ isHarmonyDevice ? '（最多选 1 个，可不选）' : '（可多选）' }}</span>
+      </div>
 
-      <!-- 采集模式选择 -->
-      <div class="mode-selector">
+      <!-- 采集模式选择（鸿蒙仅支持按应用包名采集，不显示切换） -->
+      <div v-if="!isHarmonyDevice" class="mode-selector">
         <el-radio-group v-model="collectMode" size="small">
           <el-radio-button value="pid">按PID采集</el-radio-button>
           <el-radio-button value="name">按进程名采集</el-radio-button>
@@ -398,7 +432,7 @@ watch(() => props.visible, (v) => {
       <div v-if="collectMode === 'name'" class="manual-input-wrapper">
         <el-input
           v-model="manualInput"
-          placeholder="输入进程名(逗号或分号分隔)"
+          :placeholder="isHarmonyDevice ? '输入应用包名，如 com.example.app' : '输入进程名(逗号或分号分隔)'"
           size="small"
           clearable
           style="flex: 1"
@@ -419,7 +453,7 @@ watch(() => props.visible, (v) => {
               :model-value="isProcessSelected(proc.name, proc.pid)"
               @change="toggleProcessPid(proc.name, proc.pid)"
             />
-            <span class="process-name">{{ proc.name }}</span>
+            <span class="process-name" :title="proc.name">{{ proc.name }}</span>
             <span class="process-pid">PID: {{ proc.pid }}</span>
           </div>
         </template>
@@ -434,7 +468,7 @@ watch(() => props.visible, (v) => {
               :model-value="selectedProcessNames.includes(item.name)"
               @change="toggleProcessName(item.name)"
             />
-            <span class="process-name">{{ item.name }}</span>
+            <span class="process-name" :title="item.name">{{ item.name }}</span>
             <span class="process-badge" v-if="item.instanceCount > 1">
               {{ item.instanceCount }}实例
             </span>
@@ -444,10 +478,10 @@ watch(() => props.visible, (v) => {
 
       <!-- 快捷操作 -->
       <div class="quick-actions">
-        <button class="quick-btn" @click="selectAll">全选</button>
+        <button v-if="!isHarmonyDevice" class="quick-btn" @click="selectAll">全选</button>
         <button class="quick-btn" @click="clearAll">清空</button>
         <span class="selected-count">
-          已选 {{ selectedCount }} 个{{ collectMode === 'name' ? '进程名' : '进程' }}
+          已选 {{ selectedCount }} 个{{ isHarmonyDevice ? '应用' : collectMode === 'name' ? '进程名' : '进程' }}
         </span>
       </div>
     </div>
@@ -482,6 +516,9 @@ watch(() => props.visible, (v) => {
       <div class="config-tip">
         <template v-if="isLinuxDevice">
           <b>说明：</b>Linux 设备采集系统级 CPU/内存性能数据。采集间隔越小，数据越精细。达到采集时间后自动停止。
+        </template>
+        <template v-else-if="isHarmonyDevice">
+          <b>说明：</b>鸿蒙设备由 SP_daemon 每秒采集一拍，采集间隔控制上报降采样频率。达到采集时间后自动停止。
         </template>
         <template v-else>
           <b>说明：</b>采集间隔越小，数据越精细。达到采集时间后自动停止。
@@ -593,6 +630,11 @@ watch(() => props.visible, (v) => {
 .process-name {
   flex: 1;
   font-size: 13px;
+  /* 鸿蒙子进程名可达 40+ 字符，超长省略号显示，完整名称靠 title 悬浮提示。 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .process-pid {
   font-size: 12px;

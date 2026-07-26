@@ -10,22 +10,42 @@ export interface HwinfoMetric {
   unit?: string;
 }
 
+/**
+ * 鸿蒙指标（perfharmony 0.2.0，SP_daemon 白名单制）。
+ * 键名与 Rust 侧 sp_daemon.rs 白名单一一对应；系统内存单位为 GB（后端直接上报 GB）。
+ * 逐核主频 Harmony CPU{n} Freq 核数动态，由 getMetricLabel/getMetricUnit 按模式匹配。
+ * 0.2.0 已下线：磁盘 IO、估算功耗、CPU 温度、GPU Usage（改为 GPU Load）。
+ */
 export const HARMONY_METRICS: HwinfoMetric[] = [
-  { key: 'Harmony CPU Usage', label: '系统 CPU', unit: '%' },
+  // CPU（%、MHz）
+  { key: 'Harmony CPU Usage', label: '系统 CPU 使用率', unit: '%' },
   { key: 'Harmony CPU User', label: 'CPU 用户态', unit: '%' },
   { key: 'Harmony CPU System', label: 'CPU 系统态', unit: '%' },
   { key: 'Harmony CPU Idle', label: 'CPU 空闲', unit: '%' },
   { key: 'Harmony CPU Freq Avg', label: 'CPU 平均主频', unit: 'MHz' },
-  { key: 'Harmony Mem Total', label: '内存总量', unit: 'MB' },
-  { key: 'Harmony Mem Used', label: '内存使用（系统 Used）', unit: 'MB' },
-  { key: 'Harmony Mem Available', label: '内存可用', unit: 'MB' },
-  { key: 'Harmony Net Upload', label: '网络上行速率', unit: 'KB/s' },
-  { key: 'Harmony Net Download', label: '网络下行速率', unit: 'KB/s' },
-  { key: 'Harmony Disk Read', label: '磁盘读取（目标进程）', unit: 'KB/s' },
-  { key: 'Harmony Disk Write', label: '磁盘写入（目标进程）', unit: 'KB/s' },
-  { key: 'Harmony Power', label: '估算功耗', unit: 'W' },
-  { key: 'Harmony CPU Temp', label: 'CPU 温度', unit: '°C' },
-  { key: 'Harmony GPU Usage', label: 'GPU 使用率', unit: '%' },
+  // 内存（GB）
+  { key: 'Harmony Mem Total', label: '内存总量', unit: 'GB' },
+  { key: 'Harmony Mem Used', label: '内存使用（总内存−可用内存）', unit: 'GB' },
+  { key: 'Harmony Mem Available', label: '内存可用', unit: 'GB' },
+  { key: 'Harmony DDR Freq', label: 'DDR 内存频率', unit: 'MHz' },
+  // GPU（%、MHz）
+  { key: 'Harmony GPU Load', label: 'GPU 负载', unit: '%' },
+  { key: 'Harmony GPU Freq', label: 'GPU 频率', unit: 'MHz' },
+  // 温度（°C）
+  { key: 'Harmony Battery Temp', label: '电池温度', unit: '°C' },
+  { key: 'Harmony SoC Temp', label: 'SoC 温度', unit: '°C' },
+  { key: 'Harmony Shell Front Temp', label: '壳温（前面板）', unit: '°C' },
+  { key: 'Harmony Shell Back Temp', label: '壳温（后面板）', unit: '°C' },
+  { key: 'Harmony Shell Frame Temp', label: '壳温（边框）', unit: '°C' },
+  { key: 'Harmony System Temp', label: '系统温度', unit: '°C' },
+  // 电池（mA，绝对值，符号仅表示充放电方向）
+  { key: 'Harmony Battery Current', label: '电池电流', unit: 'mA' },
+  // 网络（KB/s）
+  { key: 'Harmony Net Up', label: '网络上行速率', unit: 'KB/s' },
+  { key: 'Harmony Net Down', label: '网络下行速率', unit: 'KB/s' },
+  // 显示（帧率/刷新率）
+  { key: 'Harmony FPS', label: '实时帧率', unit: 'fps' },
+  { key: 'Harmony Refresh Rate', label: '屏幕刷新率', unit: 'Hz' },
 ];
 
 /**

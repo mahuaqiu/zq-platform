@@ -121,7 +121,15 @@ const systemMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'system')
 );
 const linuxMetrics = computed(() => linuxMetricsFiltered.value);
-const harmonyMetrics = computed(() => filteredMetrics.value.filter(m => m.source === 'harmony'));
+// 与主卡片重复的 Harmony 指标（CPU Usage）不再出现在更多指标里；
+// 0.2.0 起 CPU 空闲、逐核主频均为 SP_daemon 白名单真实指标，正常展示。
+const HARMONY_HIDDEN_KEYS = new Set(['Harmony CPU Usage']);
+const harmonyMetrics = computed(() =>
+  filteredMetrics.value.filter(m =>
+    m.source === 'harmony' &&
+    !HARMONY_HIDDEN_KEYS.has(m.key)
+  )
+);
 const hwinfoMetrics = computed(() =>
   filteredMetrics.value.filter(m => m.source === 'hwinfo')
 );
