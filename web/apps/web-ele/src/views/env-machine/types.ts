@@ -73,6 +73,15 @@ export function isMobileDevice(deviceType: DeviceType): boolean {
 }
 
 /**
+ * 判断设备是否支持查看日志
+ * 日志入口看的是 worker 进程日志，只有 windows/mac 宿主机有 worker；
+ * 鸿蒙 PC/鸿蒙移动是挂在宿主机下的被测设备，看 worker 日志应去对应宿主机。
+ */
+export function supportsWorkerLog(deviceType: DeviceType): boolean {
+  return deviceType === 'windows' || deviceType === 'mac';
+}
+
+/**
  * 校验单个标签格式
  * 规则：
  * - 必须小写

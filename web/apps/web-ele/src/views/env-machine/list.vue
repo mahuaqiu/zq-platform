@@ -42,7 +42,7 @@ import { useNamespaceStore } from './store';
 import {
   DEVICE_TYPE_OPTIONS,
   STATUS_OPTIONS,
-  isMobileDevice,
+  supportsWorkerLog,
 } from './types';
 import LogDialogV2 from './LogDialogV2.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
@@ -823,9 +823,9 @@ onMounted(async () => {
           <ElTableColumn label="操作" min-width="160">
             <template #default="{ row }">
               <span class="nowrap">
-                <!-- 操作按钮：Linux 设备不支持日志和远程（无 worker 进程） -->
+                <!-- 操作按钮：日志只对 windows/mac 宿主机展示（日志内容是 worker 日志，鸿蒙/Linux 设备无 worker 进程） -->
                 <a
-                  v-if="!row.is_virtual && !isMobileDevice(row.device_type) && row.device_type !== 'linux' && row.status !== 'offline'"
+                  v-if="!row.is_virtual && supportsWorkerLog(row.device_type) && row.status !== 'offline'"
                   class="env-link"
                   @click="handleViewLogs(row)"
                 >

@@ -29,7 +29,7 @@ import {
 } from '#/api/core/env-machine';
 import type { EnvMachineCreateParams, EnvMachineUpdateParams } from '#/api/core/env-machine';
 
-import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice } from './types';
+import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice, supportsWorkerLog } from './types';
 import LogDialogV2 from './LogDialogV2.vue';
 
 defineOptions({ name: 'EnvMachinePage' });
@@ -588,7 +588,7 @@ onMounted(() => {
             <ElTableColumn label="操作" min-width="160">
               <template #default="{ row }">
                 <span class="nowrap">
-                  <a v-if="!isMobileDevice(row.device_type) && row.status !== 'offline'" class="env-link" @click="handleViewLogs(row)">日志</a>
+                  <a v-if="supportsWorkerLog(row.device_type) && row.status !== 'offline'" class="env-link" @click="handleViewLogs(row)">日志</a>
                   <a class="env-link" @click="handleEdit(row)">编辑</a>
                   <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
                 </span>
