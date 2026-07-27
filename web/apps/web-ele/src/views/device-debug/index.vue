@@ -114,6 +114,8 @@ const installAppDialogVisible = ref(false);
 const currentScreenIndex = ref(0);
 const screenCount = computed(() => {
   if (!deviceDetail.value || !isDesktop.value) return 1;
+  // 鸿蒙 PC 投屏视作单屏，隐藏多屏切换
+  if (deviceDetail.value.device_type === 'harmony_pc') return 1;
   const extra = deviceDetail.value.extra_message;
   // 从设备扩展信息获取屏幕数量
   if (extra?.screen_count) return extra.screen_count;
@@ -128,10 +130,27 @@ const isMobile = computed(() => deviceDetail.value && isMobileDevice(deviceDetai
 const isHarmony = computed(() =>
   deviceDetail.value?.device_type === 'harmony_mobile' || deviceDetail.value?.device_type === 'harmony_pc',
 );
+// 鸿蒙 WS 推流失败后的手动截图兜底（refreshHarmonyScreenshot 填充）
 const harmonyScreenshotUrl = ref('');
 const displayedWsStatus = computed(() => {
-  if (!isHarmony.value) return wsStatus.value;
-  return harmonyScreenshotUrl.value ? 'connected' : 'disconnected';
+  // 鸿蒙降级截图模式下保持画面可见（WS 断开但有截图）
+  if (isHarmony.value && wsStatus.value !== 'connected' && harmonyScreenshotUrl.value) {
+    return 'connected';
+  }
+  return wsStatus.value;
+});
+// 屏幕显示源：WS 帧优先，鸿蒙降级截图兜底
+const displayedScreenshotUrl = computed(() => screenshotBase64.value || harmonyScreenshotUrl.value);
+
+// 鸿蒙 WS 推流失败（重试耗尽）时自动拉一张截图兜底，避免黑屏
+watch(wsStatus, (val) => {
+  if (
+    isHarmony.value &&
+    (val === 'disconnected' || val === 'error') &&
+    !screenshotBase64.value
+  ) {
+    refreshHarmonyScreenshot();
+  }
 });
 
 // 设备状态警告（使用中状态时显示）
@@ -216,15 +235,13 @@ async function loadDeviceDetail() {
     );
     setTabTitle(title);
 
-    // 鸿蒙没有实时帧源，先通过 HTTP action 获取截图；其它平台连接实时流。
+    // 连接 Worker 实时推流（鸿蒙同样走 WS JPEG 推流，失败后可手动截图兜底）。
     const workerHost = result.ip;
     const workerPort = parseInt(result.port, 10);
     const udid = result.device_sn; // 移动设备 udid = device_sn
     const deviceType = result.device_type;
 
-    if (isHarmony.value) {
-      await refreshHarmonyScreenshot();
-    } else if (workerHost && workerPort && deviceType) {
+    if (workerHost && workerPort && deviceType) {
       connect(workerHost, workerPort, udid || '', deviceType, currentScreenIndex.value, currentCodec.value);
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
@@ -249,10 +266,6 @@ function handleDisconnect() {
 
 // 重新连接
 function handleReconnect() {
-  if (isHarmony.value) {
-    refreshHarmonyScreenshot();
-    return;
-  }
   if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
     const workerHost = deviceDetail.value.ip;
     const workerPort = parseInt(deviceDetail.value.port, 10);
@@ -265,10 +278,6 @@ function handleReconnect() {
 // 屏幕切换
 function handleScreenChange(screenIndex: number) {
   currentScreenIndex.value = screenIndex;
-  if (isHarmony.value) {
-    refreshHarmonyScreenshot();
-    return;
-  }
   // 重连 WebSocket 到新屏幕
   if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
     reconnect(
@@ -316,7 +325,7 @@ async function handleScreenMouseUp(event: MouseEvent) {
       const success = await click(clickParams.x, clickParams.y, monitor);
       if (success) {
         clickCount.value++;
-        if (isHarmony.value) await refreshHarmonyScreenshot();
+        if (isHarmony.value && wsStatus.value !== 'connected') await refreshHarmonyScreenshot();
       }
     } else if (result.type === 'swipe') {
       const swipeParams = result.params as { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
@@ -330,7 +339,7 @@ async function handleScreenMouseUp(event: MouseEvent) {
       );
       if (success) {
         swipeCount.value++;
-        if (isHarmony.value) await refreshHarmonyScreenshot();
+        if (isHarmony.value && wsStatus.value !== 'connected') await refreshHarmonyScreenshot();
       }
     }
   }
@@ -408,7 +417,7 @@ function handleKeyPress(key: string) {
 function handleInputText(text: string) {
   resetActivityTime();
   inputText(text).then((success) => {
-    if (success && isHarmony.value) refreshHarmonyScreenshot();
+    if (success && isHarmony.value && wsStatus.value !== 'connected') refreshHarmonyScreenshot();
   });
 }
 
@@ -416,10 +425,11 @@ function handleInputText(text: string) {
 function handleUnlock(password?: string) {
   resetActivityTime();
   unlockScreen(password).then((success) => {
-    if (success && isHarmony.value) refreshHarmonyScreenshot();
+    if (success && isHarmony.value && wsStatus.value !== 'connected') refreshHarmonyScreenshot();
   });
 }
 
+// 鸿蒙手动截图兜底（WS 推流失败后由操作触发刷新画面）
 async function refreshHarmonyScreenshot() {
   if (!isHarmony.value) return;
   const screenshotData = await screenshot();
@@ -440,7 +450,7 @@ function handleInstallApp(_file: File) {
 
 // 截图保存
 function handleScreenshot() {
-  const screenshotUrl = isHarmony.value ? harmonyScreenshotUrl.value : screenshotBase64.value;
+  const screenshotUrl = displayedScreenshotUrl.value;
   if (screenshotUrl) {
     const link = document.createElement('a');
     link.href = screenshotUrl;
@@ -527,7 +537,7 @@ onUnmounted(() => {
       <template v-if="isDesktop">
         <ScreenDisplay
           ref="desktopScreen"
-          :screenshot-url="isHarmony ? harmonyScreenshotUrl : screenshotBase64"
+          :screenshot-url="displayedScreenshotUrl"
           :screen-size="screenSize"
           :ws-status="displayedWsStatus"
           :mouse-coord="mouseCoord"
@@ -551,7 +561,7 @@ onUnmounted(() => {
           <div class="mobile-screen">
             <ScreenDisplay
               ref="mobileScreen"
-              :screenshot-url="isHarmony ? harmonyScreenshotUrl : screenshotBase64"
+              :screenshot-url="displayedScreenshotUrl"
               :screen-size="screenSize"
               :ws-status="displayedWsStatus"
               :mouse-coord="mouseCoord"

@@ -184,6 +184,7 @@ export function formatDeviceDebugTitle(ip: string, deviceSn: string, deviceType:
  * - Android: /ws/screen/android/{udid}
  * - Windows: /ws/screen/windows/windows_screen?monitor={screenIndex+1}
  * - Mac: /ws/screen/mac/mac_screen?monitor={screenIndex+1}
+ * - Harmony: /ws/screen/{harmony_mobile|harmony_pc}/{udid}?codec=jpeg（单屏，不传 monitor）
  */
 export function buildWebSocketUrl(
   host: string,
@@ -201,11 +202,6 @@ export function buildWebSocketUrl(
     return `ws://${host}:${port}/ws/screen/${platform}/${platform}_screen?monitor=${monitor}&codec=${codec}`;
   }
 
-  // 鸿蒙没有 Worker 实时帧源，页面层应使用截图 action。
-  if (platform === 'harmony_mobile' || platform === 'harmony_pc') {
-    return '';
-  }
-
-  // 移动端使用 UDID 和 codec
+  // 移动端/鸿蒙使用 UDID 和 codec（鸿蒙 PC 视作单屏，不传 monitor）
   return `ws://${host}:${port}/ws/screen/${platform}/${udid}?codec=${codec}`;
 }
