@@ -40,13 +40,16 @@ function getInstanceValue(instance: ProcessInstance, chartType: string): number 
   }
 }
 
-// 格式化显示值
+// 格式化显示值；百分比小于 0.1 时保留两位小数，避免鸿蒙进程 CPU（0.0x%）被显示成 0.0%
 function formatValue(value: number, chartType: string): string {
   if (chartType === 'memory' || chartType === 'commitMemory') {
     return `${Math.round(value)} MB`;
   }
   if (chartType === 'handles') {
     return `${Math.round(value)} 个`;
+  }
+  if (value > 0 && value < 0.1) {
+    return `${value.toFixed(2)}%`;
   }
   return `${value.toFixed(1)}%`;
 }

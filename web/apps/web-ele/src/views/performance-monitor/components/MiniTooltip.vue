@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { PerformanceData } from '#/api/core/performance-monitor';
+import type { PerformanceData, ProcessData } from '#/api/core/performance-monitor';
 
 // Props 定义
 interface Props {
@@ -40,7 +40,28 @@ const tooltipPosition = computed(() => {
   return { left, top };
 });
 
-// 显示进程名 + 实例数（最多 3 个）- HWiNFO 指标不显示进程数据
+// 百分比小于 0.1 时保留两位小数，避免鸿蒙进程 CPU（0.0x%）被显示成 0.0%
+function formatPercent(value: number): string {
+  return value > 0 && value < 0.1 ? value.toFixed(2) : value.toFixed(1);
+}
+
+// 应用在当前图表指标下的汇总数值（多实例求和后的值）
+function processValueText(p: ProcessData): string {
+  switch (props.chartType) {
+    case 'gpu':
+      return `${formatPercent(p.total_gpu || 0)}%`;
+    case 'memory':
+      return `${Math.round(p.total_memory || 0)} MB`;
+    case 'commitMemory':
+      return `${Math.round(p.total_committed_memory || 0)} MB`;
+    case 'handles':
+      return `${Math.round(p.total_handles || 0)} 个`;
+    default:
+      return `${formatPercent(p.total_cpu || 0)}%`;
+  }
+}
+
+// 显示进程名 + 实例数 + 当前指标数值（最多 3 个）- HWiNFO 指标不显示进程数据
 const processSummary = computed(() => {
   if (props.data?.target_processes && props.chartType !== 'hwinfo') {
     return props.data.target_processes
@@ -48,7 +69,8 @@ const processSummary = computed(() => {
       .slice(0, 3)
       .map(p => ({
         name: p.name,
-        instanceCount: p.instances.length
+        instanceCount: p.instances.length,
+        valueText: processValueText(p)
       }));
   }
   return [];
@@ -95,7 +117,7 @@ function formatDateTime(timestamp: string): string {
           <span>{{ s.name }}</span>
         </div>
         <span class="series-value" :style="{ color: s.color }">
-          {{ s.value == null ? '-' : (s.unit === '个' ? Math.round(s.value) : s.value.toFixed(1)) }}{{ s.value == null ? '' : s.unit }}
+          {{ s.value == null ? '-' : (s.unit === '个' ? Math.round(s.value) : (s.unit === '%' ? formatPercent(s.value) : s.value.toFixed(1))) }}{{ s.value == null ? '' : s.unit }}
         </span>
       </div>
     </div>
@@ -107,7 +129,8 @@ function formatDateTime(timestamp: string): string {
         :key="p.name"
         class="process-row"
       >
-        {{ p.name }} ({{ p.instanceCount }}实例)
+        <span class="process-name">{{ p.name }} ({{ p.instanceCount }}实例)</span>
+        <span class="process-value">{{ p.valueText }}</span>
       </div>
     </div>
   </div>
@@ -173,9 +196,24 @@ function formatDateTime(timestamp: string): string {
 }
 
 .process-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 12px;
   color: #409eff;
   font-weight: 500;
   margin-bottom: 4px;
+}
+
+.process-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.process-value {
+  flex-shrink: 0;
+  font-weight: 600;
 }
 </style>

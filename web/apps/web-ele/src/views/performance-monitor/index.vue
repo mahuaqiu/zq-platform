@@ -257,15 +257,23 @@ async function handleHwinfoMetricSelect(metricKey: string) {
   }
 }
 
-// 当前选中设备是否为 Linux
-const isLinuxDevice = computed(() => {
-  const device = devices.value.find((d) => d.id === deviceId.value);
-  return device?.device_type === 'linux';
+// 判型依据设备：优先当前正在查看的采集记录所属设备（图表展示的是该设备的数据），
+// 记录未加载时退回下拉框选中设备；避免鸿蒙设备离线后历史数据被按 Windows 分支渲染
+const kindDevice = computed(() => {
+  const collect = collectHistory.value.find((c) => c.id === currentCollectId.value);
+  const collectDevice = collect
+    ? devices.value.find((d) => d.id === collect.device_id)
+    : undefined;
+  if (collectDevice) return collectDevice;
+  return devices.value.find((d) => d.id === deviceId.value);
 });
 
+// 当前判型设备是否为 Linux
+const isLinuxDevice = computed(() => kindDevice.value?.device_type === 'linux');
+
 const isHarmonyDevice = computed(() => {
-  const device = devices.value.find((d) => d.id === deviceId.value);
-  return device?.device_type === 'harmony_pc' || device?.device_type === 'harmony_mobile';
+  const type = kindDevice.value?.device_type;
+  return type === 'harmony_pc' || type === 'harmony_mobile';
 });
 
 const deviceKind = computed<'windows' | 'linux' | 'harmony'>(() => {
@@ -414,16 +422,26 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
     value: d.system_metrics?.cpu_percent ?? d.cpu_usage ?? null,
   }));
 
-  // Linux 设备只显示系统数据，不显示进程数据，tooltip 显示中英文双语
+  // Linux 只显示系统数据；鸿蒙显示系统 + 目标应用进程曲线（tooltip 只显示中文，不带英文键名）
   if (isLinuxDevice.value || isHarmonyDevice.value) {
-    return [
+    const series: ChartSeries[] = [
       {
-        name: isHarmonyDevice.value ? '系统 CPU（Harmony CPU Usage）' : 'CPU 总使用率（Linux CPU Usage）',
+        name: isHarmonyDevice.value ? '系统 CPU' : 'CPU 总使用率（Linux CPU Usage）',
         data: systemData,
         color: '#409eff',
         unit: '%',
       },
     ];
+    // 鸿蒙进程 CPU 真实值通常远小于系统值（<0.5%），曲线贴近横轴属正常
+    if (isHarmonyDevice.value) {
+      const processData = data.map((d) => {
+        const totalCpu =
+          d.target_processes?.reduce((sum, p) => sum + p.total_cpu, 0) || 0;
+        return { time: timeSeconds(d), value: totalCpu };
+      });
+      series.push({ name: '进程 CPU', data: processData, color: '#67c23a', unit: '%' });
+    }
+    return series;
   }
 
   // Windows 设备显示系统 + 进程数据
@@ -448,7 +466,7 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
   // 鸿蒙：GPU 负载来自 SP_daemon gpuLoad，无逐进程 GPU 占用，只展示系统曲线。
   if (isHarmonyDevice.value) {
     return [
-      { name: 'GPU 负载（Harmony GPU Load）', data: systemData, color: '#409eff', unit: '%' },
+      { name: 'GPU 负载', data: systemData, color: '#409eff', unit: '%' },
     ];
   }
   const processData = data.map((d) => {
@@ -490,14 +508,24 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
       time: timeSeconds(d),
       value: isHarmonyDevice.value ? (d.memory_usage || 0) : (d.memory_usage || 0) * 1024,
     }));
-    return [
+    const series: ChartSeries[] = [
       {
-        name: isHarmonyDevice.value ? '系统内存（Harmony Mem Used，总内存−可用内存）' : '内存使用量（Linux Memory Usage）',
+        name: isHarmonyDevice.value ? '系统内存（总内存−可用内存）' : '内存使用量（Linux Memory Usage）',
         data: memoryData,
         color: '#409eff',
         unit: isHarmonyDevice.value ? 'GB' : 'MB',
       },
     ];
+    // 鸿蒙补充目标应用进程内存曲线（PSS 总和 MB→GB，与系统内存同轴）
+    if (isHarmonyDevice.value) {
+      const processData = data.map((d) => {
+        const totalMemMB =
+          d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
+        return { time: timeSeconds(d), value: totalMemMB / 1024 };
+      });
+      series.push({ name: '进程内存', data: processData, color: '#67c23a', unit: 'GB' });
+    }
+    return series;
   }
 
   // Windows 设备显示进程内存总和（MB单位）

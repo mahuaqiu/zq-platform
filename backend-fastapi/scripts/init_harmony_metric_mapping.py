@@ -47,8 +47,12 @@ HARMONY_METRIC_MAPPINGS = [
     {"hwinfo_key": "Harmony Shell Back Temp", "display_name": "壳温（后面板）", "unit": "°C", "category": "harmony_thermal", "is_primary": False, "sort": 43},
     {"hwinfo_key": "Harmony Shell Frame Temp", "display_name": "壳温（边框）", "unit": "°C", "category": "harmony_thermal", "is_primary": False, "sort": 44},
     {"hwinfo_key": "Harmony System Temp", "display_name": "系统温度", "unit": "°C", "category": "harmony_thermal", "is_primary": False, "sort": 45},
-    # 电池（mA，绝对值，符号仅表示充放电方向）
+    # NPU 温度：设备不支持时 npu_thermal 恒 0，perfharmony 门控不上报，支持设备才有数据。
+    {"hwinfo_key": "Harmony NPU Temp", "display_name": "NPU 温度", "unit": "°C", "category": "harmony_thermal", "is_primary": False, "sort": 46},
+    # 电池（电流 mA 取绝对值；电压/功耗仅在 voltageNow 有值的设备上报）
     {"hwinfo_key": "Harmony Battery Current", "display_name": "电池电流", "unit": "mA", "category": "harmony_power", "is_primary": False, "sort": 50},
+    {"hwinfo_key": "Harmony Battery Voltage", "display_name": "电池电压", "unit": "V", "category": "harmony_power", "is_primary": False, "sort": 51},
+    {"hwinfo_key": "Harmony Power", "display_name": "整机功耗（电压×电流）", "unit": "W", "category": "harmony_power", "is_primary": False, "sort": 52},
     # 网络（KB/s）
     {"hwinfo_key": "Harmony Net Up", "display_name": "网络上行速率", "unit": "KB/s", "category": "harmony_network", "is_primary": False, "sort": 60},
     {"hwinfo_key": "Harmony Net Down", "display_name": "网络下行速率", "unit": "KB/s", "category": "harmony_network", "is_primary": False, "sort": 61},
@@ -58,12 +62,12 @@ HARMONY_METRIC_MAPPINGS = [
 ]
 
 # 0.2.0 已下线的旧键（SP_daemon 不提供或键名变更），软删除避免前端继续显示。
+# 注：Harmony Power 已以“电压×电流”真实功耗身份重新启用，不再下线。
 OBSOLETE_HWINFO_KEYS = [
     "Harmony Net Upload",
     "Harmony Net Download",
     "Harmony Disk Read",
     "Harmony Disk Write",
-    "Harmony Power",
     "Harmony CPU Temp",
     "Harmony GPU Usage",
 ]
