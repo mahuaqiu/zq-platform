@@ -52,7 +52,7 @@ HARMONY_METRIC_MAPPINGS = [
     # 电池（电流 mA 取绝对值；电压/功耗仅在 voltageNow 有值的设备上报）
     {"hwinfo_key": "Harmony Battery Current", "display_name": "电池电流", "unit": "mA", "category": "harmony_power", "is_primary": False, "sort": 50},
     {"hwinfo_key": "Harmony Battery Voltage", "display_name": "电池电压", "unit": "V", "category": "harmony_power", "is_primary": False, "sort": 51},
-    {"hwinfo_key": "Harmony Power", "display_name": "整机功耗（电压×电流）", "unit": "W", "category": "harmony_power", "is_primary": False, "sort": 52},
+    {"hwinfo_key": "Harmony Power", "display_name": "电池功耗", "unit": "W", "category": "harmony_power", "is_primary": False, "sort": 52},
     # 网络（KB/s）
     {"hwinfo_key": "Harmony Net Up", "display_name": "网络上行速率", "unit": "KB/s", "category": "harmony_network", "is_primary": False, "sort": 60},
     {"hwinfo_key": "Harmony Net Down", "display_name": "网络下行速率", "unit": "KB/s", "category": "harmony_network", "is_primary": False, "sort": 61},

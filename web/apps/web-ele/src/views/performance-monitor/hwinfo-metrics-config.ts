@@ -38,8 +38,12 @@ export const HARMONY_METRICS: HwinfoMetric[] = [
   { key: 'Harmony Shell Back Temp', label: '壳温（后面板）', unit: '°C' },
   { key: 'Harmony Shell Frame Temp', label: '壳温（边框）', unit: '°C' },
   { key: 'Harmony System Temp', label: '系统温度', unit: '°C' },
-  // 电池（mA，绝对值，符号仅表示充放电方向）
+  // NPU 温度：设备不支持时恒 0，采集端门控不上报，支持设备才有数据
+  { key: 'Harmony NPU Temp', label: 'NPU 温度', unit: '°C' },
+  // 电池（电流 mA 取绝对值；电压/功耗仅在 voltageNow 有值的设备上报）
   { key: 'Harmony Battery Current', label: '电池电流', unit: 'mA' },
+  { key: 'Harmony Battery Voltage', label: '电池电压', unit: 'V' },
+  { key: 'Harmony Power', label: '电池功耗', unit: 'W' },
   // 网络（KB/s）
   { key: 'Harmony Net Up', label: '网络上行速率', unit: 'KB/s' },
   { key: 'Harmony Net Down', label: '网络下行速率', unit: 'KB/s' },
