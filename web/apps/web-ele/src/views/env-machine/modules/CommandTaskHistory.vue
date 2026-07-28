@@ -328,12 +328,20 @@ onUnmounted(() => {
                 >
               </template>
               <template v-if="result.stderr">
-                <div class="output-toggle output-toggle-stderr">
+                <!-- 成败按 exit code 判定：git 等命令会把进度信息写入 stderr，
+                     执行成功时不用红色错误样式，避免误导 -->
+                <div
+                  class="output-toggle"
+                  :class="{ 'output-toggle-stderr': !result.success }"
+                >
                   <div class="output-summary">
                     <span class="output-stream-dot" aria-hidden="true"></span>
                     <span class="output-stream-name">stderr</span>
                     <span class="output-length"
                       >{{ result.stderr.length }} 字</span
+                    >
+                    <span v-if="result.success" class="output-hint"
+                      >命令执行成功，此为命令写入 stderr 的输出（如进度信息），非错误</span
                     >
                   </div>
                   <el-button
@@ -358,7 +366,8 @@ onUnmounted(() => {
                       outputKey(task.id, result.machine_id, 'stderr'),
                     )
                   "
-                  class="result-output-expanded result-stderr"
+                  class="result-output-expanded"
+                  :class="{ 'result-stderr': !result.success }"
                   >{{ result.stderr }}</pre
                 >
                 >
@@ -615,6 +624,11 @@ onUnmounted(() => {
 }
 
 .output-length {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.output-hint {
   color: #94a3b8;
   font-size: 12px;
 }

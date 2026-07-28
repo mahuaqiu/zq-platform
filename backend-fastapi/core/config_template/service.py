@@ -255,6 +255,10 @@ class ConfigTemplateService(BaseService[ConfigTemplate, ConfigTemplateCreate, Co
             if template.type == "script":
                 # 脚本类型：对比脚本版本
                 config_status = cls._calculate_script_config_status(machine, template)
+            elif template.type == "command":
+                # 命令类型：命令没有版本概念，不做版本比较，也不在机器上留版本记录；
+                # 非离线机器一律视为可执行（pending 仅表示"可勾选下发"）
+                config_status = "offline" if machine.status == "offline" else "pending"
             else:
                 # 配置类型：对比全局配置版本
                 config_status = cls._calculate_config_status(machine, template.version)

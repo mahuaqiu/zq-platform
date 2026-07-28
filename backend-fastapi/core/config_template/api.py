@@ -190,13 +190,15 @@ async def _execute_command_deploy(
         raise HTTPException(status_code=400, detail="命令内容不能为空")
 
     # 查询机器
+    # 命令执行独立于配置/脚本下发，不依赖版本状态；
+    # 使用中（using）的机器 Worker 仍可达，允许下发；仅排除离线机器
     result = await db.execute(
         select(EnvMachine).where(
             and_(
                 EnvMachine.id.in_(machine_ids),
                 EnvMachine.is_deleted == False,
                 EnvMachine.is_virtual == False,
-                EnvMachine.status == "online",
+                EnvMachine.status.in_(["online", "using"]),
             )
         )
     )

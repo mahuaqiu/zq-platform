@@ -141,7 +141,8 @@ class MachineSelectionTemplateStatsResponse(BaseModel):
     total: int = Field(0, description="模板 machine_ids 总数")
     available: int = Field(0, description="在 EnvMachine 中且未删除且非虚拟的数量")
     online: int = Field(0, description="available 中 status=online 的数量")
-    offline: int = Field(0, description="available 中 status!=online 的数量")
+    using: int = Field(0, description="available 中 status=using（使用中）的数量")
+    offline: int = Field(0, description="available 中其余状态（离线等）的数量")
     lost: int = Field(0, description="machine_ids 中已不在 EnvMachine（已删除）的数量")
 
 

@@ -656,9 +656,9 @@ async function loadIpTemplateMachines(templateId: string) {
   try {
     const data = await getIpTemplateMachinesApi(templateId);
     ipTemplateDetail.value = data;
-    // 默认勾选所有「可应用」项（exists && status=online）
+    // 默认勾选所有「可应用」项（见 isMachineApplicable）
     selectedDetailIds.value = (data.machines || [])
-      .filter((m) => m.exists && m.status === 'online')
+      .filter((m) => isMachineApplicable(m))
       .map((m) => m.id);
   } catch {
     ipTemplateDetail.value = null;
@@ -669,9 +669,15 @@ async function loadIpTemplateMachines(templateId: string) {
   }
 }
 
-// 明细项是否可应用（exists && online）
+// 明细项是否可应用：
+// - 命令类型：命令执行独立于配置下发，在线/使用中的机器均可下发
+// - 其他类型：仅在线机器可下发
 function isMachineApplicable(m: MachineDetail): boolean {
-  return m.exists && m.status === 'online';
+  if (!m.exists) return false;
+  if (isCommandTemplate.value) {
+    return m.status === 'online' || m.status === 'using';
+  }
+  return m.status === 'online';
 }
 
 // 右栏明细按 IP 过滤后的列表
@@ -1090,7 +1096,9 @@ onMounted(async () => {
                         </span>
                       </template>
                     </ElTableColumn>
+                    <!-- 命令类型无版本概念，不展示下发状态/下发版本列 -->
                     <ElTableColumn
+                      v-if="!isCommandTemplate"
                       prop="config_status"
                       label="下发状态"
                       min-width="100"
@@ -1112,6 +1120,7 @@ onMounted(async () => {
                       </template>
                     </ElTableColumn>
                     <ElTableColumn
+                      v-if="!isCommandTemplate"
                       prop="config_version"
                       label="下发版本"
                       min-width="140"
@@ -1599,6 +1608,12 @@ onMounted(async () => {
                 <span class="pill pill-blue"
                   >{{ tpl.resolved_stats?.available ?? 0 }} 可用</span
                 >
+                <span
+                  v-if="(tpl.resolved_stats?.using ?? 0) > 0"
+                  class="pill pill-orange"
+                >
+                  {{ tpl.resolved_stats?.using }} 使用中
+                </span>
                 <span
                   v-if="(tpl.resolved_stats?.lost ?? 0) > 0"
                   class="pill pill-red"
@@ -2982,6 +2997,10 @@ onMounted(async () => {
 .pill-red {
   background: #fff1f0;
   color: #ff4d4f;
+}
+.pill-orange {
+  background: #fff7e6;
+  color: #faad14;
 }
 .pill-gray {
   background: #fafafa;

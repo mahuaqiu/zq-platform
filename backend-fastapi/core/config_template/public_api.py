@@ -27,6 +27,9 @@ from core.env_machine.model import EnvMachine
 
 router = APIRouter(prefix="/api/core/config-template", tags=["外部脚本下发"])
 
+# 单批并发机器数上限：与配置/命令下发的批量上限对齐，避免一次性打爆 worker 网络层
+SCRIPT_DEPLOY_BATCH_SIZE = 20
+
 
 class ScriptDeployRequest(BaseModel):
     """按脚本名称和机器模板名称触发脚本下发请求。"""
@@ -178,10 +181,14 @@ async def get_script_deploy_status(
 async def _execute_script_deploy_async(task_id: str, script: dict, machines: List[dict]) -> None:
     """后台执行脚本下发，并把结果写入任务历史。"""
     try:
-        gathered = await asyncio.gather(
-            *(_execute_single_script(machine, script) for machine in machines),
-            return_exceptions=True,
-        )
+        # 分批并发下发：批内 gather 并发，批间串行，避免机器数过多时无上限并发
+        gathered = []
+        for i in range(0, len(machines), SCRIPT_DEPLOY_BATCH_SIZE):
+            batch = machines[i:i + SCRIPT_DEPLOY_BATCH_SIZE]
+            gathered.extend(await asyncio.gather(
+                *(_execute_single_script(machine, script) for machine in batch),
+                return_exceptions=True,
+            ))
         results = []
         for machine, result in zip(machines, gathered):
             if isinstance(result, Exception):

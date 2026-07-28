@@ -146,6 +146,7 @@ export interface MachineSelectionTemplateStats {
   total: number;
   available: number;
   online: number;
+  using: number;
   offline: number;
   lost: number;
 }

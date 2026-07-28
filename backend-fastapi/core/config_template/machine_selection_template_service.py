@@ -119,12 +119,13 @@ class MachineSelectionTemplateService(BaseService):
         db: AsyncSession,
         template: MachineSelectionTemplate
     ) -> MachineSelectionTemplateStatsResponse:
-        """解析单条模板的机器统计：total/available/online/offline/lost。
+        """解析单条模板的机器统计：total/available/online/using/offline/lost。
 
         - total: 模板 machine_ids 总数
         - available: 在 EnvMachine 中且 is_deleted=false 且 is_virtual=false 的数量
         - online: available 中 status="online" 的数量
-        - offline: available 中 status!="online" 的数量
+        - using: available 中 status="using" 的数量（使用中不等于离线）
+        - offline: available 中其余状态的数量
         - lost: machine_ids 中不在 EnvMachine（已删除/虚拟）的数量
         空 machine_ids 全 0。
         """
@@ -145,13 +146,15 @@ class MachineSelectionTemplateService(BaseService):
 
         available = len(existing)
         online = sum(1 for m in existing if m.status == "online")
-        offline = available - online
+        using = sum(1 for m in existing if m.status == "using")
+        offline = available - online - using
         lost = total - available
 
         return MachineSelectionTemplateStatsResponse(
             total=total,
             available=available,
             online=online,
+            using=using,
             offline=offline,
             lost=lost,
         )
