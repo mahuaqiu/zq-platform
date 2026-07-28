@@ -165,32 +165,6 @@ export interface MarkerResponse {
   note?: string;
 }
 
-// 指标映射类型
-export interface MetricMappingCreate {
-  hwinfo_key: string;
-  display_name: string;
-  category: string;
-  is_primary: boolean;
-  unit?: string;
-}
-
-export interface MetricMappingUpdate {
-  hwinfo_key?: string;
-  display_name?: string;
-  category?: string;
-  is_primary?: boolean;
-  unit?: string;
-}
-
-export interface MetricMappingResponse {
-  id: string;
-  hwinfo_key: string;
-  display_name: string;
-  category: string;
-  is_primary: boolean;
-  unit?: string;
-}
-
 // 高级指标查询
 export interface AdvancedMetricsQuery {
   collect_id: string;
@@ -289,16 +263,6 @@ export async function getCollectList(params: {
 export async function getCollectDetail(collectId: string) {
   return requestClient.get<PerformanceCollect>(
     `/api/core/performance-monitor/collect/${collectId}`,
-  );
-}
-
-export async function getCollectData(
-  collectId: string,
-  params: { page: number; page_size: number },
-) {
-  return requestClient.get<{ total: number; items: PerformanceData[] }>(
-    `/api/core/performance-monitor/collect/${collectId}/data`,
-    { params },
   );
 }
 
@@ -423,33 +387,6 @@ export function updateMarker(markerId: string, data: MarkerUpdate) {
 
 export function deleteMarker(markerId: string) {
   return requestClient.delete<{ status: string }>(`/api/core/performance-monitor/marker/${markerId}`);
-}
-
-// 指标映射 API
-export function getMetricMappings(keyword?: string, category?: string) {
-  return requestClient.get<MetricMappingResponse[]>(`/api/core/performance-monitor/metric-mapping/list`, {
-    params: { keyword, category }
-  });
-}
-
-export function createMetricMapping(data: MetricMappingCreate) {
-  return requestClient.post<{ id: string; status: string }>(`/api/core/performance-monitor/metric-mapping`, data);
-}
-
-export function updateMetricMapping(mappingId: string, data: MetricMappingUpdate) {
-  return requestClient.put<{ status: string }>(`/api/core/performance-monitor/metric-mapping/${mappingId}`, data);
-}
-
-export function deleteMetricMapping(mappingId: string) {
-  return requestClient.delete<{ status: string }>(`/api/core/performance-monitor/metric-mapping/${mappingId}`);
-}
-
-export function batchImportMappings(collectId: string) {
-  return requestClient.post<{ imported_count: number; sensors: any[] }>(
-    `/api/core/performance-monitor/metric-mapping/batch-import`,
-    null,
-    { params: { collect_id: collectId } }
-  );
 }
 
 // 高级指标查询

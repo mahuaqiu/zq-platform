@@ -21,15 +21,6 @@ export interface ChartTag {
   color: string;
 }
 
-// 次要指标卡片数据
-export interface MetricCardData {
-  name: string;
-  value: number;
-  unit: string;
-  color?: string;
-  historyData: number[]; // 迷你趋势线数据
-}
-
 // TOP10 数据
 export interface Top10Item {
   name: string;
