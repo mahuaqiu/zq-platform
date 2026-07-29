@@ -63,17 +63,38 @@ const allMatchIndices = ref<number[]>([]);
 const logContainerRef = ref<HTMLElement | null>(null);
 
 /**
- * 根据日志级别返回对应的 CSS 类
+ * 日志头正则：匹配 "2026-07-29 21:22:13,626 [request_id] INFO logger.name: ..."
+ * 要求时间戳带秒（HH:MM:SS），避免误匹配消息体里的日期（如 dir 输出的 "2026/07/29  21:18"）
  */
-function getLogLevelClass(line: string): string {
-  const upper = line.toUpperCase();
-  if (upper.includes('CRITICAL') || upper.includes('FATAL'))
-    return 'log-critical';
-  if (upper.includes('ERROR') || upper.includes('ERR')) return 'log-error';
-  if (upper.includes('WARNING') || upper.includes('WARN')) return 'log-warning';
-  if (upper.includes('DEBUG')) return 'log-debug';
-  return 'log-info';
-}
+const LOG_HEADER_RE =
+  /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[,.]\d+)?\s+(?:\[[^\]]*\]\s+)?(CRITICAL|FATAL|ERROR|WARNING|WARN|INFO|DEBUG|TRACE)\b/i;
+
+const LEVEL_CLASS_MAP: Record<string, string> = {
+  CRITICAL: 'log-critical',
+  FATAL: 'log-critical',
+  ERROR: 'log-error',
+  WARNING: 'log-warning',
+  WARN: 'log-warning',
+  INFO: 'log-info',
+  DEBUG: 'log-debug',
+  TRACE: 'log-debug',
+};
+
+/**
+ * 计算每行日志的级别 CSS 类
+ * - 只解析日志头部的级别字段，不对消息正文做关键字匹配（避免正文含 err/warn 等单词被误染色）
+ * - 无日志头的续行（traceback、多行命令输出等）继承上一条日志的级别
+ */
+const logLineClasses = computed(() => {
+  let lastClass = 'log-info';
+  return logLines.value.map((line) => {
+    const match = LOG_HEADER_RE.exec(line);
+    if (match) {
+      lastClass = LEVEL_CLASS_MAP[match[1]!.toUpperCase()] ?? 'log-info';
+    }
+    return lastClass;
+  });
+});
 
 /**
  * 设置快捷时间范围
@@ -566,7 +587,7 @@ function handleDialogClose() {
             :data-line="index"
             class="log-line"
             :class="[
-              getLogLevelClass(line),
+              logLineClasses[index],
               { 'current-match': isCurrentMatch(index) },
               { 'long-line': line.length > 300 },
             ]"
