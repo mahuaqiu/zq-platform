@@ -349,13 +349,13 @@ function handleScreenMouseLeave() {
   handleMouseLeave();
 }
 
-// 右键菜单处理：Windows/Mac 透传右键，iOS/Android 忽略
+// 右键菜单处理：Windows/Mac/鸿蒙PC 透传右键（鸿蒙PC 用长按映射），iOS/Android/鸿蒙手机 忽略
 // 同样需要检查点击是否在屏幕区域内
 async function handleScreenContextMenu(event: MouseEvent) {
   if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected')) return;
 
-  // iOS/Android 不支持右键，忽略
-  if (isMobile.value || isHarmony.value) return;
+  // iOS/Android/鸿蒙手机 不支持右键，忽略（harmony_mobile 已包含在 isMobile 中）
+  if (isMobile.value) return;
 
   // Windows/Mac 透传右键点击到设备
   if (isDesktop.value) {

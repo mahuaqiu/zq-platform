@@ -409,9 +409,16 @@ const currentChartTitle = computed(() => {
 // 当前图表类型
 const currentChartType = computed(() => currentMetric.value);
 
-// TOP10 面板显示条件（仅 CPU/GPU 显示）
+// TOP10 面板显示条件（仅 Windows 的 CPU/GPU 显示）
+// 鸿蒙 0.2.x（SP_daemon 单应用模型）与 Linux 不产出 top10_cpu/top10_gpu，
+// 面板会恒空，故按设备类型门控，避免显示空的"系统TOP10应用"面板。
 const TOP10_METRICS: MetricKey[] = ['cpu', 'gpu'];
-const showTop10Panel = computed(() => TOP10_METRICS.includes(currentMetric.value));
+const showTop10Panel = computed(
+  () =>
+    TOP10_METRICS.includes(currentMetric.value) &&
+    !isHarmonyDevice.value &&
+    !isLinuxDevice.value,
+);
 
 // 曲线图数据
 const cpuChartSeries = computed<ChartSeries[]>(() => {

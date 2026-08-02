@@ -34,6 +34,11 @@ export function useWebSocket() {
   let streamTotalPacketCount = 0;
   let streamBytes = 0;
 
+  // 是否已从 worker 的 meta 文本帧拿到真机原生分辨率作为坐标基准。
+  // 鸿蒙推流会降采样（推流尺寸≠真机尺寸），此时坐标基准必须用 meta 里的
+  // 真机分辨率，而不能用推流图像尺寸；置 true 后不再让图像/视频尺寸覆盖 screenSize。
+  let hasMeta = false;
+
   // H264 视频元素（由 ScreenDisplay 挂载后通过 attachVideoEl 传入）。
   // MSE/jmuxer 需要绑定 <video> 元素，生命周期归 ScreenDisplay，
   // 解码逻辑归本 hook，故用 shallowRef 持有引用并在就绪时 init decoder。
@@ -77,7 +82,7 @@ export function useWebSocket() {
     // H264 模式下没有 JPEG，无法通过 Image 获取 screenSize。
     // 从 video 的 loadedmetadata 读取视频源尺寸（jmuxer 从 SPS 解析后写入 video）。
     const onLoadedMeta = () => {
-      if (el.videoWidth > 0 && el.videoHeight > 0) {
+      if (!hasMeta && el.videoWidth > 0 && el.videoHeight > 0) {
         screenSize.value = { width: el.videoWidth, height: el.videoHeight };
       }
     };
@@ -140,12 +145,6 @@ export function useWebSocket() {
    * 连接 WebSocket
    */
   function connect(host: string, port: number, udid: string, deviceType: string, screenIndex?: number, codec: string = 'jpeg'): void {
-    // 鸿蒙当前没有 sidecar/frame source，禁止建立不存在的实时流连接。
-    if (deviceType === 'harmony_mobile' || deviceType === 'harmony_pc') {
-      disconnect();
-      return;
-    }
-
     // 保存参数用于重连
     savedHost = host;
     savedPort = port;
@@ -153,6 +152,9 @@ export function useWebSocket() {
     savedDeviceType = deviceType;
     savedScreenIndex = screenIndex;
     savedCodec = codec;
+
+    // 新连接重置坐标基准来源：未收到 meta 前回退用推流尺寸（兼容非鸿蒙平台）。
+    hasMeta = false;
 
     console.log(`[WebSocket] Connecting to ${host}:${port}, deviceType=${deviceType}, codec=${codec}`);
     streamConnectStarted = performance.now();
@@ -202,49 +204,69 @@ export function useWebSocket() {
     };
 
     ws.onmessage = (event) => {
-      // event.data 是 ArrayBuffer
-      const arrayBuffer = event.data as ArrayBuffer;
-      streamPacketCount += 1;
-      streamTotalPacketCount += 1;
-      streamBytes += arrayBuffer.byteLength;
+  // 文本帧：worker 在流开头下发的 JSON 元数据。目前用于携带真机原生分辨率
+  // （参考 Windows H.264 SPS 带内自描述分辨率的思路），作为坐标基准与推流
+  // 图像尺寸解耦——鸿蒙降采样后推流尺寸≠真机尺寸，坐标必须以真机分辨率为准。
+  if (typeof event.data === 'string') {
+    try {
+      const meta = JSON.parse(event.data);
+      if (meta && meta.type === 'meta' && meta.width > 0 && meta.height > 0) {
+        screenSize.value = { width: meta.width, height: meta.height };
+        hasMeta = true;
+      }
+    } catch (e) {
+      console.warn('[WebSocket] 解析 meta 文本帧失败:', e);
+    }
+    return;
+  }
+  // event.data 是 ArrayBuffer
+  const arrayBuffer = event.data as ArrayBuffer;
+  streamPacketCount += 1;
+  streamTotalPacketCount += 1;
+  streamBytes += arrayBuffer.byteLength;
 
-      // 检测帧类型（不再每帧打日志，避免控制台对象累积导致内存泄漏）
-      switch (detectFrameType(arrayBuffer)) {
-        case FrameType.H264:
-          // H.264: 喂入 MSE 解码器（jmuxer 自动处理 SPS/PPS/IDR/P）
-          mseDecoder.feedFrame(arrayBuffer);
-          break;
+  // 检测帧类型（不再每帧打日志，避免控制台对象累积导致内存泄漏）
+  switch (detectFrameType(arrayBuffer)) {
+    case FrameType.H264:
+      // H.264: 喂入 MSE 解码器（jmuxer 自动处理 SPS/PPS/IDR/P）
+      mseDecoder.feedFrame(arrayBuffer);
+      break;
 
-        case FrameType.MJPEG:
-          // MJPEG: 渲染到 canvas
-          mjpegRenderer.render(arrayBuffer);
-          break;
+    case FrameType.MJPEG:
+      // MJPEG: 渲染到 canvas
+      mjpegRenderer.render(arrayBuffer);
+      break;
 
-        case FrameType.JPEG:
-        default:
-          // JPEG: 使用 Blob URL
-          const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
-          const url = URL.createObjectURL(blob);
+    case FrameType.JPEG:
+    default:
+      // JPEG: 使用 Blob URL
+      const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+      const url = URL.createObjectURL(blob);
 
-          // 释放之前的 URL
-          if (screenshotBase64.value && screenshotBase64.value.startsWith('blob:')) {
-            URL.revokeObjectURL(screenshotBase64.value);
-          }
-
-          screenshotBase64.value = url;
-
-          // 解析图片尺寸
-          const img = new Image();
-          img.onload = () => {
-            screenSize.value = { width: img.width, height: img.height };
-          };
-          img.src = url;
-          break;
+      // 释放之前的 URL
+      if (screenshotBase64.value && screenshotBase64.value.startsWith('blob:')) {
+        URL.revokeObjectURL(screenshotBase64.value);
       }
 
-      // 更新帧率计数
-      fpsFrameCount++;
-    };
+      screenshotBase64.value = url;
+
+      // 解析图片尺寸（仅在未从 meta 拿到真机分辨率时用推流尺寸兜底；
+      // 鸿蒙已下发 meta，此处不覆盖，避免降采样后的推流尺寸破坏坐标基准）
+      if (!hasMeta) {
+        const img = new Image();
+        img.onload = () => {
+          if (!hasMeta) {
+            screenSize.value = { width: img.width, height: img.height };
+          }
+        };
+        img.src = url;
+      }
+      break;
+  }
+
+  // 更新帧率计数
+  fpsFrameCount++;
+};
 
     ws.onclose = (event) => {
       stopFpsTimer();
