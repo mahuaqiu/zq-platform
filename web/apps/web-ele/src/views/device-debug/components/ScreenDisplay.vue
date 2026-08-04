@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 import type { WebSocketStatus, ScreenSize } from '../types';
+import { calculateContainRenderArea } from '../utils';
 
 interface Props {
   screenshotUrl: string;
@@ -27,6 +28,9 @@ interface Emits {
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+const screenWrapperRef = ref<HTMLElement | null>(null);
+const wrapperSize = ref({ width: 0, height: 0 });
+let resizeObserver: ResizeObserver | null = null;
 
 // MSE 方案渲染的 <video> 元素。
 // MSE 解码器（useMseDecoder）需要绑定此元素，由父组件通过 ref 拿到后传入 useWebSocket.attachVideoEl。
@@ -38,6 +42,14 @@ function handleMouseDown(event: MouseEvent) {
   // 阻止图片/视频默认拖拽行为
   event.preventDefault();
   emit('mousedown', event);
+}
+
+function attachScreenElement(event: MouseEvent, element: EventTarget | null): MouseEvent {
+  Object.defineProperty(event, 'screenElement', {
+    configurable: true,
+    value: element,
+  });
+  return event;
 }
 
 function handleMouseMove(event: MouseEvent) {
@@ -70,7 +82,7 @@ function handleTouchStart(event: TouchEvent) {
       button: 0,
       bubbles: true
     });
-    emit('mousedown', mouseEvent);
+    emit('mousedown', attachScreenElement(mouseEvent, event.currentTarget));
   }
 }
 
@@ -82,7 +94,7 @@ function handleTouchMove(event: TouchEvent) {
       clientY: touch.clientY,
       bubbles: true
     });
-    emit('mousemove', mouseEvent);
+    emit('mousemove', attachScreenElement(mouseEvent, event.currentTarget));
   }
 }
 
@@ -95,15 +107,56 @@ function handleTouchEnd(event: TouchEvent) {
       button: 0,
       bubbles: true
     });
-    emit('mouseup', mouseEvent);
+    emit('mouseup', attachScreenElement(mouseEvent, event.currentTarget));
   }
 }
 
 // 计算指示器位置百分比
-function getIndicatorPercent(coord: number, size: number): string {
-  if (size === 0) return '0%';
-  return `${(coord / size) * 100}%`;
+function getIndicatorStyle(coord: { x: number; y: number }): Record<string, string> {
+  const { width, height } = wrapperSize.value;
+  const { width: sourceWidth, height: sourceHeight } = props.screenSize;
+
+  if (width <= 0 || height <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
+    return { left: '0px', top: '0px' };
+  }
+
+  const renderInfo = calculateContainRenderArea(
+    width,
+    height,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+  );
+  const scaleX = renderInfo.renderedWidth / sourceWidth;
+  const scaleY = renderInfo.renderedHeight / sourceHeight;
+
+  return {
+    left: `${renderInfo.offsetX + coord.x * scaleX}px`,
+    top: `${renderInfo.offsetY + coord.y * scaleY}px`,
+  };
 }
+
+onMounted(() => {
+  const wrapper = screenWrapperRef.value;
+  if (!wrapper) return;
+
+  const updateSize = () => {
+    wrapperSize.value = {
+      width: wrapper.clientWidth,
+      height: wrapper.clientHeight,
+    };
+  };
+  updateSize();
+  if (typeof ResizeObserver === 'undefined') return;
+  resizeObserver = new ResizeObserver(updateSize);
+  resizeObserver.observe(wrapper);
+});
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+});
 </script>
 
 <template>
@@ -118,6 +171,7 @@ function getIndicatorPercent(coord: number, size: number): string {
       <!-- 屏幕区域 -->
       <div
         class="screen-wrapper"
+        ref="screenWrapperRef"
         :class="{ 'cursor-crosshair': props.isInScreen }"
         @contextmenu="handleContextMenu"
       >
@@ -160,10 +214,7 @@ function getIndicatorPercent(coord: number, size: number): string {
         <div
           v-if="clickIndicator.show"
           class="click-indicator"
-          :style="{
-            left: getIndicatorPercent(clickIndicator.x, screenSize.width),
-            top: getIndicatorPercent(clickIndicator.y, screenSize.height),
-          }"
+          :style="getIndicatorStyle(clickIndicator)"
         />
 
         <!-- 拖拽轨迹 -->
@@ -174,15 +225,13 @@ function getIndicatorPercent(coord: number, size: number): string {
           <div
             class="drag-point drag-start"
             :style="{
-              left: getIndicatorPercent(dragStart.x, screenSize.width),
-              top: getIndicatorPercent(dragStart.y, screenSize.height),
+              ...getIndicatorStyle(dragStart),
             }"
           />
           <div
             class="drag-point drag-end"
             :style="{
-              left: getIndicatorPercent(dragEnd.x, screenSize.width),
-              top: getIndicatorPercent(dragEnd.y, screenSize.height),
+              ...getIndicatorStyle(dragEnd),
             }"
           />
         </div>

@@ -7,7 +7,13 @@ import { useTabs } from '@vben/hooks';
 
 import { getEnvMachineDetailApi } from '#/api/core/env-machine';
 
-import { isDesktopDevice, isMobileDevice, formatDeviceDebugTitle } from './utils';
+import {
+  calculateContainRenderArea,
+  convertToDeviceCoords,
+  isDesktopDevice,
+  isMobileDevice,
+  formatDeviceDebugTitle,
+} from './utils';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useScreenInteraction } from './hooks/useScreenInteraction';
 import { useDeviceAction } from './hooks/useDeviceAction';
@@ -359,8 +365,14 @@ async function handleScreenContextMenu(event: MouseEvent) {
 
   // Windows/Mac 透传右键点击到设备
   if (isDesktop.value) {
-    const media = event.target as HTMLImageElement | HTMLVideoElement;
-    const rect = media.getBoundingClientRect();
+    const eventTarget = event.currentTarget as HTMLElement | null;
+    const wrapper = eventTarget?.classList.contains('screen-wrapper')
+      ? eventTarget
+      : (event.target as HTMLElement | null)?.closest('.screen-wrapper');
+    const media = wrapper?.querySelector('.screen-img') as HTMLImageElement | HTMLVideoElement | null;
+    if (!wrapper || !media) return;
+
+    const rect = wrapper.getBoundingClientRect();
 
     // 获取媒体源尺寸：img 用 naturalWidth，video 用 videoWidth
     const sourceW = 'naturalWidth' in media ? media.naturalWidth : media.videoWidth;
@@ -375,7 +387,6 @@ async function handleScreenContextMenu(event: MouseEvent) {
     const mouseY = event.clientY - rect.top;
 
     // 计算 object-fit: contain 的实际渲染区域
-    const { convertToDeviceCoords, calculateContainRenderArea } = await import('./utils');
     const renderInfo = calculateContainRenderArea(
       rect.width,
       rect.height,

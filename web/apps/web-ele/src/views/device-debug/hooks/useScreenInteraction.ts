@@ -33,8 +33,10 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
   function getMediaSourceSize(
     target: EventTarget | null
   ): { el: HTMLElement; naturalW: number; naturalH: number } | null {
-    const el = target as HTMLImageElement | HTMLVideoElement | null;
-    if (!el) return null;
+    if (!(target instanceof HTMLImageElement) && !(target instanceof HTMLVideoElement)) {
+      return null;
+    }
+    const el = target;
 
     if ('naturalWidth' in el) {
       // HTMLImageElement
@@ -45,44 +47,60 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
   }
 
   /**
-   * 获取媒体元素上的坐标（相对于展示区域）
-   * 考虑 object-fit: contain 的实际渲染区域
+   * 获取媒体元素所在的屏幕容器。
+   *
+   * 媒体元素本身可能只是 contain 后的实际绘制尺寸，不能作为留白区域的
+   * 计算基准；真正的鼠标命中区域是外层 screen-wrapper。
    */
-  function getDisplayCoords(event: MouseEvent): { x: number; y: number } | null {
-    const info = getMediaSourceSize(event.currentTarget);
-    if (!info) return null;
-    const { el, naturalW, naturalH } = info;
+  function getScreenWrapper(el: HTMLElement): HTMLElement {
+    return el.closest('.screen-wrapper') ?? el.parentElement ?? el;
+  }
 
-    const rect = el.getBoundingClientRect();
+  /**
+   * 从鼠标事件中获取媒体元素。
+   *
+   * 触摸事件转换出的 MouseEvent 不会经过 DOM 分发，currentTarget/target
+   * 为空，因此 ScreenDisplay 会额外附带 screenElement 供这里使用。
+   */
+  function getEventMediaElement(event: MouseEvent): HTMLElement | null {
+    const eventWithElement = event as MouseEvent & { screenElement?: EventTarget | null };
+    return (
+      getMediaSourceSize(event.currentTarget)?.el ??
+      getMediaSourceSize(event.target)?.el ??
+      getMediaSourceSize(eventWithElement.screenElement ?? null)?.el ??
+      null
+    );
+  }
 
-    // 防止媒体尚未加载完成
-    if (naturalW === 0 || naturalH === 0) {
+  function getRenderInfo(event: MouseEvent) {
+    const media = getEventMediaElement(event);
+    if (!media) return null;
+
+    const wrapper = getScreenWrapper(media);
+    const rect = wrapper.getBoundingClientRect();
+    const naturalW = 'naturalWidth' in media
+      ? (media as HTMLImageElement).naturalWidth
+      : (media as HTMLVideoElement).videoWidth;
+    const naturalH = 'naturalHeight' in media
+      ? (media as HTMLImageElement).naturalHeight
+      : (media as HTMLVideoElement).videoHeight;
+
+    if (naturalW <= 0 || naturalH <= 0 || rect.width <= 0 || rect.height <= 0) {
       return null;
     }
 
-    const mouseX = Math.round(event.clientX - rect.left);
-    const mouseY = Math.round(event.clientY - rect.top);
-
-    // 计算 object-fit: contain 的实际渲染区域
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
     const renderInfo = calculateContainRenderArea(
       rect.width,
       rect.height,
       naturalW,
       naturalH,
       mouseX,
-      mouseY
+      mouseY,
     );
 
-    // 如果点击不在渲染区域内，返回 null
-    if (!renderInfo.isValidClick) {
-      return null;
-    }
-
-    // 返回相对于实际渲染媒体区域的坐标
-    return {
-      x: Math.round(renderInfo.adjustedX),
-      y: Math.round(renderInfo.adjustedY)
-    };
+    return { renderInfo };
   }
 
   /**
@@ -90,30 +108,14 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
    * 返回 null 表示点击在屏幕之外
    */
   function getDeviceCoords(event: MouseEvent): { x: number; y: number } | null {
-    const info = getMediaSourceSize(event.currentTarget);
-    if (!info) return null;
-    const { el, naturalW, naturalH } = info;
-
-    const display = getDisplayCoords(event);
-    if (display === null) {
+    const renderInfo = getRenderInfo(event)?.renderInfo;
+    if (!renderInfo || !renderInfo.isValidClick) {
       return null; // 点击在屏幕之外
     }
 
-    const rect = el.getBoundingClientRect();
-
-    // 计算 object-fit: contain 下的实际渲染尺寸
-    const renderInfo = calculateContainRenderArea(
-      rect.width,
-      rect.height,
-      naturalW,
-      naturalH,
-      0, // mouseX 不重要，只需要渲染尺寸
-      0
-    );
-
     return convertToDeviceCoords(
-      display.x,
-      display.y,
+      renderInfo.adjustedX,
+      renderInfo.adjustedY,
       renderInfo.renderedWidth,
       renderInfo.renderedHeight,
       screenSize.value.width,
