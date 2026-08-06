@@ -10,7 +10,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Column, String, Boolean, Text, DateTime, JSON, UniqueConstraint, Index
+from sqlalchemy import Column, String, Boolean, Text, DateTime, JSON, Index, text
 
 from app.base_model import BaseModel
 
@@ -90,9 +90,27 @@ class EnvMachine(BaseModel):
     # 最后保持使用时间
     last_keepusing_time = Column(DateTime, nullable=True, comment="最后保持使用时间")
 
-    # 复合唯一索引和普通索引
+    # Worker 物理身份唯一；虚拟设备不受该约束。
     __table_args__ = (
-        UniqueConstraint("namespace", "ip", "device_type", "device_sn", name="uq_env_machine_namespace_ip_device"),
+        Index(
+            "uq_env_machine_active_host_identity",
+            "ip",
+            "device_type",
+            unique=True,
+            postgresql_where=text(
+                "is_deleted = false AND is_virtual = false AND device_sn IS NULL"
+            ),
+        ),
+        Index(
+            "uq_env_machine_active_device_identity",
+            "ip",
+            "device_type",
+            "device_sn",
+            unique=True,
+            postgresql_where=text(
+                "is_deleted = false AND is_virtual = false AND device_sn IS NOT NULL"
+            ),
+        ),
         Index("ix_env_machine_status", "status"),
         Index("ix_env_machine_sync_time", "sync_time"),
         Index("ix_env_machine_is_virtual", "is_virtual"),  # 新增

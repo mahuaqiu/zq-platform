@@ -565,10 +565,8 @@ async function handleSubmit() {
         mark: formData.value.mark,
         available: formData.value.available,  // Linux 设备的 available 会被后端忽略
         note: formData.value.note,
+        extra_message: extraMessage,
       };
-      if (formData.value.extra_message_raw.trim()) {
-        updateData.extra_message = JSON.parse(formData.value.extra_message_raw.trim());
-      }
       await updateEnvMachineApi(editId.value, updateData);
       ElMessage.success('更新成功');
       dialogVisible.value = false;
@@ -622,10 +620,8 @@ async function handleSubmit() {
       mark: formData.value.mark,
       available: formData.value.available,
       note: formData.value.note,
+      extra_message: extraMessage,
     };
-    if (formData.value.extra_message_raw.trim()) {
-      updateData.extra_message = JSON.parse(formData.value.extra_message_raw.trim());
-    }
     await updateEnvMachineApi(editId.value, updateData);
     ElMessage.success('更新成功');
     dialogVisible.value = false;

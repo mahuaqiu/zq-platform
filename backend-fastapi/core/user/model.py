@@ -13,7 +13,7 @@ User Model - 用户模型
 """
 from datetime import date
 
-from sqlalchemy import Column, String, Text, Boolean, Integer, Date, DateTime
+from sqlalchemy import Column, String, Text, Boolean, Integer, Date, DateTime, Index, text
 from sqlalchemy.orm import relationship
 
 from app.base_model import BaseModel
@@ -40,7 +40,7 @@ class User(BaseModel):
     __tablename__ = "core_user"
 
     # 用户名
-    username = Column(String(150), unique=True, nullable=False, index=True, comment="用户名")
+    username = Column(String(150), nullable=False, comment="用户名")
     
     # 密码（加密存储，OAuth用户可为空）
     password = Column(String(128), nullable=True, comment="密码")
@@ -101,20 +101,40 @@ class User(BaseModel):
     
     # OAuth 相关字段
     oauth_provider = Column(String(50), nullable=True, index=True, comment="OAuth提供商")
-    gitee_id = Column(String(200), unique=True, nullable=True, index=True, comment="Gitee用户ID")
-    github_id = Column(String(200), unique=True, nullable=True, index=True, comment="GitHub用户ID")
-    qq_id = Column(String(200), unique=True, nullable=True, index=True, comment="QQ用户openid")
-    google_id = Column(String(200), unique=True, nullable=True, index=True, comment="Google用户ID")
-    wechat_unionid = Column(String(200), unique=True, nullable=True, index=True, comment="微信UnionID")
+    gitee_id = Column(String(200), nullable=True, comment="Gitee用户ID")
+    github_id = Column(String(200), nullable=True, comment="GitHub用户ID")
+    qq_id = Column(String(200), nullable=True, comment="QQ用户openid")
+    google_id = Column(String(200), nullable=True, comment="Google用户ID")
+    wechat_unionid = Column(String(200), nullable=True, comment="微信UnionID")
     wechat_openid = Column(String(200), nullable=True, index=True, comment="微信OpenID")
-    microsoft_id = Column(String(200), unique=True, nullable=True, index=True, comment="Microsoft用户ID")
-    dingtalk_unionid = Column(String(200), unique=True, nullable=True, index=True, comment="钉钉UnionID")
-    feishu_union_id = Column(String(200), unique=True, nullable=True, index=True, comment="飞书UnionID")
+    microsoft_id = Column(String(200), nullable=True, comment="Microsoft用户ID")
+    dingtalk_unionid = Column(String(200), nullable=True, comment="钉钉UnionID")
+    feishu_union_id = Column(String(200), nullable=True, comment="飞书UnionID")
     
     # 关系定义（使用primaryjoin指定逻辑关联，lazy='selectin'支持异步加载）
     dept = relationship("Dept", foreign_keys="User.dept_id", primaryjoin="User.dept_id == Dept.id", backref="users", lazy="selectin")
     role = relationship("Role", foreign_keys="User.role_id", primaryjoin="User.role_id == Role.id", backref="users", lazy="selectin")
     manager = relationship("User", remote_side="User.id", foreign_keys="User.manager_id", primaryjoin="User.manager_id == User.id", backref="subordinates", lazy="selectin")
+
+    __table_args__ = tuple(
+        Index(
+            f"ix_core_user_{field}",
+            field,
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        )
+        for field in (
+            "username",
+            "gitee_id",
+            "github_id",
+            "qq_id",
+            "google_id",
+            "wechat_unionid",
+            "microsoft_id",
+            "dingtalk_unionid",
+            "feishu_union_id",
+        )
+    )
     
     def __repr__(self):
         return f"<User {self.name or self.username} ({self.username})>"

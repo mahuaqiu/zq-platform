@@ -168,6 +168,7 @@ class MachineSelectionTemplateCreate(BaseModel):
     device_type: Optional[str] = Field(None, max_length=20, description="设备类型筛选")
     ip_pattern: Optional[str] = Field(None, max_length=64, description="IP模糊匹配")
     machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
+    machine_targets: Optional[List[dict]] = Field(None, description="机器目标快照（IP + 设备类型）")
     note: Optional[str] = Field(None, description="备注")
 
 
@@ -178,6 +179,7 @@ class MachineSelectionTemplateUpdate(BaseModel):
     device_type: Optional[str] = Field(None, max_length=20, description="设备类型筛选")
     ip_pattern: Optional[str] = Field(None, max_length=64, description="IP模糊匹配")
     machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
+    machine_targets: Optional[List[dict]] = Field(None, description="机器目标快照（IP + 设备类型）")
     note: Optional[str] = Field(None, description="备注")
 
 
@@ -189,6 +191,7 @@ class MachineSelectionTemplateResponse(BaseModel):
     device_type: Optional[str] = Field(None, description="设备类型筛选")
     ip_pattern: Optional[str] = Field(None, description="IP模糊匹配")
     machine_ids: Optional[List[str]] = Field(None, description="固定机器ID列表")
+    machine_targets: Optional[List[dict]] = Field(None, description="机器目标快照（IP + 设备类型）")
     note: Optional[str] = Field(None, description="备注")
     resolved_stats: MachineSelectionTemplateStatsResponse = Field(
         default_factory=MachineSelectionTemplateStatsResponse,

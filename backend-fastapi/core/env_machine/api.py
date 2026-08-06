@@ -67,6 +67,58 @@ def _worker_error_message(payload: dict, fallback: str) -> str:
 router = APIRouter(prefix="/env", tags=["执行机管理"])
 
 
+async def _get_registration_machine(
+    db: AsyncSession,
+    ip: str,
+    device_type: str,
+    device_sn: Optional[str],
+) -> Optional[EnvMachine]:
+    """获取注册主记录，并合并切换命名空间产生的历史重复记录。"""
+    matches = await EnvMachineService.get_by_device_identity(
+        db,
+        ip=ip,
+        device_type=device_type,
+        device_sn=device_sn,
+    )
+    if not matches:
+        return None
+
+    primary = next(
+        (machine for machine in matches if machine.extra_message),
+        matches[0],
+    )
+    has_duplicates = len(matches) > 1
+    for duplicate in matches:
+        if duplicate is primary:
+            continue
+        if not primary.extra_message and duplicate.extra_message:
+            primary.extra_message = duplicate.extra_message
+        if not primary.mark and duplicate.mark:
+            primary.mark = duplicate.mark
+        if not primary.note and duplicate.note:
+            primary.note = duplicate.note
+        if not primary.asset_number and duplicate.asset_number:
+            primary.asset_number = duplicate.asset_number
+        primary.available = primary.available or duplicate.available
+        if duplicate.status == "using":
+            primary.status = "using"
+        await EnvPoolManager.remove_machine_from_cache(
+            str(duplicate.id), duplicate.namespace
+        )
+        await db.delete(duplicate)
+        logger.warning(
+            "合并重复执行机记录: primary_id=%s, duplicate_id=%s, ip=%s, device_type=%s",
+            primary.id,
+            duplicate.id,
+            ip,
+            device_type,
+        )
+    if has_duplicates:
+        # 先删除冲突行，再由调用方更新 namespace，避免旧唯一约束在 flush 时冲突。
+        await db.flush()
+    return primary
+
+
 @router.get("/namespaces", summary="获取所有机器分类")
 async def get_namespaces(db: AsyncSession = Depends(get_db)) -> Dict[str, str]:
     """
@@ -96,7 +148,7 @@ async def register_env_machine(
     2. 对于每个 device_type：
        - windows/mac：device_sn 为 null，每个 IP 插入一条记录
        - android/ios：根据 device_sn 列表，每个 sn 插入一条记录
-    3. 查询条件：namespace + ip + device_type + device_sn
+    3. 查询条件：ip + device_type + device_sn（namespace 变更时更新原记录）
     4. 不存在则插入：状态设为 online，available 设为 False
     5. 存在则更新 sync_time、status=online
     6. 同步更新 Redis 缓存
@@ -110,9 +162,8 @@ async def register_env_machine(
         for device_type, device_sns in data.devices.items():
             if device_type in ("windows", "mac"):
                 # Windows/Mac：device_sn 为 null，每个 IP 插入一条记录
-                existing_machine = await EnvMachineService.get_by_namespace_and_device(
+                existing_machine = await _get_registration_machine(
                     db,
-                    namespace=data.namespace,
                     ip=data.ip,
                     device_type=device_type,
                     device_sn=None
@@ -121,6 +172,8 @@ async def register_env_machine(
                 if existing_machine:
                     # 存在则更新 sync_time
                     old_status = existing_machine.status
+                    old_namespace = existing_machine.namespace
+                    existing_machine.namespace = data.namespace
                     existing_machine.sync_time = now
                     existing_machine.port = data.port
                     if data.version:
@@ -142,6 +195,10 @@ async def register_env_machine(
                     else:
                         # using 状态保持不变，记录日志
                         logger.info(f"机器正在使用中，保持状态: id={existing_machine.id}, ip={data.ip}, device_type={device_type}")
+                    if old_namespace != data.namespace:
+                        await EnvPoolManager.remove_machine_from_cache(
+                            str(existing_machine.id), old_namespace
+                        )
                 else:
                     # 不存在则插入
                     new_machine = EnvMachine(
@@ -177,9 +234,8 @@ async def register_env_machine(
                     if not device_sn:
                         continue
 
-                    existing_machine = await EnvMachineService.get_by_namespace_and_device(
+                    existing_machine = await _get_registration_machine(
                         db,
-                        namespace=data.namespace,
                         ip=data.ip,
                         device_type=device_type,
                         device_sn=device_sn
@@ -188,6 +244,8 @@ async def register_env_machine(
                     if existing_machine:
                         # 存在则更新 sync_time
                         old_status = existing_machine.status
+                        old_namespace = existing_machine.namespace
+                        existing_machine.namespace = data.namespace
                         existing_machine.sync_time = now
                         existing_machine.port = data.port
                         if data.version:
@@ -209,6 +267,10 @@ async def register_env_machine(
                         else:
                             # using 状态保持不变，记录日志
                             logger.info(f"机器正在使用中，保持状态: id={existing_machine.id}, ip={data.ip}, device_type={device_type}, device_sn={device_sn}")
+                        if old_namespace != data.namespace:
+                            await EnvPoolManager.remove_machine_from_cache(
+                                str(existing_machine.id), old_namespace
+                            )
                     else:
                         # 不存在则插入
                         new_machine = EnvMachine(

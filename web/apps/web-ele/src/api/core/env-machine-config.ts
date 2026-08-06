@@ -84,7 +84,12 @@ export interface PaginatedResponse<T> {
 /**
  * 获取配置模板列表
  */
-export async function getConfigTemplateListApi(params?: { page?: number; page_size?: number; template_type?: string }) {
+export async function getConfigTemplateListApi(params?: {
+  keyword?: string;
+  page?: number;
+  page_size?: number;
+  template_type?: string;
+}) {
   return requestClient.get<PaginatedResponse<ConfigTemplate>>('/api/core/config-template', { params });
 }
 
@@ -180,6 +185,11 @@ export interface MachineSelectionTemplate {
   device_type?: string;
   ip_pattern?: string;
   machine_ids?: string[];
+  machine_targets?: Array<{
+    device_type: string;
+    ip: string;
+    machine_id?: string;
+  }>;
   note?: string;
   version: string;
   resolved_stats?: MachineSelectionTemplateStats;

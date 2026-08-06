@@ -163,7 +163,10 @@ class SchedulerService:
 
                 async with AsyncSessionLocal() as db:
                     result = await db.execute(
-                        select(SchedulerJob).where(SchedulerJob.code == job_obj.code)
+                        select(SchedulerJob).where(
+                            SchedulerJob.code == job_obj.code,
+                            SchedulerJob.is_deleted == False,  # noqa: E712
+                        )
                     )
                     db_job = result.scalar_one_or_none()
                     if db_job:
@@ -228,7 +231,10 @@ class SchedulerService:
         try:
             async with AsyncSessionLocal() as db:
                 query_result = await db.execute(
-                    select(SchedulerJob).where(SchedulerJob.code == job_code)
+                    select(SchedulerJob).where(
+                        SchedulerJob.code == job_code,
+                        SchedulerJob.is_deleted == False,  # noqa: E712
+                    )
                 )
                 job_obj = query_result.scalar_one_or_none()
 
@@ -286,7 +292,10 @@ class SchedulerService:
             async with AsyncSessionLocal() as db:
                 # 获取任务
                 query_result = await db.execute(
-                    select(SchedulerJob).where(SchedulerJob.code == job_code)
+                    select(SchedulerJob).where(
+                        SchedulerJob.code == job_code,
+                        SchedulerJob.is_deleted == False,  # noqa: E712
+                    )
                 )
                 job_obj = query_result.scalar_one_or_none()
 
@@ -423,7 +432,10 @@ class SchedulerService:
 
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(SchedulerJob).where(SchedulerJob.code == job_code)
+                    select(SchedulerJob).where(
+                        SchedulerJob.code == job_code,
+                        SchedulerJob.is_deleted == False,  # noqa: E712
+                    )
                 )
                 job_obj = result.scalar_one_or_none()
 

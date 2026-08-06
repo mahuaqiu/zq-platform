@@ -11,7 +11,7 @@
 Permission Model - 权限模型
 用于管理系统中的操作权限（如按钮权限、接口权限等）
 """
-from sqlalchemy import Column, String, Integer, Boolean, Text, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Boolean, Text, Index, text
 
 from app.base_model import BaseModel
 
@@ -87,9 +87,15 @@ class Permission(BaseModel):
     # 是否启用
     is_active = Column(Boolean, default=True, index=True, comment="是否启用")
     
-    # 联合唯一约束：同一个菜单下的权限编码必须唯一
+    # 同一个菜单下，未删除权限的编码必须唯一
     __table_args__ = (
-        UniqueConstraint('menu_id', 'code', name='uq_permission_menu_code'),
+        Index(
+            'uq_permission_menu_code',
+            'menu_id',
+            'code',
+            unique=True,
+            postgresql_where=text('is_deleted = false'),
+        ),
     )
     
     def __str__(self):

@@ -11,7 +11,7 @@
 Scheduler Model - 定时任务模型
 用于管理定时任务和执行记录
 """
-from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, Float, Index
+from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, Float, Index, text
 
 from app.base_model import BaseModel
 
@@ -48,7 +48,7 @@ class SchedulerJob(BaseModel):
     name = Column(String(128), nullable=False, index=True, comment="任务名称")
     
     # 任务编码（唯一标识）
-    code = Column(String(128), unique=True, nullable=False, index=True, comment="任务编码")
+    code = Column(String(128), nullable=False, comment="任务编码")
     
     # 任务描述
     description = Column(Text, nullable=True, comment="任务描述")
@@ -120,6 +120,12 @@ class SchedulerJob(BaseModel):
     
     # 复合索引
     __table_args__ = (
+        Index(
+            'ix_core_scheduler_job_code',
+            'code',
+            unique=True,
+            postgresql_where=text('is_deleted = false'),
+        ),
         Index('ix_scheduler_job_status_trigger', 'status', 'trigger_type'),
         Index('ix_scheduler_job_group_status', 'group', 'status'),
         Index('ix_scheduler_job_priority_status', 'priority', 'status'),

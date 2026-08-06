@@ -31,6 +31,7 @@ def _template(machine_ids):
     t = MagicMock()
     t.id = "tpl-1"
     t.machine_ids = machine_ids
+    t.machine_targets = None
     return t
 
 
@@ -80,7 +81,8 @@ class TestResolveStats:
         stats = await MachineSelectionTemplateService.resolve_stats(db, _template(["a", "b"]))
         assert stats.available == 2
         assert stats.online == 0
-        assert stats.offline == 2
+        assert stats.using == 1
+        assert stats.offline == 1
 
     @pytest.mark.asyncio
     async def test_all_lost(self):
@@ -171,3 +173,31 @@ class TestGetMachinesDetail:
         assert m0.id == "a" and m0.exists is True and m0.ip == "10.0.0.1" and m0.status == "online"
         assert m1.id == "gone" and m1.exists is False and m1.ip is None and m1.status is None
         assert m2.id == "b" and m2.exists is True and m2.ip == "10.0.0.2" and m2.status == "offline"
+
+    @pytest.mark.asyncio
+    async def test_resolves_current_machine_by_ip_and_device_type(self):
+        """机器 ID 变化后，同 IP、同设备类型仍解析到当前记录。"""
+        db = MagicMock()
+        tpl = _template(["old-id"])
+        tpl.machine_targets = [
+            {
+                "machine_id": "old-id",
+                "ip": "10.0.0.1",
+                "device_type": "windows",
+            }
+        ]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [
+            _machine("new-id", status="online", device_type="windows", ip="10.0.0.1")
+        ]
+        db.execute = AsyncMock(return_value=mock_result)
+
+        with patch.object(
+            MachineSelectionTemplateService, "get_by_id", new=AsyncMock(return_value=tpl)
+        ):
+            result = await MachineSelectionTemplateService.get_machines_detail(db, "tpl-1")
+
+        assert result is not None
+        assert len(result.machines) == 1
+        assert result.machines[0].id == "new-id"
+        assert result.machines[0].exists is True

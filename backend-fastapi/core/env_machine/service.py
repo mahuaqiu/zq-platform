@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import openpyxl
 from openpyxl.styles import Font, Alignment
 from pydantic import BaseModel
-from sqlalchemy import select, or_
+from sqlalchemy import case, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
@@ -523,36 +523,45 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_by_namespace_and_device(
+    async def get_by_device_identity(
         cls,
         db: AsyncSession,
-        namespace: str,
         ip: str,
         device_type: str,
         device_sn: Optional[str] = None
-    ) -> Optional[EnvMachine]:
+    ) -> List[EnvMachine]:
         """
-        根据命名空间、IP、设备类型和设备SN获取机器（唯一标识查询）
+        根据物理身份获取机器。
+
+        namespace 是机器池归属，可由 Worker 配置切换，不属于物理设备身份。
+        宿主机使用 IP + 设备类型，移动设备使用 IP + 设备类型 + SN。
 
         :param db: 数据库会话
-        :param namespace: 机器分类
         :param ip: 机器 IP
         :param device_type: 设备类型
         :param device_sn: 设备 SN（移动端必填）
-        :return: 机器记录或 None
+        :return: 按配置完整度排序的匹配记录列表
         """
         query = select(EnvMachine).where(
-            EnvMachine.namespace == namespace,
             EnvMachine.ip == ip,
             EnvMachine.device_type == device_type,
+            EnvMachine.is_virtual == False,  # noqa: E712
             EnvMachine.is_deleted == False  # noqa: E712
         )
 
-        if device_sn:
+        if device_sn is not None:
             query = query.where(EnvMachine.device_sn == device_sn)
+        else:
+            query = query.where(EnvMachine.device_sn.is_(None))
 
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
+        result = await db.execute(
+            query.order_by(
+                case((EnvMachine.extra_message.is_not(None), 1), else_=0).desc(),
+                EnvMachine.available.desc(),
+                EnvMachine.sys_update_datetime.desc(),
+            )
+        )
+        return list(result.scalars().all())
 
     @classmethod
     async def search(

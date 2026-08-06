@@ -7,7 +7,7 @@
 @File: model.py
 @Desc: ConfigTemplate Model - 配置模板模型
 """
-from sqlalchemy import Column, String, Text, Index
+from sqlalchemy import Column, String, Text, Index, text
 
 from app.base_model import BaseModel
 
@@ -29,7 +29,7 @@ class ConfigTemplate(BaseModel):
     __tablename__ = "config_template"
 
     # 模板名称（唯一）
-    name = Column(String(64), nullable=False, unique=True, comment="模板名称")
+    name = Column(String(64), nullable=False, comment="模板名称")
 
     # 模板类型（config/script/command）
     type = Column(String(20), nullable=False, default="config", comment="模板类型")
@@ -54,6 +54,12 @@ class ConfigTemplate(BaseModel):
 
     # 索引
     __table_args__ = (
+        Index(
+            "uq_config_template_active_name",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
         Index("ix_config_template_namespace", "namespace"),
         Index("ix_config_template_type", "type"),
     )

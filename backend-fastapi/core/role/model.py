@@ -11,7 +11,7 @@
 Role Model - 角色模型
 用于管理系统角色和权限分配
 """
-from sqlalchemy import Column, String, Integer, Boolean, Text, Table, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, Text, Table, ForeignKey, Index, text
 from sqlalchemy.orm import relationship
 
 from app.base_model import BaseModel
@@ -64,7 +64,7 @@ class Role(BaseModel):
     name = Column(String(64), nullable=False, index=True, comment="角色名称")
     
     # 角色编码
-    code = Column(String(64), unique=True, nullable=False, index=True, comment="角色编码")
+    code = Column(String(64), nullable=False, comment="角色编码")
 
     # 角色状态
     status = Column(Boolean, default=True, index=True, comment="角色状态（启用/禁用）")
@@ -82,6 +82,15 @@ class Role(BaseModel):
     menus = relationship("Menu", secondary=role_menu, backref="roles", lazy="selectin")
     permissions = relationship("Permission", secondary=role_permission, backref="roles", lazy="selectin")
     depts = relationship("Dept", secondary=role_dept, backref="roles", lazy="selectin")
+
+    __table_args__ = (
+        Index(
+            "ix_core_role_code",
+            "code",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
     
     def __str__(self):
         return f"{self.name} ({self.code})"

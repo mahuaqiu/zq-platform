@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
@@ -50,6 +50,11 @@ class MachineSelectionTemplateService(BaseService):
         """创建模板并自动生成版本号"""
         version = cls._generate_version()
         template_data = data.model_dump()
+        machine_ids = template_data.get("machine_ids") or []
+        if machine_ids and not template_data.get("machine_targets"):
+            template_data["machine_targets"] = await cls._snapshot_targets(
+                db, machine_ids
+            )
         template_data["version"] = version
 
         db_obj = MachineSelectionTemplate(**template_data)
@@ -79,6 +84,11 @@ class MachineSelectionTemplateService(BaseService):
 
         version = cls._generate_version()
         update_data = data.model_dump(exclude_unset=True)
+        machine_ids = update_data.get("machine_ids") or []
+        if "machine_ids" in update_data and "machine_targets" not in update_data:
+            update_data["machine_targets"] = await cls._snapshot_targets(
+                db, machine_ids
+            )
         for field, value in update_data.items():
             setattr(template, field, value)
 
@@ -92,6 +102,33 @@ class MachineSelectionTemplateService(BaseService):
             await db.refresh(template)
 
         return template
+
+    @classmethod
+    async def _snapshot_targets(
+        cls,
+        db: AsyncSession,
+        machine_ids: List[str],
+    ) -> List[dict]:
+        """把前端选择的机器 ID 固化为 IP + 设备类型目标。"""
+        if not machine_ids:
+            return []
+        result = await db.execute(
+            select(EnvMachine).where(
+                EnvMachine.id.in_(machine_ids),
+                EnvMachine.is_deleted == False,  # noqa: E712
+                EnvMachine.is_virtual == False,  # noqa: E712
+            )
+        )
+        machine_map = {str(machine.id): machine for machine in result.scalars().all()}
+        return [
+            {
+                "machine_id": str(machine_id),
+                "ip": machine_map[str(machine_id)].ip,
+                "device_type": machine_map[str(machine_id)].device_type,
+            }
+            for machine_id in machine_ids
+            if str(machine_id) in machine_map
+        ]
 
     @classmethod
     async def get_all(cls, db: AsyncSession) -> List[MachineSelectionTemplate]:
@@ -129,20 +166,12 @@ class MachineSelectionTemplateService(BaseService):
         - lost: machine_ids 中不在 EnvMachine（已删除/虚拟）的数量
         空 machine_ids 全 0。
         """
-        machine_ids = template.machine_ids or []
-        total = len(machine_ids)
+        resolved = await cls.resolve_machines(db, template)
+        total = len(resolved)
         if total == 0:
             return MachineSelectionTemplateStatsResponse()
 
-        # 批量查询存在的机器（未删除、非虚拟）
-        result = await db.execute(
-            select(EnvMachine).where(
-                EnvMachine.id.in_(machine_ids),
-                EnvMachine.is_deleted == False,  # noqa: E712
-                EnvMachine.is_virtual == False,  # noqa: E712
-            )
-        )
-        existing = list(result.scalars().all())
+        existing = [machine for _, machine in resolved if machine is not None]
 
         available = len(existing)
         online = sum(1 for m in existing if m.status == "online")
@@ -160,6 +189,71 @@ class MachineSelectionTemplateService(BaseService):
         )
 
     @classmethod
+    async def resolve_machines(
+        cls,
+        db: AsyncSession,
+        template: MachineSelectionTemplate,
+    ) -> List[tuple[dict, Optional[EnvMachine]]]:
+        """按 IP + 设备类型解析模板当前对应的机器。"""
+        raw_targets = getattr(template, "machine_targets", None)
+        targets = raw_targets if isinstance(raw_targets, list) else []
+
+        # 兼容尚未回填 machine_targets 的旧记录。
+        if not targets:
+            raw_machine_ids = getattr(template, "machine_ids", None)
+            machine_ids = raw_machine_ids if isinstance(raw_machine_ids, list) else []
+            if not machine_ids:
+                return []
+            result = await db.execute(
+                select(EnvMachine).where(
+                    EnvMachine.id.in_(machine_ids),
+                    EnvMachine.is_deleted == False,  # noqa: E712
+                    EnvMachine.is_virtual == False,  # noqa: E712
+                )
+            )
+            machine_map = {str(machine.id): machine for machine in result.scalars().all()}
+            return [
+                ({"machine_id": str(machine_id)}, machine_map.get(str(machine_id)))
+                for machine_id in machine_ids
+            ]
+
+        valid_targets = [
+            target
+            for target in targets
+            if target.get("ip") and target.get("device_type")
+        ]
+        conditions = [
+            and_(
+                EnvMachine.ip == target["ip"],
+                EnvMachine.device_type == target["device_type"],
+            )
+            for target in valid_targets
+        ]
+        if not conditions:
+            return [(target, None) for target in targets]
+
+        result = await db.execute(
+            select(EnvMachine)
+            .where(
+                EnvMachine.is_deleted == False,  # noqa: E712
+                EnvMachine.is_virtual == False,  # noqa: E712
+                or_(*conditions),
+            )
+            .order_by(EnvMachine.sys_update_datetime.desc())
+        )
+        machine_map = {}
+        for machine in result.scalars().all():
+            machine_map.setdefault((machine.ip, machine.device_type), machine)
+
+        return [
+            (
+                target,
+                machine_map.get((target.get("ip"), target.get("device_type"))),
+            )
+            for target in targets
+        ]
+
+    @classmethod
     async def get_machines_detail(
         cls,
         db: AsyncSession,
@@ -175,26 +269,15 @@ class MachineSelectionTemplateService(BaseService):
         if not template:
             return None
 
-        machine_ids = template.machine_ids or []
-
-        if not machine_ids:
+        resolved = await cls.resolve_machines(db, template)
+        if not resolved:
             return MachineSelectionTemplateDetailResponse(
                 template_id=str(template.id),
                 machines=[],
             )
 
-        result = await db.execute(
-            select(EnvMachine).where(
-                EnvMachine.id.in_(machine_ids),
-                EnvMachine.is_deleted == False,  # noqa: E712
-                EnvMachine.is_virtual == False,  # noqa: E712
-            )
-        )
-        existing_map = {str(m.id): m for m in result.scalars().all()}
-
         machines: List[MachineDetailResponse] = []
-        for mid in machine_ids:
-            m = existing_map.get(str(mid))
+        for target, m in resolved:
             if m is not None:
                 machines.append(MachineDetailResponse(
                     id=str(m.id),
@@ -205,9 +288,9 @@ class MachineSelectionTemplateService(BaseService):
                 ))
             else:
                 machines.append(MachineDetailResponse(
-                    id=str(mid),
-                    ip=None,
-                    device_type=None,
+                    id=str(target.get("machine_id") or f"{target.get('ip')}:{target.get('device_type')}"),
+                    ip=target.get("ip"),
+                    device_type=target.get("device_type"),
                     status=None,
                     exists=False,
                 ))

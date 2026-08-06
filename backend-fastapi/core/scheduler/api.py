@@ -438,7 +438,10 @@ async def get_scheduler_job_statistics(db: AsyncSession = Depends(get_db)):
 async def get_scheduler_job(job_id: str, db: AsyncSession = Depends(get_db)):
     """获取单个定时任务的详细信息"""
     result = await db.execute(
-        select(SchedulerJob).where(SchedulerJob.id == job_id)
+        select(SchedulerJob).where(
+            SchedulerJob.id == job_id,
+            SchedulerJob.is_deleted == False,  # noqa: E712
+        )
     )
     job = result.scalar_one_or_none()
 

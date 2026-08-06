@@ -24,6 +24,9 @@ import {
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElPagination,
+  ElRadioButton,
+  ElRadioGroup,
   ElSelect,
   ElTable,
   ElTableColumn,
@@ -58,6 +61,13 @@ const activeTab = ref<'deploy' | 'history'>('deploy');
 // 模板列表数据
 const templateList = ref<ConfigTemplate[]>([]);
 const templateLoading = ref(false);
+const templateTotal = ref(0);
+const templateQuery = ref({
+  keyword: '',
+  page: 1,
+  page_size: 20,
+  template_type: 'all' as 'all' | 'command' | 'config' | 'script',
+});
 
 // 当前选中的模板
 const selectedTemplate = ref<ConfigTemplate | null>(null);
@@ -196,14 +206,32 @@ function getTargetOsDisplay(scriptName?: string): string {
 async function loadTemplates() {
   templateLoading.value = true;
   try {
-    const data = await getConfigTemplateListApi();
+    const data = await getConfigTemplateListApi({
+      keyword: templateQuery.value.keyword.trim() || undefined,
+      page: templateQuery.value.page,
+      page_size: templateQuery.value.page_size,
+      template_type:
+        templateQuery.value.template_type === 'all'
+          ? undefined
+          : templateQuery.value.template_type,
+    });
     const oldSelectedId = selectedTemplate.value?.id;
     templateList.value = data.items || [];
+    templateTotal.value = data.total || 0;
+    if (
+      templateList.value.length === 0 &&
+      templateTotal.value > 0 &&
+      templateQuery.value.page > 1
+    ) {
+      templateQuery.value.page -= 1;
+      await loadTemplates();
+      return;
+    }
     // 保持当前选中模板，但用刷新后的新对象替换旧引用，避免编辑保存后
     // selectedTemplate 仍指向内存里的旧对象（运行命令时取到旧 command）。
     // 没有选中项时默认选第一个；原选中项已被删除时也回退到第一个。
     if (templateList.value.length > 0) {
-      const fallbackTemplate = templateList.value[0];
+      const fallbackTemplate = templateList.value[0]!;
       selectedTemplate.value =
         (oldSelectedId
           ? templateList.value.find((t) => t.id === oldSelectedId)
@@ -216,6 +244,18 @@ async function loadTemplates() {
   } finally {
     templateLoading.value = false;
   }
+}
+
+async function handleTemplateFilter() {
+  templateQuery.value.page = 1;
+  await loadTemplates();
+  await loadPreview();
+}
+
+async function handleTemplatePageChange(page: number) {
+  templateQuery.value.page = page;
+  await loadTemplates();
+  await loadPreview();
 }
 
 // 新建模板
@@ -358,7 +398,11 @@ function handleSelectTemplate(template: ConfigTemplate) {
 
 // 加载预览
 async function loadPreview() {
-  if (!selectedTemplate.value) return;
+  if (!selectedTemplate.value) {
+    previewData.value = null;
+    selectedMachineIds.value = [];
+    return;
+  }
   previewLoading.value = true;
   try {
     const data = await getConfigPreviewApi(selectedTemplate.value.id, {
@@ -843,6 +887,26 @@ onMounted(async () => {
                 新建
               </ElButton>
             </div>
+            <div class="template-filter">
+              <ElInput
+                v-model="templateQuery.keyword"
+                clearable
+                placeholder="搜索名称、脚本或命令"
+                @clear="handleTemplateFilter"
+                @keyup.enter="handleTemplateFilter"
+              />
+              <ElRadioGroup
+                v-model="templateQuery.template_type"
+                size="small"
+                class="template-type-filter"
+                @change="handleTemplateFilter"
+              >
+                <ElRadioButton value="all">全部</ElRadioButton>
+                <ElRadioButton value="command">命令</ElRadioButton>
+                <ElRadioButton value="script">脚本</ElRadioButton>
+                <ElRadioButton value="config">配置</ElRadioButton>
+              </ElRadioGroup>
+            </div>
             <div class="panel-body">
               <div v-if="templateLoading" class="loading-text">加载中...</div>
               <div v-else-if="templateList.length === 0" class="empty-text">
@@ -914,6 +978,17 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
+            <ElPagination
+              v-if="templateTotal > templateQuery.page_size"
+              class="template-pagination"
+              small
+              background
+              layout="prev, pager, next"
+              :current-page="templateQuery.page"
+              :page-size="templateQuery.page_size"
+              :total="templateTotal"
+              @current-change="handleTemplatePageChange"
+            />
           </div>
 
           <!-- 右侧：下发配置区 -->
@@ -1823,6 +1898,29 @@ onMounted(async () => {
   color: #333;
 }
 
+.template-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.template-type-filter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+}
+
+.template-type-filter :deep(.el-radio-button) {
+  min-width: 0;
+}
+
+.template-type-filter :deep(.el-radio-button__inner) {
+  width: 100%;
+  padding: 7px 4px;
+}
+
 .panel-body {
   flex: 1;
   overflow-y: auto;
@@ -1840,6 +1938,12 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.template-pagination {
+  justify-content: center;
+  padding: 10px 8px;
+  border-top: 1px solid #e8e8e8;
 }
 
 .template-item {

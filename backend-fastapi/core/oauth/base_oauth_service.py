@@ -265,7 +265,10 @@ class BaseOAuthService(ABC):
             unique_username = username
             counter = 1
             while True:
-                stmt = select(User).where(User.username == unique_username)
+                stmt = select(User).where(
+                    User.username == unique_username,
+                    User.is_deleted == False,  # noqa: E712
+                )
                 result = await db.execute(stmt)
                 if result.scalar_one_or_none() is None:
                     break

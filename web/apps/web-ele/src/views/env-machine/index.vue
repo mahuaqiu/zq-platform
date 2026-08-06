@@ -273,6 +273,7 @@ function validateJson(): Record<string, any> | null {
 
 // 提交表单
 async function handleSubmit() {
+  let extraMessage: Record<string, any> | undefined;
   // 资产编号必填校验
   if (assetNumberRequired.value && !formData.value.asset_number) {
     ElMessage.warning('请输入资产编号');
@@ -281,8 +282,8 @@ async function handleSubmit() {
 
   // 非手工页面编辑模式下，验证扩展信息
   if (!isManual.value && isEdit.value) {
-    const extraMessage = validateJson();
-    if (extraMessage === null) {
+    extraMessage = validateJson() ?? undefined;
+    if (extraMessage === undefined) {
       ElMessage.warning('扩展信息 JSON 格式不正确，请修正后再保存');
       return;
     }
@@ -332,8 +333,8 @@ async function handleSubmit() {
         note: formData.value.note,
       };
       // 非手工页面添加扩展信息
-      if (!isManual.value && formData.value.extra_message_raw.trim()) {
-        updateData.extra_message = JSON.parse(formData.value.extra_message_raw.trim());
+      if (!isManual.value) {
+        updateData.extra_message = extraMessage;
       }
       await updateEnvMachineApi(editId.value, updateData);
       ElMessage.success('更新成功');

@@ -16,6 +16,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.database import AsyncSessionLocal, get_db
 from core.config_template.command_task_service import CommandTaskService
 from core.config_template.machine_selection_template_model import MachineSelectionTemplate
+from core.config_template.machine_selection_template_service import MachineSelectionTemplateService
 from core.config_template.model import ConfigTemplate
 from core.config_template.service import (
     ConfigTemplateService,
@@ -97,13 +98,16 @@ async def deploy_script_by_name(
     if not machine_template:
         raise HTTPException(status_code=404, detail="机器模板不存在")
 
-    machine_conditions = [
-        EnvMachine.is_deleted == False,  # noqa: E712
-        EnvMachine.is_virtual == False,  # noqa: E712
-    ]
-    if machine_template.machine_ids:
-        machine_conditions.append(EnvMachine.id.in_(machine_template.machine_ids))
+    if machine_template.machine_targets or machine_template.machine_ids:
+        resolved = await MachineSelectionTemplateService.resolve_machines(
+            db, machine_template
+        )
+        machines = [machine for _, machine in resolved if machine is not None]
     else:
+        machine_conditions = [
+            EnvMachine.is_deleted == False,  # noqa: E712
+            EnvMachine.is_virtual == False,  # noqa: E712
+        ]
         if machine_template.namespace:
             machine_conditions.append(EnvMachine.namespace == machine_template.namespace)
         if machine_template.device_type:
@@ -111,8 +115,8 @@ async def deploy_script_by_name(
         if machine_template.ip_pattern:
             machine_conditions.append(EnvMachine.ip.ilike(f"%{machine_template.ip_pattern}%"))
 
-    machine_result = await db.execute(select(EnvMachine).where(and_(*machine_conditions)))
-    machines = list(machine_result.scalars().all())
+        machine_result = await db.execute(select(EnvMachine).where(and_(*machine_conditions)))
+        machines = list(machine_result.scalars().all())
     if not machines:
         raise HTTPException(status_code=400, detail="机器模板没有匹配到执行机")
 

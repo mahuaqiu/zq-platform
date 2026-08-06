@@ -16,7 +16,7 @@ from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
@@ -36,6 +36,7 @@ from core.config_template.schema import (
     CommandTaskDetailResponse,
 )
 from core.config_template.service import ConfigTemplateService, SUPPORTED_CONFIG_DEVICE_TYPES
+from core.config_template.model import ConfigTemplate
 from core.config_template.machine_selection_template_service import MachineSelectionTemplateService
 from core.config_template.command_task_service import CommandTaskService
 from core.env_machine.model import EnvMachine
@@ -64,19 +65,29 @@ async def list_config_templates(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     template_type: Optional[str] = Query(None, description="模板类型筛选: config/script/command"),
+    keyword: Optional[str] = Query(None, max_length=100, description="名称、脚本名、命令或备注搜索"),
     db: AsyncSession = Depends(get_db)
 ) -> PaginatedResponse[ConfigTemplateResponse]:
     """获取配置模板列表（分页）"""
+    filters = []
+    if template_type:
+        filters.append(ConfigTemplate.type == template_type)
+    if keyword and keyword.strip():
+        escaped = keyword.strip().replace("%", r"\%").replace("_", r"\_")
+        pattern = f"%{escaped}%"
+        filters.append(or_(
+            ConfigTemplate.name.ilike(pattern),
+            ConfigTemplate.script_name.ilike(pattern),
+            ConfigTemplate.command.ilike(pattern),
+            ConfigTemplate.note.ilike(pattern),
+        ))
+
     templates, total = await ConfigTemplateService.get_list(
         db,
         page=page,
         page_size=page_size,
+        filters=filters,
     )
-
-    # 如果有类型筛选
-    if template_type:
-        templates = [t for t in templates if t.type == template_type]
-        total = len(templates)
 
     return PaginatedResponse(
         items=[ConfigTemplateResponse.model_validate(t) for t in templates],
