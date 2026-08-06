@@ -48,6 +48,7 @@ from core.env_machine.schema import (
 from core.env_machine.service import EnvMachineService
 from core.env_machine.pool_manager import EnvPoolManager
 from core.env_machine.auth import verify_env_apply_auth
+from core.env_machine.lock_manager import EnvLockManager
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,29 @@ def _worker_error_message(payload: dict, fallback: str) -> str:
 
 
 router = APIRouter(prefix="/env", tags=["执行机管理"])
+
+
+def _get_registration_identities(
+    data: EnvRegisterRequest,
+) -> list[tuple[str, str, Optional[str]]]:
+    """提取注册请求中的物理设备身份。"""
+    identities: list[tuple[str, str, Optional[str]]] = []
+    for device_type, device_sns in data.devices.items():
+        if device_type in ("windows", "mac"):
+            identities.append((data.ip, device_type, None))
+            continue
+        if device_type not in ("android", "ios", "harmony_mobile", "harmony_pc"):
+            continue
+        for device_item in device_sns:
+            if isinstance(device_item, dict):
+                device_sn = device_item.get("udid")
+            elif isinstance(device_item, str):
+                device_sn = device_item
+            else:
+                continue
+            if device_sn:
+                identities.append((data.ip, device_type, device_sn))
+    return identities
 
 
 async def _get_registration_machine(
@@ -137,6 +161,23 @@ async def get_namespaces(db: AsyncSession = Depends(get_db)) -> Dict[str, str]:
 async def register_env_machine(
     data: EnvRegisterRequest,
     db: AsyncSession = Depends(get_db)
+) -> EnvSuccessResponse:
+    """锁住注册涉及的旧、新机器池后执行注册。"""
+    async with EnvLockManager.env_registration_lock_or_raise():
+        namespaces = {data.namespace}
+        for ip, device_type, device_sn in _get_registration_identities(data):
+            matches = await EnvMachineService.get_by_device_identity(
+                db, ip=ip, device_type=device_type, device_sn=device_sn
+            )
+            namespaces.update(machine.namespace for machine in matches if machine.namespace)
+
+        async with EnvLockManager.env_locks_or_raise(namespaces):
+            return await _register_env_machine(data, db)
+
+
+async def _register_env_machine(
+    data: EnvRegisterRequest,
+    db: AsyncSession,
 ) -> EnvSuccessResponse:
     """
     执行机注册接口

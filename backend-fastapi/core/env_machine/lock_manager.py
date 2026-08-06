@@ -41,6 +41,7 @@ class EnvLockManager:
     """
 
     LOCK_PREFIX = "env_lock:"
+    REGISTRATION_LOCK_KEY = f"{LOCK_PREFIX}registration"
     LOCK_TTL = 10  # 锁过期时间（秒）
     RETRY_INTERVAL = 0.1  # 重试间隔（秒）
     RETRY_TIMEOUT = 3  # 超时时间（秒）
@@ -136,8 +137,13 @@ class EnvLockManager:
             tuple: (是否成功, 锁持有者ID, 锁key列表)
                    失败时返回 (False, "", [])
         """
+        return await cls.acquire_lock_keys(cls._get_required_locks(namespace))
+
+    @classmethod
+    async def acquire_lock_keys(cls, lock_keys: list[str]) -> tuple[bool, str, list[str]]:
+        """按固定顺序获取一组 Redis 锁。"""
         holder_id = str(uuid.uuid4())
-        locks_to_acquire = cls._get_required_locks(namespace)
+        locks_to_acquire = sorted(set(lock_keys))
 
         start_time = time.monotonic()
 
@@ -225,11 +231,53 @@ class EnvLockManager:
         Raises:
             LockAcquireError: 获取锁超时时抛出
         """
+        registration_success, registration_holder, registration_locks = (
+            await cls.acquire_lock_keys([cls.REGISTRATION_LOCK_KEY])
+        )
+        if not registration_success:
+            raise LockAcquireError()
+
         success, holder_id, lock_keys = await cls.acquire_env_locks(namespace)
+        if not success:
+            await cls.release_env_locks(registration_holder, registration_locks)
+            raise LockAcquireError()
+
+        # 申请流程拿到机器池锁后即可释放注册锁，后续分配仍由机器池锁保护。
+        await cls.release_env_locks(registration_holder, registration_locks)
+        try:
+            yield holder_id
+        finally:
+            await cls.release_env_locks(holder_id, lock_keys)
+
+    @classmethod
+    @asynccontextmanager
+    async def env_locks_or_raise(cls, namespaces: set[str]):
+        """同时锁住多个命名空间涉及的机器池。"""
+        lock_keys = [
+            lock_key
+            for namespace in namespaces
+            for lock_key in cls._get_required_locks(namespace)
+        ]
+        success, holder_id, acquired_locks = await cls.acquire_lock_keys(lock_keys)
         if not success:
             raise LockAcquireError()
 
         try:
             yield holder_id
         finally:
-            await cls.release_env_locks(holder_id, lock_keys)
+            await cls.release_env_locks(holder_id, acquired_locks)
+
+    @classmethod
+    @asynccontextmanager
+    async def env_registration_lock_or_raise(cls):
+        """串行化注册流程，避免动态发现旧命名空间时发生锁顺序竞争。"""
+        success, holder_id, acquired_locks = await cls.acquire_lock_keys(
+            [cls.REGISTRATION_LOCK_KEY]
+        )
+        if not success:
+            raise LockAcquireError()
+
+        try:
+            yield holder_id
+        finally:
+            await cls.release_env_locks(holder_id, acquired_locks)

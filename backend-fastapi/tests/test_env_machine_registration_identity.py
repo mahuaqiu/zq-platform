@@ -1,5 +1,6 @@
 """Worker 注册物理身份与命名空间切换回归测试。"""
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,6 +29,12 @@ def _machine(machine_id: str, namespace: str, extra_message=None):
     return machine
 
 
+@asynccontextmanager
+async def _noop_lock(*args, **kwargs):
+    """单测不依赖 Redis，直接通过锁上下文。"""
+    yield "test-holder"
+
+
 @pytest.mark.asyncio
 async def test_namespace_switch_updates_existing_machine() -> None:
     """同一物理机切换命名空间时更新原记录，不新增机器。"""
@@ -51,6 +58,18 @@ async def test_namespace_switch_updates_existing_machine() -> None:
         patch(
             "core.env_machine.api._get_registration_machine",
             new=AsyncMock(return_value=machine),
+        ),
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            new=AsyncMock(return_value=[machine]),
+        ),
+        patch(
+            "core.env_machine.api.EnvLockManager.env_registration_lock_or_raise",
+            new=_noop_lock,
+        ),
+        patch(
+            "core.env_machine.api.EnvLockManager.env_locks_or_raise",
+            new=_noop_lock,
         ),
         patch(
             "core.env_machine.api.EnvMachineService.get_by_namespace",
