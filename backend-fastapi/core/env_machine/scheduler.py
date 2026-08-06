@@ -27,6 +27,26 @@ from utils.logging_config import get_logger
 logger = get_logger("scheduler.env_machine")
 
 
+def _get_reported_namespace(
+    worker_data: Dict,
+    device_type: str,
+    device_sn: Optional[str] = None,
+) -> str:
+    """解析 Worker 上报的设备级 namespace，兼容旧 Worker 的全局字段。"""
+    namespaces = worker_data.get("device_namespaces")
+    if isinstance(namespaces, dict):
+        value = namespaces.get(device_type)
+        if isinstance(value, str) and value:
+            return value
+        if isinstance(value, dict) and device_sn:
+            namespace = value.get(device_sn)
+            if isinstance(namespace, str) and namespace:
+                return namespace
+
+    namespace = worker_data.get("namespace")
+    return namespace if isinstance(namespace, str) else ""
+
+
 class EnvMachineScheduler:
     """
     执行机定时任务管理器
@@ -438,7 +458,6 @@ async def reload_machine_status_after_restart() -> Dict:
                 for worker_key, worker_machines, success, data in results:
                     if success and data:
                         devices = data.get("devices", {})
-                        namespace = data.get("namespace", "")
                         version = data.get("version")
                         config_version = data.get("config_version")
 
@@ -448,7 +467,14 @@ async def reload_machine_status_after_restart() -> Dict:
                                 # Windows/Mac 不需要检查 device_sn
                                 machine.status = "online"
                                 machine.sync_time = now
-                                machine.namespace = namespace or machine.namespace
+                                namespace = _get_reported_namespace(data, device_type)
+                                if namespace and namespace != machine.namespace:
+                                    old_namespace = machine.namespace
+                                    machine.namespace = namespace
+                                    from core.env_machine.pool_manager import EnvPoolManager
+                                    await EnvPoolManager.remove_machine_from_cache(
+                                        str(machine.id), old_namespace
+                                    )
                                 if version:
                                     machine.version = version
                                 if config_version:
@@ -469,7 +495,16 @@ async def reload_machine_status_after_restart() -> Dict:
                                 if machine.device_sn in device_sns:
                                     machine.status = "online"
                                     machine.sync_time = now
-                                    machine.namespace = namespace or machine.namespace
+                                    namespace = _get_reported_namespace(
+                                        data, device_type, machine.device_sn
+                                    )
+                                    if namespace and namespace != machine.namespace:
+                                        old_namespace = machine.namespace
+                                        machine.namespace = namespace
+                                        from core.env_machine.pool_manager import EnvPoolManager
+                                        await EnvPoolManager.remove_machine_from_cache(
+                                            str(machine.id), old_namespace
+                                        )
                                     if version:
                                         machine.version = version
                                     if config_version:

@@ -105,7 +105,8 @@ def upgrade() -> None:
                        ORDER BY (
                                     CASE
                                         WHEN json_typeof(extra_message) = 'object'
-                                        THEN json_object_length(extra_message)
+                                             AND btrim(extra_message::text) <> '{}'
+                                        THEN 1
                                         ELSE 0
                                     END
                                 ) DESC,
@@ -141,7 +142,8 @@ def upgrade() -> None:
                        ORDER BY (
                                     CASE
                                         WHEN json_typeof(extra_message) = 'object'
-                                        THEN json_object_length(extra_message)
+                                             AND btrim(extra_message::text) <> '{}'
+                                        THEN 1
                                         ELSE 0
                                     END
                                 ) DESC,
