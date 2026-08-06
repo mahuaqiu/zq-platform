@@ -32,19 +32,46 @@ def _get_reported_namespace(
     device_type: str,
     device_sn: Optional[str] = None,
 ) -> str:
-    """解析 Worker 上报的设备级 namespace，兼容旧 Worker 的全局字段。"""
+    """解析 Worker 上报的设备级 namespace。"""
     namespaces = worker_data.get("device_namespaces")
-    if isinstance(namespaces, dict):
-        value = namespaces.get(device_type)
+    if not isinstance(namespaces, dict):
+        raise ValueError("Worker 响应缺少 device_namespaces")
+
+    value = namespaces.get(device_type)
+    if device_sn is None:
         if isinstance(value, str) and value:
             return value
-        if isinstance(value, dict) and device_sn:
-            namespace = value.get(device_sn)
-            if isinstance(namespace, str) and namespace:
-                return namespace
+        raise ValueError(f"Worker 响应缺少 {device_type} 的 namespace")
 
-    namespace = worker_data.get("namespace")
-    return namespace if isinstance(namespace, str) else ""
+    if isinstance(value, dict):
+        namespace = value.get(device_sn)
+        if isinstance(namespace, str) and namespace:
+            return namespace
+    raise ValueError(f"Worker 响应缺少 {device_type}/{device_sn} 的 namespace")
+
+
+def _validate_worker_namespace_payload(worker_data: Dict, machines: List[EnvMachine]) -> None:
+    """在更新状态前校验 Worker 的在线设备均具有明确 namespace。"""
+    devices = worker_data.get("devices")
+    if not isinstance(devices, dict):
+        raise ValueError("Worker 响应缺少 devices")
+
+    for machine in machines:
+        if machine.device_type in ("windows", "mac"):
+            _get_reported_namespace(worker_data, machine.device_type)
+            continue
+
+        if machine.device_type not in ("android", "ios", "harmony_mobile", "harmony_pc"):
+            continue
+
+        device_items = devices.get(machine.device_type, [])
+        device_sns = {
+            item.get("udid") if isinstance(item, dict) else item
+            for item in device_items
+            if isinstance(item, (dict, str))
+        }
+        if machine.device_sn in device_sns:
+            _get_reported_namespace(worker_data, machine.device_type, machine.device_sn)
 
 
 class EnvMachineScheduler:
@@ -371,6 +398,7 @@ async def _check_single_worker(
         resp = await client.get(url)
         if resp.status_code == 200:
             data = resp.json()
+            _validate_worker_namespace_payload(data, worker_machines)
             return (worker_key, worker_machines, True, data)
         else:
             logger.warning(f"Worker {worker_key} 返回异常状态码: {resp.status_code}")
@@ -378,6 +406,10 @@ async def _check_single_worker(
 
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         logger.warning(f"Worker {worker_key} 连接失败: {type(e).__name__}")
+        return (worker_key, worker_machines, False, None)
+
+    except ValueError as e:
+        logger.warning(f"Worker {worker_key} namespace 映射无效: {e}")
         return (worker_key, worker_machines, False, None)
 
     except Exception as e:
@@ -468,7 +500,7 @@ async def reload_machine_status_after_restart() -> Dict:
                                 machine.status = "online"
                                 machine.sync_time = now
                                 namespace = _get_reported_namespace(data, device_type)
-                                if namespace and namespace != machine.namespace:
+                                if namespace != machine.namespace:
                                     old_namespace = machine.namespace
                                     machine.namespace = namespace
                                     from core.env_machine.pool_manager import EnvPoolManager
@@ -498,7 +530,7 @@ async def reload_machine_status_after_restart() -> Dict:
                                     namespace = _get_reported_namespace(
                                         data, device_type, machine.device_sn
                                     )
-                                    if namespace and namespace != machine.namespace:
+                                    if namespace != machine.namespace:
                                         old_namespace = machine.namespace
                                         machine.namespace = namespace
                                         from core.env_machine.pool_manager import EnvPoolManager
