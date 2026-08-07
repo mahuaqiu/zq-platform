@@ -402,7 +402,6 @@ class UpgradeService:
         # 查询机器
         conditions = [
             EnvMachine.is_deleted == False,
-            EnvMachine.available == True,
             EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
         ]
         if machine_ids:
@@ -545,7 +544,6 @@ class UpgradeService:
 
         conditions = [
             EnvMachine.is_deleted == False,
-            EnvMachine.available == True,
             EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
         ]
         if namespace:
