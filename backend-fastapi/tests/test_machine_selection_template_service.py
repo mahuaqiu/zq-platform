@@ -16,13 +16,14 @@ from core.config_template.schema import (
 )
 
 
-def _machine(mid, status="online", device_type="windows", ip="10.0.0.1"):
+def _machine(mid, status="online", device_type="windows", ip="10.0.0.1", device_sn=None):
     """构造一个 EnvMachine mock 对象"""
     m = MagicMock()
     m.id = mid
     m.status = status
     m.device_type = device_type
     m.ip = ip
+    m.device_sn = device_sn
     return m
 
 
@@ -200,4 +201,66 @@ class TestGetMachinesDetail:
         assert result is not None
         assert len(result.machines) == 1
         assert result.machines[0].id == "new-id"
+        assert result.machines[0].exists is True
+
+    @pytest.mark.asyncio
+    async def test_resolves_mobile_targets_by_device_sn(self):
+        """同一 Worker 的多台同类型移动设备必须按 SN 分别解析。"""
+        db = MagicMock()
+        tpl = _template(["old-a", "old-b"])
+        tpl.machine_targets = [
+            {
+                "machine_id": "old-a",
+                "ip": "10.0.0.1",
+                "device_type": "android",
+                "device_sn": "device-a",
+            },
+            {
+                "machine_id": "old-b",
+                "ip": "10.0.0.1",
+                "device_type": "android",
+                "device_sn": "device-b",
+            },
+        ]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [
+            _machine("new-a", device_type="android", device_sn="device-a"),
+            _machine("new-b", device_type="android", device_sn="device-b"),
+        ]
+        db.execute = AsyncMock(return_value=mock_result)
+
+        with patch.object(
+            MachineSelectionTemplateService, "get_by_id", new=AsyncMock(return_value=tpl)
+        ):
+            result = await MachineSelectionTemplateService.get_machines_detail(db, "tpl-1")
+
+        assert result is not None
+        assert [machine.id for machine in result.machines] == ["new-a", "new-b"]
+
+    @pytest.mark.asyncio
+    async def test_machine_id_survives_device_sn_edit(self):
+        """设备 SN 编辑后，模板优先按保留的机器 ID 解析。"""
+        db = MagicMock()
+        tpl = _template(["machine-a"])
+        tpl.machine_targets = [
+            {
+                "machine_id": "machine-a",
+                "ip": "10.0.0.1",
+                "device_type": "android",
+                "device_sn": "old-sn",
+            }
+        ]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [
+            _machine("machine-a", device_type="android", device_sn="new-sn"),
+        ]
+        db.execute = AsyncMock(return_value=mock_result)
+
+        with patch.object(
+            MachineSelectionTemplateService, "get_by_id", new=AsyncMock(return_value=tpl)
+        ):
+            result = await MachineSelectionTemplateService.get_machines_detail(db, "tpl-1")
+
+        assert result is not None
+        assert result.machines[0].id == "machine-a"
         assert result.machines[0].exists is True

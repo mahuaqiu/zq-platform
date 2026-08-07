@@ -552,10 +552,37 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         if device_sn is not None:
             query = query.where(EnvMachine.device_sn == device_sn)
         else:
-            query = query.where(EnvMachine.device_sn.is_(None))
+            # Windows/Mac 注册上报 null；历史编辑接口可能保存成空字符串，按同一身份处理。
+            query = query.where(
+                or_(EnvMachine.device_sn.is_(None), EnvMachine.device_sn == "")
+            )
 
         result = await db.execute(
             query.order_by(
+                case((EnvMachine.extra_message.is_not(None), 1), else_=0).desc(),
+                EnvMachine.available.desc(),
+                EnvMachine.sys_update_datetime.desc(),
+            )
+        )
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_host_device_type(
+        cls,
+        db: AsyncSession,
+        ip: str,
+        device_type: str,
+    ) -> List[EnvMachine]:
+        """按宿主机和设备类型查询注册候选，用于兼容人工修改过的 SN。"""
+        result = await db.execute(
+            select(EnvMachine)
+            .where(
+                EnvMachine.ip == ip,
+                EnvMachine.device_type == device_type,
+                EnvMachine.is_virtual == False,  # noqa: E712
+                EnvMachine.is_deleted == False,  # noqa: E712
+            )
+            .order_by(
                 case((EnvMachine.extra_message.is_not(None), 1), else_=0).desc(),
                 EnvMachine.available.desc(),
                 EnvMachine.sys_update_datetime.desc(),

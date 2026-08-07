@@ -91,6 +91,25 @@ def _get_registration_identities(
     return identities
 
 
+async def _get_registration_lock_matches(
+    db: AsyncSession,
+    ip: str,
+    device_type: str,
+    device_sn: Optional[str],
+) -> List[EnvMachine]:
+    """返回注册可能更新到的记录，确保旧命名空间也被加锁。"""
+    matches = await EnvMachineService.get_by_device_identity(
+        db, ip=ip, device_type=device_type, device_sn=device_sn
+    )
+    if matches:
+        return matches
+
+    candidates = await EnvMachineService.get_by_host_device_type(
+        db, ip=ip, device_type=device_type
+    )
+    return candidates if len(candidates) == 1 else []
+
+
 async def _get_registration_machine(
     db: AsyncSession,
     ip: str,
@@ -105,12 +124,32 @@ async def _get_registration_machine(
         device_sn=device_sn,
     )
     if not matches:
+        candidates = await EnvMachineService.get_by_host_device_type(
+            db, ip=ip, device_type=device_type
+        )
+        if len(candidates) == 1:
+            matches = candidates
+            old_device_sn = matches[0].device_sn
+            if matches[0].device_sn != device_sn:
+                matches[0].device_sn = device_sn
+            logger.warning(
+                "注册 SN 与历史记录不一致，按唯一宿主机记录更新: id=%s, ip=%s, "
+                "device_type=%s, old_device_sn=%s, new_device_sn=%s",
+                matches[0].id,
+                ip,
+                device_type,
+                old_device_sn,
+                device_sn,
+            )
+    if not matches:
         return None
 
     primary = next(
         (machine for machine in matches if machine.extra_message),
         matches[0],
     )
+    if device_sn is None and primary.device_sn == "":
+        primary.device_sn = None
     has_duplicates = len(matches) > 1
     for duplicate in matches:
         if duplicate is primary:
@@ -166,7 +205,7 @@ async def register_env_machine(
     async with EnvLockManager.env_registration_lock_or_raise():
         namespaces = {data.namespace}
         for ip, device_type, device_sn in _get_registration_identities(data):
-            matches = await EnvMachineService.get_by_device_identity(
+            matches = await _get_registration_lock_matches(
                 db, ip=ip, device_type=device_type, device_sn=device_sn
             )
             namespaces.update(machine.namespace for machine in matches if machine.namespace)
@@ -606,6 +645,8 @@ async def update_env_machine(
             raise HTTPException(status_code=400, detail=error_msg)
 
     update_data = data.model_dump(exclude_unset=True)
+    if "device_sn" in update_data and not update_data["device_sn"]:
+        update_data["device_sn"] = None
     for key, value in update_data.items():
         setattr(machine, key, value)
 

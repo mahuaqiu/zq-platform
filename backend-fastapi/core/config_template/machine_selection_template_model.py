@@ -41,7 +41,7 @@ class MachineSelectionTemplate(BaseModel):
     # 固定机器ID列表
     machine_ids = Column(JSON, nullable=True, comment="固定机器ID列表")
 
-    # 固定机器目标快照，以 IP + 设备类型解析当前机器，不依赖易变化的机器 ID
+    # 固定机器目标快照，以 IP + 设备类型 + SN 解析当前机器，不依赖易变化的机器 ID
     machine_targets = Column(JSON, nullable=True, comment="机器目标快照")
 
     # 备注说明

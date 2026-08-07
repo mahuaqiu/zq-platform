@@ -127,3 +127,121 @@ async def test_duplicate_registration_records_are_merged() -> None:
     db.delete.assert_awaited_once_with(duplicate)
     db.flush.assert_awaited_once()
     remove_cache.assert_awaited_once_with("duplicate", "meeting_new")
+
+
+@pytest.mark.asyncio
+async def test_changed_device_sn_reuses_unique_host_machine() -> None:
+    """人工编辑过 SN 后，升级注册应更新原机器而非插入新记录。"""
+    db = MagicMock()
+    machine = _machine("machine-1", "meeting_app")
+    machine.device_type = "android"
+    machine.device_sn = "edited-sn"
+
+    with (
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            new=AsyncMock(return_value=[machine]),
+        ),
+    ):
+        result = await _get_registration_machine(
+            db,
+            ip="10.0.0.1",
+            device_type="android",
+            device_sn="worker-sn",
+        )
+
+    assert result is machine
+    assert machine.device_sn == "worker-sn"
+
+
+@pytest.mark.asyncio
+async def test_changed_device_sn_does_not_merge_multiple_host_devices() -> None:
+    """同宿主机有多台同类型设备时，SN 不一致不能猜测匹配关系。"""
+    db = MagicMock()
+    first = _machine("machine-1", "meeting_app")
+    second = _machine("machine-2", "meeting_app")
+    first.device_type = second.device_type = "android"
+
+    with (
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            new=AsyncMock(return_value=[first, second]),
+        ),
+    ):
+        result = await _get_registration_machine(
+            db,
+            ip="10.0.0.1",
+            device_type="android",
+            device_sn="worker-sn",
+        )
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_missing_worker_device_sn_reuses_unique_edited_host_machine() -> None:
+    """宿主机上报空 SN 时，也应复用唯一的人工编辑记录。"""
+    db = MagicMock()
+    machine = _machine("machine-1", "meeting_old")
+    machine.device_sn = "manual-value"
+
+    with (
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            new=AsyncMock(return_value=[machine]),
+        ),
+    ):
+        result = await _get_registration_machine(
+            db,
+            ip="10.0.0.1",
+            device_type="windows",
+            device_sn=None,
+        )
+
+    assert result is machine
+    assert machine.device_sn is None
+
+
+@pytest.mark.asyncio
+async def test_windows_null_registration_merges_empty_sn_history() -> None:
+    """Windows 重注册会合并历史 device_sn=null 和 device_sn="" 记录。"""
+    db = MagicMock()
+    db.delete = AsyncMock()
+    db.flush = AsyncMock()
+    primary = _machine("configured", "meeting_old", extra_message={"web": {}})
+    duplicate = _machine("duplicate", "meeting_new")
+    duplicate.device_sn = None
+    primary.device_sn = ""
+
+    with (
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            new=AsyncMock(return_value=[primary, duplicate]),
+        ),
+        patch(
+            "core.env_machine.api.EnvPoolManager.remove_machine_from_cache",
+            new=AsyncMock(),
+        ),
+    ):
+        result = await _get_registration_machine(
+            db,
+            ip="10.0.0.1",
+            device_type="windows",
+            device_sn=None,
+        )
+
+    assert result is primary
+    assert primary.device_sn is None
+    db.delete.assert_awaited_once_with(duplicate)

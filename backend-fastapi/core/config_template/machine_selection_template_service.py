@@ -109,7 +109,7 @@ class MachineSelectionTemplateService(BaseService):
         db: AsyncSession,
         machine_ids: List[str],
     ) -> List[dict]:
-        """把前端选择的机器 ID 固化为 IP + 设备类型目标。"""
+        """把前端选择的机器 ID 固化为稳定的物理设备身份。"""
         if not machine_ids:
             return []
         result = await db.execute(
@@ -125,6 +125,7 @@ class MachineSelectionTemplateService(BaseService):
                 "machine_id": str(machine_id),
                 "ip": machine_map[str(machine_id)].ip,
                 "device_type": machine_map[str(machine_id)].device_type,
+                "device_sn": machine_map[str(machine_id)].device_sn,
             }
             for machine_id in machine_ids
             if str(machine_id) in machine_map
@@ -194,7 +195,7 @@ class MachineSelectionTemplateService(BaseService):
         db: AsyncSession,
         template: MachineSelectionTemplate,
     ) -> List[tuple[dict, Optional[EnvMachine]]]:
-        """按 IP + 设备类型解析模板当前对应的机器。"""
+        """按物理设备身份解析模板当前对应的机器。"""
         raw_targets = getattr(template, "machine_targets", None)
         targets = raw_targets if isinstance(raw_targets, list) else []
 
@@ -222,13 +223,29 @@ class MachineSelectionTemplateService(BaseService):
             for target in targets
             if target.get("ip") and target.get("device_type")
         ]
-        conditions = [
-            and_(
+        conditions = []
+        for target in valid_targets:
+            physical_condition = and_(
                 EnvMachine.ip == target["ip"],
                 EnvMachine.device_type == target["device_type"],
             )
-            for target in valid_targets
-        ]
+            if "device_sn" in target:
+                device_sn = target["device_sn"]
+                physical_condition = and_(
+                    physical_condition,
+                    EnvMachine.device_sn == device_sn
+                    if device_sn is not None
+                    else EnvMachine.device_sn.is_(None),
+                )
+            machine_id = target.get("machine_id")
+            conditions.append(
+                or_(
+                    EnvMachine.id == machine_id,
+                    physical_condition,
+                )
+                if machine_id
+                else physical_condition
+            )
         if not conditions:
             return [(target, None) for target in targets]
 
@@ -242,16 +259,26 @@ class MachineSelectionTemplateService(BaseService):
             .order_by(EnvMachine.sys_update_datetime.desc())
         )
         machine_map = {}
+        machine_id_map = {}
+        host_machine_map = {}
         for machine in result.scalars().all():
-            machine_map.setdefault((machine.ip, machine.device_type), machine)
+            identity = (machine.ip, machine.device_type, machine.device_sn)
+            machine_map.setdefault(identity, machine)
+            machine_id_map[str(machine.id)] = machine
+            host_machine_map.setdefault((machine.ip, machine.device_type), []).append(machine)
 
-        return [
-            (
-                target,
-                machine_map.get((target.get("ip"), target.get("device_type"))),
-            )
-            for target in targets
-        ]
+        resolved = []
+        for target in targets:
+            ip = target.get("ip")
+            device_type = target.get("device_type")
+            machine = machine_id_map.get(str(target["machine_id"])) if target.get("machine_id") else None
+            if machine is None and "device_sn" in target:
+                machine = machine_map.get((ip, device_type, target["device_sn"]))
+            elif machine is None:
+                candidates = host_machine_map.get((ip, device_type), [])
+                machine = candidates[0] if len(candidates) == 1 else None
+            resolved.append((target, machine))
+        return resolved
 
     @classmethod
     async def get_machines_detail(
