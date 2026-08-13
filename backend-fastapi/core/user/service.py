@@ -122,6 +122,8 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
         创建用户，自动加密密码
         """
         user_data = data.model_dump()
+        # core_roles 为前端多选传递的角色列表，非模型字段，已在 API 层转换为 role_id，此处需剔除
+        user_data.pop("core_roles", None)
         # 加密密码
         user_data["password"] = cls.hash_password('123456')
 

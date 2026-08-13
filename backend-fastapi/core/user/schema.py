@@ -65,7 +65,10 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """用户创建Schema"""
     # password: str = Field(..., min_length=6, max_length=20, description="密码")
-    pass
+    # 所属角色ID（由 core_roles 转换写入）
+    role_id: Optional[str] = Field(None, description="所属角色ID")
+    # 角色ID列表（前端 RoleSelector 多选传递），创建时取第一个写入 role_id
+    core_roles: Optional[List[str]] = Field(None, description="角色ID列表（前端传递）")
 
 
 class UserUpdate(BaseModel):

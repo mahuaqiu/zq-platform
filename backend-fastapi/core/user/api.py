@@ -35,6 +35,10 @@ router = APIRouter(prefix="/user", tags=["用户管理"])
 @router.post("", response_model=UserResponse, summary="创建用户")
 async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db)):
     """创建用户"""
+    # 处理 core_roles 数组转换为 role_id
+    if data.core_roles and len(data.core_roles) > 0:
+        data.role_id = data.core_roles[0]
+
     # 用户名唯一性校验
     if not await UserService.check_unique(db, field="username", value=data.username):
         raise HTTPException(status_code=400, detail="用户名已存在")
