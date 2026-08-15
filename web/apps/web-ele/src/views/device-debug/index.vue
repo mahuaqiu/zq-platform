@@ -402,14 +402,78 @@ async function handleScreenContextMenu(event: MouseEvent) {
     }
 
     // 转换为设备坐标（使用实际渲染尺寸）
+    const deviceW = screenSize.value.width || sourceW;
+    const deviceH = screenSize.value.height || sourceH;
     const coords = convertToDeviceCoords(
       renderInfo.adjustedX,
       renderInfo.adjustedY,
       renderInfo.renderedWidth,
       renderInfo.renderedHeight,
-      screenSize.value.width || sourceW,
-      screenSize.value.height || sourceH
+      deviceW,
+      deviceH,
     );
+
+    // 临时诊断：右键坐标映射（与左键 [coord-diag] 字段对齐，验证完可删）
+    const mediaRect = media.getBoundingClientRect();
+    const mediaLocalX = event.clientX - mediaRect.left;
+    const mediaLocalY = event.clientY - mediaRect.top;
+    const inMedia =
+      mediaLocalX >= 0 &&
+      mediaLocalX <= mediaRect.width &&
+      mediaLocalY >= 0 &&
+      mediaLocalY <= mediaRect.height;
+    const pathB =
+      inMedia && mediaRect.width > 0 && mediaRect.height > 0 && deviceW > 0
+        ? {
+            x: Math.round((mediaLocalX / mediaRect.width) * deviceW),
+            y: Math.round((mediaLocalY / mediaRect.height) * deviceH),
+          }
+        : null;
+    console.info('[coord-diag]', {
+      stage: 'contextmenu',
+      dpr: window.devicePixelRatio,
+      client: { x: event.clientX, y: event.clientY },
+      wrapper: {
+        w: Number(rect.width.toFixed(2)),
+        h: Number(rect.height.toFixed(2)),
+      },
+      mediaBox: {
+        w: Number(mediaRect.width.toFixed(2)),
+        h: Number(mediaRect.height.toFixed(2)),
+        left: Number((mediaRect.left - rect.left).toFixed(2)),
+        top: Number((mediaRect.top - rect.top).toFixed(2)),
+      },
+      calcContain: {
+        renderedW: Number(renderInfo.renderedWidth.toFixed(2)),
+        renderedH: Number(renderInfo.renderedHeight.toFixed(2)),
+        offsetX: Number(renderInfo.offsetX.toFixed(2)),
+        offsetY: Number(renderInfo.offsetY.toFixed(2)),
+        isValidClick: renderInfo.isValidClick,
+      },
+      boxDelta: {
+        w: Number((mediaRect.width - renderInfo.renderedWidth).toFixed(2)),
+        h: Number((mediaRect.height - renderInfo.renderedHeight).toFixed(2)),
+        left: Number((mediaRect.left - rect.left - renderInfo.offsetX).toFixed(2)),
+        top: Number((mediaRect.top - rect.top - renderInfo.offsetY).toFixed(2)),
+      },
+      source: { naturalW: sourceW, naturalH: sourceH },
+      screenSize: { width: deviceW, height: deviceH },
+      mouseInWrapper: {
+        x: Number(mouseX.toFixed(2)),
+        y: Number(mouseY.toFixed(2)),
+      },
+      mouseInMedia: {
+        x: Number(mediaLocalX.toFixed(2)),
+        y: Number(mediaLocalY.toFixed(2)),
+        inMedia,
+      },
+      pathA_wrapperContain: coords,
+      pathB_mediaRect: pathB,
+      sentCoords: coords,
+      pathDiff: pathB
+        ? { dx: coords.x - pathB.x, dy: coords.y - pathB.y }
+        : null,
+    });
 
     // 发送右键点击（桌面端传递 monitor 参数）
     const monitor = currentScreenIndex.value + 1;

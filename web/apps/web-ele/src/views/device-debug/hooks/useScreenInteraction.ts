@@ -78,6 +78,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
 
     const wrapper = getScreenWrapper(media);
     const rect = wrapper.getBoundingClientRect();
+    const mediaRect = media.getBoundingClientRect();
     const naturalW = 'naturalWidth' in media
       ? (media as HTMLImageElement).naturalWidth
       : (media as HTMLVideoElement).videoWidth;
@@ -100,7 +101,109 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
       mouseY,
     );
 
-    return { renderInfo };
+    return { media, wrapper, rect, mediaRect, naturalW, naturalH, mouseX, mouseY, renderInfo };
+  }
+
+  /**
+   * 临时诊断：对比 wrapper 手算 contain 与 media 真实矩形的映射结果。
+   * 仅在点击起止时打印，避免 mousemove 刷屏。验证完可删除。
+   */
+  function logCoordDiag(
+    event: MouseEvent,
+    stage: string,
+    coords: { x: number; y: number } | null,
+  ): void {
+    const info = getRenderInfo(event);
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+    if (!info) {
+      console.info('[coord-diag]', {
+        stage,
+        reason: 'no-render-info',
+        client: { x: event.clientX, y: event.clientY },
+        screenSize: { ...screenSize.value },
+        dpr,
+        coords,
+      });
+      return;
+    }
+
+    const { rect, mediaRect, naturalW, naturalH, mouseX, mouseY, renderInfo } = info;
+
+    // 路径 A：当前实现（wrapper + 手算 contain）
+    const pathA = renderInfo.isValidClick
+      ? convertToDeviceCoords(
+          renderInfo.adjustedX,
+          renderInfo.adjustedY,
+          renderInfo.renderedWidth,
+          renderInfo.renderedHeight,
+          screenSize.value.width,
+          screenSize.value.height,
+        )
+      : null;
+
+    // 路径 B：直接用 media 真实矩形映射（假说验证对照）
+    const mediaLocalX = event.clientX - mediaRect.left;
+    const mediaLocalY = event.clientY - mediaRect.top;
+    const inMedia =
+      mediaLocalX >= 0 &&
+      mediaLocalX <= mediaRect.width &&
+      mediaLocalY >= 0 &&
+      mediaLocalY <= mediaRect.height;
+    const pathB =
+      inMedia && mediaRect.width > 0 && mediaRect.height > 0 && screenSize.value.width > 0
+        ? {
+            x: Math.round((mediaLocalX / mediaRect.width) * screenSize.value.width),
+            y: Math.round((mediaLocalY / mediaRect.height) * screenSize.value.height),
+          }
+        : null;
+
+    console.info('[coord-diag]', {
+      stage,
+      dpr,
+      client: { x: event.clientX, y: event.clientY },
+      wrapper: {
+        w: Number(rect.width.toFixed(2)),
+        h: Number(rect.height.toFixed(2)),
+      },
+      mediaBox: {
+        w: Number(mediaRect.width.toFixed(2)),
+        h: Number(mediaRect.height.toFixed(2)),
+        left: Number((mediaRect.left - rect.left).toFixed(2)),
+        top: Number((mediaRect.top - rect.top).toFixed(2)),
+      },
+      calcContain: {
+        renderedW: Number(renderInfo.renderedWidth.toFixed(2)),
+        renderedH: Number(renderInfo.renderedHeight.toFixed(2)),
+        offsetX: Number(renderInfo.offsetX.toFixed(2)),
+        offsetY: Number(renderInfo.offsetY.toFixed(2)),
+        isValidClick: renderInfo.isValidClick,
+      },
+      // 手算偏移 vs 真实 media 盒子偏移：差几 px 就说明主假说成立
+      boxDelta: {
+        w: Number((mediaRect.width - renderInfo.renderedWidth).toFixed(2)),
+        h: Number((mediaRect.height - renderInfo.renderedHeight).toFixed(2)),
+        left: Number((mediaRect.left - rect.left - renderInfo.offsetX).toFixed(2)),
+        top: Number((mediaRect.top - rect.top - renderInfo.offsetY).toFixed(2)),
+      },
+      source: { naturalW, naturalH },
+      screenSize: { ...screenSize.value },
+      mouseInWrapper: {
+        x: Number(mouseX.toFixed(2)),
+        y: Number(mouseY.toFixed(2)),
+      },
+      mouseInMedia: {
+        x: Number(mediaLocalX.toFixed(2)),
+        y: Number(mediaLocalY.toFixed(2)),
+        inMedia,
+      },
+      pathA_wrapperContain: pathA,
+      pathB_mediaRect: pathB,
+      sentCoords: coords,
+      pathDiff:
+        pathA && pathB
+          ? { dx: pathA.x - pathB.x, dy: pathA.y - pathB.y }
+          : null,
+    });
   }
 
   /**
@@ -130,6 +233,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
   function handleDragStart(event: MouseEvent): { x: number; y: number } | null {
     event.preventDefault();
     const coords = getDeviceCoords(event);
+    logCoordDiag(event, 'drag-start', coords);
 
     // 如果点击在屏幕之外，不开始拖拽
     if (coords === null) {
@@ -222,6 +326,7 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
     // 优先使用事件坐标，如果不在屏幕内则使用最后一个有效坐标
     const eventCoords = getDeviceCoords(event);
     const endCoords = eventCoords ?? dragEnd.value ?? dragStart.value;
+    logCoordDiag(event, 'drag-end', endCoords);
 
     // 如果结束点也没有有效坐标，取消操作
     if (endCoords === null) {
