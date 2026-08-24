@@ -38,9 +38,9 @@ const loading = ref(true);
 // 导航栏固定状态
 const navbarFixed = ref(false);
 
-// 当前使用的编码格式（Windows 走 H264，其它平台走 JPEG；H264 失败后内部自动降级为 JPEG）
+// 当前使用的编码格式（Windows、鸿蒙移动和鸿蒙 PC 走 H.264；H.264 失败后内部自动降级为 JPEG）
 const currentCodec = computed(() => {
-  if (deviceDetail.value?.device_type === 'windows') {
+  if (['windows', 'harmony_mobile', 'harmony_pc'].includes(deviceDetail.value?.device_type ?? '')) {
     return 'h264';
   }
   return 'jpeg';
@@ -241,7 +241,7 @@ async function loadDeviceDetail() {
     );
     setTabTitle(title);
 
-    // 连接 Worker 实时推流（鸿蒙同样走 WS JPEG 推流，失败后可手动截图兜底）。
+    // 连接 Worker 实时推流（鸿蒙优先 H.264，Worker 失败时自动降级 JPEG）。
     const workerHost = result.ip;
     const workerPort = parseInt(result.port, 10);
     const udid = result.device_sn; // 移动设备 udid = device_sn

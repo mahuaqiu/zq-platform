@@ -184,7 +184,7 @@ export function formatDeviceDebugTitle(ip: string, deviceSn: string, deviceType:
  * - Android: /ws/screen/android/{udid}
  * - Windows: /ws/screen/windows/windows_screen?monitor={screenIndex+1}
  * - Mac: /ws/screen/mac/mac_screen?monitor={screenIndex+1}
- * - Harmony: /ws/screen/{harmony_mobile|harmony_pc}/{udid}?codec=jpeg（单屏，不传 monitor）
+ * - Harmony: /ws/screen/{harmony_mobile|harmony_pc}/{udid}?codec={codec}（单屏，不传 monitor）
  */
 export function buildWebSocketUrl(
   host: string,

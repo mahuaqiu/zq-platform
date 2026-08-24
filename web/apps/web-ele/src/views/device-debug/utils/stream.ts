@@ -12,27 +12,27 @@ export enum FrameType {
  * @param data WebSocket 接收的二进制数据
  */
 export function detectFrameType(data: ArrayBuffer): FrameType {
-  if (!data || data.byteLength < 4) {
+  if (!data || data.byteLength < 2) {
     return FrameType.Unknown;
   }
 
-  const view = new DataView(data);
+  const bytes = new Uint8Array(data);
 
   // 优先检测 H.264 (带帧类型前缀: 0x01=SPS/PPS, 0x02=IDR, 0x03=P)
-  const firstByte = view.getUint8(0);
+  const firstByte = bytes[0] ?? 0;
   if (firstByte >= 0x01 && firstByte <= 0x03) {
     return FrameType.H264;
   }
 
   // 检测 JPEG/MJPEG 魔数: FFD8
-  const magic = view.getUint16(0);
+  const magic = ((bytes[0] ?? 0) << 8) | (bytes[1] ?? 0);
   if (magic === 0xFFD8) {
     // 检测是否为 MJPEG：需要检测到多个连续的 FFD8
     // JPEG: FFD8 FF... (只有一个 FFD8)
     // MJPEG: FFD8 FF... FFD8 FF... (多个 FFD8)
     let jpegCount = 0;
     for (let i = 0; i < data.byteLength - 1; i += 2) {
-      if (view.getUint16(i) === 0xFFD8) {
+      if ((((bytes[i] ?? 0) << 8) | (bytes[i + 1] ?? 0)) === 0xFFD8) {
         jpegCount++;
         if (jpegCount >= 2) {
           return FrameType.MJPEG;
@@ -42,9 +42,20 @@ export function detectFrameType(data: ArrayBuffer): FrameType {
     return FrameType.JPEG;
   }
 
-  // H.264 SPS (NAL unit type = 7)
-  if (magic === 0x0001 && view.getUint8(4) === 0x07) {
-    return FrameType.H264;
+  // 兼容未带 Worker 帧类型前缀的裸 Annex-B H.264。
+  let nalOffset = -1;
+  if (bytes.length >= 4 && bytes[0] === 0 && bytes[1] === 0) {
+    if (bytes[2] === 1) {
+      nalOffset = 3;
+    } else if (bytes[2] === 0 && bytes[3] === 1) {
+      nalOffset = 4;
+    }
+  }
+  if (nalOffset >= 0 && nalOffset < bytes.length) {
+    const nalType = (bytes[nalOffset] ?? 0) & 0x1f;
+    if (nalType >= 1 && nalType <= 23) {
+      return FrameType.H264;
+    }
   }
 
   return FrameType.Unknown;

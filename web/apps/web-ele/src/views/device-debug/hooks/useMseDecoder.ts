@@ -38,6 +38,12 @@ export function useMseDecoder(options: MseDecoderOptions) {
     (window as any).MediaSource as typeof MediaSource | undefined;
 
   let jmuxer: JMuxer | null = null;
+  let jmuxerNode: HTMLVideoElement | null = null;
+  let configuredFps = Math.max(1, options.fps ?? 10);
+  // WebSocket 可能先收到缓存的 SPS/PPS、IDR，再完成 video/JMuxer 初始化。
+  // 静止画面不会产生后续帧，因此初始化前不能直接丢弃这些首帧。
+  let pendingFrames: ArrayBuffer[] = [];
+  const MAX_PENDING_FRAMES = 16;
   let fallback = false;
   let feedCount = 0;
   let fedBytes = 0;
@@ -70,6 +76,14 @@ export function useMseDecoder(options: MseDecoderOptions) {
    * 不支持 MediaSource 或 onUnsupportedCodec 时触发降级。
    */
   function init(): void {
+    const initialEl = options.videoEl.value;
+    console.info('[MSEDecoder] init requested', {
+      alreadyInitialized: Boolean(jmuxer),
+      videoAttached: Boolean(initialEl),
+      videoReadyState: initialEl?.readyState ?? null,
+      videoWidth: initialEl?.videoWidth ?? 0,
+      videoHeight: initialEl?.videoHeight ?? 0,
+    });
     if (fallback) return;
     if (typeof _MediaSource === 'undefined') {
       console.warn('[MSEDecoder] 浏览器不支持 MediaSource，触发降级');
@@ -84,6 +98,13 @@ export function useMseDecoder(options: MseDecoderOptions) {
       return;
     }
 
+    // attachVideoEl 和 WebSocket onopen 可能在同一连接内各触发一次 init，
+    // 同一个 video 元素不能重复绑定 JMuxer，否则会产生多个 SourceBuffer。
+    if (jmuxer) {
+      if (jmuxerNode === el) return;
+      dispose();
+    }
+
     // jmuxer 的类型定义未声明 onUnsupportedCodec，构造时用 as 断言补齐。
     // onUnsupportedCodec 在 SourceBuffer 无法处理 codec 时触发，是降级的关键信号。
     const jmuxerOptions = {
@@ -95,9 +116,14 @@ export function useMseDecoder(options: MseDecoderOptions) {
       maxDelay: 200,
       // 自动清理已播放 buffer，防止长时间推流内存暴涨
       clearBuffer: true,
-      fps: options.fps ?? 10,
+      fps: configuredFps,
       debug: false,
       onReady: () => {
+        console.info('[MSEDecoder] jmuxer ready', {
+          videoReadyState: el.readyState,
+          videoWidth: el.videoWidth,
+          videoHeight: el.videoHeight,
+        });
         options.onReady?.();
       },
       onError: (data: unknown) => {
@@ -113,6 +139,12 @@ export function useMseDecoder(options: MseDecoderOptions) {
 
     try {
       jmuxer = new JMuxer(jmuxerOptions as ConstructorParameters<typeof JMuxer>[0]);
+      jmuxerNode = el;
+      const initialFrames = pendingFrames;
+      pendingFrames = [];
+      for (const frame of initialFrames) {
+        feedFrame(frame);
+      }
       // 启动 buffer 主动清理（防内存泄漏，见字段声明处说明）
       startBufferCleanup();
       startLiveEdgeSync();
@@ -137,25 +169,82 @@ export function useMseDecoder(options: MseDecoderOptions) {
    */
   function feedFrame(data: ArrayBuffer): void {
     if (!data || data.byteLength < 2) return;
-    if (!jmuxer) return;
+    if (!jmuxer) {
+      if (pendingFrames.length >= MAX_PENDING_FRAMES) {
+        pendingFrames.shift();
+      }
+      pendingFrames.push(data.slice(0));
+      return;
+    }
 
-    // 去掉 1 字节帧类型前缀，剩余即为 Annex-B（带 00 00 00 01 起始码）
-    const payload = new Uint8Array(data, 1);
+    const bytes = new Uint8Array(data);
+    const hasFramePrefix =
+      bytes.length >= 5 &&
+      bytes[0]! >= 0x01 &&
+      bytes[0]! <= 0x03 &&
+      ((bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 1) ||
+        (bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0 && bytes[4] === 1));
+
+    // Worker 协议带 1 字节帧类型前缀；同时兼容裸 Annex-B 输入。
+    const payload = hasFramePrefix ? bytes.subarray(1) : bytes;
+    if (payload.byteLength < 2) return;
+
+    // jmuxer 只有看到下一个起始码才会提交最后一个 NAL。官方链路的静止画面
+    // 可能只发一组 SPS/PPS + IDR，补一个终止起始码让首个关键帧立即进入 MSE。
+    const hasTrailingStartCode =
+      (payload.length >= 3 &&
+        payload[payload.length - 3] === 0 &&
+        payload[payload.length - 2] === 0 &&
+        payload[payload.length - 1] === 1) ||
+      (payload.length >= 4 &&
+        payload[payload.length - 4] === 0 &&
+        payload[payload.length - 3] === 0 &&
+        payload[payload.length - 2] === 0 &&
+        payload[payload.length - 1] === 1);
+    const muxPayload = hasTrailingStartCode
+      ? payload
+      : (() => {
+          const terminated = new Uint8Array(payload.length + 4);
+          terminated.set(payload);
+          terminated.set([0, 0, 0, 1], payload.length);
+          return terminated;
+        })();
+    // JMuxer 在未提供 duration 时会把当前 VCL 留在 pendingUnits，等待下一个
+    // access unit 来判断边界。静止画面只有首个 IDR 时就永远不会 flush，表现为
+    // MSE 已连接但白屏；给所有视频包（包括 SPS/PPS config）显式时长即可立即产出首帧。
+    // SPS/PPS 虽然不是 VCL 但仍需 duration，否则后续 IDR 边界判定会受影响。
+    const packetType = hasFramePrefix ? bytes[0] : 0;
+    const duration =
+      packetType === 0x01 ? 0 : Math.max(1, Math.round(1000 / configuredFps));
     feedCount += 1;
-    fedBytes += payload.byteLength;
-    jmuxer.feed({ video: payload });
+    fedBytes += muxPayload.byteLength;
+    jmuxer.feed({ video: muxPayload, duration });
+  }
+
+  function setFrameRate(fps: number): void {
+    if (Number.isFinite(fps) && fps > 0) {
+      configuredFps = fps;
+    }
   }
 
   /**
    * 从 jmuxer 内部取出 video 的 SourceBuffer 引用。
    * jmuxer 把 SourceBuffer 存在 bufferControllers.video.sourceBuffer，
    * 类型定义未暴露，用 as 断言访问。
+   *
+   * 注意：dispose() 后 jmuxer 为 null，此时返回 null 避免访问空对象报错。
    */
   function getSourceBuffer(): SourceBuffer | null {
-    const anyJmuxer = jmuxer as unknown as {
-      bufferControllers?: Record<string, { sourceBuffer?: SourceBuffer }>;
-    };
-    return anyJmuxer.bufferControllers?.video?.sourceBuffer ?? null;
+    if (!jmuxer) return null;
+    try {
+      const anyJmuxer = jmuxer as unknown as {
+        bufferControllers?: Record<string, { sourceBuffer?: SourceBuffer }>;
+      };
+      return anyJmuxer.bufferControllers?.video?.sourceBuffer ?? null;
+    } catch {
+      // jmuxer 已销毁或状态异常，返回 null
+      return null;
+    }
   }
 
   function getDiagnostics() {
@@ -178,6 +267,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
       videoFrameCallbackSupported: Boolean(
         el && 'requestVideoFrameCallback' in el,
       ),
+      videoWidth: el?.videoWidth ?? 0,
+      videoHeight: el?.videoHeight ?? 0,
       videoCurrentTime: el?.currentTime ?? null,
       videoReadyState: el?.readyState ?? null,
       videoPaused: el?.paused ?? null,
@@ -345,6 +436,13 @@ export function useMseDecoder(options: MseDecoderOptions) {
    * 释放 jmuxer 资源
    */
   function dispose(): void {
+    console.info('[MSEDecoder] dispose', {
+      hadJmuxer: Boolean(jmuxer),
+      feedCount,
+      fedBytes,
+      presentedFrameCount,
+      videoAttached: Boolean(options.videoEl.value),
+    });
     stopBufferCleanup();
     stopLiveEdgeSync();
     liveEdgeInitialized = false;
@@ -357,6 +455,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
       }
       jmuxer = null;
     }
+    jmuxerNode = null;
+    pendingFrames = [];
     fallback = false;
     feedCount = 0;
     fedBytes = 0;
@@ -371,6 +471,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
   return {
     init,
     feedFrame,
+    setFrameRate,
     getDiagnostics,
     dispose,
   };
