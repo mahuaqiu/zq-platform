@@ -39,6 +39,9 @@ export function useMseDecoder(options: MseDecoderOptions) {
 
   let jmuxer: JMuxer | null = null;
   let jmuxerNode: HTMLVideoElement | null = null;
+  // MediaSource 还未 sourceopen 时，JMuxer 可能已经创建但还不能建立
+  // SourceBuffer；首批 config/IDR 必须等 sourceopen 后再喂入。
+  let mseReady = false;
   let configuredFps = Math.max(1, options.fps ?? 10);
   // WebSocket 可能先收到缓存的 SPS/PPS、IDR，再完成 video/JMuxer 初始化。
   // 静止画面不会产生后续帧，因此初始化前不能直接丢弃这些首帧。
@@ -61,7 +64,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
   // buffer 最大保留时长（秒）：超过此长度的已播放数据将被回收
   const MAX_BUFFER_SECONDS = 8;
   const LIVE_EDGE_TARGET_SECONDS = 0.1;
-  const LIVE_EDGE_INITIAL_BUFFER_SECONDS = 0.25;
+  // 静止画面可能只有一个 IDR，首段缓冲不足 250ms 时也要立即起播。
+  const LIVE_EDGE_INITIAL_BUFFER_SECONDS = 0.01;
   const LIVE_EDGE_HARD_LAG_SECONDS = 0.35;
   const LIVE_EDGE_RATE_LAG_SECONDS = 0.2;
   const LIVE_EDGE_RATE_RECOVER_SECONDS = 0.12;
@@ -71,6 +75,14 @@ export function useMseDecoder(options: MseDecoderOptions) {
   let liveEdgeTimer: ReturnType<typeof setInterval> | null = null;
   let liveEdgeInitialized = false;
   let lastLiveEdgeSeekAt = 0;
+
+  function tryStartPlayback(el: HTMLVideoElement): void {
+    if (el.paused && el.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      void el.play().catch(() => {
+        // 自动播放策略拒绝时，由后续媒体事件和同步定时器继续尝试。
+      });
+    }
+  }
   /**
    * 初始化 jmuxer。必须在 <video> 元素已挂载后调用。
    * 不支持 MediaSource 或 onUnsupportedCodec 时触发降级。
@@ -119,12 +131,18 @@ export function useMseDecoder(options: MseDecoderOptions) {
       fps: configuredFps,
       debug: false,
       onReady: () => {
+        mseReady = true;
         console.info('[MSEDecoder] jmuxer ready', {
           videoReadyState: el.readyState,
           videoWidth: el.videoWidth,
           videoHeight: el.videoHeight,
         });
         options.onReady?.();
+        const initialFrames = pendingFrames;
+        pendingFrames = [];
+        for (const frame of initialFrames) {
+          feedFrame(frame);
+        }
       },
       onError: (data: unknown) => {
         console.error('[MSEDecoder] jmuxer error:', data);
@@ -140,15 +158,11 @@ export function useMseDecoder(options: MseDecoderOptions) {
     try {
       jmuxer = new JMuxer(jmuxerOptions as ConstructorParameters<typeof JMuxer>[0]);
       jmuxerNode = el;
-      const initialFrames = pendingFrames;
-      pendingFrames = [];
-      for (const frame of initialFrames) {
-        feedFrame(frame);
-      }
       // 启动 buffer 主动清理（防内存泄漏，见字段声明处说明）
       startBufferCleanup();
       startLiveEdgeSync();
       startVideoFrameDiagnostics();
+      tryStartPlayback(el);
     } catch (e) {
       console.error('[MSEDecoder] jmuxer 创建失败，触发降级:', e);
       fallback = true;
@@ -169,7 +183,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
    */
   function feedFrame(data: ArrayBuffer): void {
     if (!data || data.byteLength < 2) return;
-    if (!jmuxer) {
+    if (!jmuxer || !mseReady) {
       if (pendingFrames.length >= MAX_PENDING_FRAMES) {
         pendingFrames.shift();
       }
@@ -219,6 +233,10 @@ export function useMseDecoder(options: MseDecoderOptions) {
     feedCount += 1;
     fedBytes += muxPayload.byteLength;
     jmuxer.feed({ video: muxPayload, duration });
+    const el = options.videoEl.value;
+    if (el) {
+      tryStartPlayback(el);
+    }
   }
 
   function setFrameRate(fps: number): void {
@@ -360,11 +378,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
       el.playbackRate = 1;
     }
 
-    if (el.paused && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-      void el.play().catch(() => {
-        // 自动播放策略拒绝时，下一次同步继续尝试。
-      });
-    }
+    tryStartPlayback(el);
   }
 
   function startLiveEdgeSync(): void {
@@ -456,6 +470,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
       jmuxer = null;
     }
     jmuxerNode = null;
+    mseReady = false;
     pendingFrames = [];
     fallback = false;
     feedCount = 0;
