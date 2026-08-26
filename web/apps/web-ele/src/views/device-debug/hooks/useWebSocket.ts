@@ -239,8 +239,8 @@ export function useWebSocket() {
     }
     if (isH264) {
       // 进入 MSE 模式前先销毁旧的 jmuxer 实例，避免重复初始化
-      // 鸿蒙官方链路固定按 30fps 编码，其他现有链路保持原来的 10fps。
-      mseDecoder.setFrameRate(deviceType.startsWith('harmony_') ? 30 : 10);
+      // 鸿蒙官方 H.264 与 Worker 统一按 10fps 生成媒体时间轴，避免画面持续落后。
+      mseDecoder.setFrameRate(10);
       mseDecoder.dispose();
     }
     videoMode.value = isH264;
