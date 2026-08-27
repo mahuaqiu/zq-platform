@@ -63,15 +63,17 @@ export function useMseDecoder(options: MseDecoderOptions) {
   let bufferCleanupTimer: ReturnType<typeof setInterval> | null = null;
   // buffer 最大保留时长（秒）：超过此长度的已播放数据将被回收
   const MAX_BUFFER_SECONDS = 8;
-  const LIVE_EDGE_TARGET_SECONDS = 0.1;
+  // H.264 直通只在画面变化时产生回调；缓冲目标需要足够小，
+  // 否则设备刚恢复活动时，浏览器会先播放一段旧 P 帧。
+  const LIVE_EDGE_TARGET_SECONDS = 0.05;
   // 静止画面可能只有一个 IDR，首段缓冲不足 250ms 时也要立即起播。
   const LIVE_EDGE_INITIAL_BUFFER_SECONDS = 0.01;
-  const LIVE_EDGE_HARD_LAG_SECONDS = 0.35;
-  const LIVE_EDGE_RATE_LAG_SECONDS = 0.2;
-  const LIVE_EDGE_RATE_RECOVER_SECONDS = 0.12;
-  const LIVE_EDGE_MAX_PLAYBACK_RATE = 1.2;
-  const LIVE_EDGE_SYNC_INTERVAL_MS = 250;
-  const LIVE_EDGE_SEEK_INTERVAL_MS = 1000;
+  const LIVE_EDGE_HARD_LAG_SECONDS = 0.25;
+  const LIVE_EDGE_RATE_LAG_SECONDS = 0.1;
+  const LIVE_EDGE_RATE_RECOVER_SECONDS = 0.06;
+  const LIVE_EDGE_MAX_PLAYBACK_RATE = 1.35;
+  const LIVE_EDGE_SYNC_INTERVAL_MS = 100;
+  const LIVE_EDGE_SEEK_INTERVAL_MS = 500;
   let liveEdgeTimer: ReturnType<typeof setInterval> | null = null;
   let liveEdgeInitialized = false;
   let lastLiveEdgeSeekAt = 0;
