@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.env_machine.api import _get_registration_machine, register_env_machine
+from core.env_machine.api import (
+    _get_registration_machine,
+    _register_env_machine,
+    register_env_machine,
+)
 from core.env_machine.schema import EnvRegisterRequest
 
 
@@ -130,8 +134,8 @@ async def test_duplicate_registration_records_are_merged() -> None:
 
 
 @pytest.mark.asyncio
-async def test_changed_device_sn_reuses_unique_host_machine() -> None:
-    """人工编辑过 SN 后，升级注册应更新原机器而非插入新记录。"""
+async def test_changed_device_sn_does_not_reuse_unique_host_machine() -> None:
+    """带 SN 的设备即使同 IP 下只有一条记录，也不能猜测复用。"""
     db = MagicMock()
     machine = _machine("machine-1", "meeting_app")
     machine.device_type = "android"
@@ -142,10 +146,6 @@ async def test_changed_device_sn_reuses_unique_host_machine() -> None:
             "core.env_machine.api.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[]),
         ),
-        patch(
-            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
-            new=AsyncMock(return_value=[machine]),
-        ),
     ):
         result = await _get_registration_machine(
             db,
@@ -154,8 +154,55 @@ async def test_changed_device_sn_reuses_unique_host_machine() -> None:
             device_sn="worker-sn",
         )
 
-    assert result is machine
-    assert machine.device_sn == "worker-sn"
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_three_harmony_pc_sns_are_not_collapsed_by_registration_fallback() -> None:
+    """新 Worker 一次注册三台不同鸿蒙 PC 时，每台设备都必须独立建档。"""
+    db = MagicMock()
+    db.commit = AsyncMock()
+    request = EnvRegisterRequest(
+        ip="10.0.0.1",
+        port="8088",
+        namespace="meeting_public",
+        devices={"harmony_pc": ["pc-001", "pc-002", "pc-003"]},
+    )
+
+    with (
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            new=AsyncMock(return_value=[]),
+        ) as get_identity,
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            new=AsyncMock(return_value=[]),
+        ) as get_host,
+        patch(
+            "core.env_machine.api.EnvPoolManager.remove_machine_from_cache",
+            new=AsyncMock(),
+        ),
+        patch(
+            "core.env_machine.api.EnvMachineService.get_by_namespace",
+            new=AsyncMock(return_value=([], 0)),
+        ),
+        patch(
+            "core.env_machine.api.EnvPoolManager.sync_machine_to_cache",
+            new=AsyncMock(),
+        ),
+    ):
+        result = await _register_env_machine(request, db)
+
+    assert result.status == "success"
+    assert get_identity.await_count == 3
+    get_host.assert_not_awaited()
+    added = [call.args[0] for call in db.add.call_args_list]
+    assert len(added) == 3
+    assert [machine.device_sn for machine in added] == [
+        "pc-001",
+        "pc-002",
+        "pc-003",
+    ]
 
 
 @pytest.mark.asyncio

@@ -67,6 +67,16 @@ def _worker_error_message(payload: dict, fallback: str) -> str:
 
 router = APIRouter(prefix="/env", tags=["执行机管理"])
 
+_HOST_REGISTRATION_TYPES = {"windows", "mac"}
+
+
+def _allows_host_registration_fallback(
+    device_type: str,
+    device_sn: Optional[str],
+) -> bool:
+    """判断是否允许从物理身份回退到宿主机身份。"""
+    return device_type in _HOST_REGISTRATION_TYPES and not device_sn
+
 
 def _get_registration_identities(
     data: EnvRegisterRequest,
@@ -97,11 +107,15 @@ async def _get_registration_lock_matches(
     device_type: str,
     device_sn: Optional[str],
 ) -> List[EnvMachine]:
-    """返回注册可能更新到的记录，确保旧命名空间也被加锁。"""
+    """返回注册可能更新到的记录，确保旧命名空间也被加锁。
+
+    带 SN 的设备必须按完整物理身份匹配，不能因为同一 IP 和设备类型
+    下恰好只有一条记录就锁定并复用另一台设备。
+    """
     matches = await EnvMachineService.get_by_device_identity(
         db, ip=ip, device_type=device_type, device_sn=device_sn
     )
-    if matches:
+    if matches or not _allows_host_registration_fallback(device_type, device_sn):
         return matches
 
     candidates = await EnvMachineService.get_by_host_device_type(
@@ -116,14 +130,19 @@ async def _get_registration_machine(
     device_type: str,
     device_sn: Optional[str],
 ) -> Optional[EnvMachine]:
-    """获取注册主记录，并合并切换命名空间产生的历史重复记录。"""
+    """获取注册主记录，并合并切换命名空间产生的历史重复记录。
+
+    Windows/Mac 不带 SN 时允许按 IP + 设备类型复用历史记录；移动设备
+    和鸿蒙设备带有 SN/UDID，必须按完整物理身份匹配，避免多台设备注册
+    时互相覆盖。
+    """
     matches = await EnvMachineService.get_by_device_identity(
         db,
         ip=ip,
         device_type=device_type,
         device_sn=device_sn,
     )
-    if not matches:
+    if not matches and _allows_host_registration_fallback(device_type, device_sn):
         candidates = await EnvMachineService.get_by_host_device_type(
             db, ip=ip, device_type=device_type
         )
@@ -227,7 +246,8 @@ async def _register_env_machine(
     1. 遍历 devices 字典
     2. 对于每个 device_type：
        - windows/mac：device_sn 为 null，每个 IP 插入一条记录
-       - android/ios：根据 device_sn 列表，每个 sn 插入一条记录
+       - android/ios/harmony_mobile/harmony_pc：根据 device_sn 列表，每个 sn 插入一条记录
+       - 带 SN 的设备只按完整物理身份匹配，不回退到 IP + device_type
     3. 查询条件：ip + device_type + device_sn（namespace 变更时更新原记录）
     4. 不存在则插入：状态设为 online，available 设为 False
     5. 存在则更新 sync_time、status=online
