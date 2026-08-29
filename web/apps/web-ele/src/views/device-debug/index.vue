@@ -161,14 +161,8 @@ const isHarmony = computed(
 // 鸿蒙 WS 推流失败后的手动截图兜底（refreshHarmonyScreenshot 填充）
 const harmonyScreenshotUrl = ref('');
 const displayedWsStatus = computed(() => {
-  // 鸿蒙降级截图模式下保持画面可见（WS 断开但有截图）
-  if (
-    isHarmony.value &&
-    wsStatus.value !== 'connected' &&
-    harmonyScreenshotUrl.value
-  ) {
-    return 'connected';
-  }
+  // 截图兜底只保持最后画面，不掩盖真实 WebSocket 状态，确保断开后
+  // 顶部能显示“已断开”并提供“重连”按钮。
   return wsStatus.value;
 });
 // 屏幕显示源：WS 帧优先，鸿蒙降级截图兜底
@@ -470,6 +464,7 @@ async function handleScreenContextMenu(event: MouseEvent) {
     );
 
     // 发送右键点击（桌面端传递 monitor 参数）
+    resetActivityTime();
     const monitor = currentScreenIndex.value + 1;
     await rightClick(coords.x, coords.y, monitor);
     clickCount.value++;
@@ -521,6 +516,7 @@ function handleInstallApp(_file: File) {
 
 // 截图保存
 function handleScreenshot() {
+  resetActivityTime();
   const screenshotUrl = displayedScreenshotUrl.value;
   if (screenshotUrl) {
     const link = document.createElement('a');

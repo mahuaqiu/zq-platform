@@ -10,7 +10,7 @@ import { useMJPEGRenderer } from './useMJPEGRenderer';
 
 const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 2000; // 2秒
-const IDLE_TIMEOUT = 300000; // 5分钟 = 300秒
+const IDLE_TIMEOUT = 900000; // 15分钟 = 900秒
 
 export function useWebSocket() {
   const status = ref<WebSocketStatus>('disconnected');
@@ -26,8 +26,9 @@ export function useWebSocket() {
   let fpsFrameCount = 0;
   let fpsLastSecond = 0;
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
-  let idleTimer: ReturnType<typeof setInterval> | null = null;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTime = Date.now();
+  let activityPending = false;
   let binaryMessageQueue: Promise<void> = Promise.resolve();
 
   // 是否已从 worker 的 meta 文本帧拿到真机原生分辨率作为坐标基准。
@@ -119,24 +120,49 @@ export function useWebSocket() {
    */
   function resetActivityTime(): void {
     lastActivityTime = Date.now();
+    activityPending = true;
+    sendActivitySignal();
+    if (ws && status.value === 'connected') {
+      scheduleIdleDisconnect();
+    }
   }
 
   /**
-   * 开始超时检测（每分钟检查一次）
+   * 向 Worker 报告用户活动。推流只负责发送画面，不会自动续期空闲时间。
+   */
+  function sendActivitySignal(): void {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({ type: 'activity' }));
+      activityPending = false;
+    } catch {
+      // 连接切换期间发送失败，等下一次 onopen 再补发。
+    }
+  }
+
+  /**
+   * 开始空闲超时检测。使用一次性定时器，避免每分钟轮询带来的延迟。
    */
   function startIdleTimer(): void {
-    if (idleTimer) {
-      clearInterval(idleTimer);
-    }
+    stopIdleTimer();
     lastActivityTime = Date.now();
-    idleTimer = setInterval(() => {
+    scheduleIdleDisconnect();
+  }
+
+  function scheduleIdleDisconnect(): void {
+    stopIdleTimer();
+    const remaining = Math.max(1000, IDLE_TIMEOUT - (Date.now() - lastActivityTime));
+    idleTimer = setTimeout(() => {
       const elapsed = Date.now() - lastActivityTime;
       if (elapsed >= IDLE_TIMEOUT && ws && status.value === 'connected') {
-        // 超时断开
+        console.log('WebSocket 因 15 分钟无操作已自动断开');
         disconnect();
-        console.log('WebSocket 因 5 分钟无操作已自动断开');
+        return;
       }
-    }, 60000); // 每分钟检查一次
+      if (ws && status.value === 'connected') {
+        scheduleIdleDisconnect();
+      }
+    }, remaining);
   }
 
   /**
@@ -144,7 +170,7 @@ export function useWebSocket() {
    */
   function stopIdleTimer(): void {
     if (idleTimer) {
-      clearInterval(idleTimer);
+      clearTimeout(idleTimer);
       idleTimer = null;
     }
   }
@@ -226,6 +252,9 @@ export function useWebSocket() {
       fpsLastSecond = Date.now();
       startFpsTimer();
       startIdleTimer(); // 启动超时检测
+      if (activityPending) {
+        sendActivitySignal();
+      }
 
       // H264 模式：连接建立后初始化 MSE 解码器（此时 video 元素应已通过 attachVideoEl 绑定）
       if (isH264) {
