@@ -32,6 +32,7 @@ import MobilePanel from './components/MobilePanel.vue';
 import KeyPressDialog from './components/KeyPressDialog.vue';
 import InputTextDialog from './components/InputTextDialog.vue';
 import InstallAppDialog from './components/InstallAppDialog.vue';
+import UnlockDialog from './components/UnlockDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -129,6 +130,7 @@ const swipeCount = ref(0);
 const keyPressDialogVisible = ref(false);
 const inputTextDialogVisible = ref(false);
 const installAppDialogVisible = ref(false);
+const unlockDialogVisible = ref(false);
 
 // 屏幕选择
 const currentScreenIndex = ref(0);
@@ -490,12 +492,12 @@ function handleInputText(text: string) {
 }
 
 // 解锁屏幕
-function handleUnlock(password?: string) {
+async function handleUnlock(password?: string) {
   resetActivityTime();
-  unlockScreen(password).then((success) => {
-    if (success && isHarmony.value && wsStatus.value !== 'connected')
-      refreshHarmonyScreenshot();
-  });
+  const success = await unlockScreen(password);
+  if (success && isHarmony.value && wsStatus.value !== 'connected') {
+    await refreshHarmonyScreenshot();
+  }
 }
 
 // 鸿蒙手动截图兜底（WS 推流失败后由操作触发刷新画面）
@@ -543,6 +545,11 @@ function handleOpenInputDialog() {
   inputTextDialogVisible.value = true;
 }
 
+// 打开鸿蒙 PC 解锁弹窗
+function handleOpenUnlockDialog() {
+  unlockDialogVisible.value = true;
+}
+
 // 打开安装弹窗
 function handleOpenInstallDialog() {
   installAppDialogVisible.value = true;
@@ -585,6 +592,7 @@ onUnmounted(() => {
       @reconnect="handleReconnect"
       @keypress="handleOpenKeyPressDialog"
       @input="handleOpenInputDialog"
+      @unlock="handleOpenUnlockDialog"
       @install="handleOpenInstallDialog"
       @screenshot="handleScreenshot"
       @screen-change="handleScreenChange"
@@ -663,6 +671,11 @@ onUnmounted(() => {
     <InputTextDialog
       v-model:visible="inputTextDialogVisible"
       @send="handleInputText"
+    />
+
+    <UnlockDialog
+      v-model:visible="unlockDialogVisible"
+      @confirm="handleUnlock"
     />
 
     <InstallAppDialog

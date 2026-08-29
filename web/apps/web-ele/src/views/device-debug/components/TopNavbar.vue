@@ -13,12 +13,12 @@ interface Props {
   resolution?: string;
   wsStatus: WebSocketStatus;
   fps: number;
-  screenCount?: number;  // 新增：屏幕数量
+  screenCount?: number; // 新增：屏幕数量
   currentScreen?: number; // 新增：当前选中屏幕
   mouseCoord?: { x: number; y: number } | null; // 新增：鼠标坐标
   navbarFixed?: boolean; // 新增：导航栏是否固定
   deviceModel?: string; // 设备型号（如 iPhone 15 Pro）
-  osVersion?: string;   // 系统版本（如 iOS 17.2、Windows 11 Pro）
+  osVersion?: string; // 系统版本（如 iOS 17.2、Windows 11 Pro）
 }
 
 interface Emits {
@@ -27,9 +27,10 @@ interface Emits {
   (e: 'reconnect'): void;
   (e: 'keypress'): void;
   (e: 'input'): void;
+  (e: 'unlock'): void;
   (e: 'install'): void;
   (e: 'screenshot'): void;
-  (e: 'screenChange', screenIndex: number): void;  // 新增：屏幕切换
+  (e: 'screenChange', screenIndex: number): void; // 新增：屏幕切换
 }
 
 const props = defineProps<Props>();
@@ -42,14 +43,14 @@ const screenOptions = computed(() => {
   const count = props.screenCount || 1;
   return Array.from({ length: count }, (_, i) => ({
     value: i,
-    label: i === 0 ? '主屏幕' : `副屏幕 ${i}`
+    label: i === 0 ? '主屏幕' : `副屏幕 ${i}`,
   }));
 });
 
 // 当前选中的屏幕索引
 const selectedScreen = computed({
   get: () => props.currentScreen || 0,
-  set: (val) => emit('screenChange', val)
+  set: (val) => emit('screenChange', val),
 });
 
 const wsStatusDisplay = computed(() => {
@@ -109,6 +110,10 @@ function handleInput() {
   emit('input');
 }
 
+function handleUnlock() {
+  emit('unlock');
+}
+
 function handleInstall() {
   emit('install');
 }
@@ -122,9 +127,7 @@ function handleScreenshot() {
   <div class="top-navbar" :class="{ 'navbar-fixed': navbarFixed }">
     <!-- 设备信息 -->
     <div class="navbar-left">
-      <button class="back-btn" @click="handleBack">
-        ← 返回设备列表
-      </button>
+      <button class="back-btn" @click="handleBack">← 返回设备列表</button>
       <span class="device-icon">{{ isDesktop ? '💻' : '📱' }}</span>
       <div class="device-info">
         <div class="device-name">{{ deviceDisplayName }}</div>
@@ -133,7 +136,9 @@ function handleScreenshot() {
       <ElTag type="success" size="small" class="online-tag">在线</ElTag>
       <!-- 坐标显示占位容器 -->
       <div v-if="mouseCoord" class="coord-display">
-        <span class="coord-value">({{ mouseCoord.x }}, {{ mouseCoord.y }})</span>
+        <span class="coord-value"
+          >({{ mouseCoord.x }}, {{ mouseCoord.y }})</span
+        >
       </div>
     </div>
 
@@ -144,6 +149,13 @@ function handleScreenshot() {
       </button>
       <button class="toolbar-btn light" @click="handleInput">
         📝 输入文本
+      </button>
+      <button
+        v-if="props.deviceType === 'harmony_pc'"
+        class="toolbar-btn light"
+        @click="handleUnlock"
+      >
+        🔓 解锁屏幕
       </button>
       <button class="toolbar-btn light" @click="handleInstall">
         📦 安装 APP
