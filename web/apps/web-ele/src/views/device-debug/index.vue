@@ -1,8 +1,16 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref, computed, useTemplateRef, watch, nextTick } from 'vue';
+import {
+  onMounted,
+  onUnmounted,
+  ref,
+  computed,
+  useTemplateRef,
+  watch,
+  nextTick,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { ElMessage, ElAlert } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { useTabs } from '@vben/hooks';
 
 import { getEnvMachineDetailApi } from '#/api/core/env-machine';
@@ -40,7 +48,11 @@ const navbarFixed = ref(false);
 
 // 当前使用的编码格式（Windows、鸿蒙移动和鸿蒙 PC 走 H.264；H.264 失败后内部自动降级为 JPEG）
 const currentCodec = computed(() => {
-  if (['windows', 'harmony_mobile', 'harmony_pc'].includes(deviceDetail.value?.device_type ?? '')) {
+  if (
+    ['windows', 'harmony_mobile', 'harmony_pc'].includes(
+      deviceDetail.value?.device_type ?? '',
+    )
+  ) {
     return 'h264';
   }
   return 'jpeg';
@@ -62,8 +74,10 @@ const {
 
 // ScreenDisplay 组件实例引用：用于取出内部暴露的 <video> 元素并绑定给 MSE 解码器。
 // 桌面端和移动端各用一个 ScreenDisplay，通过 useTemplateRef 按顺序绑定。
-const desktopScreenRef = useTemplateRef<InstanceType<typeof ScreenDisplay>>('desktopScreen');
-const mobileScreenRef = useTemplateRef<InstanceType<typeof ScreenDisplay>>('mobileScreen');
+const desktopScreenRef =
+  useTemplateRef<InstanceType<typeof ScreenDisplay>>('desktopScreen');
+const mobileScreenRef =
+  useTemplateRef<InstanceType<typeof ScreenDisplay>>('mobileScreen');
 
 // 监听 videoMode 变化，在进入 H264 模式时把对应 ScreenDisplay 的 <video> 绑定给解码器。
 // 实际依赖父组件重渲染后 ref 已就绪，故用 nextTick + watchEffect。
@@ -76,7 +90,7 @@ watch(
     const el = targetRef?.videoRef ?? null;
     attachVideoEl(el);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 屏幕交互
@@ -131,22 +145,34 @@ const screenCount = computed(() => {
 });
 
 // 设备类型判断
-const isDesktop = computed(() => deviceDetail.value && isDesktopDevice(deviceDetail.value.device_type));
-const isMobile = computed(() => deviceDetail.value && isMobileDevice(deviceDetail.value.device_type));
-const isHarmony = computed(() =>
-  deviceDetail.value?.device_type === 'harmony_mobile' || deviceDetail.value?.device_type === 'harmony_pc',
+const isDesktop = computed(
+  () => deviceDetail.value && isDesktopDevice(deviceDetail.value.device_type),
+);
+const isMobile = computed(
+  () => deviceDetail.value && isMobileDevice(deviceDetail.value.device_type),
+);
+const isHarmony = computed(
+  () =>
+    deviceDetail.value?.device_type === 'harmony_mobile' ||
+    deviceDetail.value?.device_type === 'harmony_pc',
 );
 // 鸿蒙 WS 推流失败后的手动截图兜底（refreshHarmonyScreenshot 填充）
 const harmonyScreenshotUrl = ref('');
 const displayedWsStatus = computed(() => {
   // 鸿蒙降级截图模式下保持画面可见（WS 断开但有截图）
-  if (isHarmony.value && wsStatus.value !== 'connected' && harmonyScreenshotUrl.value) {
+  if (
+    isHarmony.value &&
+    wsStatus.value !== 'connected' &&
+    harmonyScreenshotUrl.value
+  ) {
     return 'connected';
   }
   return wsStatus.value;
 });
 // 屏幕显示源：WS 帧优先，鸿蒙降级截图兜底
-const displayedScreenshotUrl = computed(() => screenshotBase64.value || harmonyScreenshotUrl.value);
+const displayedScreenshotUrl = computed(
+  () => screenshotBase64.value || harmonyScreenshotUrl.value,
+);
 
 // 鸿蒙 WS 推流失败（重试耗尽）时自动拉一张截图兜底，避免黑屏
 watch(wsStatus, (val) => {
@@ -157,15 +183,6 @@ watch(wsStatus, (val) => {
   ) {
     refreshHarmonyScreenshot();
   }
-});
-
-// 设备状态警告（使用中状态时显示）
-const deviceStatusWarning = computed(() => {
-  if (!deviceDetail.value) return '';
-  if (deviceDetail.value.status === 'using') {
-    return '设备正在执行任务，操作可能失败';
-  }
-  return '';
 });
 
 // 设备分辨率显示
@@ -237,7 +254,7 @@ async function loadDeviceDetail() {
     const title = formatDeviceDebugTitle(
       result.ip || '',
       result.device_sn || '',
-      result.device_type
+      result.device_type,
     );
     setTabTitle(title);
 
@@ -248,7 +265,14 @@ async function loadDeviceDetail() {
     const deviceType = result.device_type;
 
     if (workerHost && workerPort && deviceType) {
-      connect(workerHost, workerPort, udid || '', deviceType, currentScreenIndex.value, currentCodec.value);
+      connect(
+        workerHost,
+        workerPort,
+        udid || '',
+        deviceType,
+        currentScreenIndex.value,
+        currentCodec.value,
+      );
     } else {
       ElMessage.error('设备缺少 Worker 连接信息');
     }
@@ -272,12 +296,23 @@ function handleDisconnect() {
 
 // 重新连接
 function handleReconnect() {
-  if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
+  if (
+    deviceDetail.value?.ip &&
+    deviceDetail.value?.port &&
+    deviceDetail.value?.device_type
+  ) {
     const workerHost = deviceDetail.value.ip;
     const workerPort = parseInt(deviceDetail.value.port, 10);
     const udid = deviceDetail.value.device_sn || '';
     const deviceType = deviceDetail.value.device_type;
-    reconnect(workerHost, workerPort, udid, deviceType, currentScreenIndex.value, currentCodec.value);
+    reconnect(
+      workerHost,
+      workerPort,
+      udid,
+      deviceType,
+      currentScreenIndex.value,
+      currentCodec.value,
+    );
   }
 }
 
@@ -285,14 +320,18 @@ function handleReconnect() {
 function handleScreenChange(screenIndex: number) {
   currentScreenIndex.value = screenIndex;
   // 重连 WebSocket 到新屏幕
-  if (deviceDetail.value?.ip && deviceDetail.value?.port && deviceDetail.value?.device_type) {
+  if (
+    deviceDetail.value?.ip &&
+    deviceDetail.value?.port &&
+    deviceDetail.value?.device_type
+  ) {
     reconnect(
       deviceDetail.value.ip,
       parseInt(deviceDetail.value.port, 10),
       deviceDetail.value.device_sn || '',
       deviceDetail.value.device_type,
       screenIndex,
-      currentCodec.value
+      currentCodec.value,
     );
   }
 }
@@ -302,7 +341,8 @@ function handleScreenMouseDown(event: MouseEvent) {
   // 右键点击由 contextmenu 事件处理，这里忽略
   if (event.button === 2) return;
 
-  if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected')) return;
+  if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected'))
+    return;
   // 如果点击在屏幕之外，返回 null，不开始操作
   const coords = handleDragStart(event);
   if (coords === null) {
@@ -331,21 +371,29 @@ async function handleScreenMouseUp(event: MouseEvent) {
       const success = await click(clickParams.x, clickParams.y, monitor);
       if (success) {
         clickCount.value++;
-        if (isHarmony.value && wsStatus.value !== 'connected') await refreshHarmonyScreenshot();
+        if (isHarmony.value && wsStatus.value !== 'connected')
+          await refreshHarmonyScreenshot();
       }
     } else if (result.type === 'swipe') {
-      const swipeParams = result.params as { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
+      const swipeParams = result.params as {
+        from_x: number;
+        from_y: number;
+        to_x: number;
+        to_y: number;
+        duration: number;
+      };
       const success = await swipe(
         swipeParams.from_x,
         swipeParams.from_y,
         swipeParams.to_x,
         swipeParams.to_y,
         swipeParams.duration,
-        monitor
+        monitor,
       );
       if (success) {
         swipeCount.value++;
-        if (isHarmony.value && wsStatus.value !== 'connected') await refreshHarmonyScreenshot();
+        if (isHarmony.value && wsStatus.value !== 'connected')
+          await refreshHarmonyScreenshot();
       }
     }
   }
@@ -358,7 +406,8 @@ function handleScreenMouseLeave() {
 // 右键菜单处理：Windows/Mac/鸿蒙PC 透传右键（鸿蒙PC 用长按映射），iOS/Android/鸿蒙手机 忽略
 // 同样需要检查点击是否在屏幕区域内
 async function handleScreenContextMenu(event: MouseEvent) {
-  if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected')) return;
+  if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected'))
+    return;
 
   // iOS/Android/鸿蒙手机 不支持右键，忽略（harmony_mobile 已包含在 isMobile 中）
   if (isMobile.value) return;
@@ -369,14 +418,19 @@ async function handleScreenContextMenu(event: MouseEvent) {
     const wrapper = eventTarget?.classList.contains('screen-wrapper')
       ? eventTarget
       : (event.target as HTMLElement | null)?.closest('.screen-wrapper');
-    const media = wrapper?.querySelector('.screen-img') as HTMLImageElement | HTMLVideoElement | null;
+    const media = wrapper?.querySelector('.screen-img') as
+      | HTMLImageElement
+      | HTMLVideoElement
+      | null;
     if (!wrapper || !media) return;
 
     const rect = wrapper.getBoundingClientRect();
 
     // 获取媒体源尺寸：img 用 naturalWidth，video 用 videoWidth
-    const sourceW = 'naturalWidth' in media ? media.naturalWidth : media.videoWidth;
-    const sourceH = 'naturalHeight' in media ? media.naturalHeight : media.videoHeight;
+    const sourceW =
+      'naturalWidth' in media ? media.naturalWidth : media.videoWidth;
+    const sourceH =
+      'naturalHeight' in media ? media.naturalHeight : media.videoHeight;
 
     // 防止媒体尚未加载完成
     if (sourceW === 0 || sourceH === 0) {
@@ -393,7 +447,7 @@ async function handleScreenContextMenu(event: MouseEvent) {
       sourceW,
       sourceH,
       mouseX,
-      mouseY
+      mouseY,
     );
 
     // 如果点击不在屏幕区域内，不发送操作
@@ -430,7 +484,8 @@ function handleKeyPress(key: string) {
 function handleInputText(text: string) {
   resetActivityTime();
   inputText(text).then((success) => {
-    if (success && isHarmony.value && wsStatus.value !== 'connected') refreshHarmonyScreenshot();
+    if (success && isHarmony.value && wsStatus.value !== 'connected')
+      refreshHarmonyScreenshot();
   });
 }
 
@@ -438,7 +493,8 @@ function handleInputText(text: string) {
 function handleUnlock(password?: string) {
   resetActivityTime();
   unlockScreen(password).then((success) => {
-    if (success && isHarmony.value && wsStatus.value !== 'connected') refreshHarmonyScreenshot();
+    if (success && isHarmony.value && wsStatus.value !== 'connected')
+      refreshHarmonyScreenshot();
   });
 }
 
@@ -534,16 +590,6 @@ onUnmounted(() => {
       @screen-change="handleScreenChange"
     />
 
-    <!-- 设备状态警告 -->
-    <ElAlert
-      v-if="deviceStatusWarning"
-      :title="deviceStatusWarning"
-      type="warning"
-      :closable="false"
-      show-icon
-      class="status-warning"
-    />
-
     <!-- 主内容区 -->
     <div class="debug-content" :class="{ 'content-padded': navbarFixed }">
       <!-- 桌面端布局：单屏幕展示 -->
@@ -634,14 +680,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-}
-
-/* 设备状态警告样式 */
-.status-warning {
-  margin: 0;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
 }
 
 .debug-content {

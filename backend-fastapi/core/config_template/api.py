@@ -238,7 +238,13 @@ async def _execute_command_deploy(
 
     # 拷贝机器快照（避免 session 关闭后对象变成 detached 状态）
     machine_snapshot = [
-        {"id": str(m.id), "ip": m.ip, "port": m.port, "device_type": m.device_type}
+        {
+            "id": str(m.id),
+            "ip": m.ip,
+            "port": m.port,
+            "device_type": m.device_type,
+            "device_sn": m.device_sn,
+        }
         for m in machines
     ]
     task_id = str(task.id)
@@ -303,12 +309,13 @@ async def _execute_single_command(machine: dict, command: str, parent_task_id: s
     ip = machine["ip"]
     port = machine["port"]
     device_type = machine["device_type"]
+    device_sn = machine.get("device_sn")
 
     # 调用 worker 异步接口
     worker_url = f"http://{ip}:{port}/task/execute_async"
     worker_request = {
         "platform": device_type,
-        "device_id": machine_id,
+        "device_id": device_sn or machine_id,
         "actions": [{"action_type": "cmd_exec", "value": command}],
     }
     idempotency_key = hashlib.sha256(

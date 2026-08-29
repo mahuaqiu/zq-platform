@@ -929,10 +929,10 @@ async def debug_device_action(
 
     流程：
     1. 根据 machine_id 查询设备信息
-    2. 校验设备类型（必须是 ios/android）
-    3. 校验设备状态（必须是 online）
+    2. 校验设备类型
+    3. 校验设备状态（online/using 均可远程操作）
     4. 构造 Worker API 请求体
-    5. POST http://{ip}:{port}/task/execute
+    5. POST http://{ip}:{port}/remote/execute
     6. 返回结果
     """
     # 查询设备信息
@@ -946,8 +946,9 @@ async def debug_device_action(
     ):
         raise HTTPException(status_code=400, detail="不支持该设备类型调试")
 
-    # 校验设备状态
-    if machine.status != "online":
+    # 远程操作和普通用例使用不同的 Worker 资源域，因此允许设备处于
+    # using 状态；只有离线、升级等不可连接状态才拒绝请求。
+    if machine.status not in ("online", "using"):
         raise HTTPException(status_code=400, detail=f"设备状态为 {machine.status}，无法调试")
 
     # 构造 Worker API 请求体
@@ -1008,7 +1009,7 @@ async def debug_device_action(
         raise HTTPException(status_code=400, detail=f"不支持的操作类型: {action_type}")
 
     # 发送请求到 Worker
-    worker_url = f"http://{machine.ip}:{machine.port}/task/execute"
+    worker_url = f"http://{machine.ip}:{machine.port}/remote/execute"
     worker_request = {
         "platform": machine.device_type,
         "device_id": machine.device_sn or machine_id,
@@ -1071,7 +1072,14 @@ async def debug_device_action(
             elif resp.status_code == 502:
                 return DebugActionResponse(success=False, result={"error": "无法连接到设备"})
             else:
-                return DebugActionResponse(success=False, result={"error": f"设备返回异常: {resp.status_code}"})
+                try:
+                    payload = resp.json()
+                except ValueError:
+                    payload = {}
+                return DebugActionResponse(
+                    success=False,
+                    result={"error": _worker_error_message(payload, f"设备返回异常: {resp.status_code}")},
+                )
     except httpx.TimeoutException:
         return DebugActionResponse(success=False, result={"error": "操作超时"})
     except httpx.ConnectError:
@@ -1134,7 +1142,7 @@ async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandR
     worker_url = f"http://{machine.ip}:{machine.port}/task/execute"
     worker_request = {
         "platform": machine.device_type,
-        "device_id": str(machine.id),
+        "device_id": machine.device_sn or str(machine.id),
         "actions": [
             {
                 "action_type": action_type,
