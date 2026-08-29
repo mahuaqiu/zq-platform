@@ -12,21 +12,6 @@ const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 2000; // 2秒
 const IDLE_TIMEOUT = 300000; // 5分钟 = 300秒
 
-function getStreamDiagClock() {
-  return {
-    wallClock: new Date().toISOString(),
-    epochMs: Date.now(),
-  };
-}
-
-function stringifyStreamDiag(value: unknown): string {
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return String(value);
-  }
-}
-
 export function useWebSocket() {
   const status = ref<WebSocketStatus>('disconnected');
   const screenshotBase64 = ref('');
@@ -40,27 +25,9 @@ export function useWebSocket() {
   let retryCount = 0;
   let fpsFrameCount = 0;
   let fpsLastSecond = 0;
-  let streamSummaryLast = 0;
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
   let idleTimer: ReturnType<typeof setInterval> | null = null;
   let lastActivityTime = Date.now();
-  let streamConnectStarted = 0;
-  let streamOpenedAt = 0;
-  let streamPacketCount = 0;
-  let streamTotalPacketCount = 0;
-  let streamBytes = 0;
-  let streamTotalBytes = 0;
-  let streamDiagTimers: ReturnType<typeof setTimeout>[] = [];
-  let streamDiagH264PacketSequence = 0;
-  let h264LastPacketAt = 0;
-  let h264LastPacketIntervalMs: number | null = null;
-  let h264LastPacketType = '';
-  let h264LastPacketBytes = 0;
-  let h264PacketsSinceHeartbeat = 0;
-  let h264BytesSinceHeartbeat = 0;
-  let h264HeartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  let binaryQueueDepth = 0;
-  let binaryQueueMaxDepth = 0;
   let binaryMessageQueue: Promise<void> = Promise.resolve();
 
   // 是否已从 worker 的 meta 文本帧拿到真机原生分辨率作为坐标基准。
@@ -103,34 +70,11 @@ export function useWebSocket() {
     }
 
     videoEl.value = el;
-    console.info(
-      '[stream-diag] video element attach',
-      stringifyStreamDiag({
-        ...getStreamDiagClock(),
-        serial: savedUdid || null,
-        videoAttached: Boolean(el),
-        videoMode: videoMode.value,
-        readyState: el?.readyState ?? null,
-        videoWidth: el?.videoWidth ?? 0,
-        videoHeight: el?.videoHeight ?? 0,
-      }),
-    );
     if (!el) return;
 
     // H264 模式下没有 JPEG，无法通过 Image 获取 screenSize。
     // 从 video 的 loadedmetadata 读取视频源尺寸（jmuxer 从 SPS 解析后写入 video）。
     const onLoadedMeta = () => {
-      console.info(
-        '[stream-diag] video loadedmetadata',
-        stringifyStreamDiag({
-          ...getStreamDiagClock(),
-          serial: savedUdid || null,
-          videoWidth: el.videoWidth,
-          videoHeight: el.videoHeight,
-          readyState: el.readyState,
-          elapsedMs: performance.now() - streamConnectStarted,
-        }),
-      );
       if (!hasMeta && el.videoWidth > 0 && el.videoHeight > 0) {
         screenSize.value = { width: el.videoWidth, height: el.videoHeight };
       }
@@ -179,73 +123,6 @@ export function useWebSocket() {
     lastActivityTime = Date.now();
   }
 
-  function stopStreamDiagTimers(): void {
-    for (const timer of streamDiagTimers) {
-      clearTimeout(timer);
-    }
-    streamDiagTimers = [];
-  }
-
-  function stopH264Heartbeat(): void {
-    if (h264HeartbeatTimer) {
-      clearInterval(h264HeartbeatTimer);
-      h264HeartbeatTimer = null;
-    }
-  }
-
-  function startH264Heartbeat(generation: number): void {
-    stopH264Heartbeat();
-    h264HeartbeatTimer = setInterval(() => {
-      if (generation !== websocketGeneration || !videoMode.value) return;
-
-      const now = performance.now();
-      console.info(
-        '[stream-diag] h264 heartbeat',
-        stringifyStreamDiag({
-          ...getStreamDiagClock(),
-          serial: savedUdid || null,
-          generation,
-          elapsedMs: now - streamConnectStarted,
-          packets: streamTotalPacketCount,
-          packetsSinceLastHeartbeat: h264PacketsSinceHeartbeat,
-          bytesSinceLastHeartbeat: h264BytesSinceHeartbeat,
-          lastPacketType: h264LastPacketType || null,
-          lastPacketBytes: h264LastPacketBytes || null,
-          lastPacketIntervalMs: h264LastPacketIntervalMs,
-          lastPacketAgeMs: h264LastPacketAt > 0 ? now - h264LastPacketAt : null,
-          binaryQueueDepth,
-          binaryQueueMaxDepth,
-          mse: mseDecoder.getDiagnostics(),
-        }),
-      );
-      h264PacketsSinceHeartbeat = 0;
-      h264BytesSinceHeartbeat = 0;
-    }, 2000);
-  }
-
-  function scheduleH264Diagnostics(generation: number): void {
-    stopStreamDiagTimers();
-    for (const delayMs of [500, 1500, 3000, 5000]) {
-      const timer = setTimeout(() => {
-        if (generation !== websocketGeneration || !videoMode.value) return;
-        const el = videoEl.value;
-        console.info(
-          '[stream-diag] h264 browser state',
-          stringifyStreamDiag({
-            ...getStreamDiagClock(),
-            serial: savedUdid || null,
-            generation,
-            elapsedMs: performance.now() - streamConnectStarted,
-            delayMs,
-            videoAttached: Boolean(el),
-            ...mseDecoder.getDiagnostics(),
-          }),
-        );
-      }, delayMs);
-      streamDiagTimers.push(timer);
-    }
-  }
-
   /**
    * 开始超时检测（每分钟检查一次）
    */
@@ -286,7 +163,6 @@ export function useWebSocket() {
     codec: string = 'jpeg',
   ): void {
     const generation = ++websocketGeneration;
-    stopStreamDiagTimers();
     // 保存参数用于重连
     savedHost = host;
     savedPort = port;
@@ -304,22 +180,6 @@ export function useWebSocket() {
     console.log(
       `[WebSocket] Connecting to ${host}:${port}, deviceType=${deviceType}, codec=${codec}`,
     );
-    streamConnectStarted = performance.now();
-    streamOpenedAt = 0;
-    streamPacketCount = 0;
-    streamTotalPacketCount = 0;
-    streamBytes = 0;
-    streamTotalBytes = 0;
-    streamDiagH264PacketSequence = 0;
-    h264LastPacketAt = 0;
-    h264LastPacketIntervalMs = null;
-    h264LastPacketType = '';
-    h264LastPacketBytes = 0;
-    h264PacketsSinceHeartbeat = 0;
-    h264BytesSinceHeartbeat = 0;
-    binaryQueueDepth = 0;
-    binaryQueueMaxDepth = 0;
-    stopH264Heartbeat();
     binaryMessageQueue = Promise.resolve();
 
     // 关闭旧连接（使用 code=1000 表示正常关闭，不触发自动重连）
@@ -331,15 +191,6 @@ export function useWebSocket() {
 
     // 根据 codec 决定渲染模式：H264 → <video>(MSE)，JPEG/MJPEG → <img>
     const isH264 = codec === 'h264';
-    if (isH264) {
-      console.info('[stream-diag] h264 connect reset', {
-        ...getStreamDiagClock(),
-        serial: savedUdid || null,
-        generation,
-        videoAttached: Boolean(videoEl.value),
-        videoModeBefore: videoMode.value,
-      });
-    }
     if (isH264) {
       // 进入 MSE 模式前先销毁旧的 jmuxer 实例，避免重复初始化
       // 10fps 只作为没有可靠时间信息时的兜底帧率；鸿蒙分支会按消息到达
@@ -372,26 +223,15 @@ export function useWebSocket() {
     ws.onopen = () => {
       if (generation !== websocketGeneration) return;
       status.value = 'connected';
-      streamOpenedAt = performance.now();
-      console.info('[stream-diag] websocket open', {
-        ...getStreamDiagClock(),
-        serial: savedUdid || null,
-        generation,
-        connectMs: streamOpenedAt - streamConnectStarted,
-        codec,
-      });
       retryCount = 0;
       fpsFrameCount = 0;
       fpsLastSecond = Date.now();
-      streamSummaryLast = Date.now();
       startFpsTimer();
       startIdleTimer(); // 启动超时检测
 
       // H264 模式：连接建立后初始化 MSE 解码器（此时 video 元素应已通过 attachVideoEl 绑定）
       if (isH264) {
         mseDecoder.init();
-        scheduleH264Diagnostics(generation);
-        startH264Heartbeat(generation);
       }
     };
 
@@ -407,70 +247,9 @@ export function useWebSocket() {
         return;
       }
 
-      const processingDelayMs = performance.now() - receivedAt;
-      if (processingDelayMs >= 50) {
-        console.warn('[stream-diag] websocket binary processing delayed', {
-          ...getStreamDiagClock(),
-          serial: savedUdid || null,
-          generation,
-          processingDelayMs,
-          binaryQueueDepth,
-          binaryQueueMaxDepth,
-          bytes: arrayBuffer.byteLength,
-        });
-      }
-
-      streamPacketCount += 1;
-      streamTotalPacketCount += 1;
-      streamBytes += arrayBuffer.byteLength;
-      streamTotalBytes += arrayBuffer.byteLength;
-
       const frameType = detectFrameType(arrayBuffer);
       switch (frameType) {
         case FrameType.H264:
-          streamDiagH264PacketSequence += 1;
-          {
-            const prefix = new Uint8Array(arrayBuffer, 0, 1)[0] ?? 0;
-            const packetType =
-              (
-                {
-                  0x01: 'config',
-                  0x02: 'idr',
-                  0x03: 'p',
-                } as Record<number, string>
-              )[prefix] ?? `0x${prefix.toString(16)}`;
-            const now = performance.now();
-            h264LastPacketIntervalMs =
-              h264LastPacketAt > 0 ? now - h264LastPacketAt : null;
-            h264LastPacketAt = now;
-            h264LastPacketType = packetType;
-            h264LastPacketBytes = arrayBuffer.byteLength;
-            h264PacketsSinceHeartbeat += 1;
-            h264BytesSinceHeartbeat += arrayBuffer.byteLength;
-            // 参数集/IDR 总是记录，P 帧每 10 个记录一次，既能看出动作后的
-            // 收包节奏，也避免 10fps 时控制台被单帧日志淹没。
-            const shouldLogPacket =
-              packetType !== 'p' ||
-              streamDiagH264PacketSequence <= 8 ||
-              streamDiagH264PacketSequence % 10 === 0;
-            if (shouldLogPacket) {
-              console.info(
-                '[stream-diag] h264 packet received',
-                stringifyStreamDiag({
-                  ...getStreamDiagClock(),
-                  serial: savedUdid || null,
-                  generation,
-                  sequence: streamDiagH264PacketSequence,
-                  packetType,
-                  bytes: arrayBuffer.byteLength,
-                  elapsedMs: now - streamConnectStarted,
-                  processingDelayMs,
-                  videoAttached: Boolean(videoEl.value),
-                  mse: mseDecoder.getDiagnostics(),
-                }),
-              );
-            }
-          }
           mseDecoder.feedFrame(arrayBuffer, receivedAt);
           break;
 
@@ -537,8 +316,6 @@ export function useWebSocket() {
       if (typeof Blob !== 'undefined' && event.data instanceof Blob) {
         const blob = event.data;
         const receivedAt = performance.now();
-        binaryQueueDepth += 1;
-        binaryQueueMaxDepth = Math.max(binaryQueueMaxDepth, binaryQueueDepth);
         binaryMessageQueue = binaryMessageQueue
           .then(async () => {
             const arrayBuffer = await blob.arrayBuffer();
@@ -549,9 +326,6 @@ export function useWebSocket() {
             if (generation === websocketGeneration) {
               console.error('[WebSocket] 二进制 Blob 转换失败:', error);
             }
-          })
-          .finally(() => {
-            binaryQueueDepth = Math.max(0, binaryQueueDepth - 1);
           });
         return;
       }
@@ -559,8 +333,6 @@ export function useWebSocket() {
       if (event.data instanceof ArrayBuffer) {
         const arrayBuffer = event.data;
         const receivedAt = performance.now();
-        binaryQueueDepth += 1;
-        binaryQueueMaxDepth = Math.max(binaryQueueMaxDepth, binaryQueueDepth);
         binaryMessageQueue = binaryMessageQueue
           .then(() => {
             processBinaryFrame(arrayBuffer, receivedAt);
@@ -569,9 +341,6 @@ export function useWebSocket() {
             if (generation === websocketGeneration) {
               console.error('[WebSocket] 二进制帧处理失败:', error);
             }
-          })
-          .finally(() => {
-            binaryQueueDepth = Math.max(0, binaryQueueDepth - 1);
           });
       }
     };
@@ -580,28 +349,12 @@ export function useWebSocket() {
       if (generation !== websocketGeneration) return;
       stopFpsTimer();
       stopIdleTimer(); // 停止超时检测
-      stopH264Heartbeat();
       status.value = 'disconnected';
       closeInfo.value = { code: event.code, reason: event.reason };
 
       console.log(
         `[WebSocket] Connection closed: code=${event.code}, reason=${event.reason}, retryCount=${retryCount}`,
       );
-      if (savedCodec === 'h264') {
-        console.info(
-          '[stream-diag] h264 connection summary',
-          stringifyStreamDiag({
-            ...getStreamDiagClock(),
-            serial: savedUdid || null,
-            generation,
-            totalPackets: streamTotalPacketCount,
-            totalBytes: streamTotalBytes,
-            mse: mseDecoder.getDiagnostics(),
-          }),
-        );
-      }
-      stopStreamDiagTimers();
-
       // 非正常关闭时尝试重连
       if (event.code !== 1000 && retryCount < MAX_RETRIES) {
         retryCount++;
@@ -645,8 +398,6 @@ export function useWebSocket() {
     }
     stopFpsTimer();
     stopIdleTimer();
-    stopStreamDiagTimers();
-    stopH264Heartbeat();
     // 释放 MSE 解码器资源
     mseDecoder.dispose();
     videoMode.value = false;
@@ -687,25 +438,6 @@ export function useWebSocket() {
       const elapsedSeconds = (now - fpsLastSecond) / 1000;
       if (elapsedSeconds >= 1) {
         fps.value = Math.round(fpsFrameCount / elapsedSeconds);
-        if (videoMode.value && now - streamSummaryLast >= 5000) {
-          console.debug(
-            '[stream-diag] browser summary',
-            stringifyStreamDiag({
-              ...getStreamDiagClock(),
-              serial: savedUdid || null,
-              elapsedMs: performance.now() - streamConnectStarted,
-              packets: streamPacketCount,
-              bytes: streamBytes,
-              totalPackets: streamTotalPacketCount,
-              totalBytes: streamTotalBytes,
-              fps: fps.value,
-              mse: mseDecoder.getDiagnostics(),
-            }),
-          );
-          streamPacketCount = 0;
-          streamBytes = 0;
-          streamSummaryLast = now;
-        }
         fpsFrameCount = 0;
         fpsLastSecond = now;
       }
