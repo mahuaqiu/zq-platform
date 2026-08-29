@@ -49,8 +49,6 @@ export function useWebSocket() {
   const mseDecoder = useMseDecoder({
     videoEl,
     fps: 10,
-    onReady: () => console.log('[WebSocket] H264 decoder ready (MSE/jmuxer)'),
-    onError: (e) => console.error('[WebSocket] H264 MSE error:', e),
     onFallback: () => {
       fallbackToJpeg('MSE/JMuxer 不支持或初始化失败');
     },

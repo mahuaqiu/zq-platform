@@ -37,32 +37,6 @@ interface PendingMseFrame {
   receivedAtMs: number;
 }
 
-function getMseDiagClock() {
-  return {
-    wallClock: new Date().toISOString(),
-    epochMs: Date.now(),
-  };
-}
-
-function stringifyMseDiag(value: unknown): string {
-  try {
-    return (
-      JSON.stringify(value, (_key, nestedValue) => {
-        if (nestedValue instanceof Error) {
-          return {
-            name: nestedValue.name,
-            message: nestedValue.message,
-            stack: nestedValue.stack,
-          };
-        }
-        return nestedValue;
-      }) ?? String(value)
-    );
-  } catch {
-    return String(value);
-  }
-}
-
 export function useMseDecoder(options: MseDecoderOptions) {
   // 关键：经 window. 缓存全局 API，避免 esbuild/Vite 打包时把全局标识符当模块绑定，
   // 导致运行时 ReferenceError（WebCodecs 方案的同类教训）。
@@ -95,9 +69,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
   let lastPresentedMediaTime: number | null = null;
   let missingVideoFrameCount = 0;
   let videoFrameDiagnosticsStarted = false;
-  let decoderStartedAtMs: number | null = null;
-  let videoEventNode: HTMLVideoElement | null = null;
-  let videoEventHandlers: Array<[string, EventListener]> = [];
   let sourceBufferNode: SourceBuffer | null = null;
   let sourceBufferEventHandlers: Array<[string, EventListener]> = [];
   let sourceBufferUpdateStartCount = 0;
@@ -147,48 +118,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
     }
   }
 
-  function detachVideoDiagnostics(): void {
-    if (!videoEventNode) return;
-    for (const [eventName, handler] of videoEventHandlers) {
-      videoEventNode.removeEventListener(eventName, handler);
-    }
-    videoEventNode = null;
-    videoEventHandlers = [];
-  }
-
-  function attachVideoDiagnostics(el: HTMLVideoElement): void {
-    detachVideoDiagnostics();
-    videoEventNode = el;
-    for (const eventName of [
-      'loadedmetadata',
-      'canplay',
-      'playing',
-      'waiting',
-      'stalled',
-      'pause',
-      'ended',
-      'emptied',
-      'error',
-    ]) {
-      const handler: EventListener = () => {
-        const mediaError = el.error;
-        console.info(
-          '[MSEDecoder] video event',
-          stringifyMseDiag({
-            ...getMseDiagClock(),
-            event: eventName,
-            ...getDiagnostics(),
-            mediaError: mediaError
-              ? { code: mediaError.code, message: mediaError.message }
-              : null,
-          }),
-        );
-      };
-      el.addEventListener(eventName, handler);
-      videoEventHandlers.push([eventName, handler]);
-    }
-  }
-
   function detachSourceBufferDiagnostics(): void {
     if (!sourceBufferNode) return;
     for (const [eventName, handler] of sourceBufferEventHandlers) {
@@ -223,13 +152,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
         () => {
           sourceBufferErrorCount += 1;
           harmonyCleanupPending = false;
-          console.error(
-            '[MSEDecoder] source buffer error',
-            stringifyMseDiag({
-              ...getMseDiagClock(),
-              ...getDiagnostics(),
-            }),
-          );
         },
       ],
       [
@@ -250,18 +172,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
    * 不支持 MediaSource 或 onUnsupportedCodec 时触发降级。
    */
   function init(): void {
-    const initialEl = options.videoEl.value;
-    console.info('[MSEDecoder] init requested', {
-      ...getMseDiagClock(),
-      alreadyInitialized: Boolean(jmuxer),
-      videoAttached: Boolean(initialEl),
-      videoReadyState: initialEl?.readyState ?? null,
-      videoWidth: initialEl?.videoWidth ?? 0,
-      videoHeight: initialEl?.videoHeight ?? 0,
-    });
     if (fallback) return;
     if (typeof _MediaSource === 'undefined') {
-      console.warn('[MSEDecoder] 浏览器不支持 MediaSource，触发降级');
       fallback = true;
       options.onFallback?.();
       return;
@@ -269,7 +181,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
 
     const el = options.videoEl.value;
     if (!el) {
-      console.warn('[MSEDecoder] video 元素尚未挂载，跳过初始化');
       return;
     }
 
@@ -296,12 +207,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
       debug: false,
       onReady: () => {
         mseReady = true;
-        console.info('[MSEDecoder] jmuxer ready', {
-          ...getMseDiagClock(),
-          videoReadyState: el.readyState,
-          videoWidth: el.videoWidth,
-          videoHeight: el.videoHeight,
-        });
         options.onReady?.();
         const initialFrames = pendingFrames;
         pendingFrames = [];
@@ -310,25 +215,12 @@ export function useMseDecoder(options: MseDecoderOptions) {
         }
       },
       onError: (data: unknown) => {
-        console.error('[MSEDecoder] jmuxer error', {
-          ...getMseDiagClock(),
-          error: data,
-          ...getDiagnostics(),
-        });
         options.onError?.(data);
       },
       onMissingVideoFrames: () => {
         missingVideoFrameCount += 1;
-        console.warn('[MSEDecoder] jmuxer missing video frames', {
-          ...getMseDiagClock(),
-          ...getDiagnostics(),
-        });
       },
       onUnsupportedCodec: () => {
-        console.error(
-          '[MSEDecoder] 不支持的 codec，触发降级',
-          getMseDiagClock(),
-        );
         fallback = true;
         options.onFallback?.();
       },
@@ -339,18 +231,12 @@ export function useMseDecoder(options: MseDecoderOptions) {
         jmuxerOptions as ConstructorParameters<typeof JMuxer>[0],
       );
       jmuxerNode = el;
-      decoderStartedAtMs = performance.now();
-      attachVideoDiagnostics(el);
       // 启动 buffer 主动清理（防内存泄漏，见字段声明处说明）
       startBufferCleanup();
       startLiveEdgeSync();
       startVideoFrameDiagnostics();
       tryStartPlayback(el);
-    } catch (e) {
-      console.error('[MSEDecoder] jmuxer 创建失败，触发降级', {
-        ...getMseDiagClock(),
-        error: e,
-      });
+    } catch {
       fallback = true;
       options.onFallback?.();
     }
@@ -648,18 +534,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
       firstPresentedAtMs ??= presentedAt;
       lastPresentedAtMs = presentedAt;
       lastPresentedMediaTime = metadata.mediaTime;
-      if (presentedFrameCount === 1) {
-        console.info('[MSEDecoder] first video frame presented', {
-          ...getMseDiagClock(),
-          mediaTime: metadata.mediaTime,
-          elapsedSinceDecoderStartMs:
-            decoderStartedAtMs !== null
-              ? presentedAt - decoderStartedAtMs
-              : null,
-          elapsedSinceFirstFeedMs:
-            firstFeedAtMs !== null ? presentedAt - firstFeedAtMs : null,
-        });
-      }
       el.requestVideoFrameCallback?.(callback);
     };
     el.requestVideoFrameCallback(callback);
@@ -693,20 +567,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
         lastLiveEdgeSeekAt = now;
         liveEdgeInitialized = true;
         el.playbackRate = 1;
-        if (shouldInitialSeek) {
-          console.info('[MSEDecoder] live edge seek', {
-            ...getMseDiagClock(),
-            reason: 'initial',
-            lagSeconds: lag,
-            bufferedEnd,
-            targetTime,
-          });
-        }
-      } catch (error) {
-        console.warn('[MSEDecoder] live edge seek failed', {
-          ...getMseDiagClock(),
-          error,
-        });
+      } catch {
+        // 追帧失败不影响后续数据接收，下个同步周期继续尝试。
       }
     }
 
@@ -853,17 +715,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
    * 释放 jmuxer 资源
    */
   function dispose(): void {
-    console.info('[MSEDecoder] dispose', {
-      ...getMseDiagClock(),
-      hadJmuxer: Boolean(jmuxer),
-      feedCount,
-      fedBytes,
-      presentedFrameCount,
-      videoAttached: Boolean(options.videoEl.value),
-    });
     stopBufferCleanup();
     stopLiveEdgeSync();
-    detachVideoDiagnostics();
     detachSourceBufferDiagnostics();
     liveEdgeInitialized = false;
     lastLiveEdgeSeekAt = 0;
@@ -889,7 +742,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
     lastPresentedAtMs = null;
     lastPresentedMediaTime = null;
     missingVideoFrameCount = 0;
-    decoderStartedAtMs = null;
     lastVideoReceivedAtMs = null;
     lastHarmonyFrameDurationMs = null;
     harmonyFrameDurationMs = null;
