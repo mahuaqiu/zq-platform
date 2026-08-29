@@ -7,25 +7,57 @@ import type { OperationRecord } from '../types';
 import { formatTime, formatHistoryDisplay } from '../utils';
 
 const OPERATION_TIMEOUT = 20000; // 普通操作超时：20秒
-const UNLOCK_TIMEOUT = 30000;    // 解锁操作超时：30秒
+const UNLOCK_TIMEOUT = 30000; // 解锁操作超时：30秒
 const MIN_OPERATION_INTERVAL = 300; // 最小操作间隔
+
+function getActionDiagClock() {
+  return {
+    wallClock: new Date().toISOString(),
+    epochMs: Date.now(),
+  };
+}
+
+function stringifyActionDiag(value: unknown): string {
+  try {
+    return (
+      JSON.stringify(value, (_key, nestedValue) => {
+        if (nestedValue instanceof Error) {
+          return {
+            name: nestedValue.name,
+            message: nestedValue.message,
+            stack: nestedValue.stack,
+          };
+        }
+        return nestedValue;
+      }) ?? String(value)
+    );
+  } catch {
+    return String(value);
+  }
+}
 
 export function useDeviceAction(deviceId: string) {
   const isOperating = ref(false);
   const lastOperationTime = ref(0);
   const operationHistory = ref<OperationRecord[]>([]);
+  let operationSequence = 0;
 
   /**
    * 等待
    */
   function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * 添加历史记录
    */
-  function addHistory(type: string, params: string, status: 'pending' | 'success' | 'failed', error?: string): void {
+  function addHistory(
+    type: string,
+    params: string,
+    status: 'pending' | 'success' | 'failed',
+    error?: string,
+  ): void {
     operationHistory.value.unshift({
       type,
       params,
@@ -41,7 +73,10 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 更新历史记录状态
    */
-  function updateHistoryStatus(status: 'success' | 'failed', error?: string): void {
+  function updateHistoryStatus(
+    status: 'success' | 'failed',
+    error?: string,
+  ): void {
     const record = operationHistory.value[0];
     if (record) {
       record.status = status;
@@ -58,7 +93,7 @@ export function useDeviceAction(deviceId: string) {
     actionType: string,
     params: Record<string, any>,
     _skipRefresh = true, // WebSocket 实时刷新，不需要手动刷新
-    isAuto = false
+    isAuto = false,
   ): Promise<boolean> {
     // 检查最小间隔
     const now = Date.now();
@@ -69,6 +104,19 @@ export function useDeviceAction(deviceId: string) {
 
     isOperating.value = true;
     lastOperationTime.value = Date.now();
+    const operationId = ++operationSequence;
+    const operationStartedAt = performance.now();
+    console.info(
+      '[action-diag] operation start',
+      stringifyActionDiag({
+        ...getActionDiagClock(),
+        deviceId,
+        operationId,
+        actionType,
+        params,
+        startedAt: new Date().toISOString(),
+      }),
+    );
 
     // 记录操作开始
     if (!isAuto && actionType !== 'screenshot') {
@@ -77,7 +125,8 @@ export function useDeviceAction(deviceId: string) {
     }
 
     try {
-      const timeout = actionType === 'unlock_screen' ? UNLOCK_TIMEOUT : OPERATION_TIMEOUT;
+      const timeout =
+        actionType === 'unlock_screen' ? UNLOCK_TIMEOUT : OPERATION_TIMEOUT;
 
       const result = await debugDeviceActionApi(
         deviceId,
@@ -86,12 +135,35 @@ export function useDeviceAction(deviceId: string) {
       );
 
       if (result && result.success) {
+        console.info(
+          '[action-diag] operation result',
+          stringifyActionDiag({
+            ...getActionDiagClock(),
+            deviceId,
+            operationId,
+            actionType,
+            success: true,
+            elapsedMs: performance.now() - operationStartedAt,
+          }),
+        );
         if (!isAuto) {
           updateHistoryStatus('success');
         }
         return true;
       } else {
         const errorMsg = result?.result?.error || '操作失败';
+        console.warn(
+          '[action-diag] operation result',
+          stringifyActionDiag({
+            ...getActionDiagClock(),
+            deviceId,
+            operationId,
+            actionType,
+            success: false,
+            elapsedMs: performance.now() - operationStartedAt,
+            error: errorMsg,
+          }),
+        );
         if (!isAuto) {
           updateHistoryStatus('failed', errorMsg);
           ElMessage.error(errorMsg);
@@ -99,7 +171,19 @@ export function useDeviceAction(deviceId: string) {
         return false;
       }
     } catch (error: any) {
-      const errorMsg = error?.message || error?.response?.data?.error || '操作失败';
+      const errorMsg =
+        error?.message || error?.response?.data?.error || '操作失败';
+      console.warn(
+        '[action-diag] operation exception',
+        stringifyActionDiag({
+          ...getActionDiagClock(),
+          deviceId,
+          operationId,
+          actionType,
+          elapsedMs: performance.now() - operationStartedAt,
+          error: errorMsg,
+        }),
+      );
       if (!isAuto) {
         updateHistoryStatus('failed', errorMsg);
         ElMessage.error(errorMsg);
@@ -113,7 +197,11 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 点击操作
    */
-  async function click(x: number, y: number, monitor?: number): Promise<boolean> {
+  async function click(
+    x: number,
+    y: number,
+    monitor?: number,
+  ): Promise<boolean> {
     const params: Record<string, any> = { x, y };
     if (monitor !== undefined) {
       params.monitor = monitor;
@@ -124,7 +212,11 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 右键点击操作
    */
-  async function rightClick(x: number, y: number, monitor?: number): Promise<boolean> {
+  async function rightClick(
+    x: number,
+    y: number,
+    monitor?: number,
+  ): Promise<boolean> {
     const params: Record<string, any> = { x, y };
     if (monitor !== undefined) {
       params.monitor = monitor;
@@ -135,8 +227,21 @@ export function useDeviceAction(deviceId: string) {
   /**
    * 滑动操作
    */
-  async function swipe(fromX: number, fromY: number, toX: number, toY: number, duration = 500, monitor?: number): Promise<boolean> {
-    const params: Record<string, any> = { from_x: fromX, from_y: fromY, to_x: toX, to_y: toY, duration };
+  async function swipe(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    duration = 500,
+    monitor?: number,
+  ): Promise<boolean> {
+    const params: Record<string, any> = {
+      from_x: fromX,
+      from_y: fromY,
+      to_x: toX,
+      to_y: toY,
+      duration,
+    };
     if (monitor !== undefined) {
       params.monitor = monitor;
     }

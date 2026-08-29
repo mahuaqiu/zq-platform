@@ -30,39 +30,100 @@ export interface MseDecoderOptions {
   onFallback?: () => void;
 }
 
+type MsePlaybackProfile = 'default' | 'harmony';
+
+interface PendingMseFrame {
+  data: ArrayBuffer;
+  receivedAtMs: number;
+}
+
+function getMseDiagClock() {
+  return {
+    wallClock: new Date().toISOString(),
+    epochMs: Date.now(),
+  };
+}
+
+function stringifyMseDiag(value: unknown): string {
+  try {
+    return (
+      JSON.stringify(value, (_key, nestedValue) => {
+        if (nestedValue instanceof Error) {
+          return {
+            name: nestedValue.name,
+            message: nestedValue.message,
+            stack: nestedValue.stack,
+          };
+        }
+        return nestedValue;
+      }) ?? String(value)
+    );
+  } catch {
+    return String(value);
+  }
+}
+
 export function useMseDecoder(options: MseDecoderOptions) {
   // 关键：经 window. 缓存全局 API，避免 esbuild/Vite 打包时把全局标识符当模块绑定，
   // 导致运行时 ReferenceError（WebCodecs 方案的同类教训）。
   // typeof window.MediaSource 在不支持的浏览器下返回 undefined，可用于降级判断。
-  const _MediaSource =
-    (window as any).MediaSource as typeof MediaSource | undefined;
+  const _MediaSource = (window as any).MediaSource as
+    | typeof MediaSource
+    | undefined;
 
   let jmuxer: JMuxer | null = null;
   let jmuxerNode: HTMLVideoElement | null = null;
+  // Windows 保持原有播放参数；鸿蒙 H.264 使用独立的时间轴和清理策略。
+  let playbackProfile: MsePlaybackProfile = 'default';
   // MediaSource 还未 sourceopen 时，JMuxer 可能已经创建但还不能建立
   // SourceBuffer；首批 config/IDR 必须等 sourceopen 后再喂入。
   let mseReady = false;
   let configuredFps = Math.max(1, options.fps ?? 10);
   // WebSocket 可能先收到缓存的 SPS/PPS、IDR，再完成 video/JMuxer 初始化。
   // 静止画面不会产生后续帧，因此初始化前不能直接丢弃这些首帧。
-  let pendingFrames: ArrayBuffer[] = [];
+  let pendingFrames: PendingMseFrame[] = [];
   const MAX_PENDING_FRAMES = 16;
   let fallback = false;
   let feedCount = 0;
   let fedBytes = 0;
+  let feedPacketCounts = { config: 0, idr: 0, p: 0, other: 0 };
+  let firstFeedAtMs: number | null = null;
+  let lastFeedAtMs: number | null = null;
   let presentedFrameCount = 0;
   let firstPresentedAtMs: number | null = null;
+  let lastPresentedAtMs: number | null = null;
   let lastPresentedMediaTime: number | null = null;
+  let missingVideoFrameCount = 0;
   let videoFrameDiagnosticsStarted = false;
+  let decoderStartedAtMs: number | null = null;
+  let videoEventNode: HTMLVideoElement | null = null;
+  let videoEventHandlers: Array<[string, EventListener]> = [];
+  let sourceBufferNode: SourceBuffer | null = null;
+  let sourceBufferEventHandlers: Array<[string, EventListener]> = [];
+  let sourceBufferUpdateStartCount = 0;
+  let sourceBufferUpdateEndCount = 0;
+  let sourceBufferErrorCount = 0;
+  let sourceBufferAbortCount = 0;
+  let lastSourceBufferUpdateEndAtMs: number | null = null;
+  let lastVideoReceivedAtMs: number | null = null;
+  let lastHarmonyFrameDurationMs: number | null = null;
+  let harmonyFrameDurationMs: number | null = null;
+  let harmonyFrameDurationSamples: number[] = [];
+  let harmonyMediaTimeSeconds = 0;
+  let harmonyKeyframePositions: number[] = [];
+  let harmonyCleanupPending = false;
 
-  // buffer 主动清理定时器。
-  // 背景：jmuxer 自带的 clearBuffer 依赖 <video>.currentTime 推进来计算清理边界，
-  // 但实时推流下 <video> 可能停滞（autoplay 受限、卡帧），导致 currentTime 不增长，
-  // jmuxer 内部清理失效，MSE SourceBuffer 单调增长 → 浏览器内存暴涨。
-  // 这里不依赖 jmuxer 内部清理，直接监控 SourceBuffer.buffered 主动 remove 旧数据。
+  // Windows 使用额外的 buffer 清理定时器。鸿蒙使用自己的保守清理，避免
+  // JMuxer 在没有设备时间戳时把当前可播放区间误判为旧数据。
   let bufferCleanupTimer: ReturnType<typeof setInterval> | null = null;
   // buffer 最大保留时长（秒）：超过此长度的已播放数据将被回收
   const MAX_BUFFER_SECONDS = 8;
+  // 鸿蒙官方流没有媒体时间戳，按 WebSocket 消息到达间隔估算媒体时长。
+  // 使用滚动中位数抑制网络突发，同时允许编码器帧率随设备状态变化。
+  const HARMONY_MIN_FRAME_DURATION_MS = 20;
+  const HARMONY_MAX_FRAME_DURATION_MS = 250;
+  const HARMONY_DURATION_SAMPLE_COUNT = 8;
+  const HARMONY_BUFFER_KEEP_SECONDS = 15;
   // H.264 直通只在画面变化时产生回调；缓冲目标需要足够小，
   // 否则设备刚恢复活动时，浏览器会先播放一段旧 P 帧。
   const LIVE_EDGE_TARGET_SECONDS = 0.05;
@@ -85,6 +146,105 @@ export function useMseDecoder(options: MseDecoderOptions) {
       });
     }
   }
+
+  function detachVideoDiagnostics(): void {
+    if (!videoEventNode) return;
+    for (const [eventName, handler] of videoEventHandlers) {
+      videoEventNode.removeEventListener(eventName, handler);
+    }
+    videoEventNode = null;
+    videoEventHandlers = [];
+  }
+
+  function attachVideoDiagnostics(el: HTMLVideoElement): void {
+    detachVideoDiagnostics();
+    videoEventNode = el;
+    for (const eventName of [
+      'loadedmetadata',
+      'canplay',
+      'playing',
+      'waiting',
+      'stalled',
+      'pause',
+      'ended',
+      'emptied',
+      'error',
+    ]) {
+      const handler: EventListener = () => {
+        const mediaError = el.error;
+        console.info(
+          '[MSEDecoder] video event',
+          stringifyMseDiag({
+            ...getMseDiagClock(),
+            event: eventName,
+            ...getDiagnostics(),
+            mediaError: mediaError
+              ? { code: mediaError.code, message: mediaError.message }
+              : null,
+          }),
+        );
+      };
+      el.addEventListener(eventName, handler);
+      videoEventHandlers.push([eventName, handler]);
+    }
+  }
+
+  function detachSourceBufferDiagnostics(): void {
+    if (!sourceBufferNode) return;
+    for (const [eventName, handler] of sourceBufferEventHandlers) {
+      sourceBufferNode.removeEventListener(eventName, handler);
+    }
+    sourceBufferNode = null;
+    sourceBufferEventHandlers = [];
+  }
+
+  function attachSourceBufferDiagnostics(): void {
+    const sourceBuffer = getSourceBuffer();
+    if (!sourceBuffer || sourceBuffer === sourceBufferNode) return;
+    detachSourceBufferDiagnostics();
+    sourceBufferNode = sourceBuffer;
+    const handlers: Array<[string, EventListener]> = [
+      [
+        'updatestart',
+        () => {
+          sourceBufferUpdateStartCount += 1;
+        },
+      ],
+      [
+        'updateend',
+        () => {
+          sourceBufferUpdateEndCount += 1;
+          lastSourceBufferUpdateEndAtMs = performance.now();
+          harmonyCleanupPending = false;
+        },
+      ],
+      [
+        'error',
+        () => {
+          sourceBufferErrorCount += 1;
+          harmonyCleanupPending = false;
+          console.error(
+            '[MSEDecoder] source buffer error',
+            stringifyMseDiag({
+              ...getMseDiagClock(),
+              ...getDiagnostics(),
+            }),
+          );
+        },
+      ],
+      [
+        'abort',
+        () => {
+          sourceBufferAbortCount += 1;
+          harmonyCleanupPending = false;
+        },
+      ],
+    ];
+    for (const [eventName, handler] of handlers) {
+      sourceBuffer.addEventListener(eventName, handler);
+    }
+    sourceBufferEventHandlers = handlers;
+  }
   /**
    * 初始化 jmuxer。必须在 <video> 元素已挂载后调用。
    * 不支持 MediaSource 或 onUnsupportedCodec 时触发降级。
@@ -92,6 +252,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
   function init(): void {
     const initialEl = options.videoEl.value;
     console.info('[MSEDecoder] init requested', {
+      ...getMseDiagClock(),
       alreadyInitialized: Boolean(jmuxer),
       videoAttached: Boolean(initialEl),
       videoReadyState: initialEl?.readyState ?? null,
@@ -124,17 +285,19 @@ export function useMseDecoder(options: MseDecoderOptions) {
     const jmuxerOptions = {
       node: el,
       mode: 'video' as const,
-      // 实时推流：收到帧立即 flush，延迟最低
-      flushingTime: 0,
+      // 鸿蒙的官方回调可能在一次更新期间连续到达，使用短周期统一冲刷，
+      // 避免每个 access unit 触发一次播放状态切换；Windows 保持即时冲刷。
+      flushingTime: playbackProfile === 'harmony' ? 50 : 0,
       // JMuxer 默认 maxDelay 为 500ms，会抵消外部 live-edge 追帧。
       maxDelay: 200,
-      // 自动清理已播放 buffer，防止长时间推流内存暴涨
-      clearBuffer: true,
+      // 鸿蒙使用自己的保守清理；Windows 保持原有的 JMuxer 清理行为。
+      clearBuffer: playbackProfile !== 'harmony',
       fps: configuredFps,
       debug: false,
       onReady: () => {
         mseReady = true;
         console.info('[MSEDecoder] jmuxer ready', {
+          ...getMseDiagClock(),
           videoReadyState: el.readyState,
           videoWidth: el.videoWidth,
           videoHeight: el.videoHeight,
@@ -143,30 +306,51 @@ export function useMseDecoder(options: MseDecoderOptions) {
         const initialFrames = pendingFrames;
         pendingFrames = [];
         for (const frame of initialFrames) {
-          feedFrame(frame);
+          feedFrame(frame.data, frame.receivedAtMs);
         }
       },
       onError: (data: unknown) => {
-        console.error('[MSEDecoder] jmuxer error:', data);
+        console.error('[MSEDecoder] jmuxer error', {
+          ...getMseDiagClock(),
+          error: data,
+          ...getDiagnostics(),
+        });
         options.onError?.(data);
       },
+      onMissingVideoFrames: () => {
+        missingVideoFrameCount += 1;
+        console.warn('[MSEDecoder] jmuxer missing video frames', {
+          ...getMseDiagClock(),
+          ...getDiagnostics(),
+        });
+      },
       onUnsupportedCodec: () => {
-        console.error('[MSEDecoder] 不支持的 codec，触发降级');
+        console.error(
+          '[MSEDecoder] 不支持的 codec，触发降级',
+          getMseDiagClock(),
+        );
         fallback = true;
         options.onFallback?.();
       },
     };
 
     try {
-      jmuxer = new JMuxer(jmuxerOptions as ConstructorParameters<typeof JMuxer>[0]);
+      jmuxer = new JMuxer(
+        jmuxerOptions as ConstructorParameters<typeof JMuxer>[0],
+      );
       jmuxerNode = el;
+      decoderStartedAtMs = performance.now();
+      attachVideoDiagnostics(el);
       // 启动 buffer 主动清理（防内存泄漏，见字段声明处说明）
       startBufferCleanup();
       startLiveEdgeSync();
       startVideoFrameDiagnostics();
       tryStartPlayback(el);
     } catch (e) {
-      console.error('[MSEDecoder] jmuxer 创建失败，触发降级:', e);
+      console.error('[MSEDecoder] jmuxer 创建失败，触发降级', {
+        ...getMseDiagClock(),
+        error: e,
+      });
       fallback = true;
       options.onFallback?.();
     }
@@ -183,13 +367,19 @@ export function useMseDecoder(options: MseDecoderOptions) {
    *
    * jmuxer 会按 NAL 起始码自动识别参数集/关键帧/预测帧，无需手动区分。
    */
-  function feedFrame(data: ArrayBuffer): void {
+  function feedFrame(
+    data: ArrayBuffer,
+    receivedAtMs = performance.now(),
+  ): void {
     if (!data || data.byteLength < 2) return;
     if (!jmuxer || !mseReady) {
       if (pendingFrames.length >= MAX_PENDING_FRAMES) {
         pendingFrames.shift();
       }
-      pendingFrames.push(data.slice(0));
+      pendingFrames.push({
+        data: data.slice(0),
+        receivedAtMs,
+      });
       return;
     }
 
@@ -227,14 +417,80 @@ export function useMseDecoder(options: MseDecoderOptions) {
         })();
     // JMuxer 在未提供 duration 时会把当前 VCL 留在 pendingUnits，等待下一个
     // access unit 来判断边界。静止画面只有首个 IDR 时就永远不会 flush，表现为
-    // MSE 已连接但白屏；给所有视频包（包括 SPS/PPS config）显式时长即可立即产出首帧。
-    // SPS/PPS 虽然不是 VCL 但仍需 duration，否则后续 IDR 边界判定会受影响。
+    // MSE 已连接但白屏；参数集保持 0，视频包使用估算时长立即产出首帧。
     const packetType = hasFramePrefix ? bytes[0] : 0;
-    const duration =
-      packetType === 0x01 ? 0 : Math.max(1, Math.round(1000 / configuredFps));
+    let duration = 0;
+    if (packetType === 0x01) {
+      // 新参数集通常意味着一次新的 IDR 起播，不能让下一帧继承上一次
+      // 画面变化到现在的长时间间隔。
+      lastVideoReceivedAtMs = null;
+      harmonyFrameDurationMs = null;
+      harmonyFrameDurationSamples = [];
+    } else {
+      const nominalDuration = Math.max(1, Math.round(1000 / configuredFps));
+      if (playbackProfile === 'harmony') {
+        let observedDuration = nominalDuration;
+        if (lastVideoReceivedAtMs !== null) {
+          const interval = receivedAtMs - lastVideoReceivedAtMs;
+          if (
+            Number.isFinite(interval) &&
+            interval >= HARMONY_MIN_FRAME_DURATION_MS &&
+            interval <= HARMONY_MAX_FRAME_DURATION_MS
+          ) {
+            harmonyFrameDurationSamples.push(interval);
+            if (
+              harmonyFrameDurationSamples.length > HARMONY_DURATION_SAMPLE_COUNT
+            ) {
+              harmonyFrameDurationSamples.shift();
+            }
+            if (harmonyFrameDurationSamples.length >= 4) {
+              const sortedSamples = [...harmonyFrameDurationSamples].sort(
+                (left, right) => left - right,
+              );
+              harmonyFrameDurationMs = Math.round(
+                sortedSamples[Math.floor(sortedSamples.length / 2)]!,
+              );
+            }
+          }
+          if (Number.isFinite(interval) && interval > 0) {
+            observedDuration = Math.round(
+              Math.min(
+                HARMONY_MAX_FRAME_DURATION_MS,
+                Math.max(HARMONY_MIN_FRAME_DURATION_MS, interval),
+              ),
+            );
+          }
+        }
+        duration = harmonyFrameDurationMs ?? observedDuration;
+        lastHarmonyFrameDurationMs = duration;
+      } else {
+        duration = nominalDuration;
+      }
+      lastVideoReceivedAtMs = receivedAtMs;
+    }
     feedCount += 1;
     fedBytes += muxPayload.byteLength;
+    const feedNow = performance.now();
+    firstFeedAtMs ??= feedNow;
+    lastFeedAtMs = feedNow;
+    if (packetType === 0x01) {
+      feedPacketCounts.config += 1;
+    } else if (packetType === 0x02) {
+      feedPacketCounts.idr += 1;
+    } else if (packetType === 0x03) {
+      feedPacketCounts.p += 1;
+    } else {
+      feedPacketCounts.other += 1;
+    }
+    if (playbackProfile === 'harmony' && packetType === 0x02) {
+      // 旧数据只能清理到 IDR 起点，保留下来的首个视频样本才能独立解码。
+      harmonyKeyframePositions.push(harmonyMediaTimeSeconds);
+    }
+    if (playbackProfile === 'harmony' && packetType !== 0x01) {
+      harmonyMediaTimeSeconds += duration / 1000;
+    }
     jmuxer.feed({ video: muxPayload, duration });
+    attachSourceBufferDiagnostics();
     const el = options.videoEl.value;
     if (el) {
       tryStartPlayback(el);
@@ -245,6 +501,10 @@ export function useMseDecoder(options: MseDecoderOptions) {
     if (Number.isFinite(fps) && fps > 0) {
       configuredFps = fps;
     }
+  }
+
+  function setPlaybackProfile(profile: MsePlaybackProfile): void {
+    playbackProfile = profile;
   }
 
   /**
@@ -270,23 +530,88 @@ export function useMseDecoder(options: MseDecoderOptions) {
   function getDiagnostics() {
     const el = options.videoEl.value;
     const sb = getSourceBuffer();
+    const anyJmuxer = jmuxer as unknown as {
+      remuxController?: {
+        tracks?: Record<
+          string,
+          {
+            pendingUnits?: { units?: unknown[] };
+            dts?: number;
+            nextDts?: number;
+            mp4track?: { fps?: number };
+          }
+        >;
+      };
+      bufferControllers?: Record<
+        string,
+        {
+          queue?: Uint8Array;
+          cleaning?: boolean;
+        }
+      >;
+    } | null;
+    const videoTrack = anyJmuxer?.remuxController?.tracks?.video;
+    const videoBufferController = anyJmuxer?.bufferControllers?.video;
     const ranges: Array<{ start: number; end: number }> = [];
     if (sb) {
       for (let index = 0; index < sb.buffered.length; index++) {
-        ranges.push({ start: sb.buffered.start(index), end: sb.buffered.end(index) });
+        ranges.push({
+          start: sb.buffered.start(index),
+          end: sb.buffered.end(index),
+        });
       }
     }
-    const bufferedEnd = ranges.length > 0 ? ranges[ranges.length - 1]!.end : null;
+    const bufferedEnd =
+      ranges.length > 0 ? ranges[ranges.length - 1]!.end : null;
+    const now = performance.now();
     return {
       initialized: Boolean(jmuxer),
       feedCount,
       fedBytes,
+      feedPacketCounts: { ...feedPacketCounts },
+      firstFeedAtMs,
+      lastFeedAtMs,
+      feedAgeMs: lastFeedAtMs !== null ? now - lastFeedAtMs : null,
       presentedFrameCount,
       firstPresentedAtMs,
+      firstPresentedDelayMs:
+        firstPresentedAtMs !== null && firstFeedAtMs !== null
+          ? firstPresentedAtMs - firstFeedAtMs
+          : null,
+      lastPresentedAtMs,
+      presentedAgeMs:
+        lastPresentedAtMs !== null ? now - lastPresentedAtMs : null,
       lastPresentedMediaTime,
+      missingVideoFrameCount,
+      jmuxerInternal: {
+        pendingVideoUnits: videoTrack?.pendingUnits?.units?.length ?? 0,
+        videoDts: videoTrack?.dts ?? null,
+        videoNextDts: videoTrack?.nextDts ?? null,
+        streamFps: videoTrack?.mp4track?.fps ?? null,
+        lastHarmonyFrameDurationMs,
+        harmonyFrameDurationMs,
+        harmonyFrameDurationSampleCount: harmonyFrameDurationSamples.length,
+        harmonyMediaTimeSeconds,
+        harmonyKeyframeCount: harmonyKeyframePositions.length,
+        sourceBufferQueueBytes: videoBufferController?.queue?.byteLength ?? 0,
+        sourceBufferCleaning: videoBufferController?.cleaning ?? false,
+        sourceBufferUpdateStartCount,
+        sourceBufferUpdateEndCount,
+        sourceBufferErrorCount,
+        sourceBufferAbortCount,
+        sourceBufferUpdateEndAgeMs:
+          lastSourceBufferUpdateEndAtMs !== null
+            ? now - lastSourceBufferUpdateEndAtMs
+            : null,
+      },
       videoFrameCallbackSupported: Boolean(
         el && 'requestVideoFrameCallback' in el,
       ),
+      playbackProfile,
+      bufferCleanupMode:
+        playbackProfile === 'harmony'
+          ? 'harmony-safe-old-buffer'
+          : 'direct-source-buffer-remove',
       videoWidth: el?.videoWidth ?? 0,
       videoHeight: el?.videoHeight ?? 0,
       videoCurrentTime: el?.currentTime ?? null,
@@ -295,7 +620,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
       playbackRate: el?.playbackRate ?? null,
       bufferedRanges: ranges,
       bufferedEnd,
-      liveEdgeLagSeconds: bufferedEnd !== null && el ? bufferedEnd - el.currentTime : null,
+      liveEdgeLagSeconds:
+        bufferedEnd !== null && el ? bufferedEnd - el.currentTime : null,
       sourceBufferUpdating: sb?.updating ?? null,
     };
   }
@@ -304,22 +630,34 @@ export function useMseDecoder(options: MseDecoderOptions) {
     const el = options.videoEl.value as
       | (HTMLVideoElement & {
           requestVideoFrameCallback?: (
-            callback: (now: number, metadata: VideoFrameCallbackMetadata) => void,
+            callback: (
+              now: number,
+              metadata: VideoFrameCallbackMetadata,
+            ) => void,
           ) => number;
         })
       | null;
-    if (!el || videoFrameDiagnosticsStarted || !el.requestVideoFrameCallback) return;
+    if (!el || videoFrameDiagnosticsStarted || !el.requestVideoFrameCallback)
+      return;
 
     videoFrameDiagnosticsStarted = true;
     const callback = (_now: number, metadata: VideoFrameCallbackMetadata) => {
       if (!jmuxer || options.videoEl.value !== el) return;
+      const presentedAt = performance.now();
       presentedFrameCount += 1;
-      firstPresentedAtMs ??= performance.now();
+      firstPresentedAtMs ??= presentedAt;
+      lastPresentedAtMs = presentedAt;
       lastPresentedMediaTime = metadata.mediaTime;
       if (presentedFrameCount === 1) {
         console.info('[MSEDecoder] first video frame presented', {
+          ...getMseDiagClock(),
           mediaTime: metadata.mediaTime,
-          elapsedMs: performance.now() - firstPresentedAtMs,
+          elapsedSinceDecoderStartMs:
+            decoderStartedAtMs !== null
+              ? presentedAt - decoderStartedAtMs
+              : null,
+          elapsedSinceFirstFeedMs:
+            firstFeedAtMs !== null ? presentedAt - firstFeedAtMs : null,
         });
       }
       el.requestVideoFrameCallback?.(callback);
@@ -357,6 +695,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
         el.playbackRate = 1;
         if (shouldInitialSeek) {
           console.info('[MSEDecoder] live edge seek', {
+            ...getMseDiagClock(),
             reason: 'initial',
             lagSeconds: lag,
             bufferedEnd,
@@ -364,14 +703,21 @@ export function useMseDecoder(options: MseDecoderOptions) {
           });
         }
       } catch (error) {
-        console.warn('[MSEDecoder] live edge seek failed:', error);
+        console.warn('[MSEDecoder] live edge seek failed', {
+          ...getMseDiagClock(),
+          error,
+        });
       }
     }
 
     if (lag > LIVE_EDGE_RATE_LAG_SECONDS && lag <= LIVE_EDGE_HARD_LAG_SECONDS) {
       const catchUpRate = Math.min(
         LIVE_EDGE_MAX_PLAYBACK_RATE,
-        1 + Math.max(0.05, Math.min(0.2, (lag - LIVE_EDGE_RATE_RECOVER_SECONDS) * 0.35)),
+        1 +
+          Math.max(
+            0.05,
+            Math.min(0.2, (lag - LIVE_EDGE_RATE_RECOVER_SECONDS) * 0.35),
+          ),
       );
       if (Math.abs(el.playbackRate - catchUpRate) > 0.01) {
         el.playbackRate = catchUpRate;
@@ -395,15 +741,10 @@ export function useMseDecoder(options: MseDecoderOptions) {
     }
   }
   /**
-   * 启动 buffer 主动清理定时器
+   * 启动 buffer 主动清理定时器。
    *
-   * 每 2 秒检查一次 SourceBuffer：
-   * - 找到当前播放位置（currentTime），保留 [currentTime, currentTime + MAX_BUFFER_SECONDS]
-   * - 把 currentTime 之前、且距今超过 cleanOffset 的旧数据 remove 掉
-   * - 若 currentTime 停滞（<video> 未真正播放），改用 buffered.end 作为兜底清理点，
-   *   避免清理逻辑跟着停滞导致内存只增不减
-   *
-   * 清理时检查 sourceBuffer.updating，避免与 jmuxer 自身 append 冲突。
+   * 鸿蒙 H.264 只清理远离当前播放位置的旧数据，保留当前播放位置前的
+   * 安全窗口；Windows 保持原有的 SourceBuffer 清理逻辑。
    */
   function startBufferCleanup(): void {
     if (bufferCleanupTimer) return;
@@ -412,16 +753,20 @@ export function useMseDecoder(options: MseDecoderOptions) {
       const el = options.videoEl.value;
       if (!sb || !el || sb.updating) return;
 
+      if (playbackProfile === 'harmony') {
+        cleanupHarmonyBuffer(sb, el);
+        return;
+      }
+
       const buffered = sb.buffered;
       if (!buffered || buffered.length === 0) return;
 
-      // 播放游标：优先 currentTime，停滞时用 buffered 末尾兜底
-      const playHead = el.currentTime > 0 ? el.currentTime : buffered.end(buffered.length - 1);
+      const playHead =
+        el.currentTime > 0 ? el.currentTime : buffered.end(buffered.length - 1);
 
       for (let i = 0; i < buffered.length; i++) {
         const start = buffered.start(i);
         const end = buffered.end(i);
-        // 清理 playHead 之前超过 MAX_BUFFER_SECONDS 的旧数据，保留近 MAX_BUFFER_SECONDS 秒
         const cleanEnd = playHead - MAX_BUFFER_SECONDS;
         if (cleanEnd > start) {
           const removeEnd = Math.min(cleanEnd, end);
@@ -436,6 +781,62 @@ export function useMseDecoder(options: MseDecoderOptions) {
         }
       }
     }, 2000);
+  }
+
+  function cleanupHarmonyBuffer(sb: SourceBuffer, el: HTMLVideoElement): void {
+    if (harmonyCleanupPending) return;
+
+    const videoBufferController = (
+      jmuxer as unknown as {
+        bufferControllers?: Record<
+          string,
+          {
+            cleaning?: boolean;
+            queue?: Uint8Array;
+          }
+        >;
+      } | null
+    )?.bufferControllers?.video;
+    if (
+      videoBufferController?.cleaning ||
+      (videoBufferController?.queue?.byteLength ?? 0) > 0
+    ) {
+      return;
+    }
+
+    const playHead = el.currentTime;
+    if (!Number.isFinite(playHead) || playHead <= HARMONY_BUFFER_KEEP_SECONDS) {
+      return;
+    }
+
+    const buffered = sb.buffered;
+    if (!buffered || buffered.length === 0) return;
+
+    const cutoff = playHead - HARMONY_BUFFER_KEEP_SECONDS;
+    const firstStart = buffered.start(0);
+    const firstEnd = buffered.end(0);
+    harmonyKeyframePositions = harmonyKeyframePositions.filter(
+      (keyframePosition) => keyframePosition >= firstStart,
+    );
+
+    let safeEnd: number | null = null;
+    for (const keyframePosition of harmonyKeyframePositions) {
+      if (keyframePosition > cutoff) break;
+      if (keyframePosition > firstStart) {
+        safeEnd = keyframePosition;
+      }
+    }
+    if (safeEnd === null) return;
+
+    const removeEnd = Math.min(safeEnd, firstEnd);
+    if (removeEnd <= firstStart) return;
+
+    try {
+      harmonyCleanupPending = true;
+      sb.remove(firstStart, removeEnd);
+    } catch {
+      harmonyCleanupPending = false;
+    }
   }
 
   /**
@@ -453,6 +854,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
    */
   function dispose(): void {
     console.info('[MSEDecoder] dispose', {
+      ...getMseDiagClock(),
       hadJmuxer: Boolean(jmuxer),
       feedCount,
       fedBytes,
@@ -461,6 +863,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
     });
     stopBufferCleanup();
     stopLiveEdgeSync();
+    detachVideoDiagnostics();
+    detachSourceBufferDiagnostics();
     liveEdgeInitialized = false;
     lastLiveEdgeSeekAt = 0;
     if (jmuxer) {
@@ -477,10 +881,28 @@ export function useMseDecoder(options: MseDecoderOptions) {
     fallback = false;
     feedCount = 0;
     fedBytes = 0;
+    feedPacketCounts = { config: 0, idr: 0, p: 0, other: 0 };
+    firstFeedAtMs = null;
+    lastFeedAtMs = null;
     presentedFrameCount = 0;
     firstPresentedAtMs = null;
+    lastPresentedAtMs = null;
     lastPresentedMediaTime = null;
+    missingVideoFrameCount = 0;
+    decoderStartedAtMs = null;
+    lastVideoReceivedAtMs = null;
+    lastHarmonyFrameDurationMs = null;
+    harmonyFrameDurationMs = null;
+    harmonyFrameDurationSamples = [];
+    harmonyMediaTimeSeconds = 0;
+    harmonyKeyframePositions = [];
     videoFrameDiagnosticsStarted = false;
+    sourceBufferUpdateStartCount = 0;
+    sourceBufferUpdateEndCount = 0;
+    sourceBufferErrorCount = 0;
+    sourceBufferAbortCount = 0;
+    lastSourceBufferUpdateEndAtMs = null;
+    harmonyCleanupPending = false;
   }
 
   onUnmounted(dispose);
@@ -489,6 +911,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
     init,
     feedFrame,
     setFrameRate,
+    setPlaybackProfile,
     getDiagnostics,
     dispose,
   };
