@@ -27,6 +27,7 @@ export function useWebSocket() {
   let fpsLastSecond = 0;
   let fpsTimer: ReturnType<typeof setInterval> | null = null;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let lastActivityTime = Date.now();
   let activityPending = false;
   let binaryMessageQueue: Promise<void> = Promise.resolve();
@@ -151,7 +152,10 @@ export function useWebSocket() {
 
   function scheduleIdleDisconnect(): void {
     stopIdleTimer();
-    const remaining = Math.max(1000, IDLE_TIMEOUT - (Date.now() - lastActivityTime));
+    const remaining = Math.max(
+      1000,
+      IDLE_TIMEOUT - (Date.now() - lastActivityTime),
+    );
     idleTimer = setTimeout(() => {
       const elapsed = Date.now() - lastActivityTime;
       if (elapsed >= IDLE_TIMEOUT && ws && status.value === 'connected') {
@@ -175,6 +179,13 @@ export function useWebSocket() {
     }
   }
 
+  function stopRetryTimer(): void {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
+
   /**
    * 连接 WebSocket
    */
@@ -185,6 +196,7 @@ export function useWebSocket() {
     deviceType: string,
     screenIndex?: number,
     codec: string = 'jpeg',
+    preserveRetryCount = false,
   ): void {
     const generation = ++websocketGeneration;
     // 保存参数用于重连
@@ -194,6 +206,10 @@ export function useWebSocket() {
     savedDeviceType = deviceType;
     savedScreenIndex = screenIndex;
     savedCodec = codec;
+    if (!preserveRetryCount) {
+      retryCount = 0;
+      stopRetryTimer();
+    }
     if (codec === 'h264') {
       fallbackRequestInProgress = false;
     }
@@ -208,9 +224,9 @@ export function useWebSocket() {
 
     // 关闭旧连接（使用 code=1000 表示正常关闭，不触发自动重连）
     if (ws) {
-      retryCount = MAX_RETRIES; // 阻止旧连接的 onclose 触发重连
-      ws.close(1000);
+      const oldWs = ws;
       ws = null;
+      oldWs.close(1000);
     }
 
     // 根据 codec 决定渲染模式：H264 → <video>(MSE)，JPEG/MJPEG → <img>
@@ -241,10 +257,11 @@ export function useWebSocket() {
       screenIndex,
       codec,
     );
-    ws = new WebSocket(url);
-    ws.binaryType = 'arraybuffer';
+    const socket = new WebSocket(url);
+    ws = socket;
+    socket.binaryType = 'arraybuffer';
 
-    ws.onopen = () => {
+    socket.onopen = () => {
       if (generation !== websocketGeneration) return;
       status.value = 'connected';
       retryCount = 0;
@@ -314,7 +331,7 @@ export function useWebSocket() {
       fpsFrameCount++;
     };
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
       if (generation !== websocketGeneration) return;
       // 文本帧：worker 在流开头下发的 JSON 元数据，目前用于携带真机原生分辨率。
       if (typeof event.data === 'string') {
@@ -372,8 +389,11 @@ export function useWebSocket() {
       }
     };
 
-    ws.onclose = (event) => {
+    socket.onclose = (event) => {
       if (generation !== websocketGeneration) return;
+      if (ws === socket) {
+        ws = null;
+      }
       stopFpsTimer();
       stopIdleTimer(); // 停止超时检测
       status.value = 'disconnected';
@@ -385,8 +405,13 @@ export function useWebSocket() {
       // 非正常关闭时尝试重连
       if (event.code !== 1000 && retryCount < MAX_RETRIES) {
         retryCount++;
-        setTimeout(() => {
-          if (retryCount <= MAX_RETRIES) {
+        const retryGeneration = generation;
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          if (
+            retryGeneration === websocketGeneration &&
+            retryCount <= MAX_RETRIES
+          ) {
             console.log(
               `[WebSocket] Attempting reconnect #${retryCount} with codec=${savedCodec}`,
             );
@@ -397,6 +422,7 @@ export function useWebSocket() {
               savedDeviceType,
               savedScreenIndex,
               savedCodec,
+              true,
             );
           }
         }, RETRY_INTERVAL);
@@ -406,7 +432,7 @@ export function useWebSocket() {
       }
     };
 
-    ws.onerror = (event) => {
+    socket.onerror = (event) => {
       if (generation !== websocketGeneration) return;
       status.value = 'error';
       errorMessage.value = 'WebSocket 连接失败';
@@ -418,10 +444,13 @@ export function useWebSocket() {
    * 断开连接
    */
   function disconnect(): void {
+    websocketGeneration++;
+    stopRetryTimer();
     if (ws) {
       retryCount = MAX_RETRIES; // 阻止自动重连
-      ws.close(1000);
+      const socket = ws;
       ws = null;
+      socket.close(1000);
     }
     stopFpsTimer();
     stopIdleTimer();
