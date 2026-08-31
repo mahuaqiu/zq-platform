@@ -905,14 +905,9 @@ function handleDialogClose() {
 }
 
 /* 当前匹配的搜索项 */
-.log-line.current-match {
-  color: #fff !important;
-  background: #f5222d !important;
-}
-
 .log-line.current-match :deep(.search-highlight) {
-  color: #f5222d;
   background: #fff;
+  box-shadow: 0 0 0 1px #f5222d;
 }
 
 /* 模式提示 */
