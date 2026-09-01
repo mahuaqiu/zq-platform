@@ -508,16 +508,56 @@ async function refreshHarmonyScreenshot() {
   image.src = harmonyScreenshotUrl.value;
 }
 
+// 从 H.264 视频元素的当前解码帧生成可下载的图片。
+// H.264 推流不会更新 screenshotBase64，保存按钮不能只检查图片流变量。
+function captureVideoFrame(video: HTMLVideoElement | null): string | null {
+  if (
+    !video ||
+    video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+    video.videoWidth <= 0 ||
+    video.videoHeight <= 0
+  ) {
+    return null;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  try {
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.warn('[screenshot] 无法读取 H.264 当前视频帧:', error);
+    return null;
+  }
+}
+
 // 安装 APP
 function handleInstallApp(_file: File) {
   // TODO: 实现上传安装逻辑（后端 API 待实现）
   ElMessage.info('APP 安装功能待后端支持');
 }
 
-// 截图保存
-function handleScreenshot() {
+// 截图保存：优先保存当前显示画面，视频尚未出帧时调用截图接口兜底。
+async function handleScreenshot() {
   resetActivityTime();
-  const screenshotUrl = displayedScreenshotUrl.value;
+  let screenshotUrl = videoMode.value
+    ? captureVideoFrame(
+        (desktopScreenRef.value || mobileScreenRef.value)?.videoRef ?? null,
+      )
+    : displayedScreenshotUrl.value;
+
+  if (!screenshotUrl) {
+    const monitor = isDesktop.value ? currentScreenIndex.value + 1 : undefined;
+    const screenshotData = await screenshot(monitor);
+    if (screenshotData) {
+      screenshotUrl = `data:image/png;base64,${screenshotData}`;
+    }
+  }
+
   if (screenshotUrl) {
     const link = document.createElement('a');
     link.href = screenshotUrl;

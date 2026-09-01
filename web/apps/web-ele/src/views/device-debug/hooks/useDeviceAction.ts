@@ -269,8 +269,8 @@ export function useDeviceAction(deviceId: string) {
     return executeOperation('unlock_screen', { value: password || '' });
   }
 
-  /** 获取一次截图，鸿蒙设备使用 HTTP action，不依赖实时流。 */
-  async function screenshot(): Promise<string | null> {
+  /** 获取一次截图，不依赖实时流。 */
+  async function screenshot(monitor?: number): Promise<string | null> {
     const now = Date.now();
     const elapsed = now - lastOperationTime.value;
     if (elapsed < MIN_OPERATION_INTERVAL) {
@@ -282,7 +282,10 @@ export function useDeviceAction(deviceId: string) {
     try {
       const result = await debugDeviceActionApi(
         deviceId,
-        { action_type: 'screenshot', params: {} },
+        {
+          action_type: 'screenshot',
+          params: monitor === undefined ? {} : { monitor },
+        },
         OPERATION_TIMEOUT,
       );
       if (result?.success && result.result?.screenshot_base64) {
