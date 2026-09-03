@@ -157,6 +157,11 @@ web/
 - 后端 API 路由使用小写短横线命名：`/api/core/user-profile`
 - 静态路由在前，动态路由在后：`/api/core/menu/check/name` → `/api/core/menu/{menu_id}`
 
+### 前端错误提示约定
+
+- API 请求失败只由请求层全局拦截器（`apps/web-ele/src/api/request.ts`）弹一次错误提示（优先展示后端 detail）；页面 `catch` 只做状态恢复和 `console.error`，**不要**再 `ElMessage.error` 弹第二条（zq-table 页面即此行为，手写列表页必须保持一致）。
+- `ElMessage.success/warning/info` 与本地校验提示不受影响。
+
 ## 环境配置
 
 后端环境配置文件位于 `backend-fastapi/env/`，支持多环境：

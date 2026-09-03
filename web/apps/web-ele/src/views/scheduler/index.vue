@@ -88,8 +88,8 @@ async function loadData() {
     tableData.value = res.items || [];
     total.value = res.total || 0;
   } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
     console.error('加载数据失败:', error);
-    ElMessage.error('加载数据失败');
   } finally {
     loading.value = false;
   }
@@ -172,9 +172,9 @@ function handleExecute(row: SchedulerJob) {
       ElMessage.success('任务已开始执行');
       loadData();
       loadStatistics();
-    } catch (error: any) {
-      const msg = error?.response?.data?.detail || '执行失败';
-      ElMessage.error(msg);
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('执行失败:', error);
     }
   });
 }
@@ -192,9 +192,9 @@ function handleDelete(row: SchedulerJob) {
       ElMessage.success('删除成功');
       loadData();
       loadStatistics();
-    } catch (error: any) {
-      const msg = error?.response?.data?.detail || '删除失败';
-      ElMessage.error(msg);
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('删除失败:', error);
     }
   });
 }

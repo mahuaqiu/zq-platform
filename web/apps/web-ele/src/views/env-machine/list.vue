@@ -38,12 +38,17 @@ import {
 } from '#/api/core/env-machine';
 import type { EnvMachineUpdateParams } from '#/api/core/env-machine';
 
-import { useNamespaceStore } from './store';
 import {
-  DEVICE_TYPE_OPTIONS,
-  STATUS_OPTIONS,
-  supportsWorkerLog,
-} from './types';
+  buildEnableBlockMessage,
+  formatExtraMessage,
+  getDeviceTypeText,
+  getMissingExtraMessageTags,
+  getStatusClass,
+  getStatusText,
+  parseExtraMessage,
+} from './modules/common';
+import { useNamespaceStore } from './store';
+import { DEVICE_TYPE_OPTIONS, supportsWorkerLog } from './types';
 import LogDialogV2 from './LogDialogV2.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
@@ -127,58 +132,11 @@ function handleDebug(row: EnvMachine) {
   router.push(`/device-debug/${row.id}`);
 }
 
-// 验证扩展信息是否包含标签对应的账号信息
-function validateExtraMessageWithTag(): boolean {
-  const raw = formData.value.extra_message_raw.trim();
-  const mark = formData.value.mark?.trim();
-
-  if (!raw || !mark) {
-    return false;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    // 标签可能是多个（用逗号分隔），需要拆分检查每个标签
-    const tags = mark.split(',').map((t) => t.trim()).filter((t) => t);
-    // 检查每个标签是否都在扩展信息中有对应配置
-    return tags.every((tag) => parsed.hasOwnProperty(tag) && typeof parsed[tag] === 'object');
-  } catch {
-    return false;
-  }
-}
-
-// 清理 JSON 中的 key/value 首尾空格
-function trimJsonKeysAndValues(obj: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {};
-  for (const key of Object.keys(obj)) {
-    const trimmedKey = key.trim();
-    const value = obj[key];
-    if (typeof value === 'string') {
-      result[trimmedKey] = value.trim();
-    } else if (typeof value === 'object' && value !== null) {
-      result[trimmedKey] = trimJsonKeysAndValues(value);
-    } else {
-      result[trimmedKey] = value;
-    }
-  }
-  return result;
-}
-
-// 验证 JSON 格式
-function validateJson(): Record<string, any> | null {
-  const raw = formData.value.extra_message_raw.trim();
-  if (!raw) {
-    jsonError.value = '';
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    jsonError.value = '';
-    return trimJsonKeysAndValues(parsed);
-  } catch (e) {
-    jsonError.value = 'JSON 格式不正确，请检查格式';
-    return null;
-  }
+// 验证 JSON 格式（解析与空格清理统一走 modules/common）
+function validateJson(): null | Record<string, any> {
+  const parsed = parseExtraMessage(formData.value.extra_message_raw);
+  jsonError.value = parsed === null ? 'JSON 格式不正确，请检查格式' : '';
+  return parsed;
 }
 
 // 加载数据
@@ -208,8 +166,8 @@ async function loadData() {
       });
     }
   } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
     console.error('加载数据失败:', error);
-    ElMessage.error('加载数据失败');
   } finally {
     loading.value = false;
   }
@@ -281,8 +239,9 @@ function handleDelete(row: EnvMachine) {
       selectedIds.value.delete(row.id);
       selectedMachinesMap.value.delete(row.id);
       loadData();
-    } catch {
-      ElMessage.error('删除失败');
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('删除失败:', error);
     }
   });
 }
@@ -332,8 +291,9 @@ function handleBatchDelete() {
       selectedIds.value.clear();
       selectedMachinesMap.value.clear();
       loadData();
-    } catch {
-      ElMessage.error('批量删除失败');
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('批量删除失败:', error);
     }
   });
 }
@@ -391,8 +351,9 @@ async function handleBatchEnable() {
         });
       }
       loadData();
-    } catch {
-      ElMessage.error('批量启用失败');
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('批量启用失败:', error);
     }
   });
 }
@@ -420,8 +381,9 @@ async function handleBatchDisable() {
         ElMessage.warning(`${res.failed_count} 台设备停用失败`);
       }
       loadData();
-    } catch {
-      ElMessage.error('批量停用失败');
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('批量停用失败:', error);
     }
   });
 }
@@ -480,8 +442,9 @@ async function handleDownloadTemplate() {
     a.click();
     window.URL.revokeObjectURL(url);
     ElMessage.success('模板下载成功');
-  } catch {
-    ElMessage.error('模板下载失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('模板下载失败:', error);
   }
 }
 
@@ -500,9 +463,9 @@ async function handleImport() {
       ElMessage.success(`成功导入 ${res.success_count} 台设备`);
       loadData();
     }
-  } catch (error: any) {
-    const msg = error?.response?.data?.detail || '导入失败';
-    ElMessage.error(msg);
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('导入失败:', error);
   } finally {
     importLoading.value = false;
   }
@@ -511,38 +474,6 @@ async function handleImport() {
 // 获取命名空间显示文本（使用 store getter）
 function getNamespaceText(namespace: string) {
   return namespaceStore.getNamespaceText(namespace);
-}
-
-// 获取状态文本
-function getStatusText(status: string) {
-  const opt = STATUS_OPTIONS.find((o) => o.value === status);
-  return opt?.label || status;
-}
-
-// 获取状态样式类
-function getStatusClass(status: string) {
-  const statusMap: Record<string, string> = {
-    online: 'env-status-success',
-    using: 'env-status-orange',
-    offline: 'env-status-warning',
-    upgrading: 'env-status-upgrading',
-  };
-  return statusMap[status] || '';
-}
-
-// 格式化扩展信息
-function formatExtraMessage(extra: Record<string, any>) {
-  const parts: string[] = [];
-  if (extra.CPU) parts.push(`CPU: ${extra.CPU}`);
-  if (extra.RAM) parts.push(`RAM: ${extra.RAM}`);
-  if (extra.device_model) parts.push(extra.device_model);
-  return parts.join(', ') || JSON.stringify(extra);
-}
-
-// 获取设备类型文本
-function getDeviceTypeText(type: string) {
-  const opt = DEVICE_TYPE_OPTIONS.find((o) => o.value === type);
-  return opt?.label || type;
 }
 
 // 提交表单
@@ -571,9 +502,9 @@ async function handleSubmit() {
       ElMessage.success('更新成功');
       dialogVisible.value = false;
       loadData();
-    } catch (error: any) {
-      const msg = error?.response?.data?.detail || '操作失败';
-      ElMessage.error(msg);
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('保存失败:', error);
     } finally {
       dialogLoading.value = false;
     }
@@ -597,15 +528,19 @@ async function handleSubmit() {
       return;
     }
 
-    // 检查扩展信息是否填写且包含对应标签
-    if (!validateExtraMessageWithTag()) {
+    // 检查扩展信息是否填写且包含每个标签对应的账号配置
+    const missingTags = getMissingExtraMessageTags(
+      formData.value.extra_message_raw,
+      mark,
+    );
+    if (missingTags.length > 0) {
       ElMessageBox.alert(
-        `需要填入扩展信息（机器使用的账号信息）才能启用设备。\n\n扩展信息需要包含标签 "${mark}" 对应的账号配置。`,
+        buildEnableBlockMessage(mark, missingTags),
         '无法启用',
         {
           confirmButtonText: '确定',
           type: 'warning',
-        }
+        },
       );
       return;
     }
@@ -626,9 +561,9 @@ async function handleSubmit() {
     ElMessage.success('更新成功');
     dialogVisible.value = false;
     loadData();
-  } catch (error: any) {
-    const msg = error?.response?.data?.detail || '操作失败';
-    ElMessage.error(msg);
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('保存失败:', error);
   } finally {
     dialogLoading.value = false;
   }

@@ -252,8 +252,8 @@ async function handleHwinfoMetricSelect(metricKey: string) {
       ElMessage.warning('该指标暂无数据');
     }
   } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
     console.error('查询指标数据失败:', error);
-    ElMessage.error('查询指标数据失败');
   }
 }
 
@@ -910,7 +910,8 @@ async function handleStopClick() {
     refreshStatus();
     fetchCollectHistory();
   } catch (error) {
-    ElMessage.error('停止采集失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('停止采集失败:', error);
   } finally {
     isStopping.value = false;
   }
@@ -993,7 +994,8 @@ async function handleCreateVersion() {
     showVersionDialog.value = false;
     await fetchVersions();
   } catch (error) {
-    ElMessage.error('创建版本失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('创建版本失败:', error);
   }
 }
 
@@ -1052,7 +1054,8 @@ async function handleDeleteCollect(collectId: string) {
       currentCollectId.value = '';
     }
   } catch (error) {
-    ElMessage.error('删除失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('删除失败:', error);
   } finally {
     historyDeleting.value = null;
   }
@@ -1067,7 +1070,8 @@ async function handleToggleProtected(collect: PerformanceCollect) {
     collect.is_protected = newStatus;
     ElMessage.success(newStatus ? '已设置为永久保留' : '已取消永久保留');
   } catch (error) {
-    ElMessage.error('操作失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('保护状态切换失败:', error);
   }
 }
 

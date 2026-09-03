@@ -29,7 +29,21 @@ import {
 } from '#/api/core/env-machine';
 import type { EnvMachineCreateParams, EnvMachineUpdateParams } from '#/api/core/env-machine';
 
-import { NAMESPACE_MAP, DEVICE_TYPE_OPTIONS, STATUS_OPTIONS, isMobileDevice, supportsWorkerLog } from './types';
+import {
+  buildEnableBlockMessage,
+  formatExtraMessage,
+  getDeviceTypeText,
+  getMissingExtraMessageTags,
+  getStatusClass,
+  getStatusText,
+  parseExtraMessage,
+} from './modules/common';
+import {
+  DEVICE_TYPE_OPTIONS,
+  isMobileDevice,
+  NAMESPACE_MAP,
+  supportsWorkerLog,
+} from './types';
 import LogDialogV2 from './LogDialogV2.vue';
 
 defineOptions({ name: 'EnvMachinePage' });
@@ -88,24 +102,6 @@ function handleViewLogs(row: EnvMachine) {
   logDialogVisible.value = true;
 }
 
-// 验证扩展信息是否包含标签对应的账号信息
-function validateExtraMessageWithTag(): boolean {
-  const raw = formData.value.extra_message_raw.trim();
-  const mark = formData.value.mark?.trim();
-
-  if (!raw || !mark) {
-    return false;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    // 检查扩展信息中是否包含对应标签的key
-    return parsed.hasOwnProperty(mark) && typeof parsed[mark] === 'object';
-  } catch {
-    return false;
-  }
-}
-
 // 从路由获取 namespace
 const namespaceKey = computed(() => {
   const lastSegment = route.path.split('/').filter(Boolean).pop();
@@ -140,8 +136,8 @@ async function loadData() {
     tableData.value = res.items || [];
     total.value = res.total || 0;
   } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
     console.error('加载数据失败:', error);
-    ElMessage.error('加载数据失败');
   } finally {
     loading.value = false;
   }
@@ -227,8 +223,9 @@ function handleDelete(row: EnvMachine) {
       await deleteEnvMachineApi(row.id);
       ElMessage.success('删除成功');
       loadData();
-    } catch {
-      ElMessage.error('删除失败');
+    } catch (error) {
+      // 错误提示由请求层全局拦截器统一弹出
+      console.error('删除失败:', error);
     }
   });
 }
@@ -236,39 +233,11 @@ function handleDelete(row: EnvMachine) {
 // 资产编号是否必填：手工使用页面必填，或非手工使用页面的新增模式必填
 const assetNumberRequired = computed(() => isManual.value || !isEdit.value);
 
-// 清理 JSON 中的 key/value 首尾空格
-function trimJsonKeysAndValues(obj: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {};
-  for (const key of Object.keys(obj)) {
-    const trimmedKey = key.trim();
-    const value = obj[key];
-    if (typeof value === 'string') {
-      result[trimmedKey] = value.trim();
-    } else if (typeof value === 'object' && value !== null) {
-      result[trimmedKey] = trimJsonKeysAndValues(value);
-    } else {
-      result[trimmedKey] = value;
-    }
-  }
-  return result;
-}
-
-// 验证 JSON 格式
-function validateJson(): Record<string, any> | null {
-  const raw = formData.value.extra_message_raw.trim();
-  if (!raw) {
-    jsonError.value = '';
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    jsonError.value = '';
-    // 返回清理后的 JSON
-    return trimJsonKeysAndValues(parsed);
-  } catch (e) {
-    jsonError.value = 'JSON 格式不正确，请检查格式';
-    return null;
-  }
+// 验证 JSON 格式（解析与空格清理统一走 modules/common）
+function validateJson(): null | Record<string, any> {
+  const parsed = parseExtraMessage(formData.value.extra_message_raw);
+  jsonError.value = parsed === null ? 'JSON 格式不正确，请检查格式' : '';
+  return parsed;
 }
 
 // 提交表单
@@ -305,15 +274,19 @@ async function handleSubmit() {
         return;
       }
 
-      // 检查扩展信息是否填写且包含对应标签
-      if (!validateExtraMessageWithTag()) {
+      // 检查扩展信息是否填写且包含每个标签对应的账号配置
+      const missingTags = getMissingExtraMessageTags(
+        formData.value.extra_message_raw,
+        mark,
+      );
+      if (missingTags.length > 0) {
         ElMessageBox.alert(
-          `需要填入扩展信息（机器使用的账号信息）才能启用设备。\n\n扩展信息需要包含标签 "${mark}" 对应的账号配置。\n\n示例格式：\n${EXTRA_MESSAGE_EXAMPLE.replace('标签名', mark)}`,
+          buildEnableBlockMessage(mark, missingTags),
           '无法启用',
           {
             confirmButtonText: '确定',
             type: 'warning',
-          }
+          },
         );
         return;
       }
@@ -353,44 +326,12 @@ async function handleSubmit() {
     }
     dialogVisible.value = false;
     loadData();
-  } catch (error: any) {
-    const msg = error?.response?.data?.detail || '操作失败';
-    ElMessage.error(msg);
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('保存失败:', error);
   } finally {
     dialogLoading.value = false;
   }
-}
-
-// 获取状态文本
-function getStatusText(status: string) {
-  const opt = STATUS_OPTIONS.find((o) => o.value === status);
-  return opt?.label || status;
-}
-
-// 获取状态样式类
-function getStatusClass(status: string) {
-  const statusMap: Record<string, string> = {
-    online: 'env-status-success',
-    using: 'env-status-orange',
-    offline: 'env-status-warning',
-    upgrading: 'env-status-upgrading',
-  };
-  return statusMap[status] || '';
-}
-
-// 格式化扩展信息
-function formatExtraMessage(extra: Record<string, any>) {
-  const parts: string[] = [];
-  if (extra.CPU) parts.push(`CPU: ${extra.CPU}`);
-  if (extra.RAM) parts.push(`RAM: ${extra.RAM}`);
-  if (extra.device_model) parts.push(extra.device_model);
-  return parts.join(', ') || JSON.stringify(extra);
-}
-
-// 获取设备类型文本
-function getDeviceTypeText(type: string) {
-  const opt = DEVICE_TYPE_OPTIONS.find((o) => o.value === type);
-  return opt?.label || type;
 }
 
 // 监听路由变化

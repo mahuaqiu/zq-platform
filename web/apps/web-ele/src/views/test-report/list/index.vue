@@ -44,8 +44,8 @@ async function loadData() {
     tableData.value = res.items || [];
     total.value = res.total || 0;
   } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
     console.error('加载数据失败:', error);
-    ElMessage.error('加载数据失败');
   } finally {
     loading.value = false;
   }
@@ -98,9 +98,9 @@ async function handleDelete(row: TestReportListItem) {
     ElMessage.success('删除成功');
     loadData();
   } catch (error) {
+    // 用户取消不算错误；API 错误提示由请求层全局拦截器统一弹出
     if (error !== 'cancel') {
       console.error('删除失败:', error);
-      ElMessage.error('删除失败');
     }
   }
 }

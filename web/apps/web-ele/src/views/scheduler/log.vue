@@ -8,7 +8,6 @@ import { Page } from '@vben/common-ui';
 import {
   ElButton,
   ElCard,
-  ElMessage,
   ElOption,
   ElPagination,
   ElSelect,
@@ -93,8 +92,8 @@ async function loadData() {
     tableData.value = res.items || [];
     total.value = res.total || 0;
   } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
     console.error('加载数据失败:', error);
-    ElMessage.error('加载数据失败');
   } finally {
     loading.value = false;
   }
