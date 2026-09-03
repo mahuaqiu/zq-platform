@@ -146,13 +146,15 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       formatToken,
       // 登录、刷新token、退出登录等接口的401错误不处理，让错误消息拦截器处理
       // logout 的 401 是正常的（用户退出时 token 可能已过期），不应触发 refresh token 流程
+      // 必须精确匹配端点：子串匹配会把 /api/core/login-log 误判成登录接口，导致其 401 不走刷新
       shouldHandle: (error) => {
         const url = error?.config?.url || '';
-        return (
-          !url.includes('/login') &&
-          !url.includes('/refresh_token') &&
-          !url.includes('/logout')
-        );
+        const authEndpoints = [
+          '/api/core/login',
+          '/api/core/refresh_token',
+          '/api/core/logout',
+        ];
+        return !authEndpoints.some((endpoint) => url.endsWith(endpoint));
       },
     }),
   );

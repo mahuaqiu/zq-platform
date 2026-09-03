@@ -62,6 +62,10 @@ const allMatchIndices = ref<number[]>([]);
 // 日志容器 ref
 const logContainerRef = ref<HTMLElement | null>(null);
 
+// 查询序号与中止控制器：取消/丢弃被新查询或关闭弹窗取代的过期响应，防止乱序写回
+let querySeq = 0;
+let abortController: AbortController | null = null;
+
 /**
  * 日志头正则：匹配 "2026-07-29 21:22:13,626 [request_id] INFO logger.name: ..."
  * 要求时间戳带秒（HH:MM:SS），避免误匹配消息体里的日期（如 dir 输出的 "2026/07/29  21:18"）
@@ -148,6 +152,12 @@ async function executeQuery() {
     return;
   }
 
+  // 取消上一个在途请求并递增序号，旧响应不再写回
+  abortController?.abort();
+  abortController = new AbortController();
+  const controller = abortController;
+  const seq = ++querySeq;
+
   loading.value = true;
   error.value = '';
 
@@ -167,7 +177,12 @@ async function executeQuery() {
         break;
     }
 
-    const res = await getMachineLogsApi(props.machineId, params);
+    const res = await getMachineLogsApi(props.machineId, params, {
+      signal: controller.signal,
+    });
+
+    // 已有更新的查询，丢弃过期响应
+    if (seq !== querySeq) return;
 
     // 从响应头获取统计信息
     logCount.value = res.log_count || 0;
@@ -190,12 +205,16 @@ async function executeQuery() {
       ElMessage.info('查询结果为空');
     }
   } catch (err: any) {
+    // 请求已被新查询/关闭弹窗取消或取代，静默丢弃
+    if (seq !== querySeq) return;
     console.error('获取日志失败:', err);
     const errorMsg = err?.response?.data?.detail || err?.message || '获取日志失败';
     error.value = errorMsg;
-    ElMessage.error(errorMsg);
   } finally {
-    loading.value = false;
+    // 只有最新一次查询有权结束 loading
+    if (seq === querySeq) {
+      loading.value = false;
+    }
   }
 }
 
@@ -297,31 +316,52 @@ function isCurrentMatch(lineIndex: number): boolean {
 }
 
 /**
- * 高亮搜索关键词
- * 少于 MIN_SEARCH_LENGTH 个字符时不执行高亮，避免性能问题
+ * 高亮结果按行缓存：在原文上定位匹配（与匹配计数用同一套规则），
+ * 按区间转义后拼接 <mark>，避免"先转义后匹配"导致关键词含 & / < 时高亮与计数错位；
+ * computed 缓存后，匹配导航等重渲染不再逐行重新转义/重建正则
  */
-function highlightSearch(text: string): string {
-  // 少于最小长度时不进行高亮处理
-  if (!searchKeyword.value || searchKeyword.value.length < MIN_SEARCH_LENGTH) {
-    return escapeHtml(text);
-  }
-  const escaped = escapeHtml(text);
-  const keyword = escapeHtml(searchKeyword.value);
-  const regex = new RegExp(
-    keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-    'gi',
-  );
-  return escaped.replace(regex, '<mark class="search-highlight">$&</mark>');
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+};
+const HTML_ESCAPE_RE = /[&<>]/g;
+
+function escapeHtml(text: string): string {
+  return text.replaceAll(HTML_ESCAPE_RE, (ch) => HTML_ESCAPE_MAP[ch] ?? ch);
 }
 
-/**
- * HTML 转义
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+const highlightedLines = computed(() => {
+  const keyword = searchKeyword.value;
+  const regex =
+    keyword && keyword.length >= MIN_SEARCH_LENGTH
+      ? new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+      : null;
+
+  return logLines.value.map((line) => {
+    if (!regex) {
+      return escapeHtml(line);
+    }
+    let result = '';
+    let lastIndex = 0;
+    let match: null | RegExpExecArray = regex.exec(line);
+    while (match) {
+      if (match.index > lastIndex) {
+        result += escapeHtml(line.slice(lastIndex, match.index));
+      }
+      result += `<mark class="search-highlight">${escapeHtml(match[0])}</mark>`;
+      lastIndex = match.index + match[0].length;
+      if (match[0].length === 0) {
+        regex.lastIndex += 1; // 防御零长度匹配死循环
+      }
+      match = regex.exec(line);
+    }
+    if (lastIndex < line.length) {
+      result += escapeHtml(line.slice(lastIndex));
+    }
+    return result;
+  });
+});
 
 /**
  * 监听弹窗打开，自动加载日志
@@ -389,6 +429,11 @@ watch(
  * 弹窗关闭时清理
  */
 function handleDialogClose() {
+  // 作废并取消在途请求，避免关闭后响应仍写回
+  querySeq += 1;
+  abortController?.abort();
+  abortController = null;
+  loading.value = false;
   logLines.value = [];
   error.value = '';
   searchKeyword.value = '';
@@ -591,7 +636,7 @@ function handleDialogClose() {
               { 'current-match': isCurrentMatch(index) },
               { 'long-line': line.length > 300 },
             ]"
-            v-html="highlightSearch(line)"
+            v-html="highlightedLines[index]"
           />
         </template>
       </div>

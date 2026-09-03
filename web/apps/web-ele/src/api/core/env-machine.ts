@@ -153,6 +153,7 @@ export interface MachineLogResponse {
 export async function getMachineLogsApi(
   machineId: string,
   params: MachineLogQueryParams | number = { lines: 400 },
+  options?: { signal?: AbortSignal },
 ) {
   // 支持旧调用方式：直接传 lines 数值
   const queryParams: MachineLogQueryParams =
@@ -160,7 +161,7 @@ export async function getMachineLogsApi(
 
   return requestClient.get<MachineLogResponse>(
     `/api/core/env/machine/${machineId}/logs`,
-    { params: queryParams, timeout: 40000 },
+    { params: queryParams, timeout: 40000, ...options },
   );
 }
 

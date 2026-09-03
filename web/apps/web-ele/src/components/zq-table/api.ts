@@ -54,6 +54,8 @@ export class ZqTableApi<T extends Record<string, any> = any> {
   public total = ref(0);
 
   private isMounted = false;
+  // 竞态保护序号：只允许最新一次请求写回数据
+  private querySeq = 0;
   private stateHandler: StateHandler;
 
   constructor(options: ZqTableProps = {}) {
@@ -119,28 +121,26 @@ export class ZqTableApi<T extends Record<string, any> = any> {
     }
 
     console.log('[ZqTable] Starting data load...');
+    const seq = ++this.querySeq;
     this.setLoading(true);
     try {
-      // 1. 获取表单数据（带超时保护）
+      // 1. 获取表单数据
+      // 仅在搜索表单存在时读取。不能靠固定超时兜底：vben 表单未挂载时 getValues
+      // 会一直等待，超时兜底会在表单未就绪时静默丢掉全部筛选条件
       let formData: Record<string, any> = {};
-      try {
-        if (
-          this.isMounted &&
-          this.formApi &&
-          typeof this.formApi.getValues === 'function'
-        ) {
-          // 添加超时保护，避免 formApi 未就绪时卡住
-          const timeoutPromise = new Promise<Record<string, any>>((_, reject) =>
-            setTimeout(() => reject(new Error('Form API timeout')), 100),
-          );
-          formData = await Promise.race([
-            this.formApi.getValues() as Promise<Record<string, any>>,
-            timeoutPromise,
-          ]).catch(() => ({}));
+      if (
+        this.isMounted &&
+        this.state?.formOptions &&
+        this.formApi &&
+        typeof this.formApi.getValues === 'function'
+      ) {
+        try {
+          formData =
+            ((await this.formApi.getValues()) as Record<string, any>) ?? {};
+        } catch {
+          // 表单读取失败时按无条件查询处理
+          formData = {};
         }
-      } catch {
-        // 表单未初始化时忽略错误
-        formData = {};
       }
 
       // 2. 组装参数
@@ -158,6 +158,9 @@ export class ZqTableApi<T extends Record<string, any> = any> {
       const queryFn = proxyConfig.ajax!.query as (params: any) => Promise<any>;
       const result = await queryFn(queryParams);
 
+      // 已有更新的请求发起，丢弃过期响应，避免旧数据覆盖新数据
+      if (seq !== this.querySeq) return;
+
       // 4. 更新数据
       // 适配不同的返回格式: { items: [], total: 0 } 或 []
       if (Array.isArray(result)) {
@@ -171,9 +174,14 @@ export class ZqTableApi<T extends Record<string, any> = any> {
       // 更新分页状态
       this.pagination.total = this.total.value;
     } catch (error) {
+      // 过期请求自身的异常不影响当前请求的状态
+      if (seq !== this.querySeq) return;
       console.error('Load data failed', error);
     } finally {
-      this.setLoading(false);
+      // 只有最新一次请求有权结束 loading
+      if (seq === this.querySeq) {
+        this.setLoading(false);
+      }
     }
   }
 
