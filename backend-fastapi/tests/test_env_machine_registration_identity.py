@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.env_machine.api import (
+from core.env_machine.api import register_env_machine
+from core.env_machine.service import (
     _get_registration_machine,
     _register_env_machine,
-    register_env_machine,
 )
 from core.env_machine.schema import EnvRegisterRequest
 
@@ -60,31 +60,31 @@ async def test_namespace_switch_updates_existing_machine() -> None:
 
     with (
         patch(
-            "core.env_machine.api._get_registration_machine",
+            "core.env_machine.service._get_registration_machine",
             new=AsyncMock(return_value=machine),
         ),
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[machine]),
         ),
         patch(
-            "core.env_machine.api.EnvLockManager.env_registration_lock_or_raise",
+            "core.env_machine.service.EnvLockManager.env_registration_lock_or_raise",
             new=_noop_lock,
         ),
         patch(
-            "core.env_machine.api.EnvLockManager.env_locks_or_raise",
+            "core.env_machine.service.EnvLockManager.env_locks_or_raise",
             new=_noop_lock,
         ),
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_namespace",
+            "core.env_machine.service.EnvMachineService.get_by_namespace",
             new=AsyncMock(return_value=([machine], 1)),
         ),
         patch(
-            "core.env_machine.api.EnvPoolManager.remove_machine_from_cache",
+            "core.env_machine.service.EnvPoolManager.remove_machine_from_cache",
             new=AsyncMock(),
         ) as remove_cache,
         patch(
-            "core.env_machine.api.EnvPoolManager.sync_machine_to_cache",
+            "core.env_machine.service.EnvPoolManager.sync_machine_to_cache",
             new=AsyncMock(),
         ),
     ):
@@ -110,11 +110,11 @@ async def test_duplicate_registration_records_are_merged() -> None:
 
     with (
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[primary, duplicate]),
         ),
         patch(
-            "core.env_machine.api.EnvPoolManager.remove_machine_from_cache",
+            "core.env_machine.service.EnvPoolManager.remove_machine_from_cache",
             new=AsyncMock(),
         ) as remove_cache,
     ):
@@ -143,7 +143,7 @@ async def test_changed_device_sn_does_not_reuse_unique_host_machine() -> None:
 
     with (
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[]),
         ),
     ):
@@ -171,23 +171,23 @@ async def test_three_harmony_pc_sns_are_not_collapsed_by_registration_fallback()
 
     with (
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[]),
         ) as get_identity,
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            "core.env_machine.service.EnvMachineService.get_by_host_device_type",
             new=AsyncMock(return_value=[]),
         ) as get_host,
         patch(
-            "core.env_machine.api.EnvPoolManager.remove_machine_from_cache",
+            "core.env_machine.service.EnvPoolManager.remove_machine_from_cache",
             new=AsyncMock(),
         ),
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_namespace",
+            "core.env_machine.service.EnvMachineService.get_by_namespace",
             new=AsyncMock(return_value=([], 0)),
         ),
         patch(
-            "core.env_machine.api.EnvPoolManager.sync_machine_to_cache",
+            "core.env_machine.service.EnvPoolManager.sync_machine_to_cache",
             new=AsyncMock(),
         ),
     ):
@@ -215,11 +215,11 @@ async def test_changed_device_sn_does_not_merge_multiple_host_devices() -> None:
 
     with (
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            "core.env_machine.service.EnvMachineService.get_by_host_device_type",
             new=AsyncMock(return_value=[first, second]),
         ),
     ):
@@ -242,11 +242,11 @@ async def test_missing_worker_device_sn_reuses_unique_edited_host_machine() -> N
 
     with (
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_host_device_type",
+            "core.env_machine.service.EnvMachineService.get_by_host_device_type",
             new=AsyncMock(return_value=[machine]),
         ),
     ):
@@ -274,11 +274,11 @@ async def test_windows_null_registration_merges_empty_sn_history() -> None:
 
     with (
         patch(
-            "core.env_machine.api.EnvMachineService.get_by_device_identity",
+            "core.env_machine.service.EnvMachineService.get_by_device_identity",
             new=AsyncMock(return_value=[primary, duplicate]),
         ),
         patch(
-            "core.env_machine.api.EnvPoolManager.remove_machine_from_cache",
+            "core.env_machine.service.EnvPoolManager.remove_machine_from_cache",
             new=AsyncMock(),
         ),
     ):
