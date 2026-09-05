@@ -91,13 +91,15 @@ async def worker_start_upgrade(
     if machine.status != "online":
         raise HTTPException(status_code=400, detail=f"机器状态为 {machine.status}，无法升级")
 
-    # 更新状态
-    machine.status = "upgrading"
+    # 更新状态（唯一写入口校验并同步缓存：非 online 即出池）
+    from core.env_machine.state_service import MachineStateService
+    transition = await MachineStateService.transition(
+        db, machine, "upgrading", source="manual_upgrade"
+    )
+    if not transition.ok:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"状态转移被拒绝: {transition.previous_status} -> upgrading")
     await db.commit()
-
-    # 更新 Redis 缓存（标记不可申请）
-    from core.env_machine.pool_manager import EnvPoolManager
-    await EnvPoolManager.remove_machine_from_cache(machine.id, machine.namespace)
 
     logger.info(f"Worker 手动触发升级: machine_id={data.machine_id}, version={data.version}")
 

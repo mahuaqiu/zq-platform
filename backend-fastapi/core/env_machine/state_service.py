@@ -23,7 +23,7 @@ logger = get_logger("env_machine.state")
 MACHINE_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "online": {"using", "upgrading", "offline"},
     "using": {"online", "upgrading", "offline"},   # using->upgrading: 释放后触发延迟升级
-    "upgrading": {"online", "offline"},
+    "upgrading": {"online", "offline", "using"},   # upgrading->using: 注册合并重复记录时采纳在用状态
     "offline": {"online", "using", "upgrading"},
 }
 

@@ -660,7 +660,13 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         if not machine:
             return None
 
-        machine.status = status
+        # 经唯一写入口校验并同步缓存（三类状态两两转移均在合法表内，行为不变）
+        from core.env_machine.state_service import MachineStateService
+        result = await MachineStateService.transition(
+            db, machine, status, source="service_update_status"
+        )
+        if not result.ok:
+            raise ValueError(f"状态转移被拒绝: {result.previous_status} -> {status}")
 
         if auto_commit:
             await db.commit()
@@ -725,11 +731,18 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         success_count = 0
         failed_ids = []
 
+        from core.env_machine.state_service import MachineStateService
+
         for machine_id in ids:
             machine = await cls.get_by_id(db, machine_id)
             if machine:
-                machine.status = status
-                success_count += 1
+                result = await MachineStateService.transition(
+                    db, machine, status, source="service_batch_update_status"
+                )
+                if result.ok:
+                    success_count += 1
+                else:
+                    failed_ids.append(machine_id)
             else:
                 failed_ids.append(machine_id)
 
@@ -1105,7 +1118,11 @@ async def _get_registration_machine(
             primary.asset_number = duplicate.asset_number
         primary.available = primary.available or duplicate.available
         if duplicate.status == "using":
-            primary.status = "using"
+            # 采纳重复记录的在用状态（唯一写入口校验并同步缓存）
+            from core.env_machine.state_service import MachineStateService
+            await MachineStateService.transition(
+                db, primary, "using", source="register_merge"
+            )
         await EnvPoolManager.remove_machine_from_cache(
             str(duplicate.id), duplicate.namespace
         )
@@ -1195,7 +1212,10 @@ async def _register_env_machine(
                     # - upgrading: 变为 online（升级完成）
                     # - offline/online: 变为 online（正常心跳）
                     if existing_machine.status != "using":
-                        existing_machine.status = "online"
+                        from core.env_machine.state_service import MachineStateService
+                        await MachineStateService.transition(
+                            db, existing_machine, "online", source="register"
+                        )
                         # 标记是否有从 upgrading 变为 online 的机器
                         if old_status == "upgrading":
                             has_upgrading_machine = True
@@ -1267,7 +1287,10 @@ async def _register_env_machine(
                         # - upgrading: 变为 online（升级完成）
                         # - offline/online: 变为 online（正常心跳）
                         if existing_machine.status != "using":
-                            existing_machine.status = "online"
+                            from core.env_machine.state_service import MachineStateService
+                            await MachineStateService.transition(
+                                db, existing_machine, "online", source="register"
+                            )
                             # 标记是否有从 upgrading 变为 online 的机器
                             if old_status == "upgrading":
                                 has_upgrading_machine = True

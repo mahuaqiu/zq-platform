@@ -677,14 +677,18 @@ class EnvPoolManager:
                 duration_minutes=duration_minutes
             ))
 
-        # 更新数据库状态为 online
-        machine.status = "online"
+        # 更新数据库状态为 online（经唯一写入口校验并同步缓存）
+        from core.env_machine.state_service import MachineStateService
+        transition = await MachineStateService.transition(
+            db, machine, "online", source="release"
+        )
+        if not transition.ok:
+            logger.error(
+                f"释放机器状态转移被拒绝: machine_id={machine_id}, "
+                f"{transition.previous_status} -> online"
+            )
         machine.last_keepusing_time = None
         await db.commit()
-
-        # 如果 available=true，重新加入缓存
-        if machine.available and machine.namespace != cls.MANUAL_NAMESPACE:
-            await cls.sync_machine_to_cache(machine)
 
         # 检查升级队列，触发延迟升级
         from core.env_machine.upgrade_service import (
@@ -703,10 +707,10 @@ class EnvPoolManager:
                 machine = await EnvMachineService.get_by_id(db, machine_id)
                 success, message = await send_upgrade_to_worker(machine, config.version, config.download_url)
                 if success:
-                    # 更新状态为 upgrading
-                    machine.status = "upgrading"
-                    # 从缓存移除（不可申请）
-                    await EnvPoolManager.remove_machine_from_cache(machine_id, namespace)
+                    # 更新状态为 upgrading（transition 统一收尾缓存：非 online 即出池）
+                    await MachineStateService.transition(
+                        db, machine, "upgrading", source="release_with_upgrade"
+                    )
                     # 更新队列状态
                     await WorkerUpgradeQueueService.mark_completed(db, queue_item.id)
                     logger.info(f"释放后触发升级: machine_id={machine_id}")
@@ -741,18 +745,16 @@ class EnvPoolManager:
         if not machine:
             return False, "机器不存在"
 
-        # 记录状态变更
-        old_status = machine.status
-        # 更新状态
-        machine.status = status
+        # 经唯一写入口校验转移合法性并统一同步缓存
+        from core.env_machine.state_service import MachineStateService
+        transition = await MachineStateService.transition(
+            db, machine, status, source="update_machine_status"
+        )
+        if not transition.ok:
+            await db.rollback()
+            return False, transition.reason
+
         await db.commit()
-
-        # 记录状态变更日志
-        logger.info(f"执行机状态变更 | 机器ID: {machine_id} | 状态: {old_status} -> {status}")
-
-        # 同步到缓存
-        await cls.sync_machine_to_cache(machine)
-
         return True, ""
 
     @classmethod

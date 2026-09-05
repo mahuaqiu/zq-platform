@@ -229,10 +229,14 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
         offline_count = len(machines) + len(upgrading_machines)
         machine_ids = []
 
+        from core.env_machine.state_service import MachineStateService
+
         # 处理 online/using 状态超时的机器
         for machine in machines:
-            # 更新状态
-            machine.status = "offline"
+            # 更新状态（transition 统一收尾缓存）
+            await MachineStateService.transition(
+                db, machine, "offline", source="offline_check"
+            )
             machine_ids.append(str(machine.id))
             logger.info(f"机器 {machine.id} 已标记为离线")
 
@@ -244,7 +248,9 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
         for machine in upgrading_machines:
             alive, reported_version = await _probe_worker_alive(machine)
             if not alive:
-                machine.status = "offline"
+                await MachineStateService.transition(
+                    db, machine, "offline", source="offline_check_upgrade_timeout"
+                )
                 machine_ids.append(str(machine.id))
                 logger.warning(
                     f"升级超时且 Worker 不可达，置为离线: machine_id={machine.id}, ip={machine.ip}"
@@ -261,7 +267,9 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
                 )
                 continue
 
-            machine.status = "online"
+            await MachineStateService.transition(
+                db, machine, "online", source="offline_check_upgrade_alive"
+            )
             machine.sync_time = datetime.now()
             if reported_version:
                 machine.version = reported_version
@@ -271,10 +279,6 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             )
 
         await db.commit()
-
-        # 批量同步 Redis 缓存（从缓存中移除）（延迟导入避免循环依赖）
-        from core.env_machine.pool_manager import EnvPoolManager
-        await EnvPoolManager.batch_sync_cache(db, machine_ids)
 
         logger.info(f"离线检测完成，共标记 {offline_count} 台机器为离线")
         return offline_count
@@ -487,6 +491,7 @@ async def reload_machine_status_after_restart() -> Dict:
 
     # 延迟导入避免循环依赖
     from core.env_machine.pool_manager import EnvPoolManager
+    from core.env_machine.state_service import MachineStateService
 
     # 等待10秒，让服务完全启动
     await asyncio.sleep(10)
@@ -573,7 +578,9 @@ async def reload_machine_status_after_restart() -> Dict:
                             device_type = snapshot["device_type"]
                             if device_type in ("windows", "mac"):
                                 # Windows/Mac 不需要检查 device_sn
-                                machine.status = "online"
+                                await MachineStateService.transition(
+                                    db, machine, "online", source="reload_after_restart"
+                                )
                                 machine.sync_time = now
                                 namespace = _get_reported_namespace(data, device_type)
                                 if namespace != machine.namespace:
@@ -600,7 +607,9 @@ async def reload_machine_status_after_restart() -> Dict:
                                         device_sns.append(item)
 
                                 if machine.device_sn in device_sns:
-                                    machine.status = "online"
+                                    await MachineStateService.transition(
+                                        db, machine, "online", source="reload_after_restart"
+                                    )
                                     machine.sync_time = now
                                     namespace = _get_reported_namespace(
                                         data, device_type, machine.device_sn
@@ -619,7 +628,9 @@ async def reload_machine_status_after_restart() -> Dict:
                                     batch_machine_ids.append(str(machine.id))
                                 else:
                                     # 设备不在列表中，标记为 offline
-                                    machine.status = "offline"
+                                    await MachineStateService.transition(
+                                        db, machine, "offline", source="reload_after_restart"
+                                    )
                                     offline_count += 1
                                     batch_machine_ids.append(str(machine.id))
 
@@ -631,15 +642,13 @@ async def reload_machine_status_after_restart() -> Dict:
                             machine = machines_by_id.get(snapshot["id"])
                             if machine is None:
                                 continue
-                            machine.status = "offline"
+                            await MachineStateService.transition(
+                                db, machine, "offline", source="reload_after_restart"
+                            )
                             offline_count += 1
                             batch_machine_ids.append(str(machine.id))
 
-                # 提交数据库更改
-                await db.commit()
-
-                # 批量同步 Redis 缓存
-                await EnvPoolManager.batch_sync_cache(db, batch_machine_ids)
+                # 提交数据库更改（缓存已由 transition 逐台同步）
 
             # 当前批次处理完成后，继续下一批
             logger.info(f"第 {batch_idx + 1}/{total_batches} 批处理完成")

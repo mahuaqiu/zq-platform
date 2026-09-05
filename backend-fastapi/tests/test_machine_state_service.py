@@ -34,7 +34,8 @@ def test_validate_transition_table():
     assert validate_transition("using", "online")      # 释放/超时释放
     assert validate_transition("upgrading", "offline")
     assert validate_transition("offline", "online")    # 心跳恢复
-    assert not validate_transition("upgrading", "using")
+    assert validate_transition("upgrading", "using")   # 注册合并重复记录时采纳在用状态
+    assert not validate_transition("online", "disabled")
     assert not validate_transition("unknown", "online")
 
 
@@ -66,8 +67,8 @@ async def test_transition_same_state_still_syncs(sync_spy):
 @pytest.mark.asyncio
 async def test_transition_rejected_does_not_write(sync_spy):
     db = MagicMock()
-    machine = _machine("upgrading")
-    result = await MachineStateService.transition(db, machine, "using", source="test")
+    machine = _machine("online")
+    result = await MachineStateService.transition(db, machine, "disabled", source="test")
     assert result.ok is False
-    assert machine.status == "upgrading"
+    assert machine.status == "online"
     sync_spy.assert_not_awaited()

@@ -340,7 +340,10 @@ class UpgradeConcurrencyService:
             )
 
             if success:
-                machine.status = "upgrading"
+                from core.env_machine.state_service import MachineStateService
+                await MachineStateService.transition(
+                    db, machine, "upgrading", source="queue_upgrade"
+                )
                 await WorkerUpgradeQueueService.mark_completed_no_commit(db, item.id)
                 processed_count += 1
                 logger.info(f"队列升级下发成功: machine_id={machine.id}")
@@ -511,7 +514,10 @@ class UpgradeService:
                 machine, config = upgrade_machine_map[machine_id]
 
                 if success:
-                    machine.status = "upgrading"
+                    from core.env_machine.state_service import MachineStateService
+                    await MachineStateService.transition(
+                        db, machine, "upgrading", source="batch_upgrade"
+                    )
                     response.upgraded_count += 1
                     response.details.append(UpgradeDetail(
                         machine_id=machine.id,
