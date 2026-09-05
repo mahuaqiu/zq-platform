@@ -333,12 +333,19 @@ export function useWebSocket() {
 
     socket.onmessage = (event) => {
       if (generation !== websocketGeneration) return;
-      // 文本帧：worker 在流开头下发的 JSON 元数据，目前用于携带真机原生分辨率。
+      // 文本帧：worker 在流开头下发的 JSON 元数据，用于携带真机原生分辨率、
+      // 编解码回退通知与锁屏等待状态。
       if (typeof event.data === 'string') {
         try {
           const meta = JSON.parse(event.data);
           if (meta && meta.type === 'codec_fallback' && meta.codec === 'jpeg') {
             fallbackToJpeg(meta.reason || 'Worker H264 链路不可用');
+            return;
+          }
+          if (meta && meta.type === 'waiting_unlock') {
+            // 鸿蒙设备锁屏时 worker 会等待解锁（最长 300s）后才推流，
+            // 必须显式提示，否则页面表现为无任何反馈的静默黑屏。
+            ElMessage.warning(meta.message || '设备已锁屏，解锁后自动开始推流');
             return;
           }
           if (
