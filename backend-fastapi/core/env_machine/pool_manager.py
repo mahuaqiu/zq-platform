@@ -405,15 +405,24 @@ class EnvPoolManager:
         Returns:
             Optional[dict]: 分配成功返回机器信息，否则返回 None
         """
+        # 宿主机（windows/mac）升级中的 IP，其挂载的移动/鸿蒙设备同样不可申请：
+        # 设备执行要经宿主 Worker 的 HTTP 接口转发，Worker 升级重启窗口内必然失败
+        upgrading_host_ips = {
+            machine_data.get("ip")
+            for machine_data in machines.values()
+            if machine_data.get("device_type") in ("windows", "mac")
+            and machine_data.get("status") == "upgrading"
+        }
+
         for machine_id, machine_data in machines.items():
-            # 检查状态和可用性
+            # 检查状态和可用性（upgrading 非 online，宿主机自身在此被排除）
             if machine_data.get("status") != "online":
                 continue
             if not machine_data.get("available"):
                 continue
 
-            # 排除 upgrading 状态的机器（升级中不可申请）
-            if machine_data.get("status") == "upgrading":
+            # 排除升级中宿主机挂载的设备
+            if machine_data.get("ip") in upgrading_host_ips:
                 continue
 
             # 检查标签匹配
