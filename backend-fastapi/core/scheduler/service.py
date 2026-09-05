@@ -35,18 +35,21 @@ logger = get_logger("scheduler")
 class SchedulerService:
     """
     定时任务调度服务 (APScheduler 4.x)
-    
+
     功能特点：
     1. 使用 APScheduler 4.x 的 AsyncScheduler
     2. 支持多种触发器类型（cron、interval、date）
     3. 自动从数据库加载任务
     4. 通过事件订阅监听任务执行
     5. 自动更新任务状态和记录日志
+    6. 通过 Redis 领导权租约保证多 worker/多副本部署下任务全局只有一份
     """
 
     _instance = None
     _scheduler: Optional[AsyncScheduler] = None
     _running: bool = False
+    _lease = None
+    LEASE_KEY = "env_lock:scheduler_leadership"
 
     def __new__(cls):
         """单例模式"""
@@ -606,15 +609,31 @@ class SchedulerService:
             logger.error(f"清理过期任务失败: {str(e)}")
             return 0
 
-    async def init_scheduler(self):
+    async def init_scheduler(self) -> bool:
         """
-        初始化调度器
+        初始化调度器（仅持有领导权租约的实例真正启动）
 
         创建 AsyncScheduler 实例，启动调度器，并从数据库加载任务
 
         注意：APScheduler 4.0.0a6 版本需要调用 __aenter__ 来初始化调度器，
         然后才能调用 configure_task、add_schedule 等方法。
+
+        Returns:
+            bool: 本实例是否持有领导权（启动成功或已在运行返回 True；
+                  租约被其他实例持有时返回 False，本实例只做纯 API 服务）
         """
+        if self._running:
+            return True
+
+        # 领导权租约：多 worker / 多副本部署下保证 APScheduler 任务全局只有一份。
+        # TTL/续期与业务锁一致（LOCK_TTL=30s，RENEW_INTERVAL=10s），续期失败自动停机。
+        from core.env_machine.lock_manager import EnvLockManager
+
+        lease = await EnvLockManager.try_acquire_lease(self.LEASE_KEY, on_lost=self._on_lease_lost)
+        if lease is None:
+            logger.warning("未获得调度器领导权（其他实例持有租约），本实例不启动定时任务")
+            return False
+
         try:
             # 创建事件代理和数据存储
             # APScheduler 4.0.0a6: 需要手动设置 _event_broker 属性（alpha 版本 bug）
@@ -636,16 +655,42 @@ class SchedulerService:
             await self._scheduler.start_in_background()
 
             self._running = True
-            logger.info("调度器已初始化并启动")
+            logger.info("调度器已初始化并启动（本实例持有领导权租约）")
 
             # 从数据库加载任务
             await self.load_jobs_from_db()
 
+            # 注册不走 DB 任务表的内置周期任务
+            await self._register_builtin_jobs()
+
+            lease.start_renewal()
+            self._lease = lease
+
             return True
         except Exception as e:
-            logger.error(f"初始化调度器失败: {str(e)}")
+            await lease.release()
             self._running = False
+            self._scheduler = None
+            logger.error(f"初始化调度器失败: {str(e)}")
             return False
+
+    async def _on_lease_lost(self) -> None:
+        """租约续期失败（进程暂停过久/Redis 淘汰等）：停止本实例调度器避免双主。"""
+        logger.error("调度器领导权租约丢失，停止本实例调度器")
+        self._running = False
+        await self.shutdown()
+
+    async def _register_builtin_jobs(self) -> None:
+        """注册不走 DB 任务表的内置周期任务。"""
+        from core.performance_monitor.export_cleanup import cleanup_export_task
+
+        await self._scheduler.configure_task("export_files_cleanup", func=cleanup_export_task)
+        await self._scheduler.add_schedule(
+            func_or_task_id="export_files_cleanup",
+            trigger=IntervalTrigger(hours=1),
+            id="export_files_cleanup",
+        )
+        logger.info("内置任务已注册: export_files_cleanup（每小时）")
 
     async def shutdown(self):
         """
@@ -653,6 +698,11 @@ class SchedulerService:
 
         注意：APScheduler 4.0.0a6 需要调用 __aexit__ 来正确关闭调度器
         """
+        # 先释放领导权租约（未持租约的实例为空操作）
+        if self._lease:
+            lease, self._lease = self._lease, None
+            await lease.release()
+
         if not self._scheduler:
             return
 
