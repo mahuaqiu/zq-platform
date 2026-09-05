@@ -239,8 +239,9 @@ async function loadTemplates() {
     } else {
       selectedTemplate.value = null;
     }
-  } catch {
-    ElMessage.error('加载模板列表失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载模板列表失败:', error);
   } finally {
     templateLoading.value = false;
   }
@@ -358,8 +359,9 @@ async function handleSaveTemplate() {
     }
     templateDialogVisible.value = false;
     await loadTemplates();
-  } catch {
-    ElMessage.error(isNewTemplate ? '创建失败' : '更新失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error(isNewTemplate ? '创建模板失败:' : '更新模板失败:', error);
   } finally {
     templateFormLoading.value = false;
   }
@@ -383,8 +385,9 @@ async function executeDelete() {
     }
     deleteDialogVisible.value = false;
     await loadTemplates();
-  } catch {
-    ElMessage.error('删除失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('删除模板失败:', error);
   } finally {
     deleteLoading.value = false;
   }
@@ -418,8 +421,9 @@ async function loadPreview() {
     });
     previewData.value = data;
     selectedMachineIds.value = [];
-  } catch {
-    ElMessage.error('加载预览失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载预览失败:', error);
   } finally {
     previewLoading.value = false;
   }
@@ -539,9 +543,13 @@ async function executeDeploy() {
 
     deployDialogVisible.value = false;
     await loadPreview();
-  } catch {
-    ElMessage.error(
-      selectedTemplate.value.type === 'command' ? '命令提交失败' : '下发失败',
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error(
+      selectedTemplate.value?.type === 'command'
+        ? '命令提交失败:'
+        : '下发失败:',
+      error,
     );
   } finally {
     deployLoading.value = false;
@@ -632,8 +640,9 @@ async function loadIpTemplates() {
       ipTemplateDetail.value = null;
       selectedDetailIds.value = [];
     }
-  } catch {
-    ElMessage.error('加载 IP 模板失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载 IP 模板失败:', error);
   } finally {
     ipTemplateLoading.value = false;
   }
@@ -665,8 +674,9 @@ async function confirmSaveIpTemplate() {
     ElMessage.success('IP 模板保存成功');
     saveIpTemplateVisible.value = false;
     await loadIpTemplates();
-  } catch {
-    ElMessage.error('保存 IP 模板失败');
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('保存 IP 模板失败:', error);
   } finally {
     ipTemplateSaving.value = false;
   }
@@ -858,8 +868,9 @@ async function handleDeleteIpTemplate(template: MachineSelectionTemplate) {
     ElMessage.success('删除成功');
     await loadIpTemplates();
   } catch (error) {
+    // 取消确认框属正常流程不提示；API 错误由请求层全局拦截器统一弹出
     if (error !== 'cancel') {
-      ElMessage.error('删除失败');
+      console.error('删除 IP 模板失败:', error);
     }
   }
 }

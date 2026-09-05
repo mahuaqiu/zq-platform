@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue';
 
+import { useDebounceFn } from '@vueuse/core';
 import {
   ElButton,
   ElDialog,
@@ -56,6 +57,19 @@ const filesScanned = ref(0);
 
 // 搜索相关
 const searchKeyword = ref('');
+// 防抖后的生效关键词：高亮、计数、导航都以它为准，避免每敲一个字符就对全部行重算
+const activeKeyword = ref('');
+const syncActiveKeyword = useDebounceFn(() => {
+  activeKeyword.value = searchKeyword.value;
+}, 200);
+watch(searchKeyword, (val) => {
+  if (val) {
+    syncActiveKeyword();
+  } else {
+    // 清空立即生效，不等防抖
+    activeKeyword.value = '';
+  }
+});
 const currentMatchIndex = ref(-1);
 const allMatchIndices = ref<number[]>([]);
 
@@ -332,7 +346,7 @@ function escapeHtml(text: string): string {
 }
 
 const highlightedLines = computed(() => {
-  const keyword = searchKeyword.value;
+  const keyword = activeKeyword.value;
   const regex =
     keyword && keyword.length >= MIN_SEARCH_LENGTH
       ? new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
@@ -374,6 +388,7 @@ watch(
       logLines.value = [];
       error.value = '';
       searchKeyword.value = '';
+      activeKeyword.value = '';
       currentMatchIndex.value = -1;
       allMatchIndices.value = [];
       queryMode.value = 'lines';
@@ -398,7 +413,7 @@ const MIN_SEARCH_LENGTH = 4;
  * 少于 MIN_SEARCH_LENGTH 个字符时不进行搜索，避免短关键词匹配太多内容导致卡顿
  */
 watch(
-  [searchKeyword, logLines],
+  [activeKeyword, logLines],
   ([keyword, lines]) => {
     // 少于最小长度时不进行搜索
     if (!keyword || keyword.length < MIN_SEARCH_LENGTH || lines.length === 0) {
@@ -437,6 +452,7 @@ function handleDialogClose() {
   logLines.value = [];
   error.value = '';
   searchKeyword.value = '';
+  activeKeyword.value = '';
   currentMatchIndex.value = -1;
   allMatchIndices.value = [];
 }

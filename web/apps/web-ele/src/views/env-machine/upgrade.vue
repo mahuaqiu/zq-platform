@@ -99,7 +99,8 @@ async function loadConfigs() {
       }
     }
   } catch (error) {
-    ElMessage.error('加载配置失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载配置失败:', error);
   } finally {
     configLoading.value = false;
   }
@@ -117,7 +118,8 @@ async function saveConfig(config: UpgradeConfig | null, formData: { version: str
     ElMessage.success('保存成功');
     await loadConfigs();
   } catch (error) {
-    ElMessage.error('保存失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('保存配置失败:', error);
   }
 }
 
@@ -147,7 +149,8 @@ async function loadPreview() {
     previewData.value = data;
     selectedMachineIds.value = [];
   } catch (error) {
-    ElMessage.error('加载预览失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载预览失败:', error);
   } finally {
     previewLoading.value = false;
   }
@@ -160,7 +163,8 @@ async function loadQueue() {
     const data = await getUpgradeQueueApi();
     queueData.value = data;
   } catch (error) {
-    ElMessage.error('加载队列失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载队列失败:', error);
   } finally {
     queueLoading.value = false;
   }
@@ -232,7 +236,8 @@ async function executeBatchUpgrade() {
     await loadPreview();
     await loadQueue();
   } catch (error) {
-    ElMessage.error('升级失败');
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('升级失败:', error);
   } finally {
     upgradeLoading.value = false;
   }
@@ -250,8 +255,9 @@ async function handleRemoveQueue(item: UpgradeQueueItem) {
         await removeUpgradeQueueApi(item.id);
         ElMessage.success('移除成功');
         await loadQueue();
-      } catch {
-        ElMessage.error('移除失败');
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('移除队列项失败:', error);
       }
     })
     .catch(() => {

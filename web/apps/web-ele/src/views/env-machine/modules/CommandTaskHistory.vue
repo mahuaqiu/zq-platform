@@ -84,7 +84,7 @@ function getStatusDisplay(status: string): { text: string; type: string } {
 }
 
 // 加载任务列表
-// silent=true 时为轮询触发：不显示 loading、不弹错误 toast，避免界面闪烁和反复弹窗
+// silent=true 时为轮询触发：不显示 loading，避免界面闪烁；错误提示由请求层全局拦截器统一弹出
 async function loadTasks(silent: boolean = false) {
   if (!silent) {
     loading.value = true;
@@ -112,10 +112,9 @@ async function loadTasks(silent: boolean = false) {
     });
     taskList.value = items;
     total.value = data.total;
-  } catch {
-    if (!silent) {
-      ElMessage.error('加载任务历史失败');
-    }
+  } catch (error) {
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('加载任务历史失败:', error);
   } finally {
     if (!silent) {
       loading.value = false;
@@ -145,9 +144,10 @@ async function handleDelete(task: CommandTask) {
     await deleteCommandTaskApi(task.id);
     ElMessage.success('删除成功');
     await loadTasks();
-  } catch (error: any) {
+  } catch (error) {
+    // 取消确认框属正常流程不提示；API 错误由请求层全局拦截器统一弹出
     if (error !== 'cancel') {
-      ElMessage.error('删除失败');
+      console.error('删除任务失败:', error);
     }
   }
 }

@@ -216,8 +216,8 @@ async function executeOperation(
     if (!isAuto) {
       updateHistoryStatus('failed');
     }
-    const errorMsg = error.message || '操作失败';
-    ElMessage.error(errorMsg);
+    // 错误提示由请求层全局拦截器统一弹出
+    console.error('设备操作失败:', error);
     return false;
   } finally {
     isOperating.value = false;
