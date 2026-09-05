@@ -514,12 +514,16 @@ async function executeDeploy() {
         `命令已提交执行，共 ${selectedMachineIds.value.length} 台机器，请到“任务历史”查看进度`,
       );
       deployDialogVisible.value = false;
+      // 命令路径不经过 loadPreview（其成功后会清空选择），需手动清空避免选择态残留
+      selectedMachineIds.value = [];
       activeTab.value = 'history';
       return;
     }
 
-    // 查找失败详情
-    const failedDetails = result.details.filter((d) => d.status === 'failed');
+    // 查找失败详情（details 后端可能缺省）
+    const failedDetails = (result.details ?? []).filter(
+      (d) => d.status === 'failed',
+    );
 
     if (result.failed_count > 0) {
       const failedMessages = failedDetails

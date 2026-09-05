@@ -41,6 +41,18 @@ function setupCommonGuard(router: Router) {
 }
 
 /**
+ * 安全解码 redirect 参数：redirect 来自 URL，可能含非法的 % 序列，
+ * 直接 decodeURIComponent 会抛 URIError 中断导航，解码失败时按原文返回
+ */
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
  * 权限访问守卫配置
  * @param router
  */
@@ -53,7 +65,7 @@ function setupAccessGuard(router: Router) {
     // 基本路由，这些路由不需要进入权限拦截
     if (coreRouteNames.includes(to.name as string)) {
       if (to.path === LOGIN_PATH && accessStore.accessToken) {
-        return decodeURIComponent(
+        return safeDecodeURIComponent(
           (to.query?.redirect as string) ||
             userStore.userInfo?.homePath ||
             preferences.app.defaultHomePath,
@@ -126,7 +138,7 @@ function setupAccessGuard(router: Router) {
         : to.fullPath)) as string;
 
     return {
-      ...router.resolve(decodeURIComponent(redirectPath)),
+      ...router.resolve(safeDecodeURIComponent(redirectPath)),
       replace: true,
     };
   });

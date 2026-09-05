@@ -13,6 +13,11 @@ export namespace AuthApi {
     refreshToken: string;
   }
 
+  /**
+   * 刷新接口返回值：baseRequestClient 未挂响应拦截器，
+   * post 返回的是原始 AxiosResponse（data 为后端平铺的令牌对象），
+   * 这里只声明用到的字段子集
+   */
   export interface RefreshTokenResult {
     data: LoginResult;
     status: number;

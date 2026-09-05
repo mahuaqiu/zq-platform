@@ -97,15 +97,14 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     // 传递 refreshToken 给 API
     const resp = await refreshTokenApi(accessStore.refreshToken);
 
-    // 处理响应中的新 token
-    // 后端支持两种格式：直接返回 token 字符串 或 { token, accessToken } 对象
+    // 处理响应中的新 token（后端平铺返回 { accessToken, refreshToken }，与登录接口一致）
     const newToken = resp.data?.accessToken || '';
 
     // 更新 access token
     accessStore.setAccessToken(newToken);
 
-    // 如果响应中有新的 refresh token，也保存
-    if (typeof resp.data === 'object' && resp.data?.refreshToken) {
+    // 旋转式刷新：响应中带新的 refresh token 时一并保存
+    if (resp.data?.refreshToken) {
       accessStore.setRefreshToken(resp.data.refreshToken);
     }
 

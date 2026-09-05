@@ -212,8 +212,10 @@ async function executeBatchUpgrade() {
     };
     const result = await batchUpgradeApi(params);
 
-    // 查找失败详情
-    const failedDetails = result.details.filter(d => d.status === 'failed');
+    // 查找失败详情（details 后端可能缺省）
+    const failedDetails = (result.details ?? []).filter(
+      (d) => d.status === 'failed',
+    );
 
     if (result.failed_count > 0) {
       // 显示详细失败信息
@@ -242,15 +244,19 @@ async function handleRemoveQueue(item: UpgradeQueueItem) {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      await removeUpgradeQueueApi(item.id);
-      ElMessage.success('移除成功');
-      await loadQueue();
-    } catch {
-      ElMessage.error('移除失败');
-    }
-  });
+  })
+    .then(async () => {
+      try {
+        await removeUpgradeQueueApi(item.id);
+        ElMessage.success('移除成功');
+        await loadQueue();
+      } catch {
+        ElMessage.error('移除失败');
+      }
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 获取升级状态标签样式

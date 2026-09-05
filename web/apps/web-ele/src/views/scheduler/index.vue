@@ -166,17 +166,21 @@ function handleExecute(row: SchedulerJob) {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'info',
-  }).then(async () => {
-    try {
-      await executeSchedulerJobApi({ job_id: row.id });
-      ElMessage.success('任务已开始执行');
-      loadData();
-      loadStatistics();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('执行失败:', error);
-    }
-  });
+  })
+    .then(async () => {
+      try {
+        await executeSchedulerJobApi({ job_id: row.id });
+        ElMessage.success('任务已开始执行');
+        loadData();
+        loadStatistics();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('执行失败:', error);
+      }
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 删除
@@ -186,17 +190,21 @@ function handleDelete(row: SchedulerJob) {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      await deleteSchedulerJobApi(row.id);
-      ElMessage.success('删除成功');
-      loadData();
-      loadStatistics();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('删除失败:', error);
-    }
-  });
+  })
+    .then(async () => {
+      try {
+        await deleteSchedulerJobApi(row.id);
+        ElMessage.success('删除成功');
+        loadData();
+        loadStatistics();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('删除失败:', error);
+      }
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 格式化成功率（后端返回的是百分比数值，如 66.67 表示 66.67%）

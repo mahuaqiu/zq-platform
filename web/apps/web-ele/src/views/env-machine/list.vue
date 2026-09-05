@@ -231,19 +231,23 @@ function handleDelete(row: EnvMachine) {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      await deleteEnvMachineApi(row.id);
-      ElMessage.success('删除成功');
-      // 清除被删除设备的选中状态
-      selectedIds.value.delete(row.id);
-      selectedMachinesMap.value.delete(row.id);
-      loadData();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('删除失败:', error);
-    }
-  });
+  })
+    .then(async () => {
+      try {
+        await deleteEnvMachineApi(row.id);
+        ElMessage.success('删除成功');
+        // 清除被删除设备的选中状态
+        selectedIds.value.delete(row.id);
+        selectedMachinesMap.value.delete(row.id);
+        loadData();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('删除失败:', error);
+      }
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 选择变化
@@ -277,25 +281,33 @@ function handleBatchDelete() {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      const ids = Array.from(selectedIds.value);
-      const res = await batchDeleteEnvMachineApi(ids);
-      if (res.success_count > 0) {
-        ElMessage.success(`成功删除 ${res.success_count} 台设备`);
+  })
+    .then(async () => {
+      try {
+        const ids = Array.from(selectedIds.value);
+        const res = await batchDeleteEnvMachineApi(ids);
+        if (res.success_count > 0) {
+          ElMessage.success(`成功删除 ${res.success_count} 台设备`);
+        }
+        if (
+          res.failed_count > 0 &&
+          res.failed_ids &&
+          res.failed_ids.length > 0
+        ) {
+          ElMessage.warning(`${res.failed_count} 台设备删除失败`);
+        }
+        // 清空选中状态
+        selectedIds.value.clear();
+        selectedMachinesMap.value.clear();
+        loadData();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('批量删除失败:', error);
       }
-      if (res.failed_count > 0 && res.failed_ids && res.failed_ids.length > 0) {
-        ElMessage.warning(`${res.failed_count} 台设备删除失败`);
-      }
-      // 清空选中状态
-      selectedIds.value.clear();
-      selectedMachinesMap.value.clear();
-      loadData();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('批量删除失败:', error);
-    }
-  });
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 批量启用（Linux 设备不支持启用，需过滤）
@@ -337,25 +349,37 @@ async function handleBatchEnable() {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'info',
-  }).then(async () => {
-    try {
-      const res = await batchEnableEnvMachineApi(filteredIds);
-      if (res.success_count > 0) {
-        ElMessage.success(`成功启用 ${res.success_count} 台设备`);
+  })
+    .then(async () => {
+      try {
+        const res = await batchEnableEnvMachineApi(filteredIds);
+        if (res.success_count > 0) {
+          ElMessage.success(`成功启用 ${res.success_count} 台设备`);
+        }
+        if (res.skipped_count > 0) {
+          const details = res.skipped_items
+            .map((item) => `${item.ip}: ${item.reason}`)
+            .join('\n');
+          ElMessageBox.alert(
+            `${res.skipped_count} 台设备因不符合条件而跳过：\n\n${details}`,
+            '部分设备跳过',
+            {
+              confirmButtonText: '确定',
+              type: 'warning',
+            },
+          ).catch(() => {
+            // 用户关闭提示框时静默，避免 Unhandled rejection
+          });
+        }
+        loadData();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('批量启用失败:', error);
       }
-      if (res.skipped_count > 0) {
-        const details = res.skipped_items.map((item) => `${item.ip}: ${item.reason}`).join('\n');
-        ElMessageBox.alert(`${res.skipped_count} 台设备因不符合条件而跳过：\n\n${details}`, '部分设备跳过', {
-          confirmButtonText: '确定',
-          type: 'warning',
-        });
-      }
-      loadData();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('批量启用失败:', error);
-    }
-  });
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 批量停用
@@ -370,22 +394,26 @@ async function handleBatchDisable() {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      const ids = Array.from(selectedIds.value);
-      const res = await batchDisableEnvMachineApi(ids);
-      if (res.success_count > 0) {
-        ElMessage.success(`成功停用 ${res.success_count} 台设备`);
+  })
+    .then(async () => {
+      try {
+        const ids = Array.from(selectedIds.value);
+        const res = await batchDisableEnvMachineApi(ids);
+        if (res.success_count > 0) {
+          ElMessage.success(`成功停用 ${res.success_count} 台设备`);
+        }
+        if (res.failed_count > 0) {
+          ElMessage.warning(`${res.failed_count} 台设备停用失败`);
+        }
+        loadData();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('批量停用失败:', error);
       }
-      if (res.failed_count > 0) {
-        ElMessage.warning(`${res.failed_count} 台设备停用失败`);
-      }
-      loadData();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('批量停用失败:', error);
-    }
-  });
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 批量操作菜单命令处理

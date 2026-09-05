@@ -218,16 +218,20 @@ function handleDelete(row: EnvMachine) {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      await deleteEnvMachineApi(row.id);
-      ElMessage.success('删除成功');
-      loadData();
-    } catch (error) {
-      // 错误提示由请求层全局拦截器统一弹出
-      console.error('删除失败:', error);
-    }
-  });
+  })
+    .then(async () => {
+      try {
+        await deleteEnvMachineApi(row.id);
+        ElMessage.success('删除成功');
+        loadData();
+      } catch (error) {
+        // 错误提示由请求层全局拦截器统一弹出
+        console.error('删除失败:', error);
+      }
+    })
+    .catch(() => {
+      // 用户取消或关闭确认框时静默，避免 Unhandled rejection
+    });
 }
 
 // 资产编号是否必填：手工使用页面必填，或非手工使用页面的新增模式必填

@@ -70,7 +70,8 @@ export interface DeployResponse {
   success_count: number;
   failed_count: number;
   skipped_count: number;
-  details: DeployDetail[];
+  /** 后端在无失败项时可能缺省 */
+  details?: DeployDetail[];
 }
 
 /**

@@ -46,7 +46,8 @@ export interface BatchUpgradeResponse {
   waiting_count: number;
   skipped_count: number;
   failed_count: number;
-  details: UpgradeDetail[];
+  /** 后端在无失败项时可能缺省 */
+  details?: UpgradeDetail[];
 }
 
 /**
