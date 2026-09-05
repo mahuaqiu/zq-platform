@@ -171,7 +171,16 @@ export async function getMachineLogsApi(
  * 调试操作参数
  */
 export interface DebugActionParams {
-  action_type: 'click' | 'double_click' | 'right_click' | 'swipe' | 'input' | 'press' | 'screenshot' | 'unlock_screen';
+  action_type:
+    | 'click'
+    | 'double_click'
+    | 'input'
+    | 'press'
+    | 'release_session'
+    | 'right_click'
+    | 'screenshot'
+    | 'swipe'
+    | 'unlock_screen';
   params: Record<string, any>;
 }
 

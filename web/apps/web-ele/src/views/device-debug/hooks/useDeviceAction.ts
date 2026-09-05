@@ -302,6 +302,15 @@ export function useDeviceAction(deviceId: string) {
     }
   }
 
+  /**
+   * 释放设备常驻会话（调试页"断开"时调用）。
+   * 通知 Worker 立即停止鸿蒙官方投屏会话；其他平台 Worker 端为 no-op。
+   * 静默执行：断开本身已生效，释放失败时交给 Worker 空闲保活兜底。
+   */
+  async function releaseSession(): Promise<boolean> {
+    return executeOperation('release_session', {}, true, true);
+  }
+
   return {
     isOperating,
     operationHistory,
@@ -313,5 +322,6 @@ export function useDeviceAction(deviceId: string) {
     pressKey,
     unlockScreen,
     screenshot,
+    releaseSession,
   };
 }

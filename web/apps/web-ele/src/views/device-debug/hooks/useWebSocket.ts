@@ -20,6 +20,11 @@ export function useWebSocket() {
   const closeInfo = ref<WebSocketCloseInfo | null>(null);
   const errorMessage = ref('');
 
+  // 是否为用户主动点击"断开"。主动断开的语义是完全断开：画面清空、
+  // 操作禁用、通知 Worker 停止常驻会话；而推流失败导致的断开仍保留
+  // 鸿蒙截图兜底 + 操作触发出图的能力，重连后自动复位。
+  const userDisconnected = ref(false);
+
   let ws: WebSocket | null = null;
   let websocketGeneration = 0;
   let retryCount = 0;
@@ -199,6 +204,8 @@ export function useWebSocket() {
     preserveRetryCount = false,
   ): void {
     const generation = ++websocketGeneration;
+    // 新的连接意图清除"用户主动断开"状态。
+    userDisconnected.value = false;
     // 保存参数用于重连
     savedHost = host;
     savedPort = port;
@@ -449,9 +456,12 @@ export function useWebSocket() {
 
   /**
    * 断开连接
+   * @param manual 用户主动点击"断开"时为 true：置位 userDisconnected，
+   * 页面据此清空画面并禁用操作。空闲超时、组件卸载等自动断开不算。
    */
-  function disconnect(): void {
+  function disconnect(manual = false): void {
     websocketGeneration++;
+    userDisconnected.value = manual;
     stopRetryTimer();
     if (ws) {
       retryCount = MAX_RETRIES; // 阻止自动重连
@@ -529,6 +539,7 @@ export function useWebSocket() {
 
   return {
     status,
+    userDisconnected,
     screenshotBase64,
     screenSize,
     fps,

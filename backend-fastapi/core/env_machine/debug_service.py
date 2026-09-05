@@ -18,6 +18,47 @@ logger = logging.getLogger(__name__)
 class DebugActionService:
     """设备调试操作：代理转发到 Worker /remote/execute。"""
 
+    # 鸿蒙会话停止需等待 WS 租约释放（Worker 端最长等 2s），留出余量。
+    RELEASE_SESSION_TIMEOUT = 10.0
+
+    @classmethod
+    async def _release_session(cls, machine, machine_id: str) -> DebugActionResponse:
+        """转发到 Worker /remote/release，立即停止设备常驻官方会话。
+
+        平台调试页"断开"语义是完全断开：画面清空、操作禁用、设备侧投屏
+        终止。其他平台（Windows 等）的推流资源随最后一个 WebSocket 关闭
+        自动回收，无需显式释放，直接返回成功。
+        """
+        if machine.device_type not in ("harmony_mobile", "harmony_pc"):
+            return DebugActionResponse(
+                success=True,
+                result={"stopped": False, "reason": "平台无常驻会话，无需释放"},
+            )
+
+        worker_url = f"http://{machine.ip}:{machine.port}/remote/release"
+        worker_request = {
+            "platform": machine.device_type,
+            "device_id": machine.device_sn or machine_id,
+        }
+        try:
+            async with httpx.AsyncClient(
+                timeout=cls.RELEASE_SESSION_TIMEOUT, trust_env=False, verify=False
+            ) as client:
+                resp = await client.post(worker_url, json=worker_request)
+            if resp.status_code == 200:
+                return DebugActionResponse(success=True, result=resp.json())
+            return DebugActionResponse(
+                success=False,
+                result={"error": f"停止会话失败: Worker 返回 {resp.status_code}"},
+            )
+        except httpx.TimeoutException:
+            return DebugActionResponse(success=False, result={"error": "停止会话请求超时"})
+        except httpx.ConnectError:
+            return DebugActionResponse(success=False, result={"error": "无法连接到 Worker"})
+        except Exception as e:
+            logger.error(f"停止设备会话失败: {e}")
+            return DebugActionResponse(success=False, result={"error": str(e)})
+
     @classmethod
     async def execute(
         cls,
@@ -54,6 +95,11 @@ class DebugActionService:
             "ios", "android", "windows", "mac", "harmony_mobile", "harmony_pc"
         ):
             raise HTTPException(status_code=400, detail="不支持该设备类型调试")
+
+        # 调试页"断开连接"：让 Worker 立即停止设备常驻会话（鸿蒙官方投屏）。
+        # 停止会话本身无害，设备状态非在线也允许执行，不走下方状态拦截。
+        if data.action_type == "release_session":
+            return await cls._release_session(machine, machine_id)
 
         # 远程操作和普通用例使用不同的 Worker 资源域，因此允许设备处于
         # using 状态；只有离线、升级等不可连接状态才拒绝请求。

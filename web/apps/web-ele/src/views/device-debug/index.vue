@@ -62,6 +62,7 @@ const currentCodec = computed(() => {
 // WebSocket
 const {
   status: wsStatus,
+  userDisconnected,
   screenshotBase64,
   screenSize,
   fps,
@@ -120,6 +121,7 @@ const {
   pressKey,
   unlockScreen,
   screenshot,
+  releaseSession,
 } = useDeviceAction(deviceId);
 
 // 操作统计
@@ -170,10 +172,12 @@ const displayedScreenshotUrl = computed(
   () => screenshotBase64.value || harmonyScreenshotUrl.value,
 );
 
-// 鸿蒙 WS 推流失败（重试耗尽）时自动拉一张截图兜底，避免黑屏
+// 鸿蒙 WS 推流失败（重试耗尽）时自动拉一张截图兜底，避免黑屏。
+// 用户主动"断开"除外：断开即完全断开，保持画面清空。
 watch(wsStatus, (val) => {
   if (
     isHarmony.value &&
+    !userDisconnected.value &&
     (val === 'disconnected' || val === 'error') &&
     !screenshotBase64.value
   ) {
@@ -285,9 +289,21 @@ function handleBack() {
   router.back();
 }
 
-// 断开连接
+// 断开连接：完全断开——清空画面、禁用操作（userDisconnected）、
+// 通知 Worker 立即停止设备常驻会话（鸿蒙官方投屏），重连后才恢复。
 function handleDisconnect() {
-  disconnect();
+  disconnect(true);
+  clearDisplayedScreen();
+  releaseSession();
+}
+
+// 清空展示画面（WS 最后一帧与鸿蒙截图兜底），断开后显示占位图。
+function clearDisplayedScreen() {
+  if (screenshotBase64.value && screenshotBase64.value.startsWith('blob:')) {
+    URL.revokeObjectURL(screenshotBase64.value);
+  }
+  screenshotBase64.value = '';
+  harmonyScreenshotUrl.value = '';
 }
 
 // 重新连接
@@ -337,6 +353,8 @@ function handleScreenMouseDown(event: MouseEvent) {
   // 右键点击由 contextmenu 事件处理，这里忽略
   if (event.button === 2) return;
 
+  // 用户主动断开后禁止一切屏幕操作，重连后才恢复
+  if (userDisconnected.value) return;
   if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected'))
     return;
   // 如果点击在屏幕之外，返回 null，不开始操作
@@ -354,6 +372,8 @@ async function handleScreenMouseUp(event: MouseEvent) {
   // 右键点击由 contextmenu 事件处理，这里忽略
   if (event.button === 2) return;
 
+  // 用户主动断开后禁止一切屏幕操作，重连后才恢复
+  if (userDisconnected.value) return;
   if (isOperating.value) return;
   if (!isHarmony.value && wsStatus.value !== 'connected') return;
   // 重置活动时间（用户有操作）
@@ -402,6 +422,8 @@ function handleScreenMouseLeave() {
 // 右键菜单处理：Windows/Mac/鸿蒙PC 透传右键（鸿蒙PC 用长按映射），iOS/Android/鸿蒙手机 忽略
 // 同样需要检查点击是否在屏幕区域内
 async function handleScreenContextMenu(event: MouseEvent) {
+  // 用户主动断开后禁止一切屏幕操作，重连后才恢复
+  if (userDisconnected.value) return;
   if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected'))
     return;
 
@@ -473,12 +495,16 @@ async function handleScreenContextMenu(event: MouseEvent) {
 
 // 按键操作
 function handleKeyPress(key: string) {
+  // 用户主动断开后禁止操作，重连后才恢复
+  if (userDisconnected.value) return;
   resetActivityTime();
   pressKey(key);
 }
 
 // 输入文本
 function handleInputText(text: string) {
+  // 用户主动断开后禁止操作，重连后才恢复
+  if (userDisconnected.value) return;
   resetActivityTime();
   inputText(text).then((success) => {
     if (success && isHarmony.value && wsStatus.value !== 'connected')
@@ -488,6 +514,8 @@ function handleInputText(text: string) {
 
 // 解锁屏幕
 async function handleUnlock(password?: string) {
+  // 用户主动断开后禁止操作，重连后才恢复
+  if (userDisconnected.value) return;
   resetActivityTime();
   const success = await unlockScreen(password);
   if (success && isHarmony.value && wsStatus.value !== 'connected') {
