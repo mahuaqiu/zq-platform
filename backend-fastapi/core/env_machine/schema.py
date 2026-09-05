@@ -104,6 +104,10 @@ class EnvMachineResponse(BaseModel):
     available: bool = Field(..., description="是否启用")
     status: str = Field(..., description="状态")
     status_display: Optional[str] = Field(None, description="状态显示名称")
+    host_upgrading: bool = Field(
+        default=False,
+        description="同IP的宿主机(windows/mac)是否升级中（仅移动/鸿蒙设备可能为 True）",
+    )
     note: Optional[str] = Field(None, description="备注")
     sync_time: Optional[datetime] = Field(None, description="同步时间")
     extra_message: Optional[Dict[str, Any]] = Field(None, description="扩展信息")

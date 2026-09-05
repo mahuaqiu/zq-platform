@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Union
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
@@ -599,8 +600,34 @@ async def list_env_machines(
         page_size=page_size,
     )
 
+    # 标记宿主机（同 IP 的 windows/mac）升级中的设备：升级窗口内其执行通道
+    # 经宿主 Worker 转发不可用，前端据此显示“宿主升级中”
+    page_host_ips = {m.ip for m in machines if m.device_type in ("windows", "mac")}
+    upgrading_host_ips: set[str] = set()
+    if page_host_ips:
+        result = await db.execute(
+            select(EnvMachine).where(
+                EnvMachine.ip.in_(page_host_ips),
+                EnvMachine.device_type.in_(("windows", "mac")),
+                EnvMachine.status == "upgrading",
+                EnvMachine.is_deleted == False,  # noqa: E712
+                EnvMachine.is_virtual == False,  # noqa: E712
+            )
+        )
+        upgrading_host_ips = {m.ip for m in result.scalars().all()}
+
+    items = []
+    for machine in machines:
+        item = EnvMachineResponse.model_validate(machine)
+        if (
+            machine.device_type not in ("windows", "mac")
+            and machine.ip in upgrading_host_ips
+        ):
+            item.host_upgrading = True
+        items.append(item)
+
     return PaginatedResponse(
-        items=[EnvMachineResponse.model_validate(m) for m in machines],
+        items=items,
         total=total,
     )
 

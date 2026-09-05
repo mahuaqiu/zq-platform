@@ -751,6 +751,10 @@ onMounted(async () => {
             <template #default="{ row }">
               <!-- Linux 设备不显示状态，显示 - -->
               <span v-if="row.device_type === 'linux'" class="env-dash">-</span>
+              <!-- 宿主机升级中：设备本身在线但执行通道经宿主 Worker 转发不可用 -->
+              <span v-else-if="row.host_upgrading" class="env-status-upgrading">
+                宿主升级中
+              </span>
               <span v-else :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
             </template>
           </ElTableColumn>

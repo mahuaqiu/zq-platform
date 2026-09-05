@@ -15,6 +15,8 @@ export interface EnvMachine {
   available: boolean;
   status: string;
   status_display?: string;
+  /** 同 IP 宿主机（windows/mac）升级中（仅移动/鸿蒙设备可能为 true） */
+  host_upgrading?: boolean;
   note?: string;
   extra_message?: Record<string, any>;
   version?: string;
