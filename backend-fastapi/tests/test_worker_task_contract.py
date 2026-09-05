@@ -3,7 +3,7 @@
 import pytest
 
 from core.config_template.worker_client import wait_task_result
-from core.env_machine.api import _worker_error_message
+from core.env_machine.worker_client import worker_error_message as _worker_error_message
 
 
 def test_worker_error_message_supports_structured_error() -> None:

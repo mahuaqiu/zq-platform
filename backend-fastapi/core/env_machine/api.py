@@ -13,7 +13,6 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
@@ -53,21 +52,10 @@ from core.env_machine.service import (
 from core.env_machine.pool_manager import EnvPoolManager
 from core.env_machine.auth import verify_env_apply_auth
 from core.env_machine.lock_manager import EnvLockManager
+from core.env_machine.debug_service import DebugActionService
+from core.env_machine.worker_client import execute_single_machine, fetch_worker_logs
 
 logger = logging.getLogger(__name__)
-
-def _worker_error_message(payload: dict, fallback: str) -> str:
-    """提取 Worker 结构化错误，同时兼容旧字符串错误。"""
-    error = payload.get("error")
-    if isinstance(error, dict):
-        return str(error.get("message") or error.get("code") or fallback)
-    if error:
-        return str(error)
-    detail = payload.get("detail")
-    if isinstance(detail, dict):
-        return str(detail.get("message") or detail.get("code") or fallback)
-    return str(detail or fallback)
-
 
 router = APIRouter(prefix="/env", tags=["执行机管理"])
 
@@ -573,45 +561,14 @@ async def get_machine_logs(
     if not machine.ip or not machine.port:
         raise HTTPException(status_code=400, detail="设备未配置 IP 或端口")
 
-    url = f"http://{machine.ip}:{machine.port}/worker/logs"
-
-    # 构建查询参数
-    params = {}
-    if has_lines:
-        params["lines"] = lines
-    elif has_request_id:
-        params["request_id"] = request_id
-    elif has_time_range:
-        params["start_time"] = start_time
-        params["end_time"] = end_time
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0, trust_env=False, verify=False) as client:
-            resp = await client.get(url, params=params)
-            if resp.status_code == 200:
-                # 从响应头获取统计信息
-                log_count = int(resp.headers.get("X-Log-Count", 0))
-                files_scanned = int(resp.headers.get("X-Files-Scanned", 1))
-
-                return {
-                    "content": resp.text,
-                    "log_count": log_count,
-                    "files_scanned": files_scanned,
-                }
-            elif resp.status_code == 400:
-                raise HTTPException(status_code=400, detail=resp.text)
-            elif resp.status_code == 404:
-                raise HTTPException(status_code=404, detail="日志文件不存在")
-            elif resp.status_code == 503:
-                raise HTTPException(status_code=503, detail="Worker 未初始化")
-            elif resp.status_code == 502:
-                raise HTTPException(status_code=502, detail="无法连接到设备")
-            else:
-                raise HTTPException(status_code=502, detail=f"设备返回异常: {resp.status_code}")
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="获取日志超时")
-    except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail="无法连接到设备")
+    # Worker 通信收口在 worker_client（构建 URL、查询参数与错误映射）
+    return await fetch_worker_logs(
+        machine,
+        lines=lines if has_lines else None,
+        request_id=request_id if has_request_id else None,
+        start_time=start_time if has_time_range else None,
+        end_time=end_time if has_time_range else None,
+    )
 
 
 @router.post("/{machine_id}/debug-action", response_model=DebugActionResponse, summary="设备调试操作")
@@ -620,303 +577,8 @@ async def debug_device_action(
     data: DebugActionRequest,
     db: AsyncSession = Depends(get_db)
 ) -> DebugActionResponse:
-    """
-    设备调试操作接口
-
-    代理转发调试操作到 Worker，支持以下操作：
-    - screenshot: 获取截图
-    - click: 点击坐标
-    - double_click: 双击坐标
-    - swipe: 滑动操作
-    - input: 文本输入
-    - press: 按键操作
-
-    流程：
-    1. 根据 machine_id 查询设备信息
-    2. 校验设备类型
-    3. 校验设备状态（online/using 均可远程操作）
-    4. 构造 Worker API 请求体
-    5. POST http://{ip}:{port}/remote/execute
-    6. 返回结果
-    """
-    # 查询设备信息
-    machine = await EnvMachineService.get_by_id(db, machine_id)
-    if not machine:
-        raise HTTPException(status_code=404, detail="设备不存在")
-
-    # 校验设备类型（支持所有设备类型）
-    if machine.device_type not in (
-        "ios", "android", "windows", "mac", "harmony_mobile", "harmony_pc"
-    ):
-        raise HTTPException(status_code=400, detail="不支持该设备类型调试")
-
-    # 远程操作和普通用例使用不同的 Worker 资源域，因此允许设备处于
-    # using 状态；只有离线、升级等不可连接状态才拒绝请求。
-    if machine.status not in ("online", "using"):
-        raise HTTPException(status_code=400, detail=f"设备状态为 {machine.status}，无法调试")
-
-    # 构造 Worker API 请求体
-    action_type = data.action_type
-    params = data.params
-
-    # 构建 actions 列表
-    actions = []
-
-    # 获取 monitor 参数（桌面端设备多屏幕支持）
-    monitor = params.get("monitor")
-
-    if action_type == "screenshot":
-        action = {"action_type": "screenshot", "value": "debug"}
-        if monitor:
-            action["monitor"] = monitor
-        actions.append(action)
-    elif action_type == "click":
-        action = {"action_type": "click", "x": params.get("x"), "y": params.get("y")}
-        if monitor:
-            action["monitor"] = monitor
-        actions.append(action)
-    elif action_type == "double_click":
-        action = {"action_type": "double_click", "x": params.get("x"), "y": params.get("y")}
-        if monitor:
-            action["monitor"] = monitor
-        actions.append(action)
-    elif action_type == "right_click":
-        action = {"action_type": "right_click", "x": params.get("x"), "y": params.get("y")}
-        if monitor:
-            action["monitor"] = monitor
-        actions.append(action)
-    elif action_type == "swipe":
-        action = {
-            "action_type": "swipe",
-            "from": {"x": params.get("from_x"), "y": params.get("from_y")},
-            "to": {"x": params.get("to_x"), "y": params.get("to_y")},
-            "duration": params.get("duration", 500)
-        }
-        if monitor:
-            action["monitor"] = monitor
-        actions.append(action)
-    elif action_type == "input":
-        action = {
-            "action_type": "input",
-            "x": params.get("x"),
-            "y": params.get("y"),
-            "text": params.get("text")
-        }
-        if monitor:
-            action["monitor"] = monitor
-        actions.append(action)
-    elif action_type == "press":
-        actions.append({"action_type": "press", "key": params.get("key")})
-    elif action_type == "unlock_screen":
-        actions.append({"action_type": "unlock_screen", "value": params.get("value")})
-    else:
-        raise HTTPException(status_code=400, detail=f"不支持的操作类型: {action_type}")
-
-    # 发送请求到 Worker
-    worker_url = f"http://{machine.ip}:{machine.port}/remote/execute"
-    worker_request = {
-        "platform": machine.device_type,
-        "device_id": machine.device_sn or machine_id,
-        "actions": actions
-    }
-
-    # 根据操作类型设置超时时间（解锁操作需要更长时间）
-    request_timeout = 35.0 if action_type == "unlock_screen" else 20.0
-
-    try:
-        async with httpx.AsyncClient(timeout=request_timeout, trust_env=False, verify=False) as client:
-            resp = None
-            for attempt in range(3):
-                resp = await client.post(worker_url, json=worker_request)
-                if resp.status_code != 503 or attempt == 2:
-                    break
-                logger.warning(
-                    "Worker 返回 503，准备重试调试操作: machine_id=%s attempt=%s",
-                    machine_id,
-                    attempt + 1,
-                )
-                await asyncio.sleep(0.4 * (attempt + 1))
-
-            assert resp is not None
-            if resp.status_code == 200:
-                worker_result = resp.json()
-
-                # 首先检查 worker 顶层状态（如设备未找到等情况）
-                worker_status = worker_result.get("status", "")
-                worker_error = _worker_error_message(worker_result, "设备操作失败")
-                if worker_status == "failed":
-                    return DebugActionResponse(
-                        success=False,
-                        result={"error": worker_error or "设备操作失败"}
-                    )
-
-                # 检查 action 执行状态
-                actions_result = worker_result.get("actions", [])
-                if actions_result:
-                    first_action = actions_result[0]
-                    action_status = first_action.get("status", "")
-                    action_error = first_action.get("error", "")
-
-                    # action 执行失败
-                    if action_status == "failed":
-                        return DebugActionResponse(
-                            success=False,
-                            result={"error": action_error or "操作执行失败"}
-                        )
-
-                # 提取截图结果
-                result = {}
-                if action_type == "screenshot":
-                    for action in actions_result:
-                        if action.get("action_type") == "screenshot" and action.get("screenshot"):
-                            result["screenshot_base64"] = action["screenshot"]
-                            break
-
-                return DebugActionResponse(success=True, result=result)
-            elif resp.status_code == 502:
-                return DebugActionResponse(success=False, result={"error": "无法连接到设备"})
-            else:
-                try:
-                    payload = resp.json()
-                except ValueError:
-                    payload = {}
-                return DebugActionResponse(
-                    success=False,
-                    result={"error": _worker_error_message(payload, f"设备返回异常: {resp.status_code}")},
-                )
-    except httpx.TimeoutException:
-        return DebugActionResponse(success=False, result={"error": "操作超时"})
-    except httpx.ConnectError:
-        return DebugActionResponse(success=False, result={"error": "无法连接到设备"})
-    except Exception as e:
-        logger.error(f"调试操作失败: {e}")
-        return DebugActionResponse(success=False, result={"error": str(e)})
-
-
-async def _execute_single_machine(machine: EnvMachine, command: str) -> CommandResultItem:
-    """
-    执行单台设备命令的辅助函数
-
-    Args:
-        machine: 设备对象
-        command: 要执行的命令
-
-    Returns:
-        CommandResultItem: 执行结果
-    """
-    start_time = time.time()
-    device_name = machine.asset_number or machine.ip
-
-    # 初始化结果对象
-    result = CommandResultItem(
-        id=str(machine.id),
-        ip=machine.ip or "",
-        device_type=machine.device_type,
-        device_name=device_name,
-        success=False,
-        stdout="",
-        stderr="",
-        duration_seconds=0.0,
-    )
-
-    # 过滤不支持批量命令执行的设备类型
-    if machine.device_type in ("ios", "android", "harmony_mobile", "harmony_pc"):
-        result.stderr = "移动设备和鸿蒙设备不支持批量命令执行"
-        return result
-
-    # 过滤虚拟设备
-    if machine.is_virtual:
-        result.stderr = "虚拟设备不支持批量命令执行"
-        return result
-
-    # 校验设备状态
-    if machine.status != "online":
-        result.stderr = f"设备状态为 {machine.status}，无法执行命令"
-        return result
-
-    # 校验 IP 和端口
-    if not machine.ip or not machine.port:
-        result.stderr = "设备未配置 IP 或端口"
-        return result
-
-    # 构造 Worker API 请求
-    # 鸿蒙设备通过 HDC 控制，不执行 Worker 宿主机命令。
-    action_type = "cmd_exec"
-
-    worker_url = f"http://{machine.ip}:{machine.port}/task/execute"
-    worker_request = {
-        "platform": machine.device_type,
-        "device_id": machine.device_sn or str(machine.id),
-        "actions": [
-            {
-                "action_type": action_type,
-                "value": command,
-            }
-        ],
-    }
-
-    # 执行请求（超时 60 秒）
-    try:
-        async with httpx.AsyncClient(timeout=60.0, trust_env=False, verify=False) as client:
-            resp = await client.post(worker_url, json=worker_request)
-            duration = time.time() - start_time
-            result.duration_seconds = round(duration, 2)
-
-            if resp.status_code == 200:
-                worker_result = resp.json()
-
-                # 检查 Worker 顶层状态
-                worker_status = worker_result.get("status", "")
-                if worker_status == "failed":
-                    result.stderr = _worker_error_message(worker_result, "命令执行失败")
-                    return result
-
-                # 检查 action 执行状态
-                actions_result = worker_result.get("actions", [])
-                if actions_result:
-                    first_action = actions_result[0]
-                    action_status = first_action.get("status", "")
-
-                    if action_status == "failed":
-                        result.stderr = first_action.get("error", "命令执行失败")
-                        return result
-
-                    # 提取输出（Worker API 返回 stdout/stderr/exit_code）
-                    result.stdout = first_action.get("stdout", "")
-                    result.stderr = first_action.get("stderr", "")
-
-                    # exit_code 为 0 表示成功
-                    exit_code = first_action.get("exit_code", -1)
-                    if exit_code == 0:
-                        result.success = True
-                    else:
-                        result.success = False
-                        if not result.stderr and exit_code != -1:
-                            result.stderr = f"命令执行失败，退出码: {exit_code}"
-                else:
-                    result.stderr = "Worker 未返回执行结果"
-            elif resp.status_code == 502:
-                result.stderr = "无法连接到设备"
-            elif resp.status_code == 503:
-                result.stderr = "Worker 未初始化"
-            else:
-                result.stderr = f"设备返回异常: {resp.status_code}"
-
-    except httpx.TimeoutException:
-        duration = time.time() - start_time
-        result.duration_seconds = round(duration, 2)
-        result.stderr = "命令执行超时（60秒）"
-    except httpx.ConnectError:
-        duration = time.time() - start_time
-        result.duration_seconds = round(duration, 2)
-        result.stderr = "无法连接到设备"
-    except Exception as e:
-        duration = time.time() - start_time
-        result.duration_seconds = round(duration, 2)
-        result.stderr = f"执行异常: {str(e)}"
-        logger.error(f"批量命令执行失败: machine_id={machine.id}, error={e}")
-
-    return result
+    """设备调试操作（编排见 core.env_machine.debug_service.DebugActionService）。"""
+    return await DebugActionService.execute(db, machine_id, data)
 
 
 @router.post("/batch-execute-command", response_model=EnvMachineBatchCommandResponse, summary="批量执行命令")
@@ -958,7 +620,7 @@ async def batch_execute_command(
         )
 
     # 并行执行命令
-    tasks = [_execute_single_machine(machine, data.command) for machine in machines]
+    tasks = [execute_single_machine(machine, data.command) for machine in machines]
     results = await asyncio.gather(*tasks)
 
     # 统计结果
