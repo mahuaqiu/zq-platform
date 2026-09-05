@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.config_template.api import _wait_task_result
+from core.config_template.worker_client import wait_task_result
 from core.env_machine.api import _worker_error_message
 
 
@@ -43,8 +43,10 @@ async def test_wait_task_result_accepts_cancelling_then_terminal(monkeypatch) ->
     async def no_sleep(_seconds):
         return None
 
-    monkeypatch.setattr("core.config_template.api.httpx.AsyncClient", lambda **kwargs: Client())
-    monkeypatch.setattr("core.config_template.api.asyncio.sleep", no_sleep)
-    result = await _wait_task_result("127.0.0.1", 8080, "task-1")
+    monkeypatch.setattr(
+        "core.config_template.worker_client.httpx.AsyncClient", lambda **kwargs: Client()
+    )
+    monkeypatch.setattr("core.config_template.worker_client.asyncio.sleep", no_sleep)
+    result = await wait_task_result("127.0.0.1", 8080, "task-1")
     assert result["success"] is False
     assert result["stderr"] == "用户取消"

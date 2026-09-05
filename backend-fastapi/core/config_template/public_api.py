@@ -1,36 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """免鉴权脚本下发接口。"""
-import asyncio
-import time
 from datetime import datetime
 from typing import List, Optional
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
-from app.database import AsyncSessionLocal, get_db
+from app.database import get_db
 from utils.background_tasks import spawn_background_task
 from core.config_template.command_task_service import CommandTaskService
+from core.config_template.deploy_service import ScriptDeployService
 from core.config_template.machine_selection_template_model import MachineSelectionTemplate
 from core.config_template.machine_selection_template_service import MachineSelectionTemplateService
 from core.config_template.model import ConfigTemplate
-from core.config_template.service import (
-    ConfigTemplateService,
-    SUPPORTED_CONFIG_DEVICE_TYPES,
-    WORKER_CONFIG_TIMEOUT,
-)
 from core.env_machine.model import EnvMachine
 
 
 router = APIRouter(prefix="/api/core/config-template", tags=["外部脚本下发"])
-
-# 单批并发机器数上限：与配置/命令下发的批量上限对齐，避免一次性打爆 worker 网络层
-SCRIPT_DEPLOY_BATCH_SIZE = 20
 
 
 class ScriptDeployRequest(BaseModel):
@@ -147,7 +136,7 @@ async def deploy_script_by_name(
     ]
     task_id = str(task.id)
     spawn_background_task(
-        _execute_script_deploy_async(task_id, script_snapshot, machine_snapshot),
+        ScriptDeployService.execute_script_deploy(task_id, script_snapshot, machine_snapshot),
         name=f"script-deploy-{task_id}",
     )
 
@@ -184,140 +173,3 @@ async def get_script_deploy_status(
         sys_create_datetime=task.sys_create_datetime,
         finished_datetime=task.finished_datetime,
     )
-
-
-async def _execute_script_deploy_async(task_id: str, script: dict, machines: List[dict]) -> None:
-    """后台执行脚本下发，并把结果写入任务历史。"""
-    try:
-        # 分批并发下发：批内 gather 并发，批间串行，避免机器数过多时无上限并发
-        gathered = []
-        for i in range(0, len(machines), SCRIPT_DEPLOY_BATCH_SIZE):
-            batch = machines[i:i + SCRIPT_DEPLOY_BATCH_SIZE]
-            gathered.extend(await asyncio.gather(
-                *(_execute_single_script(machine, script) for machine in batch),
-                return_exceptions=True,
-            ))
-        results = []
-        for machine, result in zip(machines, gathered):
-            if isinstance(result, Exception):
-                results.append({
-                    "machine_id": machine["id"],
-                    "ip": machine.get("ip") or "",
-                    "device_type": machine.get("device_type") or "",
-                    "success": False,
-                    "stdout": "",
-                    "stderr": f"执行异常: {result}",
-                    "duration_seconds": 0,
-                })
-            else:
-                results.append(result)
-
-        success_count = sum(1 for result in results if result["success"])
-        failed_count = len(results) - success_count
-        status = "success" if failed_count == 0 else ("partial" if success_count else "failed")
-
-        async with AsyncSessionLocal() as result_db:
-            success_ids = [result["machine_id"] for result in results if result["success"]]
-            if success_ids:
-                machine_result = await result_db.execute(
-                    select(EnvMachine).where(EnvMachine.id.in_(success_ids))
-                )
-                for machine in machine_result.scalars().all():
-                    scripts = dict(machine.scripts or {})
-                    scripts[script["name"]] = script["version"]
-                    machine.scripts = scripts
-                    flag_modified(machine, "scripts")
-
-            await CommandTaskService.update_task_result(
-                result_db,
-                task_id,
-                status=status,
-                success_count=success_count,
-                failed_count=failed_count,
-                result_detail=results,
-            )
-    except Exception:
-        import logging
-        logging.getLogger(__name__).exception("后台脚本下发失败: task_id=%s", task_id)
-        async with AsyncSessionLocal() as result_db:
-            await CommandTaskService.update_task_result(
-                result_db,
-                task_id,
-                status="failed",
-                success_count=0,
-                failed_count=len(machines),
-                result_detail=[{
-                    "success": False,
-                    "stdout": "",
-                    "stderr": "后台脚本下发异常",
-                    "duration_seconds": 0,
-                }],
-            )
-
-
-async def _execute_single_script(machine: dict, script: dict) -> dict:
-    """执行单台机器的脚本下发并返回任务历史明细。"""
-    start_time = time.time()
-    machine_id = machine["id"]
-    ip = machine.get("ip") or ""
-    device_type = machine.get("device_type") or ""
-    result = {
-        "machine_id": machine_id,
-        "ip": ip,
-        "device_type": device_type,
-        "success": False,
-        "stdout": "",
-        "stderr": "",
-        "duration_seconds": 0,
-    }
-
-    target_os = ConfigTemplateService._get_target_os_from_extension(script["name"])
-    if device_type not in SUPPORTED_CONFIG_DEVICE_TYPES:
-        result["stderr"] = "该设备类型暂不支持脚本下发"
-        return result
-    if target_os and device_type != target_os:
-        result["stderr"] = f"脚本仅支持 {target_os} 设备"
-        return result
-    if machine.get("status") != "online":
-        result["stderr"] = f"机器状态为 {machine.get('status')}"
-        return result
-    if not ip or not machine.get("port"):
-        result["stderr"] = "机器未配置 IP 或端口"
-        return result
-
-    try:
-        async with httpx.AsyncClient(
-            timeout=WORKER_CONFIG_TIMEOUT,
-            trust_env=False,
-            verify=False,
-        ) as client:
-            response = await client.post(
-                f"http://{ip}:{machine['port']}/worker/scripts",
-                json={
-                    "name": script["name"],
-                    "content": script["content"],
-                    "version": script["version"],
-                    "overwrite": True,
-                },
-            )
-        if response.status_code == 200:
-            payload = response.json()
-            if payload.get("status") == "success":
-                result["success"] = True
-            else:
-                result["stderr"] = f"Worker 返回异常状态: {payload.get('status')}"
-        elif response.status_code == 409:
-            result["stderr"] = "脚本更新进行中或已存在"
-        elif response.status_code == 503:
-            result["stderr"] = "Worker 未初始化"
-        else:
-            result["stderr"] = f"Worker 返回错误状态码: {response.status_code}"
-    except httpx.TimeoutException:
-        result["stderr"] = "Worker 响应超时"
-    except httpx.ConnectError:
-        result["stderr"] = "无法连接到 Worker"
-    except Exception as exc:
-        result["stderr"] = f"网络错误: {exc}"
-    finally:
-        result["duration_seconds"] = round(time.time() - start_time, 2)
-    return result

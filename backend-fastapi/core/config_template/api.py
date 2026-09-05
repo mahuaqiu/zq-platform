@@ -7,21 +7,15 @@
 @File: api.py
 @Desc: ConfigTemplate API - 配置模板管理接口
 """
-import asyncio
-import hashlib
 import logging
-import time
-from itertools import islice
 from typing import List, Optional
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, and_, or_
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
 from app.database import get_db
-from utils.background_tasks import spawn_background_task
 from core.config_template.schema import (
     ConfigTemplateCreate,
     ConfigTemplateUpdate,
@@ -36,25 +30,13 @@ from core.config_template.schema import (
     CommandTaskResponse,
     CommandTaskDetailResponse,
 )
-from core.config_template.service import ConfigTemplateService, SUPPORTED_CONFIG_DEVICE_TYPES
+from core.config_template.deploy_service import CommandDeployService
+from core.config_template.service import ConfigTemplateService
 from core.config_template.model import ConfigTemplate
 from core.config_template.machine_selection_template_service import MachineSelectionTemplateService
 from core.config_template.command_task_service import CommandTaskService
-from core.env_machine.model import EnvMachine
 
 logger = logging.getLogger(__name__)
-
-def _worker_http_error_message(response: httpx.Response, fallback: str) -> str:
-    """提取 Worker HTTP 错误，兼容结构化 detail 和旧文本响应。"""
-    try:
-        payload = response.json()
-    except ValueError:
-        return fallback
-    detail = payload.get("detail") if isinstance(payload, dict) else None
-    if isinstance(detail, dict):
-        return str(detail.get("message") or detail.get("code") or fallback)
-    return str(detail or payload.get("message") or fallback) if isinstance(payload, dict) else fallback
-
 
 router = APIRouter(prefix="/config-template", tags=["设备配置管理"])
 
@@ -168,7 +150,7 @@ async def deploy_config(
 
         # 如果是 command 类型，使用异步执行
         if template.type == "command":
-            return await _execute_command_deploy(db, template, data.machine_ids, data.command)
+            return await CommandDeployService.execute_command_deploy(db, template, data.machine_ids, data.command)
 
         # config/script 类型使用原有逻��
         response = await ConfigTemplateService.deploy_config(
@@ -187,350 +169,6 @@ async def deploy_config(
     except Exception as e:
         logger.error(f"配置下发异常: {e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
-
-
-async def _execute_command_deploy(
-    db: AsyncSession,
-    template,
-    machine_ids: List[str],
-    command_override: Optional[str] = None
-) -> DeployResponse:
-    """执行运行命令下发（异步方式）"""
-    # 获取实际命令内容
-    command = command_override or template.command
-    if not command:
-        raise HTTPException(status_code=400, detail="命令内容不能为空")
-
-    # 查询机器
-    # 命令执行独立于配置/脚本下发，不依赖版本状态；
-    # 使用中（using）的机器 Worker 仍可达，允许下发；仅排除离线机器
-    result = await db.execute(
-        select(EnvMachine).where(
-            and_(
-                EnvMachine.id.in_(machine_ids),
-                EnvMachine.is_deleted == False,
-                EnvMachine.is_virtual == False,
-                EnvMachine.status.in_(["online", "using"]),
-            )
-        )
-    )
-    machines = result.scalars().all()
-
-    unsupported = [
-        machine.device_type
-        for machine in machines
-        if machine.device_type not in SUPPORTED_CONFIG_DEVICE_TYPES
-    ]
-    if unsupported:
-        raise HTTPException(status_code=400, detail="鸿蒙、Android、iOS 设备不支持宿主机命令下发")
-
-    if not machines:
-        raise HTTPException(status_code=400, detail="没有可执行的机器")
-
-    # 创建任务记录
-    task = await CommandTaskService.create_task(
-        db,
-        template_id=str(template.id),
-        template_type="command",
-        template_name=template.name,
-        command=command,
-        machine_count=len(machines),
-    )
-
-    # 拷贝机器快照（避免 session 关闭后对象变成 detached 状态）
-    machine_snapshot = [
-        {
-            "id": str(m.id),
-            "ip": m.ip,
-            "port": m.port,
-            "device_type": m.device_type,
-            "device_sn": m.device_sn,
-        }
-        for m in machines
-    ]
-    task_id = str(task.id)
-
-    # 异步执行命令（使用独立的 session，不依赖请求级 db）
-    # 通过 spawn_background_task 持有强引用并记录异常，避免任务被 GC 中途取消
-    spawn_background_task(
-        _execute_commands_async(task_id, machine_snapshot, command),
-        name=f"command-deploy-{task_id}",
-    )
-
-    return DeployResponse(
-        task_id=task_id,
-        success_count=0,
-        failed_count=0,
-        skipped_count=0,
-        details=[],
-    )
-
-
-# 单批并发机器数上限：与前端列表分页对齐，避免一次性打爆 worker 网络层
-COMMAND_BATCH_SIZE = 20
-
-
-async def _execute_commands_async(task_id: str, machines: List[dict], command: str):
-    """异步执行命令（后台任务，使用独立 session）。
-
-    机器数超过 COMMAND_BATCH_SIZE 时分批并发：批内 asyncio.gather 并发执行，
-    批与批之间串行。每台机器各自有独立的 worker task_id 与轮询，互不阻塞。
-    """
-    from app.database import AsyncSessionLocal
-
-    results = []
-    success_count = 0
-    failed_count = 0
-
-    it = iter(machines)
-    while batch := list(islice(it, COMMAND_BATCH_SIZE)):
-        batch_results = await asyncio.gather(
-            *(_execute_single_command(m, command, task_id) for m in batch)
-        )
-        for result in batch_results:
-            results.append(result)
-            if result["success"]:
-                success_count += 1
-            else:
-                failed_count += 1
-
-    # 更新任务结果（使用独立 session）
-    status = "success" if failed_count == 0 else ("partial" if success_count > 0 else "failed")
-    async with AsyncSessionLocal() as db:
-        await CommandTaskService.update_task_result(
-            db,
-            task_id,
-            status=status,
-            success_count=success_count,
-            failed_count=failed_count,
-            result_detail=results,
-        )
-
-
-async def _execute_single_command(machine: dict, command: str, parent_task_id: str) -> dict:
-    """执行单台机器的命令（machine 为机器快照 dict: id/ip/port/device_type）"""
-    start_time = time.time()
-    machine_id = machine["id"]
-    ip = machine["ip"]
-    port = machine["port"]
-    device_type = machine["device_type"]
-    device_sn = machine.get("device_sn")
-
-    # 调用 worker 异步接口
-    worker_url = f"http://{ip}:{port}/task/execute_async"
-    worker_request = {
-        "platform": device_type,
-        "device_id": device_sn or machine_id,
-        "actions": [{"action_type": "cmd_exec", "value": command}],
-    }
-    idempotency_key = hashlib.sha256(
-        f"{parent_task_id}:{machine_id}:{command}".encode("utf-8")
-    ).hexdigest()
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0, trust_env=False, verify=False) as client:
-            resp = await client.post(
-                worker_url,
-                json=worker_request,
-                headers={"Idempotency-Key": idempotency_key},
-            )
-            duration = time.time() - start_time
-
-            if resp.status_code == 200:
-                data = resp.json()
-                task_id = data.get("task_id")
-
-                # 等待任务完成（轮询）—— 用默认总超时，不能用 POST 阶段的 duration
-                # （duration 只是发起请求的耗时，约 0.x 秒，当 timeout 会导致一次都不查就超时）
-                result = await _wait_task_result(ip, port, task_id)
-                return {
-                    "machine_id": machine_id,
-                    "ip": ip,
-                    "device_type": device_type,
-                    "success": result["success"],
-                    "stdout": result.get("stdout", ""),
-                    "stderr": result.get("stderr", ""),
-                    "duration_seconds": result.get("duration", duration),
-                }
-            else:
-                return {
-                    "machine_id": machine_id,
-                    "ip": ip,
-                    "device_type": device_type,
-                    "success": False,
-                    "stdout": "",
-                    "stderr": _worker_http_error_message(resp, f"Worker 返回错误: {resp.status_code}"),
-                    "duration_seconds": duration,
-                }
-    except httpx.TimeoutException:
-        duration = time.time() - start_time
-        return {
-            "machine_id": machine_id,
-            "ip": ip,
-            "device_type": device_type,
-            "success": False,
-            "stdout": "",
-            "stderr": "命令执行超时",
-            "duration_seconds": duration,
-        }
-    except Exception as e:
-        duration = time.time() - start_time
-        return {
-            "machine_id": machine_id,
-            "ip": ip,
-            "device_type": device_type,
-            "success": False,
-            "stdout": "",
-            "stderr": f"执行异常: {str(e)}",
-            "duration_seconds": duration,
-        }
-
-
-def _interpret_task_poll(
-    status_code: int,
-    payload: Optional[dict],
-) -> tuple[str, Optional[dict]]:
-    """解释一次任务结果查询响应（纯函数，便于回归测试）。
-
-    Returns:
-        tuple: (action, result)
-        - ("running", None): 任务未结束，继续轮询
-        - ("retry", None):   暂时性失败（5xx 等），可有限次重试
-        - ("retry", None) 后由调用方计数，连续失败达到上限即终止
-        - ("done", dict):    得到终态结果，结束轮询
-        - ("gone", dict):    任务确定不存在（404），立即失败
-    """
-    if status_code == 200 and isinstance(payload, dict):
-        status = payload.get("status")
-        actions = payload.get("actions", []) or []
-        action0 = actions[0] if actions else {}
-        if status in ("accepted", "pending", "running", "cancelling"):
-            return "running", None
-        if status == "success":
-            return "done", {
-                "success": True,
-                "stdout": action0.get("stdout", ""),
-                "stderr": action0.get("stderr", ""),
-            }
-        if status in ("failed", "timeout", "cancelled", "interrupted"):
-            stderr = action0.get("error") or action0.get("stderr") or f"执行失败: {status}"
-            return "done", {
-                "success": False,
-                "stdout": action0.get("stdout", ""),
-                "stderr": stderr,
-            }
-        # 200 但状态值不认识：按确定失败处理，避免空轮询到超时
-        return "done", {
-            "success": False,
-            "stdout": "",
-            "stderr": f"Worker 返回未知任务状态: {status}",
-        }
-
-    if status_code == 404:
-        # 任务不存在：Worker 重启后任务丢失或从未创建，继续轮询只会白等 10 分钟
-        return "gone", {
-            "success": False,
-            "stdout": "",
-            "stderr": "任务不存在（Worker 可能已重启或任务已过期）",
-        }
-
-    # 其余 4xx/5xx 视为暂时性错误，由调用方做连续失败计数
-    return "retry", None
-
-
-async def _wait_task_result(ip: str, port: int, task_id: str) -> dict:
-    """等待任务完成并返回结果。
-
-    Worker 的 /task/{task_id} 是幂等查询接口，结果可重复读取。
-    只有明确终态才结束轮询，cancelling 等中间状态继续等待。
-
-    轮询策略（两段频率，总超时 10 分钟）：
-    - 前 60 秒：每 3 秒查询一次（快速感知短任务结束）
-    - 60 秒之后：每 20 秒查询一次（长任务降频，减少无效请求）
-    - 网络异常 / 非 200（404 除外）连续失败达到上限时快速终止，
-      避免 Worker 不可达时空轮询 600 秒、任务记录长期悬挂 running
-    """
-    worker_url = f"http://{ip}:{port}/task/{task_id}"
-    start_time = time.time()
-
-    # 总超时 10 分钟
-    timeout = 600.0
-    # 前 60 秒以 3 秒间隔轮询，之后以 20 秒间隔轮询的分界点
-    fast_phase_deadline = 60.0
-    fast_interval = 3.0
-    slow_interval = 20.0
-    # 连续查询失败上限（网络异常 / 5xx / 响应解析失败）
-    MAX_CONSECUTIVE_FAILURES = 5
-
-    def _next_interval() -> float:
-        """根据已耗时返回下一次轮询的等待间隔"""
-        elapsed = time.time() - start_time
-        return fast_interval if elapsed < fast_phase_deadline else slow_interval
-
-    # 首次查询前加短暂延迟，给 worker 把任务跑起来的时间，避免过早查到 running
-    await asyncio.sleep(0.5)
-
-    consecutive_failures = 0
-    last_error = ""
-
-    while time.time() - start_time < timeout:
-        resp = None
-        try:
-            async with httpx.AsyncClient(timeout=30.0, trust_env=False, verify=False) as client:
-                resp = await client.get(worker_url)
-        except Exception as exc:
-            last_error = f"查询任务结果失败: {exc}"
-
-        if resp is not None:
-            payload: Optional[dict] = None
-            if resp.status_code == 200:
-                try:
-                    payload = resp.json()
-                except ValueError:
-                    payload = None
-                    last_error = "Worker 任务结果响应不是有效 JSON"
-
-            action, result = _interpret_task_poll(resp.status_code, payload)
-            if action in ("done", "gone"):
-                # Worker 上报的执行耗时（毫秒）优先，轮询总耗时兜底
-                elapsed = max(time.time() - start_time, 0.0)
-                duration = elapsed
-                if payload:
-                    try:
-                        duration_ms = float(payload.get("duration_ms") or 0)
-                        if duration_ms > 0:
-                            duration = duration_ms / 1000
-                    except (TypeError, ValueError):
-                        pass
-                result["duration"] = duration or elapsed
-                return result
-            if action == "running":
-                consecutive_failures = 0
-                await asyncio.sleep(_next_interval())
-                continue
-
-            # action == "retry"（5xx 等）
-            consecutive_failures += 1
-            last_error = last_error or f"Worker 查询接口返回错误: {resp.status_code}"
-        else:
-            consecutive_failures += 1
-
-        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-            return {
-                "success": False,
-                "stdout": "",
-                "stderr": last_error or "查询任务结果连续失败",
-                "duration": time.time() - start_time,
-            }
-
-        await asyncio.sleep(_next_interval())
-
-    return {
-        "success": False,
-        "stdout": "",
-        "stderr": last_error or "等待结果超时",
-        "duration": timeout,
-    }
 
 
 # ==================== 动态路由 ====================
