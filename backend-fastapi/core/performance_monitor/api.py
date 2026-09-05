@@ -3,9 +3,6 @@
 """
 性能监控 API 路由
 """
-import asyncio
-
-import httpx
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -19,6 +16,11 @@ from sqlalchemy import select
 from app.database import get_db, AsyncSessionLocal
 from core.performance_monitor.model import PerformanceCollect, PerformanceVersion, ExportTask
 from core.env_machine.model import EnvMachine
+from core.performance_monitor.worker_client import (
+    get_worker_processes,
+    notify_worker_start,
+    notify_worker_stop,
+)
 from core.performance_monitor.schema import (
     CollectStartRequest, CollectStopRequest,
     TagCreateRequest, TagUpdateRequest,
@@ -30,8 +32,6 @@ from core.performance_monitor.schema import (
     MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse,
     # 导出任务 Schema
     ExportTaskCreate, ExportTaskStatus, ExportTaskCreateResponse,
-    # Linux 采集 Schema
-    LinuxAuthInfo,
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate, CompareTagResponse
 from core.performance_monitor.service import (
@@ -46,7 +46,6 @@ from core.performance_monitor.service import (
 )
 from utils.excel import TEMP_EXPORTS_DIR
 from core.performance_monitor.linux_collector import (
-    SSHConnectionPool,
     LinuxDataCollector,
     start_linux_collect_task,
     stop_linux_collect_task,
@@ -104,109 +103,17 @@ async def get_processes(
     if device_type == "linux":
         return {"processes": []}
 
-    # Worker 性能路径需要有有效端口；Mac 等不支持类型已在上方拒绝。
-    if not device.port:
-        raise HTTPException(status_code=400, detail="设备缺少端口信息，无法连接 worker")
-
-    # 构建 worker URL
-    worker_url = f"http://{device.ip}:{device.port}/api/worker/{device_id}/processes"
-
-    # 调用 worker API
-    try:
-        async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
-            params = {}
-            if search:
-                params["search"] = search
-            params["device_type"] = device_type
-            if device_sn:
-                params["device_sn"] = device_sn
-            resp = await client.get(worker_url, params=params)
-            if resp.status_code == 200:
-                return resp.json()
-            else:
-                raise HTTPException(status_code=resp.status_code, detail=f"Worker 返回错误: {resp.text}")
-    except httpx.ConnectError:
-        raise HTTPException(status_code=503, detail=f"无法连接到 Worker: {device.ip}:{device.port}")
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Worker 响应超时")
+    # Worker 通信收口在 worker_client（构建 URL、超时与错误映射）
+    return await get_worker_processes(
+        device_id=device_id,
+        device=device,
+        search=search,
+        device_type=device_type,
+        device_sn=device_sn,
+    )
 
 
 # ===== 采集管理 =====
-
-async def _notify_worker_start(
-    *,
-    device_id: str,
-    collect_id: str,
-    interval: int,
-    timeout: int,
-    target_processes: list | None,
-    device_ip: str,
-    device_port: str | int,
-    device_type: str,
-    device_sn: str | None,
-) -> None:
-    """后台通知 Worker 开始采集；失败时把平台记录标为 failed。"""
-    worker_url = f"http://{device_ip}:{device_port}/api/worker/{device_id}/collect/start"
-    worker_request = {
-        "collect_id": collect_id,
-        "interval": interval,
-        "timeout": timeout,
-        "target_processes": target_processes or [],
-        "device_type": device_type,
-    }
-    if device_sn:
-        worker_request["device_sn"] = device_sn
-    try:
-        async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
-            resp = await client.post(worker_url, json=worker_request)
-            if resp.status_code in (200, 201):
-                return
-            failure_message = resp.text[:500]
-            status_code = resp.status_code
-    except httpx.ConnectError:
-        failure_message = f"无法连接到 Worker: {device_ip}:{device_port}"
-        status_code = 503
-    except httpx.TimeoutException:
-        failure_message = "Worker 响应超时"
-        status_code = 504
-    except Exception as e:
-        failure_message = f"通知 Worker 异常: {e}"
-        status_code = 500
-
-    async with AsyncSessionLocal() as db:
-        collect = await db.get(PerformanceCollect, collect_id)
-        if collect and collect.status in ("pending", "starting", "running"):
-            collect.status = "failed"
-            collect.failure_code = "WORKER_START_FAILED"
-            collect.failure_message = failure_message
-            collect.end_time = datetime.utcnow()
-            collect.end_reason = "failed"
-            await db.commit()
-    # 仅写库，不抛给前端（前端已拿到 starting）
-    return
-
-
-async def _notify_worker_stop(
-    *,
-    device_id: str,
-    collect_id: str | None,
-    device_ip: str,
-    device_port: str | int,
-    device_type: str,
-    device_sn: str | None,
-) -> None:
-    """后台通知 Worker 停止采集。"""
-    worker_url = f"http://{device_ip}:{device_port}/api/worker/{device_id}/collect/stop"
-    worker_request = {"collect_id": collect_id} if collect_id else {}
-    worker_request["device_type"] = device_type
-    if device_sn:
-        worker_request["device_sn"] = device_sn
-    try:
-        async with httpx.AsyncClient(timeout=10.0, trust_env=False, verify=False) as client:
-            await client.post(worker_url, json=worker_request)
-    except Exception:
-        # 停止失败由对账逻辑兜底，不阻塞前端
-        return
 
 
 @router.post("/collect/start")
@@ -242,36 +149,7 @@ async def start_collect(
             raise HTTPException(status_code=400, detail="Linux 设备缺少 SSH 认证信息（extra_message）")
 
         try:
-            auth_info = LinuxAuthInfo.model_validate(device.extra_message)
-            ssh_pool = SSHConnectionPool()
-            ssh_pool.cache_auth(
-                device_id=request.device_id,
-                host=device.ip,
-                port=auth_info.port,
-                account=auth_info.account,
-                password=auth_info.password
-            )
-            try:
-                # paramiko 建连含超时重试（最长约 12s），放入线程池避免阻塞事件循环
-                await asyncio.to_thread(
-                    lambda: ssh_pool.get_connection(
-                        device_id=request.device_id,
-                        host=device.ip,
-                        port=auth_info.port,
-                        account=auth_info.account,
-                        password=auth_info.password
-                    )
-                )
-            except Exception as e:
-                await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
-                raise HTTPException(status_code=503, detail=f"SSH 连接失败: {e}")
-
-            ssh_auth = {
-                "host": device.ip,
-                "port": auth_info.port,
-                "account": auth_info.account,
-                "password": auth_info.password,
-            }
+            ssh_auth = await PerformanceCollectService.probe_ssh_connection(db, device, collect_id)
             started = start_linux_collect_task(
                 device_id=request.device_id,
                 collect_id=collect_id,
@@ -293,7 +171,7 @@ async def start_collect(
     else:
         # Windows/Harmony：异步通知 Worker，前端不再等待 Worker 创建 Monitor。
         background_tasks.add_task(
-            _notify_worker_start,
+            notify_worker_start,
             device_id=request.device_id,
             collect_id=collect_id,
             interval=request.interval,
@@ -333,7 +211,7 @@ async def stop_collect(
             stop_linux_collect_task(request.device_id)
         else:
             background_tasks.add_task(
-                _notify_worker_stop,
+                notify_worker_stop,
                 device_id=request.device_id,
                 collect_id=request.collect_id,
                 device_ip=device.ip,

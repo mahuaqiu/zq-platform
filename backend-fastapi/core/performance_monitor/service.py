@@ -3,11 +3,13 @@
 """
 性能监控业务逻辑
 """
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Type
 
+from fastapi import HTTPException
 from sqlalchemy import select, and_, desc, func, or_, update, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +30,8 @@ from core.performance_monitor.schema import (
     TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
     WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery,
-    DataResponse, CollectResponse, ExportTaskCreate
+    DataResponse, CollectResponse, ExportTaskCreate,
+    LinuxAuthInfo
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate
 from utils.excel import SummaryData, DetailData, ExcelHandler, TEMP_EXPORTS_DIR
@@ -188,6 +191,46 @@ class PerformanceCollectService(BaseService):
             collect.end_reason = "user_stop"
         await db.commit()
         return len(collects) > 0
+
+    @classmethod
+    async def probe_ssh_connection(cls, db: AsyncSession, device, collect_id: str) -> dict:
+        """校验 Linux 设备 SSH 认证并建立连接；失败时标记采集失败并抛 503。
+
+        自 api.py 的 start_collect 内联段原样迁移（含 to_thread，避免 paramiko
+        建连阻塞事件循环）。返回 ssh_auth dict 供采集循环使用。
+        """
+        from core.performance_monitor.linux_collector import SSHConnectionPool
+
+        auth_info = LinuxAuthInfo.model_validate(device.extra_message)
+        ssh_pool = SSHConnectionPool()
+        ssh_pool.cache_auth(
+            device_id=str(device.id),
+            host=device.ip,
+            port=auth_info.port,
+            account=auth_info.account,
+            password=auth_info.password
+        )
+        try:
+            # paramiko 建连含超时重试（最长约 12s），放入线程池避免阻塞事件循环
+            await asyncio.to_thread(
+                lambda: ssh_pool.get_connection(
+                    device_id=str(device.id),
+                    host=device.ip,
+                    port=auth_info.port,
+                    account=auth_info.account,
+                    password=auth_info.password
+                )
+            )
+        except Exception as e:
+            await PerformanceCollectService.stop_collect(db, collect_id, str(device.id))
+            raise HTTPException(status_code=503, detail=f"SSH 连接失败: {e}")
+
+        return {
+            "host": device.ip,
+            "port": auth_info.port,
+            "account": auth_info.account,
+            "password": auth_info.password,
+        }
 
     @classmethod
     async def get_collect_status(cls, db: AsyncSession, device_id: str) -> Optional[Dict[str, Any]]:
