@@ -38,24 +38,16 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/core/auth/login/oauth2", aut
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 判断是否为主 worker（只有主 worker 启动调度器）
-    # gunicorn 多 worker 模式下，通过环境变量判断
-    # - 单进程模式 (uvicorn/python main.py)：无 GUNICORN_WORKER_ID，启动调度器
-    # - gunicorn 多 worker 模式：只有 worker_id=0 启动调度器
-    import os
-    worker_id = os.environ.get("GUNICORN_WORKER_ID", None)
-    is_main_worker = worker_id is None or worker_id == "0"
+    # 调度器领导权由 Redis 租约决定（core/scheduler/service.py LEASE_KEY）：
+    # - 单实例：必然抢到租约，行为与原"单进程启动调度器"一致
+    # - 多 worker / 多副本：只有持锁实例启动定时任务，其余实例为纯 API 服务
+    from core.scheduler.service import scheduler_service
+    is_leader = await scheduler_service.init_scheduler()
 
     # 启动时
     # ========== 日志系统初始化 ==========
     setup_logging()
     # ========== 日志系统初始化结束 ==========
-
-    # ========== 调度器初始化（仅主 worker） ==========
-    if is_main_worker:
-        from core.scheduler.service import scheduler_service
-        await scheduler_service.init_scheduler()
-    # ========== 调度器初始化结束 ==========
 
     # ========== 执行机管理模块启动初始化 ==========
     from core.env_machine.pool_manager import EnvPoolManager
@@ -65,8 +57,8 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as db:
         await EnvPoolManager.load_machine_pool(db)
 
-    # 2. 启动后台任务：延迟10秒后主动访问设备验证状态（仅主 worker 执行）
-    if is_main_worker:
+    # 2. 启动后台任务：延迟10秒后主动访问设备验证状态（仅领导权实例执行）
+    if is_leader:
         from core.env_machine.scheduler import reload_machine_status_after_restart
         spawn_background_task(reload_machine_status_after_restart(), name="reload-machine-status")
     # ========== 执行机管理模块启动初始化结束 ==========
@@ -76,28 +68,28 @@ async def lifespan(app: FastAPI):
     start_permission_cache_listener()
     # ========== 权限缓存失效监听结束 ==========
 
-    # ========== 命令任务对账（仅主 worker） ==========
+    # ========== 命令任务对账（所有实例） ==========
     # 后台命令/脚本任务随进程重启静默丢失，超过 1 天仍 running 的记录必然已死，
-    # 启动时统一标记为 failed，避免任务记录永久 running
-    if is_main_worker:
-        from sqlalchemy import update as sa_update
-        from core.config_template.command_task_model import CommandTask
+    # 启动时统一标记为 failed，避免任务记录永久 running。
+    # UPDATE 带状态条件，幂等，多实例重复执行无副作用。
+    from sqlalchemy import update as sa_update
+    from core.config_template.command_task_model import CommandTask
 
-        async with AsyncSessionLocal() as db:
-            cutoff = datetime.now() - timedelta(days=1)
-            result = await db.execute(
-                sa_update(CommandTask)
-                .where(
-                    CommandTask.status == "running",
-                    CommandTask.sys_create_datetime < cutoff,
-                )
-                .values(status="failed", finished_datetime=datetime.now())
+    async with AsyncSessionLocal() as db:
+        cutoff = datetime.now() - timedelta(days=1)
+        result = await db.execute(
+            sa_update(CommandTask)
+            .where(
+                CommandTask.status == "running",
+                CommandTask.sys_create_datetime < cutoff,
             )
-            await db.commit()
-            if result.rowcount:
-                logging.getLogger(__name__).warning(
-                    f"启动对账：{result.rowcount} 条超过 1 天仍 running 的命令任务已标记为 failed"
-                )
+            .values(status="failed", finished_datetime=datetime.now())
+        )
+        await db.commit()
+        if result.rowcount:
+            logging.getLogger(__name__).warning(
+                f"启动对账：{result.rowcount} 条超过 1 天仍 running 的命令任务已标记为 failed"
+            )
     # ========== 命令任务对账结束 ==========
 
     # ========== 测试报告模块启动初始化 ==========
@@ -106,33 +98,17 @@ async def lifespan(app: FastAPI):
     html_path.mkdir(parents=True, exist_ok=True)
     # ========== 测试报告模块启动初始化结束 ==========
 
-    # ========== 导出任务模块启动初始化（仅主 worker） ==========
-    if is_main_worker:
-        from utils.excel import TEMP_EXPORTS_DIR
-        from core.performance_monitor.service import ExportTaskService
-
-        # 1. 创建导出临时目录
-        TEMP_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-        # 2. 注册定时清理任务（每小时执行）
-        async def cleanup_export_loop():
-            while True:
-                await asyncio.sleep(3600)  # 每小时
-                try:
-                    await ExportTaskService.cleanup_export_files()
-                except Exception as e:
-                    import logging
-                    logging.error(f"清理导出文件失败: {e}")
-
-        spawn_background_task(cleanup_export_loop(), name="cleanup-export-loop")
+    # ========== 导出任务模块启动初始化（所有实例） ==========
+    # 导出临时目录所有实例都可能写入（export/create 在任意 worker 均可服务）；
+    # 周期清理已迁移为调度器内置 job（export_files_cleanup，仅领导权实例执行）
+    from utils.excel import TEMP_EXPORTS_DIR
+    TEMP_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     # ========== 导出任务模块启动初始化结束 ==========
 
     yield
 
-    # 关闭时（仅主 worker 关闭调度器）
-    if is_main_worker:
-        from core.scheduler.service import scheduler_service
-        await scheduler_service.shutdown()
+    # 关闭时停止调度器（未持租约的实例为空操作）
+    await scheduler_service.shutdown()
     await stop_permission_cache_listener()
     await RedisClient.close()
 

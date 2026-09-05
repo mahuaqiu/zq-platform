@@ -428,21 +428,21 @@ async def reset_using_machines() -> int:
 async def _check_single_worker(
     client: httpx.AsyncClient,
     worker_key: str,
-    worker_machines: List[EnvMachine],
-) -> tuple[str, List[EnvMachine], bool, Optional[Dict]]:
+    worker_machines: List[dict],
+) -> tuple[str, List[dict], bool, Optional[Dict]]:
     """
     检查单个 Worker 的状态
 
     Args:
         client: HTTP 客户端
         worker_key: Worker 标识 (ip:port)
-        worker_machines: 该 Worker 下的所有机器
+        worker_machines: 该 Worker 下的所有机器快照 dict（id/ip/port/device_type/device_sn）
 
     Returns:
         tuple: (worker_key, worker_machines, success, response_data)
     """
-    ip = worker_machines[0].ip
-    port = worker_machines[0].port
+    ip = worker_machines[0]["ip"]
+    port = worker_machines[0]["port"]
     url = f"http://{ip}:{port}/worker_devices"
 
     try:
@@ -477,15 +477,21 @@ async def reload_machine_status_after_restart() -> Dict:
     - 访问失败：更新设备状态为 offline，从缓存移除
 
     限流策略：每次最多请求10个 Worker，成功后才继续请求下一批。
+    会话策略：先用短连接做只读快照，然后每批独立短 session 落库即提交——
+    单批失败不影响其他批次成果，也不再长时间占用数据库连接。
 
     Returns:
         Dict: 重载结果统计 {"online_count": N, "offline_count": M, "total": T}
     """
     logger.info("开始执行重启后机器状态重载...")
 
+    # 延迟导入避免循环依赖
+    from core.env_machine.pool_manager import EnvPoolManager
+
     # 等待10秒，让服务完全启动
     await asyncio.sleep(10)
 
+    # 第一步：只读快照，立即释放连接
     async with AsyncSessionLocal() as db:
         # 查询所有机器（不包括已删除的、虚拟设备和 Linux 设备）
         # Linux 设备没有 worker，不支持重载操作
@@ -495,57 +501,76 @@ async def reload_machine_status_after_restart() -> Dict:
             EnvMachine.device_type != 'linux',  # 排除 Linux 设备
         )
         result = await db.execute(stmt)
-        machines = result.scalars().all()
+        machine_snapshot = [
+            {
+                "id": str(m.id),
+                "ip": m.ip,
+                "port": m.port,
+                "device_type": m.device_type,
+                "device_sn": m.device_sn,
+            }
+            for m in result.scalars().all()
+        ]
 
-        if not machines:
-            logger.info("没有机器需要重载")
-            return {"online_count": 0, "offline_count": 0, "total": 0}
+    total_machines = len(machine_snapshot)
+    if not machine_snapshot:
+        logger.info("没有机器需要重载")
+        return {"online_count": 0, "offline_count": 0, "total": 0}
 
-        # 按 IP+Port 分组（避免重复请求同一台 Worker）
-        worker_groups: Dict[str, List[EnvMachine]] = {}
-        for machine in machines:
-            key = f"{machine.ip}:{machine.port}"
-            if key not in worker_groups:
-                worker_groups[key] = []
-            worker_groups[key].append(machine)
+    # 按 IP+Port 分组（避免重复请求同一台 Worker）
+    worker_groups: Dict[str, List[dict]] = {}
+    for snapshot in machine_snapshot:
+        key = f"{snapshot['ip']}:{snapshot['port']}"
+        worker_groups.setdefault(key, []).append(snapshot)
 
-        total_machines = len(machines)
-        online_count = 0
-        offline_count = 0
-        machine_ids_to_update: List[str] = []
+    online_count = 0
+    offline_count = 0
 
-        logger.info(f"准备重载 {total_machines} 台机器，涉及 {len(worker_groups)} 个 Worker")
+    logger.info(f"准备重载 {total_machines} 台机器，涉及 {len(worker_groups)} 个 Worker")
 
-        # 限流策略：每次最多请求10个 Worker
-        BATCH_SIZE = 10
-        worker_items = list(worker_groups.items())
-        total_batches = (len(worker_items) + BATCH_SIZE - 1) // BATCH_SIZE
+    # 限流策略：每次最多请求10个 Worker
+    BATCH_SIZE = 10
+    worker_items = list(worker_groups.items())
+    total_batches = (len(worker_items) + BATCH_SIZE - 1) // BATCH_SIZE
 
-        async with httpx.AsyncClient(timeout=5.0, trust_env=False, verify=False) as client:
-            for batch_idx in range(total_batches):
-                start_idx = batch_idx * BATCH_SIZE
-                end_idx = min(start_idx + BATCH_SIZE, len(worker_items))
-                batch_items = worker_items[start_idx:end_idx]
+    async with httpx.AsyncClient(timeout=5.0, trust_env=False, verify=False) as client:
+        for batch_idx in range(total_batches):
+            start_idx = batch_idx * BATCH_SIZE
+            end_idx = min(start_idx + BATCH_SIZE, len(worker_items))
+            batch_items = worker_items[start_idx:end_idx]
 
-                logger.info(f"正在处理第 {batch_idx + 1}/{total_batches} 批 Worker，共 {len(batch_items)} 个")
+            logger.info(f"正在处理第 {batch_idx + 1}/{total_batches} 批 Worker，共 {len(batch_items)} 个")
 
-                # 创建当前批次的并发任务
-                tasks = [
-                    _check_single_worker(client, worker_key, worker_machines)
-                    for worker_key, worker_machines in batch_items
-                ]
-                results = await asyncio.gather(*tasks)
+            # 创建当前批次的并发任务
+            tasks = [
+                _check_single_worker(client, worker_key, worker_machines)
+                for worker_key, worker_machines in batch_items
+            ]
+            results = await asyncio.gather(*tasks)
+
+            now = datetime.now()
+            batch_machine_ids: List[str] = []
+
+            # 第二步：每批独立短 session，落库即提交，单批失败不影响其他批次
+            async with AsyncSessionLocal() as db:
+                batch_ids = [s["id"] for _, group in batch_items for s in group]
+                rows = await db.execute(
+                    select(EnvMachine).where(EnvMachine.id.in_(batch_ids))
+                )
+                machines_by_id = {str(m.id): m for m in rows.scalars().all()}
 
                 # 处理当前批次结果
-                now = datetime.now()
                 for worker_key, worker_machines, success, data in results:
                     if success and data:
                         devices = data.get("devices", {})
                         version = data.get("version")
                         config_version = data.get("config_version")
 
-                        for machine in worker_machines:
-                            device_type = machine.device_type
+                        for snapshot in worker_machines:
+                            machine = machines_by_id.get(snapshot["id"])
+                            if machine is None:
+                                continue
+                            device_type = snapshot["device_type"]
                             if device_type in ("windows", "mac"):
                                 # Windows/Mac 不需要检查 device_sn
                                 machine.status = "online"
@@ -554,7 +579,6 @@ async def reload_machine_status_after_restart() -> Dict:
                                 if namespace != machine.namespace:
                                     old_namespace = machine.namespace
                                     machine.namespace = namespace
-                                    from core.env_machine.pool_manager import EnvPoolManager
                                     await EnvPoolManager.remove_machine_from_cache(
                                         str(machine.id), old_namespace
                                     )
@@ -563,7 +587,7 @@ async def reload_machine_status_after_restart() -> Dict:
                                 if config_version:
                                     machine.config_version = config_version
                                 online_count += 1
-                                machine_ids_to_update.append(str(machine.id))
+                                batch_machine_ids.append(str(machine.id))
                             elif device_type in ("android", "ios", "harmony_mobile", "harmony_pc"):
                                 # 移动端需要检查 device_sn 是否在列表中
                                 # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
@@ -584,7 +608,6 @@ async def reload_machine_status_after_restart() -> Dict:
                                     if namespace != machine.namespace:
                                         old_namespace = machine.namespace
                                         machine.namespace = namespace
-                                        from core.env_machine.pool_manager import EnvPoolManager
                                         await EnvPoolManager.remove_machine_from_cache(
                                             str(machine.id), old_namespace
                                         )
@@ -593,37 +616,39 @@ async def reload_machine_status_after_restart() -> Dict:
                                     if config_version:
                                         machine.config_version = config_version
                                     online_count += 1
-                                    machine_ids_to_update.append(str(machine.id))
+                                    batch_machine_ids.append(str(machine.id))
                                 else:
                                     # 设备不在列表中，标记为 offline
                                     machine.status = "offline"
                                     offline_count += 1
-                                    machine_ids_to_update.append(str(machine.id))
+                                    batch_machine_ids.append(str(machine.id))
 
                         logger.info(f"Worker {worker_key} 访问成功，更新 {len(worker_machines)} 台机器")
 
                     else:
                         # 访问失败，标记为 offline
-                        for machine in worker_machines:
+                        for snapshot in worker_machines:
+                            machine = machines_by_id.get(snapshot["id"])
+                            if machine is None:
+                                continue
                             machine.status = "offline"
                             offline_count += 1
-                            machine_ids_to_update.append(str(machine.id))
+                            batch_machine_ids.append(str(machine.id))
 
-                # 当前批次处理完成后，继续下一批
-                logger.info(f"第 {batch_idx + 1}/{total_batches} 批处理完成")
+                # 提交数据库更改
+                await db.commit()
 
-        # 提交数据库更改
-        await db.commit()
+                # 批量同步 Redis 缓存
+                await EnvPoolManager.batch_sync_cache(db, batch_machine_ids)
 
-        # 批量同步 Redis 缓存
-        from core.env_machine.pool_manager import EnvPoolManager
-        await EnvPoolManager.batch_sync_cache(db, machine_ids_to_update)
+            # 当前批次处理完成后，继续下一批
+            logger.info(f"第 {batch_idx + 1}/{total_batches} 批处理完成")
 
-        result = {
-            "online_count": online_count,
-            "offline_count": offline_count,
-            "total": total_machines,
-        }
-        logger.info(f"重启后机器状态重载完成: online={online_count}, offline={offline_count}, total={total_machines}")
+    result = {
+        "online_count": online_count,
+        "offline_count": offline_count,
+        "total": total_machines,
+    }
+    logger.info(f"重启后机器状态重载完成: online={online_count}, offline={offline_count}, total={total_machines}")
 
-        return result
+    return result
