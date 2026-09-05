@@ -15,8 +15,17 @@ Permission Utils - 基于API路径的动态权限鉴权
 2. 如果有权限记录，检查用户的角色是否关联了该权限
 3. 如果用户角色有该权限，则放行；否则返回403
 4. 如果Permission表中没有该API的权限记录，则默认放行（未配置权限的API不做限制）
+
+缓存一致性：
+- 缓存加载采用"构建新字典后整体替换"，读方要么看到旧表要么看到新表，不存在半空窗口
+- 缓存带 TTL（CACHE_TTL_SECONDS），超期后下次请求自动重载，兜底多进程间的最终一致
+- 权限变更时通过 Redis pub/sub 广播失效（broadcast_permission_cache_invalidation），
+  所有 worker 进程的监听任务收到消息后立即重载，避免 gunicorn 多进程长期持有陈旧权限表
 """
+import asyncio
+import logging
 import re
+import time
 from typing import List, Optional, Dict, Any, Set
 from functools import lru_cache
 
@@ -24,6 +33,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+from utils.background_tasks import spawn_background_task
+
+logger = logging.getLogger(__name__)
 
 
 # HTTP方法映射（与Permission模型中的定义一致）
@@ -36,28 +49,39 @@ HTTP_METHOD_MAP = {
     'ALL': 5,
 }
 
+# Redis 失效广播频道（带全局前缀，避免多实例共用 Redis 时互相干扰）
+PERMISSION_CACHE_CHANNEL = "permission_cache_invalidate"
+
 
 class APIPermissionChecker:
     """
     基于API路径的动态权限检查器
-    
+
     在AuthMiddleware中调用，根据请求的API路径和方法检查用户是否有权限
     """
-    
+
+    # 缓存 TTL（秒）：超过该时长后下次请求触发重载。
+    # 作为 Redis 广播失效失败/不可用时的兜底，多 worker 最长陈旧时间即该值。
+    CACHE_TTL_SECONDS = 60
+
     def __init__(self):
         # 缓存：存储API路径到权限的映射
         # 格式: {(api_path, http_method): permission_id}
         self._permission_cache: Dict[tuple, str] = {}
         self._cache_loaded = False
-    
+        self._cache_loaded_at: float = 0.0
+        # Redis pub/sub 监听任务（强引用，进程内单例）
+        self._listener_task = None
+
     async def load_permissions_cache(self, db: AsyncSession):
         """
         加载所有API权限到缓存
-        
-        建议在应用启动时调用，或者定期刷新
+
+        先在局部变量中构建完整映射，再整体替换实例字段（原子替换），
+        并发请求在重建期间要么读到旧表要么读到新表，不会读到空表导致 fail-open。
         """
         from core.permission.model import Permission
-        
+
         result = await db.execute(
             select(Permission).where(
                 Permission.is_active == True,  # noqa: E712
@@ -67,25 +91,35 @@ class APIPermissionChecker:
             )
         )
         permissions = result.scalars().all()
-        
-        self._permission_cache.clear()
+
+        new_cache: Dict[tuple, str] = {}
         for perm in permissions:
             if perm.api_path:
                 # 存储权限ID，key为(路径, 方法)
-                self._permission_cache[(perm.api_path, perm.http_method)] = perm.id
+                new_cache[(perm.api_path, perm.http_method)] = perm.id
                 # 如果是ALL方法，也存储到各个具体方法
                 if perm.http_method == 5:  # ALL
                     for method_code in [0, 1, 2, 3, 4]:
                         key = (perm.api_path, method_code)
-                        if key not in self._permission_cache:
-                            self._permission_cache[key] = perm.id
-        
+                        if key not in new_cache:
+                            new_cache[key] = perm.id
+
+        # 原子替换：单次赋值，读方不会看到部分构建的缓存
+        self._permission_cache = new_cache
         self._cache_loaded = True
-    
+        self._cache_loaded_at = time.monotonic()
+
+    def is_cache_stale(self) -> bool:
+        """缓存是否未加载或已超过 TTL"""
+        if not self._cache_loaded:
+            return True
+        return (time.monotonic() - self._cache_loaded_at) > self.CACHE_TTL_SECONDS
+
     def clear_cache(self):
         """清除权限缓存"""
-        self._permission_cache.clear()
+        self._permission_cache = {}
         self._cache_loaded = False
+        self._cache_loaded_at = 0.0
     
     def _match_path(self, request_path: str, permission_path: str) -> bool:
         """
@@ -149,9 +183,9 @@ class APIPermissionChecker:
         # 超级管理员跳过权限检查
         if is_superuser:
             return True, ""
-        
-        # 确保缓存已加载
-        if not self._cache_loaded:
+
+        # 确保缓存已加载且未过期（TTL 兜底多进程间的最终一致）
+        if self.is_cache_stale():
             await self.load_permissions_cache(db)
         
         # 查找该API对应的权限
@@ -228,10 +262,21 @@ async def check_api_permission(
     )
 
 
+async def _broadcast_permission_cache_invalidation() -> None:
+    """向所有 worker 进程广播权限缓存失效消息（失败不影响本进程刷新）"""
+    try:
+        from utils.redis import RedisClient
+
+        redis = await RedisClient.get_client()
+        await redis.publish(PERMISSION_CACHE_CHANNEL, "reload")
+    except Exception as e:
+        logger.debug(f"权限缓存失效广播失败（TTL 兜底）: {e}")
+
+
 async def refresh_permission_cache(db: AsyncSession):
     """
     刷新权限缓存
-    
+
     当权限数据变更时调用此函数
     """
     await api_permission_checker.load_permissions_cache(db)
@@ -240,8 +285,74 @@ async def refresh_permission_cache(db: AsyncSession):
 def clear_permission_cache():
     """
     清除权限缓存
+
+    本进程立即失效，并通过 Redis 广播通知其他 worker 进程重载；
+    广播失败时由 CACHE_TTL_SECONDS 兜底保证最终一致。
     """
     api_permission_checker.clear_cache()
+
+    # 发布需要运行中的事件循环；权限接口均在 async 上下文中调用
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    spawn_background_task(
+        _broadcast_permission_cache_invalidation(),
+        name="permission-cache-invalidate",
+    )
+
+
+async def _permission_cache_listener() -> None:
+    """
+    Redis 订阅监听任务：收到失效广播后重载本进程权限缓存
+
+    断连或异常时自动重试（间隔 5 秒）；任务由 lifespan 启动/取消。
+    """
+    from utils.redis import RedisClient
+
+    while True:
+        try:
+            redis = await RedisClient.get_client()
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(PERMISSION_CACHE_CHANNEL)
+            async for message in pubsub.listen():
+                if not message or message.get("type") != "message":
+                    continue
+                try:
+                    from app.database import AsyncSessionLocal
+
+                    async with AsyncSessionLocal() as db:
+                        await api_permission_checker.load_permissions_cache(db)
+                    logger.debug("收到权限失效广播，已重载权限缓存")
+                except Exception as e:
+                    logger.warning(f"重载权限缓存失败（TTL 兜底）: {e}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning(f"权限缓存监听异常，5 秒后重连: {e}")
+            await asyncio.sleep(5)
+
+
+def start_permission_cache_listener() -> None:
+    """启动权限缓存失效监听（每个 worker 进程调用一次）"""
+    if api_permission_checker._listener_task and not api_permission_checker._listener_task.done():
+        return
+    api_permission_checker._listener_task = spawn_background_task(
+        _permission_cache_listener(),
+        name="permission-cache-listener",
+    )
+
+
+async def stop_permission_cache_listener() -> None:
+    """停止权限缓存失效监听"""
+    task = api_permission_checker._listener_task
+    if task:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        api_permission_checker._listener_task = None
 
 
 async def get_user_api_permissions(
@@ -343,8 +454,8 @@ async def get_api_data_scope(
     if not role_id:
         return 1  # 无角色默认仅本人
     
-    # 确保缓存已加载
-    if not api_permission_checker._cache_loaded:
+    # 确保缓存已加载且未过期
+    if api_permission_checker.is_cache_stale():
         await api_permission_checker.load_permissions_cache(db)
     
     # 查找该API对应的权限

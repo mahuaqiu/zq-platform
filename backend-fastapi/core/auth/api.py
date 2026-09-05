@@ -11,6 +11,7 @@
 Auth API - 认证相关接口
 """
 from datetime import timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -323,6 +324,28 @@ async def login_oauth2(
     )
 
 
+def _extract_refresh_token(auth_header: Optional[str]) -> Optional[str]:
+    """从 Authorization 头解析 refresh_token（纯函数，便于测试）。
+
+    兼容三种形式：
+    - "Bearer <token>"（前端标准形式）
+    - "<scheme> <token>"（其他 scheme，取空格后的部分）
+    - "<token>"（裸 token）
+
+    头缺失、为空或只有 scheme 时返回 None。
+    """
+    if not auth_header:
+        return None
+    auth_header = auth_header.strip()
+    if not auth_header:
+        return None
+    if " " in auth_header:
+        scheme, _, value = auth_header.partition(" ")
+        value = value.strip()
+        return value or None
+    return auth_header
+
+
 @router.post("/refresh_token", response_model=TokenResponse, summary="刷新Token")
 async def refresh_token(
     request: Request,
@@ -330,13 +353,21 @@ async def refresh_token(
 ):
     """
     使用refresh_token获取新的access_token
-    
-    - **refresh_token**: 刷新令牌
-    
+
+    - **refresh_token**: 刷新令牌（Authorization 头，支持 Bearer 前缀或裸 token）
+
     返回新的access_token和refresh_token
     """
     # 从request的header中获取refresh_token
-    data = RefreshTokenRequest(refresh_token=request.headers.get("Authorization").split(" ")[1])
+    # 注意：该接口在白名单中未认证可访问，头缺失/格式错误必须返回 401 而不是抛 AttributeError 500
+    refresh_token_value = _extract_refresh_token(request.headers.get("Authorization"))
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="缺少刷新令牌",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    data = RefreshTokenRequest(refresh_token=refresh_token_value)
 
     # 验证refresh token
     payload = verify_refresh_token(data.refresh_token)

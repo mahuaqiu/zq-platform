@@ -8,6 +8,8 @@
 @Desc: Redis 分布式锁管理器 - 执行机申请的并发控制
 """
 import asyncio
+import contextlib
+import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -15,6 +17,8 @@ from contextlib import asynccontextmanager
 from redis.asyncio import Redis
 
 from utils.redis import RedisClient
+
+logger = logging.getLogger(__name__)
 
 
 class LockAcquireError(Exception):
@@ -37,12 +41,14 @@ class EnvLockManager:
     3. 按固定顺序获取锁：先按字母序排序后，再获取（避免死锁）
     4. 带超时重试：最多等待 3 秒，每 100ms 重试一次
 
-    注意: 锁的 TTL 为 10 秒（LOCK_TTL），在锁内执行的操作若超过此时间可能导致并发问题。
+    注意: 持锁期间由后台任务按 RENEW_INTERVAL 周期续期（Lua 原子校验持有者），
+    即使持锁操作超过 LOCK_TTL（如慢库），锁也不会提前失效引发并发踩踏。
     """
 
     LOCK_PREFIX = "env_lock:"
     REGISTRATION_LOCK_KEY = f"{LOCK_PREFIX}registration"
-    LOCK_TTL = 10  # 锁过期时间（秒）
+    LOCK_TTL = 30  # 锁过期时间（秒），持锁期间自动续期
+    RENEW_INTERVAL = 10  # 续期周期（秒），必须明显小于 LOCK_TTL
     RETRY_INTERVAL = 0.1  # 重试间隔（秒）
     RETRY_TIMEOUT = 3  # 超时时间（秒）
 
@@ -72,6 +78,27 @@ class EnvLockManager:
         # lock_key 已经是完整的 key（如 env_lock:meeting_gamma），无需额外前缀
         result = await client.set(lock_key, holder_id, nx=True, ex=cls.LOCK_TTL)
         return result is not None
+
+    @classmethod
+    async def _renew_single_lock(cls, lock_key: str, holder_id: str) -> bool:
+        """
+        续期单个锁（只有持有者才能续期）
+
+        使用 Lua 脚本保证原子性：先检查持有者，再重置过期时间
+
+        Returns:
+            bool: 是否成功续期
+        """
+        client = await cls._get_redis_client()
+        lua_script = """
+        if redis.call("GET", KEYS[1]) == ARGV[1] then
+            return redis.call("EXPIRE", KEYS[1], ARGV[2])
+        else
+            return 0
+        end
+        """
+        result = await client.eval(lua_script, 1, lock_key, holder_id, cls.LOCK_TTL)
+        return result == 1
 
     @classmethod
     async def _release_single_lock(cls, lock_key: str, holder_id: str) -> bool:
@@ -187,6 +214,46 @@ class EnvLockManager:
             await cls._release_single_lock(lock_key, holder_id)
 
     @classmethod
+    async def _renew_loop(cls, lock_keys: list[str], holder_id: str) -> None:
+        """
+        持锁期间的锁续期循环
+
+        每 RENEW_INTERVAL 秒对持有的锁做一次原子续期；续期失败说明锁已丢失
+        （进程长时间暂停/Redis 淘汰等），记录错误日志，由上层操作自身的
+        事务/缓存语义兜底。
+
+        Args:
+            lock_keys: 持有的锁 key 列表
+            holder_id: 锁持有者ID
+        """
+        try:
+            while True:
+                await asyncio.sleep(cls.RENEW_INTERVAL)
+                for lock_key in lock_keys:
+                    renewed = await cls._renew_single_lock(lock_key, holder_id)
+                    if not renewed:
+                        logger.error(
+                            "分布式锁续期失败（锁已丢失，存在并发风险）: key=%s, holder=%s",
+                            lock_key, holder_id,
+                        )
+                        return
+        except asyncio.CancelledError:
+            pass
+
+    @classmethod
+    @asynccontextmanager
+    async def _hold_locks(cls, lock_keys: list[str], holder_id: str):
+        """持有已获取的锁：期间自动续期，退出时停止续期并释放锁。"""
+        renew_task = asyncio.create_task(cls._renew_loop(lock_keys, holder_id))
+        try:
+            yield holder_id
+        finally:
+            renew_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await renew_task
+            await cls.release_env_locks(holder_id, lock_keys)
+
+    @classmethod
     @asynccontextmanager
     async def env_lock(cls, namespace: str):
         """
@@ -205,11 +272,11 @@ class EnvLockManager:
             bool: 是否成功获取锁
         """
         success, holder_id, lock_keys = await cls.acquire_env_locks(namespace)
-        try:
-            yield success
-        finally:
-            if success and lock_keys:
-                await cls.release_env_locks(holder_id, lock_keys)
+        if not success:
+            yield False
+            return
+        async with cls._hold_locks(lock_keys, holder_id):
+            yield True
 
     @classmethod
     @asynccontextmanager
@@ -244,10 +311,8 @@ class EnvLockManager:
 
         # 申请流程拿到机器池锁后即可释放注册锁，后续分配仍由机器池锁保护。
         await cls.release_env_locks(registration_holder, registration_locks)
-        try:
+        async with cls._hold_locks(lock_keys, holder_id):
             yield holder_id
-        finally:
-            await cls.release_env_locks(holder_id, lock_keys)
 
     @classmethod
     @asynccontextmanager
@@ -262,10 +327,8 @@ class EnvLockManager:
         if not success:
             raise LockAcquireError()
 
-        try:
+        async with cls._hold_locks(acquired_locks, holder_id):
             yield holder_id
-        finally:
-            await cls.release_env_locks(holder_id, acquired_locks)
 
     @classmethod
     @asynccontextmanager
@@ -277,7 +340,5 @@ class EnvLockManager:
         if not success:
             raise LockAcquireError()
 
-        try:
+        async with cls._hold_locks(acquired_locks, holder_id):
             yield holder_id
-        finally:
-            await cls.release_env_locks(holder_id, acquired_locks)

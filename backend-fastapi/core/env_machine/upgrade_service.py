@@ -21,6 +21,7 @@ from core.env_machine.upgrade_schema import (
     BatchUpgradeResponse,
     UpgradeQueueItem,
 )
+from utils.version import compare_versions
 
 logger = logging.getLogger(__name__)
 
@@ -438,8 +439,8 @@ class UpgradeService:
                 ))
                 continue
 
-            # 版本比对
-            if machine.version and machine.version >= config.version:
+            # 版本比对（分段数值比较，避免 "10.0" < "9.0" 的字符串误判）
+            if machine.version and compare_versions(machine.version, config.version) >= 0:
                 response.skipped_count += 1
                 response.details.append(UpgradeDetail(
                     machine_id=machine.id,
@@ -569,7 +570,7 @@ class UpgradeService:
 
             if not config:
                 upgrade_status = "无配置"
-            elif machine.version and machine.version >= config.version:
+            elif machine.version and compare_versions(machine.version, config.version) >= 0:
                 upgrade_status = "已最新"
             elif machine.status == "online":
                 upgrade_status = "待升级"

@@ -3,6 +3,8 @@
 """
 性能监控 API 路由
 """
+import asyncio
+
 import httpx
 from datetime import datetime
 from pathlib import Path
@@ -250,12 +252,15 @@ async def start_collect(
                 password=auth_info.password
             )
             try:
-                ssh_pool.get_connection(
-                    device_id=request.device_id,
-                    host=device.ip,
-                    port=auth_info.port,
-                    account=auth_info.account,
-                    password=auth_info.password
+                # paramiko 建连含超时重试（最长约 12s），放入线程池避免阻塞事件循环
+                await asyncio.to_thread(
+                    lambda: ssh_pool.get_connection(
+                        device_id=request.device_id,
+                        host=device.ip,
+                        port=auth_info.port,
+                        account=auth_info.account,
+                        password=auth_info.password
+                    )
                 )
             except Exception as e:
                 await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)

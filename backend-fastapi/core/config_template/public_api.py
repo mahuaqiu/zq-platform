@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import AsyncSessionLocal, get_db
+from utils.background_tasks import spawn_background_task
 from core.config_template.command_task_service import CommandTaskService
 from core.config_template.machine_selection_template_model import MachineSelectionTemplate
 from core.config_template.machine_selection_template_service import MachineSelectionTemplateService
@@ -145,7 +146,10 @@ async def deploy_script_by_name(
         for machine in machines
     ]
     task_id = str(task.id)
-    asyncio.create_task(_execute_script_deploy_async(task_id, script_snapshot, machine_snapshot))
+    spawn_background_task(
+        _execute_script_deploy_async(task_id, script_snapshot, machine_snapshot),
+        name=f"script-deploy-{task_id}",
+    )
 
     return ScriptDeployResponse(
         success=True,

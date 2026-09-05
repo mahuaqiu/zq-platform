@@ -22,6 +22,7 @@ from app.database import AsyncSessionLocal
 from core.env_machine.model import EnvMachine
 from core.scheduler.service import scheduler_service
 from utils.logging_config import get_logger
+from utils.version import compare_versions
 
 # 使用专门的 scheduler logger
 logger = get_logger("scheduler.env_machine")
@@ -253,7 +254,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             config = await WorkerUpgradeConfigService.get_by_device_type(
                 db, machine.device_type
             )
-            if config and reported_version and reported_version < config.version:
+            if config and reported_version and compare_versions(reported_version, config.version) < 0:
                 # Worker 仍运行旧版本，升级（下载/安装）可能仍在进行，保持升级中
                 logger.info(
                     f"升级超时但 Worker 存活且版本未到位，保持升级中: machine_id={machine.id}, ip={machine.ip}"

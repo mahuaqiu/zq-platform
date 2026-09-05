@@ -3,6 +3,7 @@
 """
 测试报告 API - Test Report API
 """
+import asyncio
 import logging
 import re
 import shutil
@@ -21,6 +22,24 @@ from app.base_schema import PaginatedResponse, ResponseModel
 from utils.logging_config import get_logger
 
 logger = get_logger("api.test_report")
+
+# 上传 HTML 大小上限：防止超大文件整读进内存 / 长时间占用事件循环
+MAX_HTML_UPLOAD_BYTES = 100 * 1024 * 1024
+
+
+def _write_html_file(storage_path: Path, file_path: Path, content: bytes) -> None:
+    """在独立线程中写盘，避免阻塞事件循环"""
+    storage_path.mkdir(parents=True, exist_ok=True)
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+
+def _cleanup_html_dir(html_path: Path) -> bool:
+    """在独立线程中清理 HTML 目录，返回目录是否存在"""
+    if not html_path.exists():
+        return False
+    shutil.rmtree(html_path)
+    return True
 from core.test_report.schema import (
     FailReportCreate,
     TestReportDetailResponse,
@@ -99,13 +118,15 @@ async def upload_html(
 
     # 构建存储路径
     storage_path = Path(settings.TEST_REPORT_HTML_PATH) / taskProjectID / str(round) / testcaseBlockID
-    storage_path.mkdir(parents=True, exist_ok=True)
 
     file_path = storage_path / safe_filename
-    content = await file.read()
+    # 限流读取：多读 1 字节用于判断超限，避免无上限整读进内存
+    content = await file.read(MAX_HTML_UPLOAD_BYTES + 1)
+    if len(content) > MAX_HTML_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="HTML 文件过大（上限 100MB）")
     try:
-        with open(file_path, "wb") as f:
-            f.write(content)
+        # 写盘放到线程池，避免同步 IO 阻塞事件循环
+        await asyncio.to_thread(_write_html_file, storage_path, file_path, content)
     except IOError as e:
         raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
 
@@ -351,13 +372,14 @@ async def delete_report(
                 continue
 
             html_path = Path(settings.TEST_REPORT_HTML_PATH) / task_project_id
-            if html_path.exists():
-                try:
-                    shutil.rmtree(html_path)
+            try:
+                # 目录删除放到线程池，避免同步 IO 阻塞事件循环
+                removed = await asyncio.to_thread(_cleanup_html_dir, html_path)
+                if removed:
                     logger.info(f"已清理HTML文件目录: {html_path}")
-                except OSError as e:
-                    # 文件删除失败仅记录警告，不影响响应结果
-                    logger.warning(f"清理HTML文件目录失败（数据库已删除）: {html_path}, error={e}")
+            except OSError as e:
+                # 文件删除失败仅记录警告，不影响响应结果
+                logger.warning(f"清理HTML文件目录失败（数据库已删除）: {html_path}, error={e}")
 
         return ResponseModel(message="删除成功")
 

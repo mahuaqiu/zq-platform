@@ -629,12 +629,15 @@ def start_linux_collect_task(
 
             try:
                 # 建立 SSH 连接
-                client = ssh_pool.get_connection(
+                # paramiko 建连是同步阻塞调用（含 time.sleep 重试间隔），必须放入线程池，
+                # 否则会阻塞整个事件循环（HTTP/WS 全部停摆）
+                client = await asyncio.to_thread(
+                    ssh_pool.get_connection,
                     device_id,
                     ssh_auth["host"],
                     ssh_auth["port"],
                     ssh_auth["account"],
-                    ssh_auth["password"]
+                    ssh_auth["password"],
                 )
 
                 relative_time = 0
@@ -649,7 +652,10 @@ def start_linux_collect_task(
 
                     try:
                         # 采集数据（传入 device_id 用于缓存 CPU 状态）
-                        data = LinuxDataCollector.collect(client, device_id)
+                        # SSH 命令执行同样阻塞事件循环，放入线程池
+                        data = await asyncio.to_thread(
+                            LinuxDataCollector.collect, client, device_id
+                        )
 
                         # 存储到数据库
                         async with AsyncSessionLocal() as db:
@@ -679,9 +685,9 @@ def start_linux_collect_task(
                         logger.error(f"设备 {device_id} 采集失败（第 {retry_count} 次）: {e}")
 
                         if retry_count >= MAX_RETRIES:
-                            # 尝试重连 SSH
+                            # 尝试重连 SSH（同步阻塞调用，放入线程池）
                             logger.warning(f"设备 {device_id} 达到最大重试次数，尝试 SSH 重连...")
-                            new_client = ssh_pool.reconnect(device_id)
+                            new_client = await asyncio.to_thread(ssh_pool.reconnect, device_id)
                             if new_client:
                                 client = new_client
                                 retry_count = 0
@@ -708,8 +714,10 @@ def start_linux_collect_task(
                     if device_id in _collect_tasks:
                         _collect_tasks[device_id]["running"] = False
 
-        # 启动任务
-        task = asyncio.create_task(collect_loop())
+        # 启动任务（spawn_background_task 持有强引用并记录异常，避免任务被 GC 静默取消）
+        from utils.background_tasks import spawn_background_task
+
+        task = spawn_background_task(collect_loop(), name=f"linux-collect-{device_id}")
         _collect_tasks[device_id] = {
             "task": task,
             "collect_id": collect_id,

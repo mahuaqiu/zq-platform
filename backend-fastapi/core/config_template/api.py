@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
 from app.database import get_db
+from utils.background_tasks import spawn_background_task
 from core.config_template.schema import (
     ConfigTemplateCreate,
     ConfigTemplateUpdate,
@@ -250,7 +251,11 @@ async def _execute_command_deploy(
     task_id = str(task.id)
 
     # 异步执行命令（使用独立的 session，不依赖请求级 db）
-    asyncio.create_task(_execute_commands_async(task_id, machine_snapshot, command))
+    # 通过 spawn_background_task 持有强引用并记录异常，避免任务被 GC 中途取消
+    spawn_background_task(
+        _execute_commands_async(task_id, machine_snapshot, command),
+        name=f"command-deploy-{task_id}",
+    )
 
     return DeployResponse(
         task_id=task_id,
@@ -381,6 +386,58 @@ async def _execute_single_command(machine: dict, command: str, parent_task_id: s
         }
 
 
+def _interpret_task_poll(
+    status_code: int,
+    payload: Optional[dict],
+) -> tuple[str, Optional[dict]]:
+    """解释一次任务结果查询响应（纯函数，便于回归测试）。
+
+    Returns:
+        tuple: (action, result)
+        - ("running", None): 任务未结束，继续轮询
+        - ("retry", None):   暂时性失败（5xx 等），可有限次重试
+        - ("retry", None) 后由调用方计数，连续失败达到上限即终止
+        - ("done", dict):    得到终态结果，结束轮询
+        - ("gone", dict):    任务确定不存在（404），立即失败
+    """
+    if status_code == 200 and isinstance(payload, dict):
+        status = payload.get("status")
+        actions = payload.get("actions", []) or []
+        action0 = actions[0] if actions else {}
+        if status in ("accepted", "pending", "running", "cancelling"):
+            return "running", None
+        if status == "success":
+            return "done", {
+                "success": True,
+                "stdout": action0.get("stdout", ""),
+                "stderr": action0.get("stderr", ""),
+            }
+        if status in ("failed", "timeout", "cancelled", "interrupted"):
+            stderr = action0.get("error") or action0.get("stderr") or f"执行失败: {status}"
+            return "done", {
+                "success": False,
+                "stdout": action0.get("stdout", ""),
+                "stderr": stderr,
+            }
+        # 200 但状态值不认识：按确定失败处理，避免空轮询到超时
+        return "done", {
+            "success": False,
+            "stdout": "",
+            "stderr": f"Worker 返回未知任务状态: {status}",
+        }
+
+    if status_code == 404:
+        # 任务不存在：Worker 重启后任务丢失或从未创建，继续轮询只会白等 10 分钟
+        return "gone", {
+            "success": False,
+            "stdout": "",
+            "stderr": "任务不存在（Worker 可能已重启或任务已过期）",
+        }
+
+    # 其余 4xx/5xx 视为暂时性错误，由调用方做连续失败计数
+    return "retry", None
+
+
 async def _wait_task_result(ip: str, port: int, task_id: str) -> dict:
     """等待任务完成并返回结果。
 
@@ -390,6 +447,8 @@ async def _wait_task_result(ip: str, port: int, task_id: str) -> dict:
     轮询策略（两段频率，总超时 10 分钟）：
     - 前 60 秒：每 3 秒查询一次（快速感知短任务结束）
     - 60 秒之后：每 20 秒查询一次（长任务降频，减少无效请求）
+    - 网络异常 / 非 200（404 除外）连续失败达到上限时快速终止，
+      避免 Worker 不可达时空轮询 600 秒、任务记录长期悬挂 running
     """
     worker_url = f"http://{ip}:{port}/task/{task_id}"
     start_time = time.time()
@@ -400,6 +459,8 @@ async def _wait_task_result(ip: str, port: int, task_id: str) -> dict:
     fast_phase_deadline = 60.0
     fast_interval = 3.0
     slow_interval = 20.0
+    # 连续查询失败上限（网络异常 / 5xx / 响应解析失败）
+    MAX_CONSECUTIVE_FAILURES = 5
 
     def _next_interval() -> float:
         """根据已耗时返回下一次轮询的等待间隔"""
@@ -409,65 +470,67 @@ async def _wait_task_result(ip: str, port: int, task_id: str) -> dict:
     # 首次查询前加短暂延迟，给 worker 把任务跑起来的时间，避免过早查到 running
     await asyncio.sleep(0.5)
 
+    consecutive_failures = 0
+    last_error = ""
+
     while time.time() - start_time < timeout:
+        resp = None
         try:
             async with httpx.AsyncClient(timeout=30.0, trust_env=False, verify=False) as client:
                 resp = await client.get(worker_url)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    status = data.get("status")
-                    actions = data.get("actions", []) or []
-                    action0 = actions[0] if actions else {}
-                    # Worker 可能没有返回 duration_ms，或在极短任务中返回 0；此时使用轮询耗时兜底。
-                    elapsed = max(time.time() - start_time, 0.0)
-                    try:
-                        duration_ms = float(data.get("duration_ms") or 0)
-                    except (TypeError, ValueError):
-                        duration_ms = 0.0
-                    duration = duration_ms / 1000 if duration_ms > 0 else elapsed
+        except Exception as exc:
+            last_error = f"查询任务结果失败: {exc}"
 
-                    if status in ("accepted", "pending", "running", "cancelling"):
-                        # 任务尚未结束，继续轮询
-                        await asyncio.sleep(_next_interval())
-                        continue
-                    elif status == "success":
-                        # 终态：这是最后一次能拿到数据的机会
-                        return {
-                            "success": True,
-                            "stdout": action0.get("stdout", ""),
-                            "stderr": action0.get("stderr", ""),
-                            "duration": duration,
-                        }
-                    elif status in ("failed", "timeout", "cancelled", "interrupted"):
-                        stderr = action0.get("error") or action0.get("stderr") or f"执行失败: {status}"
-                        return {
-                            "success": False,
-                            "stdout": action0.get("stdout", ""),
-                            "stderr": stderr,
-                            "duration": duration or (time.time() - start_time),
-                        }
-                elif status not in ("success", "failed", "timeout", "cancelled", "interrupted"):
-                    return {
-                        "success": False,
-                        "stdout": "",
-                        "stderr": f"Worker 返回未知任务状态: {status}",
-                        "duration": duration or (time.time() - start_time),
-                    }
-                elif resp.status_code == 404:
-                    # 任务不存在：可能已过期或从未创建
-                    return {
-                        "success": False,
-                        "stdout": "",
-                        "stderr": "任务已过期或未找到",
-                        "duration": time.time() - start_time,
-                    }
-        except Exception:
-            # 网络异常等，继续重试
-            pass
+        if resp is not None:
+            payload: Optional[dict] = None
+            if resp.status_code == 200:
+                try:
+                    payload = resp.json()
+                except ValueError:
+                    payload = None
+                    last_error = "Worker 任务结果响应不是有效 JSON"
+
+            action, result = _interpret_task_poll(resp.status_code, payload)
+            if action in ("done", "gone"):
+                # Worker 上报的执行耗时（毫秒）优先，轮询总耗时兜底
+                elapsed = max(time.time() - start_time, 0.0)
+                duration = elapsed
+                if payload:
+                    try:
+                        duration_ms = float(payload.get("duration_ms") or 0)
+                        if duration_ms > 0:
+                            duration = duration_ms / 1000
+                    except (TypeError, ValueError):
+                        pass
+                result["duration"] = duration or elapsed
+                return result
+            if action == "running":
+                consecutive_failures = 0
+                await asyncio.sleep(_next_interval())
+                continue
+
+            # action == "retry"（5xx 等）
+            consecutive_failures += 1
+            last_error = last_error or f"Worker 查询接口返回错误: {resp.status_code}"
+        else:
+            consecutive_failures += 1
+
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            return {
+                "success": False,
+                "stdout": "",
+                "stderr": last_error or "查询任务结果连续失败",
+                "duration": time.time() - start_time,
+            }
 
         await asyncio.sleep(_next_interval())
 
-    return {"success": False, "stdout": "", "stderr": "等待结果超时", "duration": timeout}
+    return {
+        "success": False,
+        "stdout": "",
+        "stderr": last_error or "等待结果超时",
+        "duration": timeout,
+    }
 
 
 # ==================== 动态路由 ====================

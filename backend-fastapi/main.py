@@ -8,19 +8,24 @@
 @Desc: 应用生命周期管理 - # 启动时
 """
 import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from utils.redis import RedisClient
+from utils.background_tasks import spawn_background_task
 from core.router import router as core_router
 from core.websocket.router import router as websocket_router
 from core.env_machine.api import router as env_machine_router
+from core.env_machine.lock_manager import LockAcquireError
 from core.config_template.public_api import router as public_config_template_router
 from utils.auth_middleware import AuthPermissionMiddleware
 from utils.logging_config import setup_logging
@@ -63,8 +68,37 @@ async def lifespan(app: FastAPI):
     # 2. 启动后台任务：延迟10秒后主动访问设备验证状态（仅主 worker 执行）
     if is_main_worker:
         from core.env_machine.scheduler import reload_machine_status_after_restart
-        asyncio.create_task(reload_machine_status_after_restart())
+        spawn_background_task(reload_machine_status_after_restart(), name="reload-machine-status")
     # ========== 执行机管理模块启动初始化结束 ==========
+
+    # ========== 权限缓存失效监听（所有 worker，保证多进程权限一致） ==========
+    from utils.permission import start_permission_cache_listener, stop_permission_cache_listener
+    start_permission_cache_listener()
+    # ========== 权限缓存失效监听结束 ==========
+
+    # ========== 命令任务对账（仅主 worker） ==========
+    # 后台命令/脚本任务随进程重启静默丢失，超过 1 天仍 running 的记录必然已死，
+    # 启动时统一标记为 failed，避免任务记录永久 running
+    if is_main_worker:
+        from sqlalchemy import update as sa_update
+        from core.config_template.command_task_model import CommandTask
+
+        async with AsyncSessionLocal() as db:
+            cutoff = datetime.now() - timedelta(days=1)
+            result = await db.execute(
+                sa_update(CommandTask)
+                .where(
+                    CommandTask.status == "running",
+                    CommandTask.sys_create_datetime < cutoff,
+                )
+                .values(status="failed", finished_datetime=datetime.now())
+            )
+            await db.commit()
+            if result.rowcount:
+                logging.getLogger(__name__).warning(
+                    f"启动对账：{result.rowcount} 条超过 1 天仍 running 的命令任务已标记为 failed"
+                )
+    # ========== 命令任务对账结束 ==========
 
     # ========== 测试报告模块启动初始化 ==========
     # 创建 HTML 存储目录（如果不存在）
@@ -90,7 +124,7 @@ async def lifespan(app: FastAPI):
                     import logging
                     logging.error(f"清理导出文件失败: {e}")
 
-        asyncio.create_task(cleanup_export_loop())
+        spawn_background_task(cleanup_export_loop(), name="cleanup-export-loop")
     # ========== 导出任务模块启动初始化结束 ==========
 
     yield
@@ -99,6 +133,7 @@ async def lifespan(app: FastAPI):
     if is_main_worker:
         from core.scheduler.service import scheduler_service
         await scheduler_service.shutdown()
+    await stop_permission_cache_listener()
     await RedisClient.close()
 
 app = FastAPI(
@@ -132,6 +167,12 @@ app.add_middleware(AuthPermissionMiddleware)
 
 # 添加请求日志中间件
 app.add_middleware(RequestLogMiddleware)
+
+
+# 机器池锁竞争（LockAcquireError）是瞬时过载而非服务器错误，返回 503 让调用方稍后重试
+@app.exception_handler(LockAcquireError)
+async def lock_acquire_error_handler(request, exc: LockAcquireError):
+    return JSONResponse(status_code=503, content={"detail": exc.message})
 
 # 注册路由（带全局OAuth2依赖，用于Swagger显示小锁图标）
 app.include_router(core_router, prefix="/api/core", dependencies=[Depends(oauth2_scheme)])
