@@ -13,6 +13,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from typing import Awaitable, Callable, Optional
 
 from redis.asyncio import Redis
 
@@ -27,6 +28,35 @@ class LockAcquireError(Exception):
     def __init__(self, message: str = "system busy, please retry"):
         self.message = message
         super().__init__(self.message)
+
+
+class Lease:
+    """长生命周期租约：持锁 + 周期续期，续期失败时回调 on_lost 并停止续期。
+
+    与请求级 _hold_locks 不同，租约的生命周期由调用方显式管理（start_renewal/release），
+    用于调度器领导权这类进程级长期持锁场景。
+    """
+
+    def __init__(self, lock_keys: list[str], holder_id: str,
+                 on_lost: Optional[Callable[[], Awaitable[None]]] = None):
+        self.lock_keys = lock_keys
+        self.holder_id = holder_id
+        self._on_lost = on_lost
+        self._renew_task: Optional[asyncio.Task] = None
+
+    def start_renewal(self) -> None:
+        if self._renew_task is None:
+            self._renew_task = asyncio.create_task(
+                EnvLockManager._renew_loop(self.lock_keys, self.holder_id, on_lost=self._on_lost)
+            )
+
+    async def release(self) -> None:
+        if self._renew_task is not None:
+            self._renew_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._renew_task
+            self._renew_task = None
+        await EnvLockManager.release_env_locks(self.holder_id, self.lock_keys)
 
 
 class EnvLockManager:
@@ -214,17 +244,32 @@ class EnvLockManager:
             await cls._release_single_lock(lock_key, holder_id)
 
     @classmethod
-    async def _renew_loop(cls, lock_keys: list[str], holder_id: str) -> None:
+    async def try_acquire_lease(cls, key: str,
+                                on_lost: Optional[Callable[[], Awaitable[None]]] = None) -> Optional[Lease]:
+        """尝试获取长生命周期租约（单次 SET NX，不等待不重试）。
+
+        Returns:
+            Lease: 获取成功；key 已被其他实例持有时返回 None。
+        """
+        holder_id = str(uuid.uuid4())
+        if not await cls._acquire_single_lock(key, holder_id):
+            return None
+        return Lease([key], holder_id, on_lost)
+
+    @classmethod
+    async def _renew_loop(cls, lock_keys: list[str], holder_id: str,
+                          on_lost: Optional[Callable[[], Awaitable[None]]] = None) -> None:
         """
         持锁期间的锁续期循环
 
         每 RENEW_INTERVAL 秒对持有的锁做一次原子续期；续期失败说明锁已丢失
-        （进程长时间暂停/Redis 淘汰等），记录错误日志，由上层操作自身的
-        事务/缓存语义兜底。
+        （进程长时间暂停/Redis 淘汰等），记录错误日志；传入 on_lost 时回调通知
+        （调度器领导权场景用于自动停机），随后退出循环。
 
         Args:
             lock_keys: 持有的锁 key 列表
             holder_id: 锁持有者ID
+            on_lost: 锁丢失时的回调（可选）
         """
         try:
             while True:
@@ -236,6 +281,11 @@ class EnvLockManager:
                             "分布式锁续期失败（锁已丢失，存在并发风险）: key=%s, holder=%s",
                             lock_key, holder_id,
                         )
+                        if on_lost is not None:
+                            try:
+                                await on_lost()
+                            except Exception:
+                                logger.exception("领导权丢失回调执行失败")
                         return
         except asyncio.CancelledError:
             pass
