@@ -2,7 +2,7 @@ import { onUnmounted, ref, shallowRef } from 'vue';
 
 import { ElMessage } from 'element-plus';
 
-import type { WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
+import type { InputEventPayload, WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
 import { buildWebSocketUrl } from '../utils';
 import { detectFrameType, FrameType } from '../utils/stream';
 import { useMseDecoder } from './useMseDecoder';
@@ -41,6 +41,11 @@ export function useWebSocket() {
   // 鸿蒙推流会降采样（推流尺寸≠真机尺寸），此时坐标基准必须用 meta 里的
   // 真机分辨率，而不能用推流图像尺寸；置 true 后不再让图像/视频尺寸覆盖 screenSize。
   let hasMeta = false;
+
+  // worker 是否声明了实时指针输入能力（meta.capabilities.realtime_input）。
+  // 仅在能力声明后启用 WS 逐事件注入；否则回退 mouseup 合成 click/swipe 的
+  // REST 路径。每次重连先复位，等新 meta 到达再置位。
+  const realtimeInput = ref(false);
 
   // H264 视频元素（由 ScreenDisplay 挂载后通过 attachVideoEl 传入）。
   // MSE/jmuxer 需要绑定 <video> 元素，生命周期归 ScreenDisplay，
@@ -223,6 +228,7 @@ export function useWebSocket() {
 
     // 新连接重置坐标基准来源：未收到 meta 前回退用推流尺寸（兼容非鸿蒙平台）。
     hasMeta = false;
+    realtimeInput.value = false;
 
     console.log(
       `[WebSocket] Connecting to ${host}:${port}, deviceType=${deviceType}, codec=${codec}`,
@@ -364,6 +370,12 @@ export function useWebSocket() {
             screenSize.value = { width: meta.width, height: meta.height };
             hasMeta = true;
           }
+          // 能力协商：worker 在 meta 帧上携带 capabilities（向后兼容，旧 worker
+          // 无该字段时保持 false，走 REST 回退路径）。
+          if (meta && meta.capabilities?.realtime_input) {
+            realtimeInput.value = true;
+            console.log('[WebSocket] worker 支持实时指针输入，启用 WS 事件流');
+          }
         } catch (e) {
           console.warn('[WebSocket] 解析 meta 文本帧失败:', e);
         }
@@ -455,6 +467,23 @@ export function useWebSocket() {
   }
 
   /**
+   * 发送实时指针输入事件（fire-and-forget，不等待响应）。
+   * 仅当 worker 声明 realtime_input 能力且连接打开时发送，返回是否真正发出。
+   * 消息格式与 worker server.py 约定：{type:'input', action, button, x, y, ...}
+   */
+  function sendInput(payload: InputEventPayload): boolean {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !realtimeInput.value) {
+      return false;
+    }
+    try {
+      ws.send(JSON.stringify({ type: 'input', ...payload }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * 断开连接
    * @param manual 用户主动点击"断开"时为 true：置位 userDisconnected，
    * 页面据此清空画面并禁用操作。空闲超时、组件卸载等自动断开不算。
@@ -462,6 +491,7 @@ export function useWebSocket() {
   function disconnect(manual = false): void {
     websocketGeneration++;
     userDisconnected.value = manual;
+    realtimeInput.value = false;
     stopRetryTimer();
     if (ws) {
       retryCount = MAX_RETRIES; // 阻止自动重连
@@ -546,10 +576,12 @@ export function useWebSocket() {
     closeInfo,
     errorMessage,
     videoMode,
+    realtimeInput,
     connect,
     disconnect,
     reconnect,
     resetActivityTime,
     attachVideoEl,
+    sendInput,
   };
 }

@@ -67,11 +67,13 @@ const {
   screenSize,
   fps,
   videoMode,
+  realtimeInput,
   connect,
   disconnect,
   reconnect,
   resetActivityTime,
   attachVideoEl,
+  sendInput,
 } = useWebSocket();
 
 // ScreenDisplay 组件实例引用：用于取出内部暴露的 <video> 元素并绑定给 MSE 解码器。
@@ -95,7 +97,8 @@ watch(
   { immediate: true },
 );
 
-// 屏幕交互
+// 屏幕交互：realtime 路径（worker 声明能力时，down/move/up 逐事件走 WS）+
+// legacy 路径（mouseup 合成 click/swipe 走 REST）双轨并存
 const {
   mouseCoord,
   isInScreen,
@@ -108,7 +111,20 @@ const {
   handleDragEnd,
   // handleMouseMove - 未使用，保留备用
   handleMouseLeave,
-} = useScreenInteraction(screenSize);
+  rtPointerDown,
+  rtPointerMove,
+  rtPointerUp,
+  rtPointerCancel,
+  rtWheel,
+  rtContextMenu,
+  rtPointerLeave,
+} = useScreenInteraction(screenSize, {
+  sendInput,
+  realtimeInput,
+  isPcDevice: computed(() =>
+    ['windows', 'mac', 'harmony_pc'].includes(deviceDetail.value?.device_type ?? ''),
+  ),
+});
 
 // 设备操作
 const {
@@ -348,32 +364,42 @@ function handleScreenChange(screenIndex: number) {
   }
 }
 
-// 屏幕交互事件处理
-function handleScreenMouseDown(event: MouseEvent) {
-  // 右键点击由 contextmenu 事件处理，这里忽略
-  if (event.button === 2) return;
-
+// 屏幕交互事件处理（Pointer Events 统一鼠标/触摸）
+// 实时路径：worker 声明 realtime_input 能力时 down/move/up 逐事件走 WS；
+// 否则自动回退 legacy——mouseup 合成 click/swipe 走 REST。
+function handleScreenPointerDown(event: PointerEvent) {
   // 用户主动断开后禁止一切屏幕操作，重连后才恢复
   if (userDisconnected.value) return;
+  if (rtPointerDown(event)) {
+    resetActivityTime();
+    return;
+  }
+  // ===== legacy 路径 =====
+  // 右键点击由 contextmenu 事件处理，这里忽略
+  if (event.button === 2) return;
   if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected'))
     return;
   // 如果点击在屏幕之外，返回 null，不开始操作
-  const coords = handleDragStart(event);
-  if (coords === null) {
-    // 点击在屏幕之外，不做任何操作
-  }
+  handleDragStart(event);
 }
 
-function handleScreenMouseMove(event: MouseEvent) {
+function handleScreenPointerMove(event: PointerEvent) {
+  if (realtimeInput.value) {
+    rtPointerMove(event);
+    return;
+  }
   handleDragMove(event);
 }
 
-async function handleScreenMouseUp(event: MouseEvent) {
-  // 右键点击由 contextmenu 事件处理，这里忽略
-  if (event.button === 2) return;
-
+async function handleScreenPointerUp(event: PointerEvent) {
   // 用户主动断开后禁止一切屏幕操作，重连后才恢复
   if (userDisconnected.value) return;
+  if (realtimeInput.value && rtPointerUp(event)) {
+    resetActivityTime();
+    return;
+  }
+  // ===== legacy 路径：mouseup 合成 click/swipe 走 REST =====
+  if (event.button === 2) return;
   if (isOperating.value) return;
   if (!isHarmony.value && wsStatus.value !== 'connected') return;
   // 重置活动时间（用户有操作）
@@ -415,15 +441,34 @@ async function handleScreenMouseUp(event: MouseEvent) {
   }
 }
 
-function handleScreenMouseLeave() {
+function handleScreenPointerCancel() {
+  // 系统打断（如浏览器手势）：实时路径补发安全 up；legacy 清理拖拽状态
+  rtPointerCancel();
   handleMouseLeave();
 }
 
-// 右键菜单处理：Windows/Mac/鸿蒙PC 透传右键（鸿蒙PC 用长按映射），iOS/Android/鸿蒙手机 忽略
-// 同样需要检查点击是否在屏幕区域内
+function handleScreenPointerLeave() {
+  if (realtimeInput.value) {
+    rtPointerLeave();
+    return;
+  }
+  handleMouseLeave();
+}
+
+function handleScreenWheel(event: WheelEvent) {
+  if (userDisconnected.value) return;
+  rtWheel(event);
+}
+
+// 右键菜单处理：实时路径下右键 down/up 已由 pointer 事件流发出；
+// legacy 路径 Windows/Mac/鸿蒙PC 透传右键（鸿蒙PC 用长按映射）
 async function handleScreenContextMenu(event: MouseEvent) {
   // 用户主动断开后禁止一切屏幕操作，重连后才恢复
   if (userDisconnected.value) return;
+  if (realtimeInput.value) {
+    rtContextMenu();
+    return;
+  }
   if (isOperating.value || (!isHarmony.value && wsStatus.value !== 'connected'))
     return;
 
@@ -678,10 +723,12 @@ onUnmounted(() => {
           :drag-start="dragStart"
           :drag-end="dragEnd"
           :video-mode="videoMode"
-          @mousedown="handleScreenMouseDown"
-          @mousemove="handleScreenMouseMove"
-          @mouseup="handleScreenMouseUp"
-          @mouseleave="handleScreenMouseLeave"
+          @pointerdown="handleScreenPointerDown"
+          @pointermove="handleScreenPointerMove"
+          @pointerup="handleScreenPointerUp"
+          @pointercancel="handleScreenPointerCancel"
+          @pointerleave="handleScreenPointerLeave"
+          @wheel="handleScreenWheel"
           @contextmenu="handleScreenContextMenu"
         />
       </template>
@@ -702,10 +749,12 @@ onUnmounted(() => {
               :drag-start="dragStart"
               :drag-end="dragEnd"
               :video-mode="videoMode"
-              @mousedown="handleScreenMouseDown"
-              @mousemove="handleScreenMouseMove"
-              @mouseup="handleScreenMouseUp"
-              @mouseleave="handleScreenMouseLeave"
+              @pointerdown="handleScreenPointerDown"
+              @pointermove="handleScreenPointerMove"
+              @pointerup="handleScreenPointerUp"
+              @pointercancel="handleScreenPointerCancel"
+              @pointerleave="handleScreenPointerLeave"
+              @wheel="handleScreenWheel"
               @contextmenu="handleScreenContextMenu"
             />
           </div>

@@ -1,18 +1,37 @@
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import type { Ref } from 'vue';
 
-import type { ScreenSize } from '../types';
+import type { InputEventPayload, ScreenSize } from '../types';
 import { convertToDeviceCoords, calculateContainRenderArea } from '../utils';
 
-// 滑动判断阈值配置
+// 滑动判断阈值配置（legacy 回退路径使用）
 const SWIPE_THRESHOLD_NORMAL = 50;  // 普通区域的滑动阈值（像素）
 const SWIPE_THRESHOLD_EDGE = 30;    // 边缘区域的滑动阈值（像素）
 const EDGE_ZONE_RATIO = 0.15;       // 边缘区域比例（屏幕底部 15%）
 
+// 实时指针流参数
+const HOVER_MOVE_INTERVAL_MS = 1500; // hover 移动节流（光标跟随低频同步即可）
+const WHEEL_SEND_INTERVAL_MS = 50; // 滚轮节流
+const WHEEL_STOP_DELAY_MS = 120; // 滚轮停顿后补发 stop 的延迟
+
+/**
+ * 实时指针输入上下文（由 index.vue 注入）。
+ * sendInput/realtimeInput 来自 useWebSocket；isPcDevice 决定是否发送 hover 移动
+ * （鸿蒙手机没有鼠标光标，hover 无意义）。
+ */
+export interface RealtimeInputContext {
+  sendInput: (payload: InputEventPayload) => boolean;
+  realtimeInput: Ref<boolean>;
+  isPcDevice: Ref<boolean>;
+}
+
 // 滑动方向类型
 type SwipeDirection = 'vertical' | 'horizontal' | 'diagonal';
 
-export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
+export function useScreenInteraction(
+  screenSize: Ref<ScreenSize>,
+  input?: RealtimeInputContext,
+) {
   const mouseCoord = ref<{ x: number; y: number } | null>(null);
   const isInScreen = ref(false); // 鼠标是否在屏幕渲染区域内
   const clickIndicator = ref<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
@@ -305,6 +324,193 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
     }
   }
 
+  // ===== 实时指针流（P1）：down 立即发、move rAF 抵尾合并、up 兜底 =====
+  // 仅当 worker 声明 realtime_input 能力时由 index.vue 调用；否则走上方
+  // 保留的 legacy click/swipe 路径（mouseup 合成一条 REST 手势）。
+  let pressing = false;
+  let pressButton: 'left' | 'right' = 'left';
+  let pendingMove: { x: number; y: number } | null = null;
+  let moveRafId: number | null = null;
+  let firstMoveSent = false;
+  let hoverLastSentAt = 0;
+  let wheelLastSentAt = 0;
+  let wheelStopTimer: ReturnType<typeof setTimeout> | null = null;
+  let wheelLastCoord: { x: number; y: number } | null = null;
+  let inputSeq = 0;
+  // hover 移动开关：用户点击过远程屏幕（进入"操控"状态）才发送；
+  // 鼠标离开画面或浏览器失焦即复位，避免指针掠过页面产生无意义的设备侧移动。
+  let screenActivated = false;
+
+  if (typeof window !== 'undefined') {
+    const handleWindowBlur = () => {
+      screenActivated = false;
+    };
+    window.addEventListener('blur', handleWindowBlur);
+    onUnmounted(() => window.removeEventListener('blur', handleWindowBlur));
+  }
+
+  function rtSend(payload: InputEventPayload): void {
+    input?.sendInput({ seq: ++inputSeq, ts: Date.now(), ...payload });
+  }
+
+  function rtCancelScheduledMove(): void {
+    if (moveRafId !== null) {
+      cancelAnimationFrame(moveRafId);
+      moveRafId = null;
+    }
+  }
+
+  function rtFlushMove(): void {
+    moveRafId = null;
+    if (!pressing || !pendingMove) return;
+    rtSend({
+      action: 'move',
+      button: pressButton,
+      x: pendingMove.x,
+      y: pendingMove.y,
+    });
+    dragEnd.value = pendingMove;
+    pendingMove = null;
+  }
+
+  /** 按下：立即发送 down（不等帧）。返回 false 表示未走实时路径（legacy 处理）。 */
+  function rtPointerDown(event: PointerEvent): boolean {
+    if (!input?.realtimeInput.value) return false;
+    if (event.button !== 0 && event.button !== 2) return false; // 中键暂不处理
+    const coords = getDeviceCoords(event);
+    if (coords === null) return false;
+    pressing = true;
+    pressButton = event.button === 2 ? 'right' : 'left';
+    firstMoveSent = false;
+    pendingMove = null;
+    screenActivated = true; // 点击远程屏幕即进入操控状态，hover 开始同步
+    rtSend({ action: 'down', button: pressButton, x: coords.x, y: coords.y });
+    // 复用 legacy 拖拽轨迹 UI 实时回显
+    dragStart.value = coords;
+    dragEnd.value = null;
+    isDragging.value = true;
+    return true;
+  }
+
+  /** 移动：按下时 rAF 抵尾合并发送（首个 move 立即发）；悬停时 PC 节流发 hover。 */
+  function rtPointerMove(event: PointerEvent): void {
+    if (!input?.realtimeInput.value) return;
+    const coords = getDeviceCoords(event);
+    mouseCoord.value = coords;
+    isInScreen.value = coords !== null;
+    if (coords === null) return;
+    if (pressing) {
+      pendingMove = coords;
+      // down 后第一个 move 立即发送，降低起手延迟；其余合并到下一帧
+      if (!firstMoveSent) {
+        firstMoveSent = true;
+        rtCancelScheduledMove();
+        rtSend({
+          action: 'move',
+          button: pressButton,
+          x: coords.x,
+          y: coords.y,
+        });
+        dragEnd.value = coords;
+        pendingMove = null;
+      } else if (moveRafId === null) {
+        moveRafId = requestAnimationFrame(rtFlushMove);
+      }
+    } else if (input.isPcDevice.value && screenActivated) {
+      const now = performance.now();
+      if (now - hoverLastSentAt >= HOVER_MOVE_INTERVAL_MS) {
+        hoverLastSentAt = now;
+        rtSend({ action: 'move', button: null, x: coords.x, y: coords.y });
+      }
+    }
+  }
+
+  /** 抬起：冲刷最后一个 move 后发送 up。返回是否由实时路径处理。 */
+  function rtPointerUp(event: PointerEvent): boolean {
+    if (!pressing) return false;
+    pressing = false;
+    rtCancelScheduledMove();
+    const coords = getDeviceCoords(event) ?? dragEnd.value ?? dragStart.value;
+    if (coords) {
+      rtSend({ action: 'up', button: pressButton, x: coords.x, y: coords.y });
+    }
+    isDragging.value = false;
+    dragStart.value = null;
+    dragEnd.value = null;
+    pendingMove = null;
+    return true;
+  }
+
+  /** 系统打断（pointercancel）：按抬起处理，坐标用最后有效值，防按键卡死。 */
+  function rtPointerCancel(): void {
+    if (!pressing) return;
+    pressing = false;
+    rtCancelScheduledMove();
+    const coords = dragEnd.value ?? dragStart.value;
+    if (coords) {
+      rtSend({ action: 'up', button: pressButton, x: coords.x, y: coords.y });
+    }
+    isDragging.value = false;
+    dragStart.value = null;
+    dragEnd.value = null;
+    pendingMove = null;
+  }
+
+  /** 滚轮：节流发送 wheel 事件并阻止页面滚动。
+   *
+   * 鸿蒙官方 SDK 要求 onMouseWheelStop 跟在 Up/Down 之后滚动才生效，
+   * 因此每次滚轮停顿 WHEEL_STOP_DELAY_MS 后补发一条 stop。
+   */
+  function rtWheel(event: WheelEvent): void {
+    if (!input?.realtimeInput.value) return;
+    const coords = getDeviceCoords(event);
+    if (coords === null) return;
+    event.preventDefault();
+    const now = performance.now();
+    if (now - wheelLastSentAt < WHEEL_SEND_INTERVAL_MS) return;
+    wheelLastSentAt = now;
+    const amount = Math.max(
+      1,
+      Math.min(10, Math.round(Math.abs(event.deltaY) / 100)),
+    );
+    rtSend({
+      action: 'wheel',
+      direction: event.deltaY < 0 ? 'up' : 'down',
+      amount,
+      x: coords.x,
+      y: coords.y,
+    });
+    // 滚轮停顿后补发 stop（worker 端 Windows 分发器对 stop 自动忽略）
+    wheelLastCoord = coords;
+    if (wheelStopTimer !== null) clearTimeout(wheelStopTimer);
+    wheelStopTimer = setTimeout(() => {
+      wheelStopTimer = null;
+      if (wheelLastCoord) {
+        rtSend({
+          action: 'wheel',
+          direction: 'stop',
+          x: wheelLastCoord.x,
+          y: wheelLastCoord.y,
+        });
+      }
+    }, WHEEL_STOP_DELAY_MS);
+  }
+
+  /** 右键菜单：实时路径下 down/up 已由 pointer 事件流发出，这里仅屏蔽 legacy。 */
+  function rtContextMenu(): boolean {
+    return Boolean(input?.realtimeInput.value);
+  }
+
+  /** 移出画面：清坐标显示并退出操控状态（重新点击后才恢复 hover 同步）。 */
+  function rtPointerLeave(): void {
+    mouseCoord.value = null;
+    isInScreen.value = false;
+    screenActivated = false;
+    if (pressing) {
+      rtPointerCancel();
+    }
+  }
+
   return {
     mouseCoord,
     isInScreen,
@@ -320,5 +526,12 @@ export function useScreenInteraction(screenSize: Ref<ScreenSize>) {
     handleMouseLeave,
     detectSwipeDirection,
     isInEdgeZone,
+    rtPointerDown,
+    rtPointerMove,
+    rtPointerUp,
+    rtPointerCancel,
+    rtWheel,
+    rtContextMenu,
+    rtPointerLeave,
   };
 }

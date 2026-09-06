@@ -19,10 +19,12 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'mousedown', event: MouseEvent): void;
-  (e: 'mousemove', event: MouseEvent): void;
-  (e: 'mouseup', event: MouseEvent): void;
-  (e: 'mouseleave'): void;
+  (e: 'pointerdown', event: PointerEvent): void;
+  (e: 'pointermove', event: PointerEvent): void;
+  (e: 'pointerup', event: PointerEvent): void;
+  (e: 'pointercancel', event: PointerEvent): void;
+  (e: 'pointerleave'): void;
+  (e: 'wheel', event: WheelEvent): void;
   (e: 'contextmenu', event: MouseEvent): void;
 }
 
@@ -38,77 +40,41 @@ const videoRef = ref<HTMLVideoElement | null>(null);
 
 defineExpose({ videoRef });
 
-function handleMouseDown(event: MouseEvent) {
-  // 阻止图片/视频默认拖拽行为
+function handlePointerDown(event: PointerEvent) {
+  // 阻止图片/视频默认拖拽与文本选择
   event.preventDefault();
-  emit('mousedown', event);
+  // 捕获指针：按住拖拽移出画面区域后事件继续派发，拖拽不中断
+  try {
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  } catch {
+    // 老浏览器不支持捕获时由 pointerleave 兜底
+  }
+  emit('pointerdown', event);
 }
 
-function attachScreenElement(event: MouseEvent, element: EventTarget | null): MouseEvent {
-  Object.defineProperty(event, 'screenElement', {
-    configurable: true,
-    value: element,
-  });
-  return event;
+function handlePointerMove(event: PointerEvent) {
+  emit('pointermove', event);
 }
 
-function handleMouseMove(event: MouseEvent) {
-  emit('mousemove', event);
+function handlePointerUp(event: PointerEvent) {
+  emit('pointerup', event);
 }
 
-function handleMouseUp(event: MouseEvent) {
-  emit('mouseup', event);
+function handlePointerCancel(event: PointerEvent) {
+  emit('pointercancel', event);
 }
 
-function handleMouseLeave() {
-  emit('mouseleave');
+function handleWheel(event: WheelEvent) {
+  emit('wheel', event);
+}
+
+function handlePointerLeave() {
+  emit('pointerleave');
 }
 
 function handleContextMenu(event: MouseEvent) {
   event.preventDefault();
   emit('contextmenu', event);
-}
-
-// 触摸事件处理（移动端浏览器）
-function handleTouchStart(event: TouchEvent) {
-  // 阻止默认行为（如缩放、滚动）
-  event.preventDefault();
-  // 将触摸事件转换为鼠标事件
-  if (event.touches.length === 1) {
-    const touch = event.touches[0]!;
-    const mouseEvent = new MouseEvent('mousedown', {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      button: 0,
-      bubbles: true
-    });
-    emit('mousedown', attachScreenElement(mouseEvent, event.currentTarget));
-  }
-}
-
-function handleTouchMove(event: TouchEvent) {
-  if (event.touches.length === 1) {
-    const touch = event.touches[0]!;
-    const mouseEvent = new MouseEvent('mousemove', {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      bubbles: true
-    });
-    emit('mousemove', attachScreenElement(mouseEvent, event.currentTarget));
-  }
-}
-
-function handleTouchEnd(event: TouchEvent) {
-  if (event.changedTouches.length === 1) {
-    const touch = event.changedTouches[0]!;
-    const mouseEvent = new MouseEvent('mouseup', {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      button: 0,
-      bubbles: true
-    });
-    emit('mouseup', attachScreenElement(mouseEvent, event.currentTarget));
-  }
 }
 
 // 计算指示器位置百分比
@@ -175,7 +141,7 @@ onUnmounted(() => {
         :class="{ 'cursor-crosshair': props.isInScreen }"
         @contextmenu="handleContextMenu"
       >
-        <!-- H264 (MSE) 模式：渲染 <video>，事件绑定与 <img> 完全一致 -->
+        <!-- H264 (MSE) 模式：渲染 <video>。Pointer Events 统一鼠标/触摸输入 -->
         <video
           v-if="props.videoMode"
           ref="videoRef"
@@ -183,13 +149,13 @@ onUnmounted(() => {
           autoplay
           muted
           playsinline
-          @mousedown="handleMouseDown"
-          @mousemove="handleMouseMove"
-          @mouseup="handleMouseUp"
-          @mouseleave="handleMouseLeave"
-          @touchstart="handleTouchStart"
-          @touchmove="handleTouchMove"
-          @touchend="handleTouchEnd"
+          @pointerdown="handlePointerDown"
+          @pointermove="handlePointerMove"
+          @pointerup="handlePointerUp"
+          @pointercancel="handlePointerCancel"
+          @pointerleave="handlePointerLeave"
+          @wheel="handleWheel"
+          @contextmenu="handleContextMenu"
         ></video>
         <!-- JPEG/MJPEG 模式：渲染 <img> -->
         <img
@@ -197,13 +163,13 @@ onUnmounted(() => {
           :src="screenshotUrl"
           class="screen-img"
           draggable="false"
-          @mousedown="handleMouseDown"
-          @mousemove="handleMouseMove"
-          @mouseup="handleMouseUp"
-          @mouseleave="handleMouseLeave"
-          @touchstart="handleTouchStart"
-          @touchmove="handleTouchMove"
-          @touchend="handleTouchEnd"
+          @pointerdown="handlePointerDown"
+          @pointermove="handlePointerMove"
+          @pointerup="handlePointerUp"
+          @pointercancel="handlePointerCancel"
+          @pointerleave="handlePointerLeave"
+          @wheel="handleWheel"
+          @contextmenu="handleContextMenu"
         />
         <div v-else class="screen-placeholder">
           <div class="placeholder-icon">🖥</div>

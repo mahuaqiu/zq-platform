@@ -17,6 +17,23 @@ export interface WebSocketCloseInfo {
 }
 
 /**
+ * 实时指针输入事件（WS 上行，与 worker server.py 协议约定）。
+ * 坐标为 meta 空间（设备原生分辨率 px）；button 传 null 表示 hover 移动。
+ */
+export interface InputEventPayload {
+  action: 'down' | 'move' | 'up' | 'wheel';
+  button?: 'left' | 'right' | 'middle' | null;
+  x?: number;
+  y?: number;
+  /** wheel 专用（stop 需跟在 up/down 后发送，鸿蒙官方 SDK 要求） */
+  direction?: 'up' | 'down' | 'stop';
+  amount?: number;
+  /** 诊断用：前端单调序号与时间戳 */
+  seq?: number;
+  ts?: number;
+}
+
+/**
  * 设备操作类型
  */
 export type DeviceActionType = 'click' | 'swipe' | 'input' | 'press' | 'screenshot';
