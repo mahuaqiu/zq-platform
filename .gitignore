@@ -1,10 +1,7 @@
 .DS_Store
-/scripts/node_modules
-/scripts
-*.png
+/*.png
 *.pptx
 .worktrees/
 .superpowers/
 /backend-fastapi/temp_exports
-/node_modules
-create_ppt.js
+.claude/settings.local.json

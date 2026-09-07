@@ -62,9 +62,6 @@ class Settings(BaseSettings):
 
     # 测试报告配置
     ANALYZE_TIMEOUT_MINUTES: int = 30  # 超时自动分析时间（分钟）
-    AI_ANALYSIS_SERVICE_URL: Optional[str] = None  # 本地AI服务地址（后续规划）
-    # 测试报告 API Token
-    TEST_REPORT_API_TOKEN: Optional[str] = None  # 上报API专用Token（认证）
 
     # 测试报告外部访问地址
     TEST_REPORT_EXTERNAL_BASE_URL: str = "http://192.168.0.102:8000"
@@ -87,31 +84,6 @@ class Settings(BaseSettings):
     TEST_REPORT_HTML_PATH: str = "/data/test_reports"  # HTML 文件存储路径
     TEST_REPORT_HTML_CLEANUP_DAYS: int = 15  # HTML 文件保留天数
     TEST_REPORT_DETAIL_CLEANUP_DAYS: int = 30  # 明细记录保留天数
-
-    
-    # 上下文管理配置
-    CONTEXT_TIME_WINDOW: int = 120  # 分钟
-    CONTEXT_MESSAGE_LIMIT: int = 50  # 消息数量上限
-    CONTEXT_RECOVERY_COUNT: int = 10  # 清除后保留消息数
-
-    # 文件存储配置
-    FILE_STORAGE_TYPE: str = "minio"  # local/oss/minio/azure
-    FILE_STORAGE_LOCAL_PATH: Optional[str] = None  # 本地存储路径
-    # OSS配置
-    OSS_ENDPOINT: Optional[str] = None
-    OSS_ACCESS_KEY_ID: Optional[str] = None
-    OSS_ACCESS_KEY_SECRET: Optional[str] = None
-    OSS_BUCKET_NAME: Optional[str] = None
-    # Minio配置
-    MINIO_ENDPOINT: Optional[str] = None
-    MINIO_ACCESS_KEY: Optional[str] = None
-    MINIO_SECRET_KEY: Optional[str] = None
-    MINIO_BUCKET_NAME: Optional[str] = None
-    MINIO_SECURE: bool = False
-    # Azure配置
-    AZURE_ACCOUNT_NAME: Optional[str] = None
-    AZURE_ACCOUNT_KEY: Optional[str] = None
-    AZURE_CONTAINER_NAME: Optional[str] = None
 
     # OAuth配置
     GRANT_ADMIN_TO_OAUTH_USER: bool = False  # 是否给OAuth用户授予管理员权限

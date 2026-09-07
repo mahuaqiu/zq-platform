@@ -160,9 +160,10 @@ app.include_router(env_machine_router)
 app.include_router(public_config_template_router)
 
 # 测试报告 HTML 静态文件（公开访问，无需认证）
+# 挂载发生在 import 期、早于 lifespan 建目录，必须在这里确保目录存在，否则挂载会被静默跳过
 html_path = Path(settings.TEST_REPORT_HTML_PATH)
-if html_path.exists():
-    app.mount("/test-reports-html", StaticFiles(directory=str(html_path)), name="test-reports")
+html_path.mkdir(parents=True, exist_ok=True)
+app.mount("/test-reports-html", StaticFiles(directory=str(html_path)), name="test-reports")
 
 
 @app.get("/", tags=["根路径"])

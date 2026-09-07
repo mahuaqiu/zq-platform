@@ -253,8 +253,3 @@ class CacheManager:
 
 # 默认缓存管理器实例
 cache = CacheManager()
-
-
-async def get_redis() -> Redis:
-    """FastAPI依赖注入用：获取Redis客户端"""
-    return await RedisClient.get_client()

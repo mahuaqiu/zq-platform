@@ -4,14 +4,10 @@ packages:
   - packages/*
   - packages/@core/base/*
   - packages/@core/ui-kit/*
-  - packages/@core/forward/*
   - packages/@core/*
   - packages/effects/*
-  - packages/business/*
   - apps/*
   - scripts/*
-  - docs
-  - playground
 
 catalog:
   '@ast-grep/napi': ^0.37.0
@@ -124,7 +120,6 @@ catalog:
   lodash.set: ^4.3.2
   lucide-vue-next: ^0.507.0
   medium-zoom: ^1.1.0
-  naive-ui: ^2.42.0
   nitropack: ^2.11.13
   nprogress: ^0.2.0
   ora: ^8.2.0

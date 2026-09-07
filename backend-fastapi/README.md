@@ -115,34 +115,16 @@ alembic upgrade head
 python scripts/loaddata.py db_init.json
 ```
 
-**方式二：单独初始化各模块菜单**
+**方式二：单独初始化**
 
-如果使用方式一后仍缺少某些模块菜单，可以单独执行：
+各模块菜单脚本已合并为 `init_all_menus.py`（清空并重建所有菜单），菜单缺失时直接执行它即可：
 
 ```bash
-# 执行机管理菜单
-python scripts/init_env_machine_menu.py
-
-# 升级管理菜单（执行机的子菜单）
-python scripts/init_upgrade_menu.py
-
-# 特性分析菜单
-python scripts/init_feature_analysis_menu.py
-
-# 定时任务菜单
-python scripts/init_scheduler_menu.py
+# 重建所有菜单
+python scripts/init_all_menus.py
 
 # 定时任务数据初始化（内部任务配置）
 python scripts/init_scheduler_jobs.py
-
-# 测试报告菜单
-python scripts/init_test_report_menu.py
-
-# 概览/设备监控菜单
-python scripts/init_overview_menu.py
-
-# AI助手菜单
-python scripts/init_ai_assistant_menu.py
 ```
 
 > **注意**：`db_init.json` 已包含所有模块菜单，通常只需执行方式一即可。
