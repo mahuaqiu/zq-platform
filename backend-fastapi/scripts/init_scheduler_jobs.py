@@ -75,7 +75,7 @@ async def init_scheduler_jobs():
             'description': '清理过期的定时任务执行日志',
             'group': 'scheduler',
             'trigger_type': 'cron',
-            'cron_expression': '0 3 * * *',  # 每天3:00
+            'cron_expression': '30 22 * * *',  # 每天22:30
             'task_func': 'core.scheduler.tasks.cleanup_task',
             'task_kwargs': '{"days": 7}',
             'status': 1,  # 启用
@@ -88,7 +88,7 @@ async def init_scheduler_jobs():
             'description': '清理过期的执行机申请日志',
             'group': 'env_machine',
             'trigger_type': 'cron',
-            'cron_expression': '0 3 * * *',  # 每天3:00
+            'cron_expression': '30 22 * * *',  # 每天22:30
             'task_func': 'core.scheduler.tasks.cleanup_env_machine_log_task',
             'task_kwargs': '{"days": 7}',
             'status': 1,  # 启用
@@ -133,6 +133,19 @@ async def init_scheduler_jobs():
             'status': 1,  # 启用
             'priority': 1,
             'remark': '清理7天前的命令任务历史记录',
+        },
+        {
+            'name': '登录日志清理',
+            'code': 'login_log_cleanup',
+            'description': '清理过期的登录日志',
+            'group': 'login_log',
+            'trigger_type': 'cron',
+            'cron_expression': '0 22 * * *',  # 每天22:00
+            'task_func': 'core.scheduler.tasks.cleanup_login_log_task',
+            'task_kwargs': '{"days": 30}',
+            'status': 1,  # 启用
+            'priority': 1,
+            'remark': '清理30天前的登录日志',
         },
     ]
 

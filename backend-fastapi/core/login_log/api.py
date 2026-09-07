@@ -337,7 +337,7 @@ async def get_suspicious_logins(
 
 @router.post("/clean", response_model=ResponseModel, summary="清理旧的登录日志")
 async def clean_old_logs(
-        days: int = Query(90, description="保留天数"),
+        days: int = Query(30, description="保留天数"),
         db: AsyncSession = Depends(get_db),
 ):
     """清理旧的登录日志"""

@@ -8,12 +8,11 @@
 @Desc: 执行机管理 API - 注册、申请、保持使用、释放、CRUD 接口
 """
 import asyncio
-import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,9 +52,12 @@ from core.env_machine.pool_manager import EnvPoolManager
 from core.env_machine.auth import verify_env_apply_auth
 from core.env_machine.lock_manager import EnvLockManager
 from core.env_machine.debug_service import DebugActionService
+from core.env_machine.log_service import EnvMachineLogService
 from core.env_machine.worker_client import execute_single_machine, fetch_worker_logs
+from utils.client_info import get_client_ip
+from utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/env", tags=["执行机管理"])
 
@@ -88,6 +90,7 @@ async def get_namespaces(db: AsyncSession = Depends(get_db)) -> Dict[str, str]:
 )
 async def apply_env_machines(
     namespace: str,
+    request: Request,
     data: Dict[str, str],
     db: AsyncSession = Depends(get_db),
     x_testcase_id: Optional[str] = Header(None, alias="X-Testcase-Id")
@@ -135,6 +138,7 @@ async def apply_env_machines(
     }
     ```
     """
+    client_ip = get_client_ip(request)
     try:
         # 调用池管理器分配机器，传入 testcase_id
         success, result = await EnvPoolManager.allocate_machines(
@@ -142,35 +146,48 @@ async def apply_env_machines(
         )
 
         if success:
-            logger.info(f"执行机申请成功: namespace={namespace}, allocations={list(result.keys())}")
+            logger.info(f"执行机申请成功 | namespace={namespace} | source_ip={client_ip} | allocations={list(result.keys())}")
             return EnvSuccessResponse(status="success", data=result)
         else:
-            logger.warning(f"执行机申请失败: namespace={namespace}, reason={result}")
+            logger.warning(f"执行机申请失败 | namespace={namespace} | source_ip={client_ip} | reason={result}")
             return EnvFailResponse(status="fail", result=result)
     except Exception as e:
         await db.rollback()
-        logger.error(f"执行机申请失败: {e}")
+        logger.error(f"执行机申请异常 | namespace={namespace} | source_ip={client_ip} | error={e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
 
-@router.post("/keepusing", response_model=EnvSuccessResponse, summary="保持使用执行机")
+@router.post(
+    "/keepusing",
+    response_model=Union[EnvSuccessResponse, EnvFailResponse],
+    summary="保持使用执行机",
+)
 async def keepusing_env_machines(
+    request: Request,
     data: List[EnvMachineIdItem],
     db: AsyncSession = Depends(get_db)
-) -> EnvSuccessResponse:
+) -> Union[EnvSuccessResponse, EnvFailResponse]:
     """
     保持使用执行机接口
 
     更新 last_keepusing_time，防止被周期任务超时释放。
 
     逻辑：
-    1. 遍历请求中的机器 ID
-    2. 对于每台机器：更新 last_keepusing_time
-    3. 忽略不存在或非 using 状态的机器
+    1. 遍历请求中的机器 ID，忽略不存在或非 using 状态的机器
+    2. 校验连续使用时长：从最近一次申请成功时间起算，超过
+       ENV_MACHINE_KEEPUSING_MAX_HOURS（默认3小时）的机器拒绝保持，
+       本次请求整体拒绝（不更新任何机器），需先释放设备后重新申请
+    3. 更新通过校验机器的 last_keepusing_time
     """
     now = datetime.now()
+    client_ip = get_client_ip(request)
+    max_hours = get_settings().ENV_MACHINE_KEEPUSING_MAX_HOURS
+    max_duration = timedelta(hours=max_hours)
 
     try:
+        exceeded: List[str] = []
+        machines_to_keep: List[EnvMachine] = []
+
         for item in data:
             machine = await EnvMachineService.get_by_id(db, item.id)
 
@@ -182,23 +199,54 @@ async def keepusing_env_machines(
                 logger.debug(f"机器状态非 using，忽略: {item.id}, status={machine.status}")
                 continue
 
-            # 更新最后保持使用时间
+            # 连续使用时长从最近一次申请成功（未释放）的申请时间起算；
+            # 找不到申请记录（如手工占用）时不在校验范围内
+            apply_log = await EnvMachineLogService.get_latest_apply_log(db, item.id)
+            if apply_log and apply_log.apply_time:
+                held_duration = now - apply_log.apply_time
+                if held_duration > max_duration:
+                    exceeded.append(
+                        f"{machine.ip or machine.device_sn or machine.id}"
+                        f"(已使用{held_duration.total_seconds() / 3600:.1f}小时)"
+                    )
+                    continue
+
+            machines_to_keep.append(machine)
+
+        if exceeded:
+            detail = ", ".join(exceeded)
+            logger.warning(
+                f"保持使用执行机被拒绝 | source_ip={client_ip} | "
+                f"超过最长连续使用时长{max_hours}小时: {detail}"
+            )
+            await db.rollback()
+            return EnvFailResponse(
+                status="fail",
+                result=(
+                    f"设备已连续使用超过{max_hours}小时，拒绝保持使用，"
+                    f"请先释放设备后重新申请: {detail}"
+                ),
+            )
+
+        # 更新最后保持使用时间
+        for machine in machines_to_keep:
             machine.last_keepusing_time = now
 
         # 提交数据库更改
         await db.commit()
 
-        logger.info(f"保持使用执行机成功: count={len(data)}")
+        logger.info(f"保持使用执行机成功 | source_ip={client_ip} | count={len(data)}")
 
         return EnvSuccessResponse(status="success", data=None)
     except Exception as e:
         await db.rollback()
-        logger.error(f"保持使用执行机失败: {e}")
+        logger.error(f"保持使用执行机失败 | source_ip={client_ip} | error={e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
 
 @router.post("/release", response_model=EnvSuccessResponse, summary="释放执行机")
 async def release_env_machines(
+    request: Request,
     data: List[EnvMachineIdItem],
     db: AsyncSession = Depends(get_db)
 ) -> EnvSuccessResponse:
@@ -212,6 +260,7 @@ async def release_env_machines(
     2. 对于每台机器：调用 pool_manager.release_machine 更新状态和日志
     3. 忽略不存在的机器
     """
+    client_ip = get_client_ip(request)
     try:
         for item in data:
             machine = await EnvMachineService.get_by_id(db, item.id)
@@ -223,12 +272,12 @@ async def release_env_machines(
             # 调用 pool_manager.release_machine 释放机器（会更新日志的 duration_minutes）
             await EnvPoolManager.release_machine(db, item.id, machine.namespace)
 
-        logger.info(f"释放执行机成功: count={len(data)}")
+        logger.info(f"释放执行机成功 | source_ip={client_ip} | count={len(data)}")
 
         return EnvSuccessResponse(status="success", data=None)
     except Exception as e:
         await db.rollback()
-        logger.error(f"释放执行机失败: {e}")
+        logger.error(f"释放执行机失败 | source_ip={client_ip} | error={e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
 
@@ -406,7 +455,6 @@ async def get_dashboard_stats(
     Returns:
         DashboardStatsResponse: 看板统计数据
     """
-    from core.env_machine.log_service import EnvMachineLogService
     from core.env_machine.log_schema import DashboardStatsResponse, DeviceStats, Apply24hStats
 
     # 解析 namespace 参数：支持逗号分隔的多个值

@@ -500,9 +500,9 @@ class LoginLogService(BaseService[LoginLog, LoginLogCreate, LoginLogUpdate]):
     async def clean_old_logs(
             cls,
             db: AsyncSession,
-            days: int = 90,
+            days: int = 30,
     ) -> int:
-        """清理旧的登录日志（默认保留90天）"""
+        """清理旧的登录日志（默认保留30天）"""
         cutoff_date = datetime.now() - timedelta(days=days)
 
         stmt = delete(LoginLog).where(LoginLog.sys_create_datetime < cutoff_date)

@@ -100,3 +100,27 @@ async def cleanup_command_task_task(job_code: str = None, days: int = 7, **kwarg
     except Exception as e:
         logger.error(f"[{job_code}] 命令任务历史清理任务执行失败: {str(e)}")
         raise
+
+
+async def cleanup_login_log_task(job_code: str = None, days: int = 30, **kwargs):
+    """
+    清理登录日志任务
+
+    Args:
+        job_code: 任务编码（由调度器自动传入）
+        days: 保留最近N天的数据，默认30天
+        **kwargs: 其他参数
+    """
+    logger.info(f"[{job_code}] 登录日志清理任务开始，保留最近 {days} 天数据")
+
+    try:
+        from core.login_log.service import LoginLogService
+
+        async with AsyncSessionLocal() as db:
+            count = await LoginLogService.clean_old_logs(db, days)
+
+        logger.info(f"[{job_code}] 登录日志清理任务完成，删除了 {count} 条登录日志")
+        return f"清理了 {count} 条登录日志，保留最近 {days} 天"
+    except Exception as e:
+        logger.error(f"[{job_code}] 登录日志清理任务执行失败: {str(e)}")
+        raise

@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # 执行主机IP（用于定时任务IP匹配）
     HOST_IP: str = ""
 
+    # 执行机最长连续使用时长（小时），超过后拒绝 keepusing，需先释放设备
+    ENV_MACHINE_KEEPUSING_MAX_HOURS: float = 3.0
+
     # 测试报告 HTML 存储配置
     TEST_REPORT_HTML_PATH: str = "/data/test_reports"  # HTML 文件存储路径
     TEST_REPORT_HTML_CLEANUP_DAYS: int = 15  # HTML 文件保留天数
