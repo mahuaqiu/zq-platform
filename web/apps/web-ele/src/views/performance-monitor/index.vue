@@ -63,6 +63,27 @@ const currentDeviceInfo = computed(() => {
     : undefined;
 });
 
+// SN 展示缩略：超长时保留尾部 8 位（SN 尾部是唯一性最高的部分）
+function shortSn(sn?: string | null): string {
+  if (!sn) return '';
+  return sn.length > 10 ? `…${sn.slice(-8)}` : sn;
+}
+
+// 设备下拉 label：带 SN 设备（鸿蒙/安卓等）同 IP 多台时仅靠 SN 区分
+function deviceLabel(device: EnvMachine): string {
+  const sn = device.device_sn ? ` (${shortSn(device.device_sn)})` : '';
+  return `${device.device_type} - ${device.ip}${sn}`;
+}
+
+// 采集记录的设备标识后缀，用于历史/版本对比时区分来源设备
+function collectDeviceSuffix(
+  c: Pick<PerformanceCollect, 'device_type' | 'device_ip' | 'device_sn'>,
+): string {
+  const parts = [c.device_type, c.device_ip, c.device_sn ? `SN ${shortSn(c.device_sn)}` : '']
+    .filter(Boolean);
+  return parts.length ? ` · ${parts.join('·')}` : '';
+}
+
 // 采集状态
 const collectStatus = ref<CollectStatus>({ is_collecting: false });
 const currentCollectId = ref('');
@@ -819,16 +840,20 @@ async function fetchVersions() {
   }
 }
 
+// 页面固定 5 秒刷新一次：采集间隔只决定数据入库节奏，页面刷新不跟随，
+// 避免 1 秒采集时前端请求与图表重绘过于频繁。
+const PAGE_REFRESH_INTERVAL_MS = 5000;
+
 function startPolling(collectId: string) {
   if (pollingTimer) clearInterval(pollingTimer);
 
   // 立即获取最新数据显示
   loadLatestData(collectId);
 
-  // 定时轮询获取最新数据
+  // 定时轮询获取最新数据（固定 5s，与采集间隔解耦）
   pollingTimer = window.setInterval(async () => {
     await loadLatestData(collectId);
-  }, (collectStatus.value.interval ?? 5) * 1000);
+  }, PAGE_REFRESH_INTERVAL_MS);
 }
 
 // 加载最新数据
@@ -1292,11 +1317,14 @@ async function loadMoreData(start_time: number, end_time: number) {
           <el-option
             v-for="device in onlineDevices"
             :key="device.id"
-            :label="device.device_type + ' - ' + device.ip"
+            :label="deviceLabel(device)"
             :value="device.id"
           >
             <span>{{ device.device_type }}</span>
             <span style="margin-left: 10px; color: #409eff">{{ device.ip }}</span>
+            <span v-if="device.device_sn" style="margin-left: 10px; color: #909399">
+              SN {{ device.device_sn }}
+            </span>
           </el-option>
         </el-select>
         <span v-else class="loading-text">加载中...</span>
@@ -1304,6 +1332,13 @@ async function loadMoreData(start_time: number, end_time: number) {
         <!-- 设备状态卡片（仅未采集时显示） -->
         <div v-if="!collectStatus.is_collecting && currentDeviceInfo" class="device-status-card">
           <span class="device-ip">{{ currentDeviceInfo.ip }}</span>
+          <span
+            v-if="currentDeviceInfo.device_sn"
+            class="device-sn"
+            style="margin-left: 8px; color: #909399"
+          >
+            SN {{ currentDeviceInfo.device_sn }}
+          </span>
           <span class="online-badge" v-if="currentDeviceInfo.status === 'online' || currentDeviceInfo.status === 'using'">● 在线</span>
         </div>
 
@@ -1435,7 +1470,7 @@ async function loadMoreData(start_time: number, end_time: number) {
             <el-option
               v-for="c in collectHistory"
               :key="c.id"
-              :label="c.name || `${new Date(c.start_time).toLocaleString('zh-CN')} (${c.interval}s)`"
+              :label="(c.name || `${new Date(c.start_time).toLocaleString('zh-CN')} (${c.interval}s)`) + collectDeviceSuffix(c)"
               :value="c.id"
             />
           </el-select>
@@ -1566,6 +1601,12 @@ async function loadMoreData(start_time: number, end_time: number) {
               <div class="info-item">
                 <span class="info-label">采集频率</span>
                 <span class="info-value">{{ c.interval }}秒/次</span>
+              </div>
+              <div class="info-item" v-if="c.device_type || c.device_ip || c.device_sn">
+                <span class="info-label">采集设备</span>
+                <span class="info-value">
+                  {{ [c.device_type, c.device_ip, c.device_sn ? `SN ${shortSn(c.device_sn)}` : ''].filter(Boolean).join(' · ') }}
+                </span>
               </div>
             </div>
             <div class="card-processes" v-if="(c.target_processes ?? []).length > 0">
