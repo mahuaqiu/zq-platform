@@ -1432,7 +1432,7 @@ async function loadMoreData(start_time: number, end_time: number) {
       </div>
 
       <!-- 底部面板区域 - 双面板布局（HWiNFO 指标和 Linux 设备不显示进程面板） -->
-      <div v-if="currentMetric !== 'hwinfo' && deviceKind === 'windows'" class="bottom-panels">
+      <div v-if="currentMetric !== 'hwinfo' && deviceKind !== 'linux'" class="bottom-panels">
         <!-- 目标进程明细面板 -->
         <div class="panel-wrapper target-process-wrapper">
           <TargetProcessPanel

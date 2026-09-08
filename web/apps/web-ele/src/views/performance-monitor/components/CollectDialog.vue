@@ -138,7 +138,9 @@ const finalTargetProcesses = computed<TargetProcessConfig[]>(() => {
 async function fetchProcesses() {
   loading.value = true;
   try {
-    const result = await getProcesses(props.deviceId, searchQuery.value, {
+    // 不带搜索关键字，拉取全量进程列表：搜索由下方列表的客户端过滤实时完成。
+    // 带关键字请求会因切换设备后残留的旧关键字拉回空列表，且清除后无法恢复。
+    const result = await getProcesses(props.deviceId, '', {
       device_type: props.deviceInfo?.device_type,
       device_sn: props.deviceInfo?.device_sn,
     });
@@ -356,6 +358,10 @@ watch(() => props.visible, (v) => {
     if (isHarmonyDevice.value) {
       collectMode.value = 'name';
     }
+    // 重置上次会话残留的搜索词与手动输入：搜索词残留会导致切换设备后
+    // 列表为空，且客户端过滤实时生效，无需跨会话保留。
+    searchQuery.value = '';
+    manualInput.value = '';
     // Linux 设备不获取进程列表（采集系统级数据，无需选择进程）
     if (!isLinuxDevice.value) {
       fetchProcesses();
