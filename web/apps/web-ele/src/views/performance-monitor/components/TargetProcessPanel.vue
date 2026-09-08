@@ -34,6 +34,11 @@ function getInstanceValue(instance: ProcessInstance, chartType: string): number 
   }
 }
 
+// 百分比小于 0.1 时保留两位小数，与 TIP 口径一致（避免 0.02% 显示成 0.0%）
+function formatPercent(value: number): string {
+  return value > 0 && value < 0.1 ? value.toFixed(2) : value.toFixed(1);
+}
+
 // 格式化显示值
 function formatValue(value: number, chartType: string): string {
   if (chartType === 'memory' || chartType === 'commitMemory') {
@@ -42,7 +47,7 @@ function formatValue(value: number, chartType: string): string {
   if (chartType === 'handles') {
     return `${Math.round(value)} 个`;
   }
-  return `${value.toFixed(1)}%`;
+  return `${formatPercent(value)}%`;
 }
 
 // 根据点击时间获取对应数据点
@@ -59,7 +64,8 @@ const selectedDataPoint = computed(() => {
   return props.data[props.data.length - 1];
 });
 
-// 过滤有效进程实例，按使用率降序排列
+// 显示全部实例（与 TIP 的“N 实例”同一口径：0 值实例也是真实存在的进程），
+// 按当前指标值降序排列
 const filteredProcesses = computed(() => {
   const point = selectedDataPoint.value;
   if (!point?.target_processes) return [];
@@ -67,11 +73,10 @@ const filteredProcesses = computed(() => {
   return point.target_processes
     .map((process: ProcessData) => ({
       name: process.name,
-      instances: process.instances
-        .filter((instance: ProcessInstance) => getInstanceValue(instance, props.chartType) > 0)
-        .sort((a: ProcessInstance, b: ProcessInstance) =>
-          getInstanceValue(b, props.chartType) - getInstanceValue(a, props.chartType)
-        ),
+      // 拷贝后再排序，避免原地修改样本数据
+      instances: [...process.instances].sort((a: ProcessInstance, b: ProcessInstance) =>
+        getInstanceValue(b, props.chartType) - getInstanceValue(a, props.chartType)
+      ),
     }))
     .filter((process) => process.instances.length > 0);
 });
