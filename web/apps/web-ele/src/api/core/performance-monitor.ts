@@ -13,6 +13,10 @@ export interface ProcessInfo {
 export interface PerformanceCollect {
   id: string;
   device_id: string;
+  device_type?: string;
+  device_ip?: string;
+  device_sn?: string;
+  match_mode?: string;
   name?: string;
   start_time: string;
   end_time?: string;
@@ -214,6 +218,7 @@ export async function startCollect(params: {
   target_processes?: TargetProcessConfig[];
   device_type?: string;
   device_sn?: string;
+  match_mode?: string;  // 鸿蒙匹配模式：fuzzy=PKG 包名；exact=PID 精准
 }) {
   return requestClient.post<{ collect_id: string; status: string }>(
     '/api/core/performance-monitor/collect/start',

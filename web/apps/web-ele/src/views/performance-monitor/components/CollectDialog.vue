@@ -32,11 +32,12 @@ const isHarmonyDevice = computed(() => {
   return ['harmony_pc', 'harmony_mobile'].includes(props.deviceInfo?.device_type || '');
 });
 
-// 设备显示信息
+// 设备显示信息（带 SN 设备必须可区分，鸿蒙同 IP 多台仅靠 SN）
 const deviceDisplay = computed(() => {
   if (props.deviceInfo) {
     const deviceType = props.deviceInfo.device_type || 'windows';
-    return `${deviceType}-${props.deviceInfo.ip}`;
+    const sn = props.deviceInfo.device_sn ? ` (SN ${props.deviceInfo.device_sn})` : '';
+    return `${deviceType}-${props.deviceInfo.ip}${sn}`;
   }
   return '未选择设备';
 });
@@ -57,6 +58,10 @@ const timeoutOptions = [12, 24, 72];
 
 // 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
 const collectMode = ref<'pid' | 'name'>('pid');
+
+// 鸿蒙匹配模式：fuzzy=设备端 -PKG 按包名采集（含子进程）；
+// exact=worker 通过 ps -ef 精准定位 PID 后 -PID 采集，应用未启动自动探测跟随
+const harmonyMatchMode = ref<'fuzzy' | 'exact'>('fuzzy');
 
 // 进程列表
 const processList = ref<Array<{ name: string; pid: number; cpu: number }>>([]);
@@ -169,15 +174,11 @@ function toggleProcessPid(name: string, pid: number) {
   }
 }
 
-// 进程名模式：选中/取消选中进程名；鸿蒙单应用限制，选新的直接替换旧选择
+// 进程名模式：选中/取消选中进程名（鸿蒙支持多应用采集）
 function toggleProcessName(name: string) {
   const idx = selectedProcessNames.value.indexOf(name);
   if (idx >= 0) {
     selectedProcessNames.value.splice(idx, 1);
-    return;
-  }
-  if (isHarmonyDevice.value) {
-    selectedProcessNames.value = [name];
     return;
   }
   selectedProcessNames.value.push(name);
@@ -233,16 +234,6 @@ function handleManualAdd() {
     return;
   }
 
-  // 鸿蒙单应用限制：手动输入只取一个包名，替换当前选择
-  if (isHarmonyDevice.value) {
-    if (names.length > 1) {
-      ElMessage.warning('鸿蒙设备一次仅支持采集一个应用，已取第一个包名');
-    }
-    selectedProcessNames.value = [names[0]!];
-    manualInput.value = '';
-    return;
-  }
-
   // 添加到选中列表（去重）
   const newNames = names.filter((n) => !selectedProcessNames.value.includes(n));
   if (newNames.length === 0) {
@@ -284,11 +275,6 @@ async function handleStart() {
     ElMessage.warning('请选择目标进程');
     return;
   }
-  // 鸿蒙 SP_daemon -PKG 单应用限制（UI 已约束，此处兑底）。
-  if (isHarmonyDevice.value && finalTargetProcesses.value.length > 1) {
-    ElMessage.warning('鸿蒙设备一次仅支持采集一个应用');
-    return;
-  }
 
   try {
     loading.value = true;
@@ -299,6 +285,7 @@ async function handleStart() {
       target_processes: finalTargetProcesses.value,
       device_type: props.deviceInfo?.device_type,
       device_sn: props.deviceInfo?.device_sn,
+      match_mode: isHarmonyDevice.value ? harmonyMatchMode.value : undefined,
     });
     // 保存到历史记录，下次优先显示
     const names = collectMode.value === 'name'
@@ -382,9 +369,9 @@ watch(() => props.visible, (v) => {
       <div v-if="isLinuxDevice" class="device-tip">
         Linux 设备将采集系统级 CPU/内存性能数据
       </div>
-      <!-- 鸿蒙单应用限制提示 -->
+      <!-- 鸿蒙采集提示 -->
       <div v-if="isHarmonyDevice" class="device-tip">
-        鸿蒙设备一次仅支持采集一个应用（含主进程与子进程）；不选应用时仅采集系统指标
+        可选择多个应用同时采集（每个应用一个采集实例）；不选应用时仅采集系统指标
       </div>
     </div>
 
@@ -392,7 +379,7 @@ watch(() => props.visible, (v) => {
     <div v-if="!isLinuxDevice" class="process-section">
       <div class="section-title">
         {{ isHarmonyDevice ? '目标应用' : '目标进程' }}
-        <span class="subtitle">{{ isHarmonyDevice ? '（最多选 1 个，可不选）' : '（可多选）' }}</span>
+        <span class="subtitle">{{ isHarmonyDevice ? '（可多选，可不选）' : '（可多选）' }}</span>
       </div>
 
       <!-- 采集模式选择（鸿蒙仅支持按应用包名采集，不显示切换） -->
@@ -403,6 +390,19 @@ watch(() => props.visible, (v) => {
         </el-radio-group>
         <div class="mode-tip">
           {{ collectMode === 'pid' ? '采集指定PID的进程' : '采集该进程名下所有实例（含未来启动的新实例）' }}
+        </div>
+      </div>
+
+      <!-- 鸿蒙匹配模式：PKG 模糊匹配 / PID 精准匹配 -->
+      <div v-if="isHarmonyDevice" class="mode-selector">
+        <el-radio-group v-model="harmonyMatchMode" size="small">
+          <el-radio-button value="fuzzy">PKG 模糊匹配</el-radio-button>
+          <el-radio-button value="exact">PID 精准匹配</el-radio-button>
+        </el-radio-group>
+        <div class="mode-tip">
+          {{ harmonyMatchMode === 'exact'
+            ? '通过 ps -ef 按包名精准定位 PID 采集，不受同前缀包名干扰；应用未启动时每 30 秒自动探测，应用重启后自动跟随新 PID。'
+            : '按包名交给设备端 SP_daemon 采集，自动包含主进程与全部子进程；存在同前缀包名时可能误匹配。' }}
         </div>
       </div>
 
