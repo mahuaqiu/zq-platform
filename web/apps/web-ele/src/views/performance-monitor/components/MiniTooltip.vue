@@ -61,17 +61,15 @@ function processValueText(p: ProcessData): string {
   }
 }
 
-// 显示进程名 + 实例数 + 当前指标数值（最多 3 个）- HWiNFO 指标不显示进程数据
+// 显示全部目标进程的当前指标数值（多进程合一条线时，悬浮即可看出每个进程的明细）；
+// HWiNFO 指标为纯系统传感器，不显示进程数据
 const processSummary = computed(() => {
   if (props.data?.target_processes && props.chartType !== 'hwinfo') {
-    return props.data.target_processes
-      .filter(p => p.instances && p.instances.length > 0)
-      .slice(0, 3)
-      .map(p => ({
-        name: p.name,
-        instanceCount: p.instances.length,
-        valueText: processValueText(p)
-      }));
+    return props.data.target_processes.map((p) => ({
+      name: p.name,
+      instanceCount: p.instances?.length || 0,
+      valueText: processValueText(p)
+    }));
   }
   return [];
 });
@@ -147,8 +145,8 @@ function formatDateTime(timestamp: string): string {
   font-size: 13px;
   min-width: 200px;
   max-width: 280px;  /* 增加宽度避免换行 */
-  max-height: 150px;
-  overflow: hidden;
+  max-height: 320px;
+  overflow-y: auto;
   pointer-events: none;  /* 点击穿透 */
 }
 
