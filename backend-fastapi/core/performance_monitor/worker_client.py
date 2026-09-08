@@ -63,6 +63,7 @@ async def notify_worker_start(
     device_port: str | int,
     device_type: str,
     device_sn: str | None,
+    match_mode: str | None = None,
 ) -> None:
     """后台通知 Worker 开始采集；失败时把平台记录标为 failed。"""
     worker_url = f"http://{device_ip}:{device_port}/api/worker/{device_id}/collect/start"
@@ -72,6 +73,7 @@ async def notify_worker_start(
         "timeout": timeout,
         "target_processes": target_processes or [],
         "device_type": device_type,
+        "match_mode": match_mode or "fuzzy",
     }
     if device_sn:
         worker_request["device_sn"] = device_sn

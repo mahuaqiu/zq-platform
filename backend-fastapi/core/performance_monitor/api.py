@@ -181,6 +181,7 @@ async def start_collect(
             device_port=device.port,
             device_type=device_type,
             device_sn=device_sn,
+            match_mode=request.match_mode,
         )
 
     collect = await db.get(PerformanceCollect, collect_id)
