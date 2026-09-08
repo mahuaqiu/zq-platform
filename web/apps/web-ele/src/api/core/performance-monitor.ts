@@ -134,6 +134,7 @@ export interface CollectStatus {
   is_collecting: boolean;
   collect_id?: string;
   interval?: number;
+  match_mode?: string;  // 鸿蒙匹配模式：fuzzy=PKG 包名；exact=PID 精准
   target_processes?: TargetProcessConfig[];
   start_time?: string;
   elapsed_seconds?: number;

@@ -399,6 +399,20 @@ watch(() => props.visible, (v) => {
       <div class="section-title">
         {{ isHarmonyDevice ? '目标应用' : '目标进程' }}
         <span class="subtitle">{{ isHarmonyDevice ? '（最多选 1 个，可不选）' : '（可多选）' }}</span>
+        <span
+          v-if="isHarmonyDevice"
+          class="mode-badge"
+          :style="{
+            marginLeft: '8px',
+            padding: '1px 8px',
+            borderRadius: '10px',
+            fontSize: '12px',
+            background: harmonyMatchMode === 'exact' ? 'rgba(230,162,60,0.12)' : 'rgba(103,194,126,0.12)',
+            color: harmonyMatchMode === 'exact' ? '#e6a23c' : '#67c23a',
+          }"
+        >
+          {{ harmonyMatchMode === 'exact' ? 'PID 精准' : 'PKG 模糊' }}
+        </span>
       </div>
 
       <!-- 采集模式选择（鸿蒙仅支持按应用包名采集，不显示切换） -->
@@ -420,7 +434,7 @@ watch(() => props.visible, (v) => {
         </el-radio-group>
         <div class="mode-tip">
           {{ harmonyMatchMode === 'exact'
-            ? '通过 ps -ef 按包名精准定位 PID 采集，不受同前缀包名干扰；应用未启动时每 30 秒自动探测，应用重启后自动跟随新 PID。'
+            ? '同样只需选择/输入包名：系统自动通过 ps -ef 定位该应用的 PID，只采集主进程，不受同前缀包名干扰；应用未启动时每 30 秒自动探测，应用重启后自动跟随新 PID。'
             : '按包名交给设备端 SP_daemon 采集，自动包含主进程与全部子进程；存在同前缀包名时可能误匹配。' }}
         </div>
       </div>

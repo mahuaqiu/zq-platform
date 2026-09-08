@@ -266,6 +266,7 @@ class PerformanceCollectService(BaseService):
                 "collect_id": collect.id,
                 "interval": collect.interval,
                 "target_processes": collect.target_processes,
+                "match_mode": collect.match_mode or "fuzzy",
                 "start_time": start_time_str,
                 "elapsed_seconds": int((datetime.utcnow() - collect.start_time).total_seconds()),
                 "last_heartbeat_at": collect.last_heartbeat_at,

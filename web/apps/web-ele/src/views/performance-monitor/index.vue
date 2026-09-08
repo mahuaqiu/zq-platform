@@ -1346,6 +1346,16 @@ async function loadMoreData(start_time: number, end_time: number) {
         <div v-if="collectStatus.is_collecting" class="collect-status-card">
           <span class="collect-label">采集状态：</span>
           <span class="collect-running">运行中</span>
+          <span
+            v-if="collectStatus.match_mode"
+            class="collect-mode-badge"
+            :style="{
+              background: collectStatus.match_mode === 'exact' ? 'rgba(230,162,60,0.12)' : 'rgba(103,194,126,0.12)',
+              color: collectStatus.match_mode === 'exact' ? '#e6a23c' : '#67c23a',
+            }"
+          >
+            {{ collectStatus.match_mode === 'exact' ? 'PID 精准采集' : 'PKG 模糊采集' }}
+          </span>
           <span class="collect-duration">已采集: {{ formatCollectedDuration(performanceData.length > 0 ? timeSeconds(performanceData[performanceData.length - 1]) : 0) }}</span>
         </div>
 
@@ -1607,6 +1617,10 @@ async function loadMoreData(start_time: number, end_time: number) {
                 <span class="info-value">
                   {{ [c.device_type, c.device_ip, c.device_sn ? `SN ${shortSn(c.device_sn)}` : ''].filter(Boolean).join(' · ') }}
                 </span>
+              </div>
+              <div class="info-item" v-if="c.match_mode">
+                <span class="info-label">匹配模式</span>
+                <span class="info-value">{{ c.match_mode === 'exact' ? 'PID 精准' : 'PKG 模糊' }}</span>
               </div>
             </div>
             <div class="card-processes" v-if="(c.target_processes ?? []).length > 0">
