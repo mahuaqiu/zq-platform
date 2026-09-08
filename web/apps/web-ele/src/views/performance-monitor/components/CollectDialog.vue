@@ -174,11 +174,15 @@ function toggleProcessPid(name: string, pid: number) {
   }
 }
 
-// 进程名模式：选中/取消选中进程名（鸿蒙支持多应用采集）
+// 进程名模式：选中/取消选中进程名；鸿蒙 SP_daemon 单应用限制，选新的直接替换旧选择
 function toggleProcessName(name: string) {
   const idx = selectedProcessNames.value.indexOf(name);
   if (idx >= 0) {
     selectedProcessNames.value.splice(idx, 1);
+    return;
+  }
+  if (isHarmonyDevice.value) {
+    selectedProcessNames.value = [name];
     return;
   }
   selectedProcessNames.value.push(name);
@@ -234,6 +238,16 @@ function handleManualAdd() {
     return;
   }
 
+  // 鸿蒙单应用限制：手动输入只取一个包名，替换当前选择
+  if (isHarmonyDevice.value) {
+    if (names.length > 1) {
+      ElMessage.warning('鸿蒙设备一次仅支持采集一个应用，已取第一个包名');
+    }
+    selectedProcessNames.value = [names[0]!];
+    manualInput.value = '';
+    return;
+  }
+
   // 添加到选中列表（去重）
   const newNames = names.filter((n) => !selectedProcessNames.value.includes(n));
   if (newNames.length === 0) {
@@ -273,6 +287,11 @@ async function handleStart() {
   // Windows 设备仍要求选择目标进程；鸿蒙可空选，仅采系统指标。
   if (!isHarmonyDevice.value && selectedCount.value === 0) {
     ElMessage.warning('请选择目标进程');
+    return;
+  }
+  // 鸿蒙 SP_daemon 单应用限制（UI 已单选约束，此处兜底）。
+  if (isHarmonyDevice.value && finalTargetProcesses.value.length > 1) {
+    ElMessage.warning('鸿蒙设备一次仅支持采集一个应用');
     return;
   }
 
@@ -371,7 +390,7 @@ watch(() => props.visible, (v) => {
       </div>
       <!-- 鸿蒙采集提示 -->
       <div v-if="isHarmonyDevice" class="device-tip">
-        可选择多个应用同时采集（每个应用一个采集实例）；不选应用时仅采集系统指标
+        鸿蒙设备一次仅支持采集一个应用（含主进程与子进程）；不选应用时仅采集系统指标
       </div>
     </div>
 
@@ -379,7 +398,7 @@ watch(() => props.visible, (v) => {
     <div v-if="!isLinuxDevice" class="process-section">
       <div class="section-title">
         {{ isHarmonyDevice ? '目标应用' : '目标进程' }}
-        <span class="subtitle">{{ isHarmonyDevice ? '（可多选，可不选）' : '（可多选）' }}</span>
+        <span class="subtitle">{{ isHarmonyDevice ? '（最多选 1 个，可不选）' : '（可多选）' }}</span>
       </div>
 
       <!-- 采集模式选择（鸿蒙仅支持按应用包名采集，不显示切换） -->
