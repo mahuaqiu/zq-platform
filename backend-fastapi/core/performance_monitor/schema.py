@@ -21,6 +21,9 @@ class CollectStartRequest(BaseModel):
     target_processes: Optional[List[Dict[str, Any]]] = Field(None, description="目标进程配置")
     device_type: Optional[str] = Field(None, description="设备类型，由 EnvMachine 解析并透传给 Worker")
     device_sn: Optional[str] = Field(None, description="设备物理标识，鸿蒙为 HDC UDID")
+    match_mode: Optional[str] = Field(
+        None, description="鸿蒙匹配模式：fuzzy=设备端-PKG包名匹配；exact=定位PID后-PID精准采集"
+    )
 
 
 class CollectStopRequest(BaseModel):
@@ -254,6 +257,10 @@ class CollectResponse(BaseModel):
     """采集记录响应 Schema"""
     id: str = Field(..., description="采集记录ID")
     device_id: str = Field(..., description="设备ID")
+    device_type: Optional[str] = Field(None, description="设备类型快照")
+    device_ip: Optional[str] = Field(None, description="设备IP快照")
+    device_sn: Optional[str] = Field(None, description="设备SN快照（鸿蒙为HDC UDID）")
+    match_mode: Optional[str] = Field(None, description="鸿蒙匹配模式：fuzzy/exact")
     name: Optional[str] = Field(None, description="采集名称")
     start_time: datetime = Field(..., description="开始时间")
     end_time: Optional[datetime] = Field(None, description="结束时间")

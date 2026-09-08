@@ -116,7 +116,9 @@ class PerformanceCollectService(BaseService):
         return fixed
 
     @classmethod
-    async def start_collect(cls, db: AsyncSession, request: CollectStartRequest) -> str:
+    async def start_collect(
+        cls, db: AsyncSession, request: CollectStartRequest, device: Optional[EnvMachine] = None
+    ) -> str:
         """开始采集"""
         # Worker 重启后可能残留 starting/stopping，先对账再创建
         await cls.reconcile_stale_collects(db, request.device_id)
@@ -159,6 +161,11 @@ class PerformanceCollectService(BaseService):
             start_time=start_time_utc.replace(tzinfo=None),  # 存储为 naive datetime（UTC）
             interval=request.interval,
             target_processes=request.target_processes,
+            match_mode=request.match_mode or "fuzzy",
+            # 设备信息快照：历史记录与版本对比展示用，不受设备后续修改/删除影响。
+            device_type=device.device_type if device else None,
+            device_ip=device.ip if device else None,
+            device_sn=(device.device_sn or None) if device else None,
             status="starting"
         )
         db.add(collect)

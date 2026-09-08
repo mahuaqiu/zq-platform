@@ -138,7 +138,7 @@ async def start_collect(
     _validate_optional_identity(request.device_type, request.device_sn, device_type, device_sn)
 
     try:
-        collect_id = await PerformanceCollectService.start_collect(db, request)
+        collect_id = await PerformanceCollectService.start_collect(db, request, device=device)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 

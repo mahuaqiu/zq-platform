@@ -27,6 +27,12 @@ class PerformanceCollect(BaseModel):
     # 设备ID（关联 env_machine）
     device_id = Column(String(21), nullable=False, index=True, comment="设备ID")
 
+    # 设备信息快照（开始采集时冗余落库，历史记录与版本对比展示用）
+    device_type = Column(String(30), nullable=True, comment="设备类型快照")
+    device_ip = Column(String(64), nullable=True, comment="设备IP快照")
+    device_sn = Column(String(64), nullable=True, comment="设备SN快照（鸿蒙为HDC UDID）")
+    match_mode = Column(String(10), nullable=True, comment="鸿蒙匹配模式：fuzzy/exact")
+
     # 采集名称（可选）
     name = Column(String(100), nullable=True, comment="采集名称")
 
