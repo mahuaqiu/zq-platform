@@ -24,6 +24,7 @@ zq-platform 是一个企业级后台管理系统，采用前后端分离架构�
 | `oauth` | OAuth 第三方登录 |
 | `env_machine` | 执行机管理（设备管理）- 设备列表页面、手工使用页面、升级管理 |
 | `config_template` | 配置模板管理 - 配置模板 CRUD、配置下发到执行机 |
+| `config_center` | 配置中心 - 通用键值对配置管理、/api/public 免鉴权外部查询 |
 | `feature_analysis` | 特性分析 |
 | `issues_analysis` | 问题分析 |
 | `test_report` | 测试报告 |

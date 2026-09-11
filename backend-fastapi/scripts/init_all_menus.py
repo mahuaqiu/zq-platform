@@ -238,6 +238,16 @@ ALL_MENUS = [
         "parent_id": "system-root",
         "order": 6,
     },
+    {
+        "id": "system-config-center",
+        "name": "SystemConfigCenter",
+        "title": "配置中心",
+        "path": "/system/config-center",
+        "type": "menu",
+        "component": "/views/config-center/index",
+        "parent_id": "system-root",
+        "order": 7,
+    },
 ]
 
 
@@ -323,6 +333,7 @@ async def clear_and_init_menus():
         print("    - 部门管理")
         print("    - 登录日志")
         print("    - 权限管理")
+        print("    - 配置中心")
         print("请刷新前端页面查看。")
         print("=" * 50)
 
