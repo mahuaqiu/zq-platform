@@ -81,6 +81,17 @@ DEFAULT_WHITE_LIST_PATTERNS = [
     r"^/api/core/performance-monitor/collect/worker-event$",  # 上报采集终态事件
     # 导出报告下载接口（通过任务ID验证，无需Token认证）
     r"^/api/core/performance-monitor/version/export/download/.*$",
+    # 外部系统直接调用：命令/配置/脚本下发与性能采集（无需认证）
+    # 注意：白名单仅按路径匹配不分方法，以下模式均为路径上方法唯一的窄匹配，
+    # 刻意不放行 GET+DELETE 共路径的 /collect/{id} 与 /command-task/{id}，避免开放删除操作
+    r"^/api/core/config-template/deploy$",  # 命令/配置/脚本下发
+    r"^/api/core/command-task/[^/]+/status$",  # 命令任务进度查询（GET-only 独立路径）
+    r"^/api/core/performance-monitor/collect/start$",  # 开始采集
+    r"^/api/core/performance-monitor/collect/stop$",  # 停止采集
+    r"^/api/core/performance-monitor/collect/status$",  # 查询设备采集状态
+    r"^/api/core/performance-monitor/collect/[^/]+/data$",  # 采集数据（全量）
+    r"^/api/core/performance-monitor/collect/[^/]+/data/range$",  # 采集数据（区间）
+    r"^/api/core/performance-monitor/collect/[^/]+/latest$",  # 最新采集样本
 ]
 
 # 允许使用Query参数传递Token的API路径模式（出于安全考虑，仅限特定接口）

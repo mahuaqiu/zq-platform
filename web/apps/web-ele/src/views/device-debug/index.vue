@@ -31,7 +31,6 @@ import ScreenDisplay from './components/ScreenDisplay.vue';
 import MobilePanel from './components/MobilePanel.vue';
 import KeyPressDialog from './components/KeyPressDialog.vue';
 import InputTextDialog from './components/InputTextDialog.vue';
-import InstallAppDialog from './components/InstallAppDialog.vue';
 import UnlockDialog from './components/UnlockDialog.vue';
 
 const route = useRoute();
@@ -147,7 +146,6 @@ const swipeCount = ref(0);
 // 弹窗状态
 const keyPressDialogVisible = ref(false);
 const inputTextDialogVisible = ref(false);
-const installAppDialogVisible = ref(false);
 const unlockDialogVisible = ref(false);
 
 // 屏幕选择
@@ -608,12 +606,6 @@ function captureVideoFrame(video: HTMLVideoElement | null): string | null {
   }
 }
 
-// 安装 APP
-function handleInstallApp(_file: File) {
-  // TODO: 实现上传安装逻辑（后端 API 待实现）
-  ElMessage.info('APP 安装功能待后端支持');
-}
-
 // 截图保存：优先保存当前显示画面，视频尚未出帧时调用截图接口兜底。
 async function handleScreenshot() {
   resetActivityTime();
@@ -659,11 +651,6 @@ function handleOpenUnlockDialog() {
   unlockDialogVisible.value = true;
 }
 
-// 打开安装弹窗
-function handleOpenInstallDialog() {
-  installAppDialogVisible.value = true;
-}
-
 // 监听页面滚动
 function handlePageScroll() {
   navbarFixed.value = window.scrollY > 56;
@@ -702,7 +689,6 @@ onUnmounted(() => {
       @keypress="handleOpenKeyPressDialog"
       @input="handleOpenInputDialog"
       @unlock="handleOpenUnlockDialog"
-      @install="handleOpenInstallDialog"
       @screenshot="handleScreenshot"
       @screen-change="handleScreenChange"
     />
@@ -765,7 +751,6 @@ onUnmounted(() => {
               @keypress="handleKeyPress"
               @input="handleInputText"
               @unlock="handleUnlock"
-              @install="handleOpenInstallDialog"
               @screenshot="handleScreenshot"
             />
           </div>
@@ -789,12 +774,6 @@ onUnmounted(() => {
     <UnlockDialog
       v-model:visible="unlockDialogVisible"
       @confirm="handleUnlock"
-    />
-
-    <InstallAppDialog
-      v-model:visible="installAppDialogVisible"
-      :device-type="deviceDetail?.device_type"
-      @upload="handleInstallApp"
     />
   </div>
 </template>

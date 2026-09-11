@@ -556,6 +556,102 @@ async function executeDeploy() {
   }
 }
 
+// 生成"下发命令/配置 API 调用"Python 脚本（当前确认弹窗的模板与机器选择原样落入脚本常量）
+function buildDeployScript(): string {
+  const origin = window.location.origin;
+  const template = selectedTemplate.value;
+  // Python 的 None 不是 JSON 的 null，空值需输出 None
+  const pyLiteral = (value: unknown) =>
+    value === null || value === undefined ? 'None' : JSON.stringify(value);
+  const templateId = JSON.stringify(template?.id ?? '');
+  const templateType = JSON.stringify(template?.type ?? 'config');
+  const command =
+    template?.type === 'command' ? pyLiteral(template.command) : 'None';
+  const machineIds = JSON.stringify(selectedMachineIds.value);
+  return `# -*- coding: utf-8 -*-
+"""平台下发命令/配置 API 调用脚本（由平台配置下发页面自动生成）
+
+下发与任务进度查询接口均免鉴权，直接调用即可。
+
+使用步骤：
+1. pip install requests
+2. 直接运行：python deploy_template.py
+   运行命令类型为异步执行，脚本会轮询任务状态直到结束
+"""
+import time
+
+import requests
+
+BASE_URL = "${origin}"            # 平台地址
+
+TEMPLATE_ID = ${templateId}      # 模板ID
+TEMPLATE_TYPE = ${templateType}   # config / script / command
+COMMAND = ${command}  # 仅 command 类型使用；None 表示使用模板中保存的命令
+MACHINE_IDS = ${machineIds}  # 目标机器ID列表
+
+
+def deploy() -> dict:
+    payload = {
+        "template_id": TEMPLATE_ID,
+        "machine_ids": MACHINE_IDS,
+        "command": COMMAND,
+    }
+    resp = requests.post(
+        BASE_URL + "/api/core/config-template/deploy",
+        json=payload,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_task(task_id: str) -> dict:
+    resp = requests.get(
+        BASE_URL + "/api/core/command-task/" + task_id + "/status",
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def main():
+    result = deploy()
+    task_id = result.get("task_id")
+
+    if TEMPLATE_TYPE == "command" and task_id:
+        print("命令已提交，任务ID:", task_id)
+        while True:
+            detail = get_task(task_id)
+            print(
+                "状态:",
+                detail.get("status"),
+                "成功:",
+                detail.get("success_count"),
+                "失败:",
+                detail.get("failed_count"),
+            )
+            if detail.get("status") in ("success", "failed", "partial"):
+                print("执行结果详情:", detail.get("result_detail"))
+                break
+            time.sleep(5)
+    else:
+        print("下发结果:", result)
+
+
+if __name__ == "__main__":
+    main()
+`;
+}
+
+async function copyDeployScript() {
+  try {
+    await navigator.clipboard.writeText(buildDeployScript());
+    ElMessage.success('Python 调用脚本已复制到剪贴板');
+  } catch {
+    ElMessage.error('复制失败，请检查浏览器剪贴板权限');
+  }
+}
+
 // 获取状态文本
 function getStatusText(status: string): string {
   const textMap: Record<string, string> = {
@@ -1348,18 +1444,20 @@ onMounted(async () => {
                     </div>
                   </div>
 
-                  <!-- 命令内容：仅运行命令类型显示 -->
+                  <!-- 命令内容：仅运行命令类型显示（与脚本内容一致的代码框样式） -->
                   <div v-if="templateForm.type === 'command'" class="form-row">
                     <div class="form-col-full">
                       <label class="form-label"
                         >命令内容 <span class="required">*</span></label
                       >
-                      <ElInput
-                        v-model="templateForm.command"
-                        type="textarea"
-                        :rows="3"
-                        placeholder="如：dir C:\\Users 或 ipconfig /all"
-                      />
+                      <div class="yaml-editor command-editor">
+                        <textarea
+                          v-model="templateForm.command"
+                          class="yaml-textarea"
+                          placeholder="如：dir C:\\Users 或 ipconfig /all"
+                          rows="8"
+                        ></textarea>
+                      </div>
                     </div>
                   </div>
 
@@ -1565,6 +1663,9 @@ onMounted(async () => {
             </div>
 
             <div class="dialog-footer">
+              <ElButton class="btn-copy-script" @click="copyDeployScript">
+                📋 复制 Python 脚本
+              </ElButton>
               <ElButton class="btn-cancel" @click="deployDialogVisible = false">
                 取消
               </ElButton>
@@ -2358,6 +2459,11 @@ onMounted(async () => {
   color: #6a9955;
 }
 
+/* 命令内容代码框：比脚本编辑器矮 */
+.command-editor .yaml-textarea {
+  min-height: 0;
+}
+
 .template-dialog-footer {
   display: flex;
   justify-content: flex-end;
@@ -2571,6 +2677,21 @@ onMounted(async () => {
   justify-content: flex-end;
   padding: 16px 24px;
   background: #fafafa;
+}
+
+.btn-copy-script {
+  margin-right: auto;
+  padding: 10px 20px;
+  font-size: 14px;
+  color: #1890ff !important;
+  background: #ecf5ff !important;
+  border: 1px solid #b3d8ff !important;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-copy-script:hover {
+  background: #d9ecff !important;
 }
 
 .btn-confirm {

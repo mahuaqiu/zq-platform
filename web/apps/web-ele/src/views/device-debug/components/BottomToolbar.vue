@@ -14,7 +14,6 @@ interface Props {
 interface Emits {
   (e: 'keypress'): void;
   (e: 'input'): void;
-  (e: 'install'): void;
   (e: 'screenshot'): void;
 }
 
@@ -31,10 +30,6 @@ function handleInput() {
   emit('input');
 }
 
-function handleInstall() {
-  emit('install');
-}
-
 function handleScreenshot() {
   emit('screenshot');
 }
@@ -49,9 +44,6 @@ function handleScreenshot() {
       </button>
       <button v-if="isDesktop" class="toolbar-btn gray" @click="handleInput">
         📝 输入文本
-      </button>
-      <button class="toolbar-btn light" @click="handleInstall">
-        📦 安装 APP
       </button>
       <div class="toolbar-divider"></div>
       <button class="toolbar-btn light" @click="handleScreenshot">

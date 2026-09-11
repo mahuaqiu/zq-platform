@@ -346,6 +346,110 @@ function clearAll() {
   selectedProcesses.value = [];
 }
 
+// 生成"性能采集 API 调用"Python 脚本（当前弹窗配置原样落入脚本常量）
+function buildCollectScript(): string {
+  const origin = window.location.origin;
+  // Python 的 None 不是 JSON 的 null，空值需输出 None
+  const pyLiteral = (value: unknown) =>
+    value === null || value === undefined ? 'None' : JSON.stringify(value);
+  const targetProcesses = JSON.stringify(finalTargetProcesses.value);
+  const deviceType = pyLiteral(props.deviceInfo?.device_type);
+  const deviceSn = pyLiteral(props.deviceInfo?.device_sn);
+  const matchMode = pyLiteral(
+    isHarmonyDevice.value ? harmonyMatchMode.value : null,
+  );
+  return `# -*- coding: utf-8 -*-
+"""平台性能采集 API 调用脚本（由平台性能采集页面自动生成）
+
+采集/停止/数据查询接口均免鉴权，直接调用即可。
+
+使用步骤：
+1. pip install requests
+2. 开始采集：python perf_collect.py
+3. 停止采集：把开始时打印的 collect_id 填到 COLLECT_ID，再运行 python perf_collect.py stop
+"""
+import sys
+
+import requests
+
+BASE_URL = "${origin}"          # 平台地址
+
+DEVICE_ID = ${JSON.stringify(props.deviceId)}        # 设备ID
+NAME = None                     # 采集名称（可选）
+INTERVAL = ${interval.value}                # 采集频率（秒）
+TIMEOUT = ${collectTimeout.value * 3600}             # 最大采集时长（秒）
+TARGET_PROCESSES = ${targetProcesses}  # 目标进程；空列表表示采集系统级指标
+DEVICE_TYPE = ${deviceType}     # windows / linux / harmony_pc / harmony_mobile
+DEVICE_SN = ${deviceSn}             # 设备SN（鸿蒙为 HDC UDID）
+MATCH_MODE = ${matchMode}          # 鸿蒙匹配模式：fuzzy / exact
+COLLECT_ID = ""                 # 停止采集时填写
+
+
+def start_collect() -> dict:
+    payload = {
+        "device_id": DEVICE_ID,
+        "name": NAME,
+        "interval": INTERVAL,
+        "timeout": TIMEOUT,
+        "target_processes": TARGET_PROCESSES,
+        "device_type": DEVICE_TYPE,
+        "device_sn": DEVICE_SN,
+        "match_mode": MATCH_MODE,
+    }
+    resp = requests.post(
+        BASE_URL + "/api/core/performance-monitor/collect/start",
+        json=payload,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def stop_collect() -> dict:
+    payload = {
+        "device_id": DEVICE_ID,
+        "collect_id": COLLECT_ID or None,
+        "device_type": DEVICE_TYPE,
+        "device_sn": DEVICE_SN,
+    }
+    resp = requests.post(
+        BASE_URL + "/api/core/performance-monitor/collect/stop",
+        json=payload,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def main():
+    if "stop" in sys.argv:
+        print("停止结果:", stop_collect())
+        return
+    result = start_collect()
+    print("采集已开始:", result)
+    print(
+        "数据查询: GET "
+        + BASE_URL
+        + "/api/core/performance-monitor/collect/"
+        + str(result.get("collect_id", ""))
+        + "/data"
+    )
+
+
+if __name__ == "__main__":
+    main()
+`;
+}
+
+async function copyCollectScript() {
+  try {
+    await navigator.clipboard.writeText(buildCollectScript());
+    ElMessage.success('Python 调用脚本已复制到剪贴板');
+  } catch {
+    ElMessage.error('复制失败，请检查浏览器剪贴板权限');
+  }
+}
+
 // 采集模式切换时清空选择
 watch(collectMode, () => {
   selectedProcessNames.value = [];
@@ -567,6 +671,9 @@ watch(() => props.visible, (v) => {
 
     <template #footer>
       <div class="dialog-footer">
+        <button class="copy-script-btn" @click="copyCollectScript">
+          📋 复制 Python 脚本
+        </button>
         <button class="cancel-btn" @click="emit('update:visible', false)">取消</button>
         <button class="start-btn" :disabled="loading" @click="handleStart">
           {{ loading ? '加载中...' : '开始采集' }}
@@ -750,6 +857,19 @@ watch(() => props.visible, (v) => {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+.copy-script-btn {
+  margin-right: auto;
+  padding: 10px 24px;
+  background: #ecf5ff;
+  color: #409eff;
+  border: 1px solid #b3d8ff;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.copy-script-btn:hover {
+  background: #d9ecff;
 }
 .cancel-btn {
   padding: 10px 24px;

@@ -28,7 +28,6 @@ interface Emits {
   (e: 'keypress'): void;
   (e: 'input'): void;
   (e: 'unlock'): void;
-  (e: 'install'): void;
   (e: 'screenshot'): void;
   (e: 'screenChange', screenIndex: number): void; // 新增：屏幕切换
 }
@@ -114,10 +113,6 @@ function handleUnlock() {
   emit('unlock');
 }
 
-function handleInstall() {
-  emit('install');
-}
-
 function handleScreenshot() {
   emit('screenshot');
 }
@@ -156,9 +151,6 @@ function handleScreenshot() {
         @click="handleUnlock"
       >
         🔓 解锁屏幕
-      </button>
-      <button class="toolbar-btn light" @click="handleInstall">
-        📦 安装 APP
       </button>
       <button class="toolbar-btn light" @click="handleScreenshot">
         📷 截图保存

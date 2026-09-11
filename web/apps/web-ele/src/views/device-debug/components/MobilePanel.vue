@@ -14,7 +14,6 @@ interface Emits {
   (e: 'keypress', key: string): void;
   (e: 'input', text: string): void;
   (e: 'unlock', password?: string): void;
-  (e: 'install'): void;
   (e: 'screenshot'): void;
 }
 
@@ -46,10 +45,6 @@ function handleUnlockConfirm() {
   emit('unlock', unlockPassword.value);
   unlockPassword.value = '';
   unlockDialogVisible.value = false;
-}
-
-function handleInstall() {
-  emit('install');
 }
 
 function handleScreenshot() {
@@ -121,9 +116,8 @@ function handleScreenshot() {
 
     <!-- 功能按钮 -->
     <div class="panel-section bottom-section">
-      <button class="func-btn light" @click="handleScreenshot">📷 截图保存</button>
       <button class="func-btn light" @click="handleUnlock">🔒 解锁屏幕</button>
-      <button class="func-btn light" @click="handleInstall">📦 安装 APP</button>
+      <button class="func-btn light" @click="handleScreenshot">📷 截图保存</button>
     </div>
 
     <!-- 解锁弹窗 -->

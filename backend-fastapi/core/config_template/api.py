@@ -398,6 +398,19 @@ async def get_command_task(
     return response
 
 
+@TASK_ROUTER.get("/{task_id}/status", response_model=CommandTaskDetailResponse, summary="查询任务执行进度")
+async def get_command_task_status(
+    task_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> CommandTaskDetailResponse:
+    """查询任务执行进度（免鉴权，供外部系统轮询命令/脚本下发结果）。
+
+    与 GET /{task_id} 响应一致；独立路径是为了鉴权白名单能只放行查询，
+    不连带放行同路径的 DELETE 删除操作。
+    """
+    return await get_command_task(task_id, db)
+
+
 @TASK_ROUTER.delete("/{task_id}", summary="删除任务记录")
 async def delete_command_task(
     task_id: str,
