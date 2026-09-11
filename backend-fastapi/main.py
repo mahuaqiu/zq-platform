@@ -27,6 +27,7 @@ from core.websocket.router import router as websocket_router
 from core.env_machine.api import router as env_machine_router
 from core.env_machine.lock_manager import LockAcquireError
 from core.config_template.public_api import router as public_config_template_router
+from core.config_center.public_api import router as public_config_center_router
 from utils.auth_middleware import AuthPermissionMiddleware
 from utils.logging_config import setup_logging
 from utils.request_log_middleware import RequestLogMiddleware
@@ -158,6 +159,8 @@ app.include_router(websocket_router)
 app.include_router(env_machine_router)
 # 外部脚本下发接口不挂载全局 OAuth2 依赖
 app.include_router(public_config_template_router)
+# 配置中心免鉴权外部查询接口（/api/public 前缀，白名单放行）
+app.include_router(public_config_center_router)
 
 # 测试报告 HTML 静态文件（公开访问，无需认证）
 # 挂载发生在 import 期、早于 lifespan 建目录，必须在这里确保目录存在，否则挂载会被静默跳过

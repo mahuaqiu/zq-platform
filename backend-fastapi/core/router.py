@@ -21,6 +21,7 @@ from core.scheduler.api import router as scheduler_router
 from core.config_template.api import router as config_template_router
 from core.config_template.api import IP_TEMPLATE_ROUTER
 from core.config_template.api import TASK_ROUTER
+from core.config_center.api import router as config_center_router
 from core.performance_monitor.api import router as performance_monitor_router
 
 router = APIRouter()
@@ -42,4 +43,5 @@ router.include_router(scheduler_router)
 router.include_router(config_template_router)
 router.include_router(IP_TEMPLATE_ROUTER)
 router.include_router(TASK_ROUTER)
+router.include_router(config_center_router)
 router.include_router(performance_monitor_router)
