@@ -40,7 +40,7 @@ async def check_key(
 @router.get("", response_model=PaginatedResponse[ConfigCenterItemResponse], summary="获取配置项列表")
 async def list_config_items(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="每页数量"),
     key: Optional[str] = Query(None, max_length=64, description="配置键关键字"),
     remark: Optional[str] = Query(None, max_length=100, description="备注关键字"),
     db: AsyncSession = Depends(get_db),
