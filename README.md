@@ -217,6 +217,7 @@ pnpm build:ele
 **FastAPI 后端**
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+- 外部免鉴权接口清单与调用示例: [docs/external-api.md](docs/external-api.md)
 
 ## 🛠️ 开发指南
 
