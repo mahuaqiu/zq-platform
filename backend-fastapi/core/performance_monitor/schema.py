@@ -17,7 +17,7 @@ class CollectStartRequest(BaseModel):
     device_id: str = Field(..., description="设备ID")
     name: Optional[str] = Field(None, max_length=100, description="采集名称")
     interval: int = Field(default=5, ge=1, le=1800, description="采集频率（秒），最大30分钟")
-    timeout: int = Field(default=43200, ge=3600, le=259200, description="最大采集时间（秒），默认12小时，最大72小时")
+    timeout: int = Field(default=43200, ge=3600, le=86400, description="最大采集时间（秒），默认12小时，最大24小时（与 Worker 侧约束一致）")
     target_processes: Optional[List[Dict[str, Any]]] = Field(None, description="目标进程配置")
     device_type: Optional[str] = Field(None, description="设备类型，由 EnvMachine 解析并透传给 Worker")
     device_sn: Optional[str] = Field(None, description="设备物理标识，鸿蒙为 HDC UDID")
