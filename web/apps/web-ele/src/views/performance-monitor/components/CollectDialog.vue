@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { ElMessage, ElDialog, ElInput, ElCheckbox, ElSelect, ElOption, ElRadioGroup, ElRadioButton } from 'element-plus';
 import { startCollect, getProcesses } from '#/api/core/performance-monitor';
 import type { TargetProcessConfig, ProcessInfo } from '#/api/core/performance-monitor';
+import { copyToClipboard } from '#/utils/clipboard';
 import { getDisplayProcesses, saveProcessesToHistory } from '../config';
 
 const props = defineProps<{
@@ -442,10 +443,10 @@ if __name__ == "__main__":
 }
 
 async function copyCollectScript() {
-  try {
-    await navigator.clipboard.writeText(buildCollectScript());
+  const ok = await copyToClipboard(buildCollectScript());
+  if (ok) {
     ElMessage.success('Python 调用脚本已复制到剪贴板');
-  } catch {
+  } else {
     ElMessage.error('复制失败，请检查浏览器剪贴板权限');
   }
 }

@@ -47,8 +47,10 @@ import {
   updateConfigTemplateApi,
 } from '#/api/core/env-machine-config';
 
+import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 import CommandTaskHistory from './modules/CommandTaskHistory.vue';
 import { useNamespaceStore } from './store';
+import { copyToClipboard } from '#/utils/clipboard';
 
 defineOptions({ name: 'EnvMachineConfigPage' });
 
@@ -644,12 +646,21 @@ if __name__ == "__main__":
 }
 
 async function copyDeployScript() {
-  try {
-    await navigator.clipboard.writeText(buildDeployScript());
+  const ok = await copyToClipboard(buildDeployScript());
+  if (ok) {
     ElMessage.success('Python 调用脚本已复制到剪贴板');
-  } catch {
+  } else {
     ElMessage.error('复制失败，请检查浏览器剪贴板权限');
   }
+}
+
+// 页面操作区一键复制：仅命令模板对外提供 API 调用脚本，且必须已勾选下发机器
+async function copyDeployScriptFromPage() {
+  if (selectedMachineIds.value.length === 0) {
+    ElMessage.warning('请先勾选要下发的机器（可点击"使用IP模板"快速选择），再复制调用脚本');
+    return;
+  }
+  await copyDeployScript();
 }
 
 // 获取状态文本
@@ -1372,6 +1383,25 @@ onMounted(async () => {
                       </svg>
                       <span>使用IP模板</span>
                     </button>
+                    <!-- 仅命令类型模板显示：脚本/配置下发不对 API 开放 -->
+                    <button
+                      v-if="isCommandTemplate"
+                      class="ip-btn ip-btn-copy-script"
+                      @click="copyDeployScriptFromPage"
+                    >
+                      <svg
+                        class="ip-btn-icon"
+                        viewBox="0 0 24 24"
+                        width="15"
+                        height="15"
+                      >
+                        <path
+                          fill="currentColor"
+                          d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                        />
+                      </svg>
+                      <span>复制API脚本</span>
+                    </button>
                     <ElButton type="primary" @click="openDeployDialog">
                       {{ deployButtonText }}
                     </ElButton>
@@ -1444,21 +1474,24 @@ onMounted(async () => {
                     </div>
                   </div>
 
-                  <!-- 命令内容：仅运行命令类型显示（与脚本内容一致的代码框样式） -->
-                  <div v-if="templateForm.type === 'command'" class="form-row">
-                    <div class="form-col-full">
-                      <label class="form-label"
-                        >命令内容 <span class="required">*</span></label
-                      >
-                      <div class="yaml-editor command-editor">
-                        <textarea
-                          v-model="templateForm.command"
-                          class="yaml-textarea"
-                          placeholder="如：dir C:\\Users 或 ipconfig /all"
-                          rows="8"
-                        ></textarea>
-                      </div>
-                    </div>
+                  <!-- 命令内容：仅运行命令类型显示（与脚本内容一致的全宽深色代码框；
+                       不能放 form-row 里，那是两列网格，单项只占左半） -->
+                  <div
+                    v-if="templateForm.type === 'command'"
+                    class="form-col-full command-editor-field"
+                  >
+                    <label class="form-label"
+                      >命令内容 <span class="required">*</span></label
+                    >
+                    <CodeEditor
+                      v-model="templateForm.command"
+                      language="shell"
+                      theme="dark"
+                      :height="180"
+                      placeholder="如：dir C:\Users 或 ipconfig /all"
+                      :line-numbers="true"
+                      :line-wrapping="true"
+                    />
                   </div>
 
                   <div class="form-row">
@@ -1663,7 +1696,12 @@ onMounted(async () => {
             </div>
 
             <div class="dialog-footer">
-              <ElButton class="btn-copy-script" @click="copyDeployScript">
+              <!-- 仅命令类型模板显示：脚本/配置下发不对 API 开放 -->
+              <ElButton
+                v-if="isCommandTemplate"
+                class="btn-copy-script"
+                @click="copyDeployScript"
+              >
                 📋 复制 Python 脚本
               </ElButton>
               <ElButton class="btn-cancel" @click="deployDialogVisible = false">
@@ -2459,9 +2497,9 @@ onMounted(async () => {
   color: #6a9955;
 }
 
-/* 命令内容代码框：比脚本编辑器矮 */
-.command-editor .yaml-textarea {
-  min-height: 0;
+/* 命令内容代码框：独占一行全宽（form-row 是两列网格），深色主题与脚本内容一致 */
+.command-editor-field {
+  margin-bottom: 12px;
 }
 
 .template-dialog-footer {
@@ -2848,6 +2886,27 @@ onMounted(async () => {
 
 .ip-btn-use:hover .ip-btn-icon {
   transform: scale(1.1);
+}
+
+.ip-btn-copy-script {
+  color: #389e0d;
+  background: #fff;
+  border: 1px solid #b7eb8f;
+  box-shadow: 0 1px 2px rgb(82 196 26 / 8%);
+}
+
+.ip-btn-copy-script:hover {
+  color: #52c41a;
+  background: #f6ffed;
+  border-color: #73d13d;
+  box-shadow: 0 2px 6px rgb(82 196 26 / 15%);
+  transform: translateY(-1px);
+}
+
+.ip-btn-copy-script:active {
+  color: #389e0d;
+  background: #d9f7be;
+  transform: translateY(0);
 }
 
 /* 下发确认弹窗中的命令代码 */
