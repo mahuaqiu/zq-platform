@@ -561,6 +561,9 @@ async function executeDeploy() {
 // 生成"下发命令/配置 API 调用"Python 脚本（当前确认弹窗的模板与机器选择原样落入脚本常量）
 function buildDeployScript(): string {
   const origin = window.location.origin;
+  // 平台 API 经 /basic-api 前缀反代到后端（后端路由本身是 /api/core/...），
+  // 页面内请求由 axios 统一加该前缀；复制出的脚本必须同样拼上才能调通。
+  const apiBase = `${origin}${import.meta.env.VITE_GLOB_API_URL}`;
   const template = selectedTemplate.value;
   // Python 的 None 不是 JSON 的 null，空值需输出 None
   const pyLiteral = (value: unknown) =>
@@ -584,12 +587,23 @@ import time
 
 import requests
 
-BASE_URL = "${origin}"            # 平台地址
+BASE_URL = "${apiBase}"            # 平台地址（含 /basic-api 反代前缀）
 
 TEMPLATE_ID = ${templateId}      # 模板ID
 TEMPLATE_TYPE = ${templateType}   # config / script / command
 COMMAND = ${command}  # 仅 command 类型使用；None 表示使用模板中保存的命令
 MACHINE_IDS = ${machineIds}  # 目标机器ID列表
+
+POLL_INTERVAL = 5        # 轮询间隔（秒）
+MAX_POLLS = 360          # 轮询次数上限（默认 30 分钟），任务卡住时自动退出
+MAX_POLL_FAILURES = 3    # 连续查询失败次数上限（网络抖动容错）
+
+
+def ensure_ok(resp: requests.Response) -> None:
+    """非 2xx 时先打印响应体再抛错，便于排障。"""
+    if not resp.ok:
+        print(f"HTTP {resp.status_code}: {resp.text[:500]}")
+        resp.raise_for_status()
 
 
 def deploy() -> dict:
@@ -603,7 +617,7 @@ def deploy() -> dict:
         json=payload,
         timeout=10,
     )
-    resp.raise_for_status()
+    ensure_ok(resp)
     return resp.json()
 
 
@@ -612,7 +626,7 @@ def get_task(task_id: str) -> dict:
         BASE_URL + "/api/core/command-task/" + task_id + "/status",
         timeout=10,
     )
-    resp.raise_for_status()
+    ensure_ok(resp)
     return resp.json()
 
 
@@ -622,8 +636,24 @@ def main():
 
     if TEMPLATE_TYPE == "command" and task_id:
         print("命令已提交，任务ID:", task_id)
+        poll_failures = 0
+        polls = 0
         while True:
-            detail = get_task(task_id)
+            polls += 1
+            if polls > MAX_POLLS:
+                print(f"已轮询 {MAX_POLLS} 次仍未结束，退出。可稍后手动查询任务 {task_id} 状态。")
+                break
+            try:
+                detail = get_task(task_id)
+                poll_failures = 0
+            except requests.RequestException as exc:
+                poll_failures += 1
+                if poll_failures >= MAX_POLL_FAILURES:
+                    print(f"连续 {MAX_POLL_FAILURES} 次查询失败，退出: {exc}")
+                    raise
+                print(f"查询失败({poll_failures}/{MAX_POLL_FAILURES})，重试中: {exc}")
+                time.sleep(POLL_INTERVAL)
+                continue
             print(
                 "状态:",
                 detail.get("status"),
@@ -635,7 +665,7 @@ def main():
             if detail.get("status") in ("success", "failed", "partial"):
                 print("执行结果详情:", detail.get("result_detail"))
                 break
-            time.sleep(5)
+            time.sleep(POLL_INTERVAL)
     else:
         print("下发结果:", result)
 

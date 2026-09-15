@@ -55,7 +55,7 @@ const intervalOptions = [1, 3, 5, 10, 30, 300, 900, 1800];  // 秒：1秒-30分�
 
 // 采集时间（小时）
 const collectTimeout = ref(12);
-const timeoutOptions = [12, 24, 72];
+const timeoutOptions = [12, 24]; // 后端上限 24 小时（86400s），与 Worker 侧约束一致
 
 // 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
 const collectMode = ref<'pid' | 'name'>('pid');
@@ -280,7 +280,8 @@ async function handleStart() {
       emit('started', result.collect_id);
       emit('update:visible', false);
     } catch (error) {
-      ElMessage.error('开始采集失败');
+      const detail = extractApiError(error);
+      ElMessage.error(`开始采集失败${detail ? `：${detail}` : ''}`);
     } finally {
       loading.value = false;
     }
@@ -347,9 +348,23 @@ function clearAll() {
   selectedProcesses.value = [];
 }
 
+// FastAPI 校验错误(422)的 detail 可能是字符串或数组，统一转成可读文本
+function extractApiError(error: unknown): string {
+  const anyError = error as {
+    response?: { data?: { detail?: unknown } };
+    message?: string;
+  };
+  const detail = anyError?.response?.data?.detail ?? anyError?.message;
+  if (detail == null) return '';
+  return typeof detail === 'string' ? detail : JSON.stringify(detail);
+}
+
 // 生成"性能采集 API 调用"Python 脚本（当前弹窗配置原样落入脚本常量）
 function buildCollectScript(): string {
   const origin = window.location.origin;
+  // 平台 API 经 /basic-api 前缀反代到后端（后端路由本身是 /api/core/...），
+  // 页面内请求由 axios 统一加该前缀；复制出的脚本必须同样拼上才能调通。
+  const apiBase = `${origin}${import.meta.env.VITE_GLOB_API_URL}`;
   // Python 的 None 不是 JSON 的 null，空值需输出 None
   const pyLiteral = (value: unknown) =>
     value === null || value === undefined ? 'None' : JSON.stringify(value);
@@ -373,7 +388,7 @@ import sys
 
 import requests
 
-BASE_URL = "${origin}"          # 平台地址
+BASE_URL = "${apiBase}"          # 平台地址（含 /basic-api 反代前缀）
 
 DEVICE_ID = ${JSON.stringify(props.deviceId)}        # 设备ID
 NAME = None                     # 采集名称（可选）
@@ -384,6 +399,13 @@ DEVICE_TYPE = ${deviceType}     # windows / linux / harmony_pc / harmony_mobile
 DEVICE_SN = ${deviceSn}             # 设备SN（鸿蒙为 HDC UDID）
 MATCH_MODE = ${matchMode}          # 鸿蒙匹配模式：fuzzy / exact
 COLLECT_ID = ""                 # 停止采集时填写
+
+
+def ensure_ok(resp: requests.Response) -> None:
+    """非 2xx 时先打印响应体再抛错，便于排障。"""
+    if not resp.ok:
+        print(f"HTTP {resp.status_code}: {resp.text[:500]}")
+        resp.raise_for_status()
 
 
 def start_collect() -> dict:
@@ -402,11 +424,20 @@ def start_collect() -> dict:
         json=payload,
         timeout=10,
     )
-    resp.raise_for_status()
+    ensure_ok(resp)
     return resp.json()
 
 
 def stop_collect() -> dict:
+    if not COLLECT_ID:
+        print(
+            "警告: COLLECT_ID 为空时，平台将停止该设备上的【全部】采集任务"
+            "（可能包含其他人启动的采集）。"
+        )
+        confirm = input("确认继续? (y/N): ").strip().lower()
+        if confirm != "y":
+            print("已取消。")
+            sys.exit(0)
     payload = {
         "device_id": DEVICE_ID,
         "collect_id": COLLECT_ID or None,
@@ -418,7 +449,7 @@ def stop_collect() -> dict:
         json=payload,
         timeout=10,
     )
-    resp.raise_for_status()
+    ensure_ok(resp)
     return resp.json()
 
 
@@ -443,6 +474,16 @@ if __name__ == "__main__":
 }
 
 async function copyCollectScript() {
+  // 与"开始采集"同款校验：Windows 未选进程时生成的脚本是系统级采集，
+  // 与界面行为（拦截并提示）不一致，复制前直接拦截。
+  if (
+    !isLinuxDevice.value &&
+    !isHarmonyDevice.value &&
+    selectedCount.value === 0
+  ) {
+    ElMessage.warning('请先选择目标进程，再复制调用脚本');
+    return;
+  }
   const ok = await copyToClipboard(buildCollectScript());
   if (ok) {
     ElMessage.success('Python 调用脚本已复制到剪贴板');

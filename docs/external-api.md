@@ -24,7 +24,7 @@
 
 ```json
 {
-  "task_id": "...",
+  "id": "...",
   "status": "running | success | failed | partial",
   "machine_count": 2,
   "success_count": 1,
@@ -40,11 +40,17 @@
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/api/core/performance-monitor/collect/start` | POST | 开始采集 |
-| `/api/core/performance-monitor/collect/stop` | POST | 停止采集 |
+| `/api/core/performance-monitor/collect/stop` | POST | 停止采集（**不传 `collect_id` 会停止该设备全部采集**） |
 | `/api/core/performance-monitor/collect/status?device_id=` | GET | 查询设备当前采集状态 |
-| `/api/core/performance-monitor/collect/{collect_id}/data` | GET | 采集数据（全量） |
+| `/api/core/performance-monitor/collect/{collect_id}/data` | GET | 采集数据（**分页**，从最老数据开始，默认每页 100 条） |
 | `/api/core/performance-monitor/collect/{collect_id}/data/range` | GET | 采集数据（时间区间） |
 | `/api/core/performance-monitor/collect/{collect_id}/latest` | GET | 最新采样 |
+
+数据查询接口参数：
+
+- `data`：`page`（默认 1）、`page_size`（默认 100，最大 500）。响应 `{"total": N, "items": [...]}`，需要全量数据时请按 `total` 翻页。
+- `data/range`：`start_time`、`end_time`（相对采集起点的秒数，支持毫秒精度，默认 0）。响应 `{"items": [...]}`。
+- `latest`：`limit`（默认 10，最大 100）。响应 `{"items": [...]}`。
 
 `collect/start` 请求体：
 
@@ -61,7 +67,36 @@
 }
 ```
 
-响应：`{"collect_id": "...", "status": "starting"}`。`target_processes` 传空列表表示采集系统级指标。
+响应：`{"collect_id": "...", "status": "starting"}`。`target_processes` 传空列表表示采集系统级指标。`timeout` 为最大采集时长（秒），范围 3600~86400（1~24 小时），与 Worker 侧约束一致。
+
+## 配置中心免鉴权查询
+
+### 查询配置项：`GET /api/public/config-center/query?key={key}`
+
+按配置键查询配置值，配置值必须是 JSON 对象，响应直接返回解析后的字典本身。供 OCR 文本替换等外部消费方使用。
+
+```bash
+curl "http://平台地址/basic-api/api/public/config-center/query?key=ocr_config"
+```
+
+响应语义：
+
+- `200`：返回配置字典本身，例如 `{"充许": "允许", "聊关": "聊天"}`
+- `404`：配置项不存在，`{"detail": "配置项不存在: ocr_config"}`
+- `500`：配置值不是合法 JSON，或不是 JSON 对象（管理端应保证不会出现）
+
+Python 示例：
+
+```python
+import requests
+
+resp = requests.get(
+    "http://平台地址/basic-api/api/public/config-center/query",
+    params={"key": "ocr_config"},
+    timeout=5,
+)
+replace_map = resp.json()  # {"充许": "允许", "聊关": "聊天"}
+```
 
 ## Python 调用示例
 
@@ -71,7 +106,9 @@
 import time
 import requests
 
-BASE_URL = "http://平台地址"
+# 平台前端的 API 走 /basic-api 前缀，由 nginx 反代到后端并剥掉该前缀。
+# 外部脚本必须同样拼上 /basic-api，否则请求会落进前端页面兜底路由（返回 HTML）。
+BASE_URL = "http://平台地址/basic-api"
 
 # 下发命令并轮询结果
 resp = requests.post(BASE_URL + "/api/core/config-template/deploy", json={
