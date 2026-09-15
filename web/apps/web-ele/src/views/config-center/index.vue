@@ -1,5 +1,8 @@
 <script lang="ts" setup>
-import type { ConfigCenterItem } from '#/api/core/config-center';
+import type {
+  ConfigCenterItem,
+  KeyValuePair,
+} from '#/api/core/config-center';
 
 import { ref } from 'vue';
 
@@ -140,6 +143,19 @@ const [Grid, gridApi] = useZqTable({
 function refreshGrid() {
   gridApi.reload();
 }
+
+// 行内解析缓存：同一行的 value 在单元格模板中被多处渲染，避免每次都 JSON.parse。
+// 以 row.id 为键、row.value 变化时重新解析；超出页面容量数倍即清空防增长。
+const parsedValueCache = new Map<string, { src: string; pairs: KeyValuePair[] }>();
+
+function parsedPairs(row: ConfigCenterItem): KeyValuePair[] {
+  const cached = parsedValueCache.get(row.id);
+  if (cached && cached.src === row.value) return cached.pairs;
+  const pairs = parseConfigValue(row.value);
+  if (parsedValueCache.size > 500) parsedValueCache.clear();
+  parsedValueCache.set(row.id, { src: row.value, pairs });
+  return pairs;
+}
 </script>
 
 <template>
@@ -163,12 +179,12 @@ function refreshGrid() {
 
       <!-- 配置值：键值对标签，每对一行，超过约 200px 内部滚动 -->
       <template #cell-value="{ row }">
-        <div v-if="parseConfigValue(row.value).length > 0">
+        <div v-if="parsedPairs(row).length > 0">
           <div
             class="max-h-[200px] overflow-y-auto rounded border border-solid border-[#ebeef5] bg-[#fafafa] p-2"
           >
             <div
-              v-for="(pair, index) in parseConfigValue(row.value)"
+              v-for="(pair, index) in parsedPairs(row)"
               :key="index"
               class="mb-1 last:mb-0"
             >
@@ -176,7 +192,7 @@ function refreshGrid() {
             </div>
           </div>
           <div class="mt-0.5 text-xs text-[#909399]">
-            共 {{ parseConfigValue(row.value).length }} 对
+            共 {{ parsedPairs(row).length }} 对
           </div>
         </div>
         <span v-else>-</span>

@@ -9,7 +9,9 @@
 function fallbackCopyText(text: string): boolean {
   const textarea = document.createElement('textarea');
   textarea.value = text;
-  // 移出可视区域但仍需可聚焦可选中，不能 display:none（否则无法选中）
+  // 移出可视区域但仍需可聚焦可选中，不能 display:none（否则无法选中）；
+  // readonly 防止 iOS Safari 弹软键盘/触发视口缩放
+  textarea.setAttribute('readonly', '');
   textarea.style.position = 'fixed';
   textarea.style.top = '-9999px';
   textarea.style.opacity = '0';

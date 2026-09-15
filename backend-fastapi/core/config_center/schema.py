@@ -30,7 +30,7 @@ def _validate_pairs_json(value: str) -> str:
 class ConfigCenterItemCreate(BaseModel):
     """创建配置项请求"""
     key: str = Field(..., pattern=KEY_PATTERN, description="配置键（字母/数字/下划线/中划线，≤64字符）")
-    value: str = Field(..., description='配置值 JSON 对象字符串，如 {"充许":"允许"}')
+    value: str = Field(..., max_length=10240, description='配置值 JSON 对象字符串（≤10KB），如 {"充许":"允许"}')
     remark: Optional[str] = Field(None, description="备注")
 
     @field_validator("value")
@@ -41,7 +41,7 @@ class ConfigCenterItemCreate(BaseModel):
 
 class ConfigCenterItemUpdate(BaseModel):
     """更新配置项请求（key 不可修改）"""
-    value: Optional[str] = Field(None, description="配置值 JSON 对象字符串")
+    value: Optional[str] = Field(None, max_length=10240, description="配置值 JSON 对象字符串（≤10KB）")
     remark: Optional[str] = Field(None, description="备注")
 
     @field_validator("value")

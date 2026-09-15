@@ -83,7 +83,7 @@ curl "http://平台地址/basic-api/api/public/config-center/query?key=ocr_confi
 
 - `200`：返回配置字典本身，例如 `{"充许": "允许", "聊关": "聊天"}`
 - `404`：配置项不存在，`{"detail": "配置项不存在: ocr_config"}`
-- `500`：配置值不是合法 JSON，或不是 JSON 对象（管理端应保证不会出现）
+- `422`：配置值不是合法 JSON，或不是 JSON 对象（管理端应保证不会出现）
 
 Python 示例：
 

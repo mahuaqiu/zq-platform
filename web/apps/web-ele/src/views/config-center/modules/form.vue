@@ -18,6 +18,7 @@ import {
 
 import {
   buildConfigValue,
+  checkConfigKeyApi,
   createConfigItemApi,
   updateConfigItemApi,
 } from '#/api/core/config-center';
@@ -71,6 +72,22 @@ defineExpose({ open });
 
 function addPair() {
   pairs.value.push(emptyPair());
+}
+
+/**
+ * 新增时配置键失焦即查重（编辑时 key 禁改，无需校验）。
+ * 后端提交时仍有一道唯一校验兜底。
+ */
+async function onKeyBlur() {
+  if (isEdit.value || keyError.value) return;
+  const key = formData.value.key.trim();
+  if (!key) return;
+  const { exists } = await checkConfigKeyApi(key);
+  if (exists) {
+    keyError.value = `配置键「${key}」已存在`;
+  } else if (keyError.value.startsWith('配置键「')) {
+    keyError.value = '';
+  }
 }
 
 function removePair(index: number) {
@@ -196,6 +213,7 @@ async function onSubmit() {
             :disabled="isEdit"
             placeholder="字母/数字/下划线/中划线，≤64字符"
             maxlength="64"
+            @blur="onKeyBlur"
           />
           <div v-if="keyError" class="text-xs text-[#f56c6c]">{{ keyError }}</div>
         </ElFormItem>

@@ -27,7 +27,9 @@ async def query_config_value(
     try:
         value = json.loads(item.value)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="配置项 value 不是合法的 JSON")
+        # 数据不合法是请求语义问题而非服务故障，422 更准确；
+        # 消费方（如 ocr_service）对非 200 一律重试，改码无兼容风险
+        raise HTTPException(status_code=422, detail="配置项 value 不是合法的 JSON")
     if not isinstance(value, dict):
-        raise HTTPException(status_code=500, detail="配置项 value 不是 JSON 对象")
+        raise HTTPException(status_code=422, detail="配置项 value 不是 JSON 对象")
     return value

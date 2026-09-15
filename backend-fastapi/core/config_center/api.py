@@ -7,6 +7,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_schema import PaginatedResponse
@@ -64,7 +65,12 @@ async def create_config_item(
 ) -> ConfigCenterItemResponse:
     if not await ConfigCenterService.check_unique(db, "key", data.key):
         raise HTTPException(status_code=400, detail=f"配置键已存在: {data.key}")
-    item = await ConfigCenterService.create(db, data)
+    try:
+        item = await ConfigCenterService.create(db, data)
+    except IntegrityError:
+        # 并发创建同名 key 时靠 DB 部分唯一索引兜底，转成友好的 400
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"配置键已存在: {data.key}")
     return ConfigCenterItemResponse.model_validate(item)
 
 

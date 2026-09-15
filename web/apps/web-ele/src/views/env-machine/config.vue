@@ -1515,9 +1515,8 @@ onMounted(async () => {
                     >
                     <CodeEditor
                       v-model="templateForm.command"
-                      language="shell"
                       theme="dark"
-                      :height="180"
+                      :height="320"
                       placeholder="如：dir C:\Users 或 ipconfig /all"
                       :line-numbers="true"
                       :line-wrapping="true"

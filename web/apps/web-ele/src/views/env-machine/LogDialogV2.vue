@@ -16,6 +16,7 @@ import {
 } from 'element-plus';
 
 import { getMachineLogsApi } from '#/api/core/env-machine';
+import { copyToClipboard } from '#/utils/clipboard';
 
 interface Props {
   visible: boolean;
@@ -233,25 +234,18 @@ async function executeQuery() {
 }
 
 /**
- * 复制日志到剪贴板
+ * 复制日志到剪贴板（公共工具内含 HTTP 部署降级路径）
  */
 async function copyLogs() {
   if (logLines.value.length === 0) {
     ElMessage.warning('暂无日志可复制');
     return;
   }
-  const text = logLines.value.join('\n');
-  try {
-    await navigator.clipboard.writeText(text);
+  const ok = await copyToClipboard(logLines.value.join('\n'));
+  if (ok) {
     ElMessage.success('日志已复制到剪贴板');
-  } catch {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    ElMessage.success('日志已复制到剪贴板');
+  } else {
+    ElMessage.error('复制失败，请检查浏览器剪贴板权限');
   }
 }
 
