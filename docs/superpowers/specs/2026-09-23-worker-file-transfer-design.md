@@ -1,7 +1,7 @@
 # 执行机文件管理(下载/上传)设计
 
 日期:2026-09-23
-状态:待用户审阅
+状态:待用户审阅(修订 v2:上传限速 1 MB/s、上传上限 1GB)
 涉及仓库:`zq-platform`(平台前后端)、`autotest`(worker)
 
 ## 1. 背景与目标
@@ -11,8 +11,10 @@ Worker 侧脚本会收集各类产物到本机目录:移动设备日志、Window
 目标:
 
 - 在平台上浏览 worker 上指定根目录的目录树,并**下载**指定文件到本地(下载**限速最高 1 MB/s**,可配置)
-- 在平台上向 worker 的同一目录树内**上传**文件(脚本/安装包,≤500MB)
+- 在平台上向 worker 的同一目录树内**上传**文件(脚本/安装包,≤1GB)
 - 提供前端页面:设备列表行内「文件」按钮 → 文件管理对话框
+
+下载与上传均**限速最高 1 MB/s**(worker 端可配置),避免占满 worker 带宽影响测试任务。
 
 ## 2. 总体架构
 
@@ -45,7 +47,8 @@ Worker 侧脚本会收集各类产物到本机目录:移动设备日志、Window
 
 - **限速**:`files.download_rate_limit_mb`(默认 1.0,0 表示不限速)。按块读取 + 异步 sleep 控制吞吐,不阻塞事件循环
 - **并发限制**:`files.max_concurrent_downloads`(默认 2),`asyncio.Semaphore`,超出排队等待
-- **上传限制**:`files.max_upload_size_mb`(默认 500),写入过程中累计校验,超限中断并返回 413
+- **上传限制**:`files.max_upload_size_mb`(默认 1000,即 1GB),写入过程中累计校验,超限中断并返回 413
+- **上传限速**:`files.upload_rate_limit_mb`(默认 1.0,0 表示不限速)。worker 分块读取请求体、块间 `await asyncio.sleep()` 慢读,借助 TCP 背压逐级传导到平台与浏览器,与下载限速机制对称;1GB 满速约需 17 分钟,前端上传请求不设超时
 - **同名上传**:`overwrite=false` 且目标存在 → 409 `{"detail": "file_exists"}`;前端据此弹覆盖确认后带 `overwrite=true` 重传
 - **Content-Disposition**:使用 `filename*=UTF-8''<urlencoded>` 支持中文文件名
 - **响应头**:download 透传 `Content-Length`(浏览器计算进度依赖它)
@@ -62,8 +65,9 @@ Worker 侧脚本会收集各类产物到本机目录:移动设备日志、Window
 files:
   root: null                      # null = 默认 <exe_dir>/data/collected
   download_rate_limit_mb: 1.0     # 下载限速,0 = 不限
+  upload_rate_limit_mb: 1.0       # 上传限速,0 = 不限
   max_concurrent_downloads: 2     # 最大并发下载数,超出排队
-  max_upload_size_mb: 500
+  max_upload_size_mb: 1000        # 上传大小上限(1GB)
 ```
 
 ## 4. 对 worker 正常操作的影响(设计保证)
@@ -84,7 +88,7 @@ files:
 |------|------|
 | `list_worker_files(machine, path)` | 代理 `/files/list`,错误映射与现有风格一致(502 无法连接/503 未初始化/404/400) |
 | `download_worker_file(machine, path)` | `httpx` stream 打开 worker 下载流,返回供 `StreamingResponse` 消费的 async 迭代器;透传 `Content-Length`、`Content-Disposition` |
-| `upload_worker_file(machine, path, overwrite, request_stream, content_type)` | 将浏览器上传 multipart 原始流式转发给 worker(保留 Content-Type boundary),不缓冲整包 |
+| `upload_worker_file(machine, path, overwrite, request_stream, content_type)` | 将浏览器上传 multipart 原始流式转发给 worker(保留 Content-Type boundary),不缓冲整包;转发节奏由 worker 慢读背压自然控制,平台不做额外限速 |
 | `delete_worker_file(machine, path)` | 代理 DELETE |
 
 超时策略:connect 10s;read 超时按"块间隔"计(限速下块间隔短,不会误触),总时长不设限(大文件限速下载可达数十分钟)。
@@ -119,7 +123,7 @@ files:
   - `el-table` 纯列表:**名称**(文件夹蓝色可点进入;文件普通文本)/ 大小(人类可读格式)/ 修改时间 / 操作(下载、删除)
   - 底部:条目统计
 - **下载**:点击 → `window.open(平台下载URL?access_token=...)`,交给浏览器原生下载条,页内不显示进度
-- **上传**:`el-upload` 自定义 `http-request` 走 axios,`onUploadProgress` 显示进度条(速率/剩余时间);完成后刷新列表;收到 409 → `ElMessageBox.confirm("文件已存在,是否覆盖?")` → 带 `overwrite=true` 重传
+- **上传**:`el-upload` 自定义 `http-request` 走 axios,`onUploadProgress` 显示进度条(速率/剩余时间);请求不设超时(1GB / 1MB/s 可达 17 分钟);完成后刷新列表;收到 409 → `ElMessageBox.confirm("文件已存在,是否覆盖?")` → 带 `overwrite=true` 重传
 - **删除**:`ElMessageBox.confirm` 确认后调 DELETE,完成后刷新
 - 无预览、无文件类型图标/徽标(用户明确要求简化)
 
@@ -135,17 +139,17 @@ files:
 | worker 未初始化 | 平台 503「Worker 未初始化」 |
 | 路径非法(穿越/绝对路径) | 400「非法路径」 |
 | 目录/文件不存在 | 404「路径不存在」 |
-| 上传超 500MB | 413「文件超过大小限制」 |
+| 上传超 1GB | 413「文件超过大小限制」 |
 | 上传同名 | 409 → 前端覆盖确认 |
 | 删除非空目录 | 400「目录非空,无法删除」 |
 | 下载中 worker 中断 | 平台流中断 → 浏览器下载失败提示,可重试 |
 
 ## 8. 测试策略
 
-- **worker(pytest)**:路径穿越拦截(绝对路径/`..`/短路径/大小写)、list/download/upload/delete 基本行为、限速吞吐实测≈配置值、并发信号量排队、409/413 语义、中文文件名
+- **worker(pytest)**:路径穿越拦截(绝对路径/`..`/短路径/大小写)、list/download/upload/delete 基本行为、限速吞吐实测≈配置值(下载与上传两个方向)、并发信号量排队、409/413 语义、中文文件名
 - **平台(pytest)**:代理函数单测(respx/mock httpx)、路由校验(类型过滤/离线机器)、流式转发不缓冲(大文件内存平稳)
 - **前端(手动验收)**:面包屑导航、下载触发与浏览器进度、上传进度与覆盖确认、删除确认、离线置灰
-- **联调验收**:真实 worker + 86MB 录屏下载(限速下约 86s,期间执行一次测试任务确认互不影响)
+- **联调验收**:真实 worker + 86MB 录屏下载(限速下约 86s,期间执行一次测试任务确认互不影响);上传 1GB 安装包验证限速(约 17 分钟)与进度显示
 
 ## 9. 明确不做(YAGNI)
 
@@ -154,7 +158,6 @@ files:
 - 新建文件夹、重命名、移动、复制
 - 文件元数据入库(平台无新表、无 alembic 迁移)
 - 跨 worker 全局搜索
-- 上传限速(当前无诉求,配置结构留了扩展位)
 
 ## 10. 待实施时确认的开放点
 
