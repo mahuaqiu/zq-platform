@@ -40,7 +40,7 @@ Worker 侧脚本会收集各类产物到本机目录:移动设备日志、Window
 |------|------|------|
 | `/files/list?path=` | GET | 列出目录:返回 `{ "entries": [ {"name","is_dir","size","mtime"} ] }`,path 缺省为根 |
 | `/files/download?path=` | GET | 流式下载文件,`StreamingResponse` 分块读取,块间 `await asyncio.sleep()` 节流 |
-| `/files/upload?path=&overwrite=` | POST | multipart 上传,`path` 为目标目录(相对路径,缺省为根),文件名取自上传的文件名;流式写入磁盘(分块,不整包进内存) |
+| `/files/upload?path=&name=&overwrite=` | POST | 请求体为原始文件流(`application/octet-stream`,非 multipart,worker 免引入 python-multipart):`path` 为目标目录(缺省为根),`name` 为文件名;流式写入磁盘(分块,不整包进内存) |
 | `/files?path=` | DELETE | 删除文件或**空**目录(非空目录拒绝,400) |
 
 ### 3.2 行为细节
@@ -88,25 +88,25 @@ files:
 |------|------|
 | `list_worker_files(machine, path)` | 代理 `/files/list`,错误映射与现有风格一致(502 无法连接/503 未初始化/404/400) |
 | `download_worker_file(machine, path)` | `httpx` stream 打开 worker 下载流,返回供 `StreamingResponse` 消费的 async 迭代器;透传 `Content-Length`、`Content-Disposition` |
-| `upload_worker_file(machine, path, overwrite, request_stream, content_type)` | 将浏览器上传 multipart 原始流式转发给 worker(保留 Content-Type boundary),不缓冲整包;转发节奏由 worker 慢读背压自然控制,平台不做额外限速 |
+| `upload_worker_file(machine, path, name, overwrite, content_stream)` | 将浏览器上传的原始文件流经 httpx 流式转发给 worker(`content=content_stream`,Content-Type: application/octet-stream),不缓冲整包;转发节奏由 worker 慢读背压自然控制,平台不做额外限速 |
 | `delete_worker_file(machine, path)` | 代理 DELETE |
 
 超时策略:connect 10s;read 超时按"块间隔"计(限速下块间隔短,不会误触),总时长不设限(大文件限速下载可达数十分钟)。
 
-### 5.2 api.py 新路由(前缀 `/api/core/env-machine`)
+### 5.2 api.py 新路由(挂在现有 `env_machine` 路由下,实际前缀 `/api/core/env`)
 
 | 路由 | 方法 | 说明 |
 |------|------|------|
-| `/{machine_id}/files` | GET | 列目录,query `path` 可选 |
-| `/{machine_id}/files/download` | GET | 流式下载代理 |
-| `/{machine_id}/files/upload` | POST | 流式上传代理,query `path`、`overwrite` |
-| `/{machine_id}/files` | DELETE | 删除代理 |
+| `/machine/{machine_id}/files` | GET | 列目录,query `path` 可选 |
+| `/machine/{machine_id}/files/download` | GET | 流式下载代理 |
+| `/machine/{machine_id}/files/upload` | POST | 流式上传代理,query `path`、`name`、`overwrite` |
+| `/machine/{machine_id}/files` | DELETE | 删除代理 |
 
 统一校验:机器存在、状态 online、ip/port 已配置、`device_type ∈ {windows, mac}`(与「日志」按钮同一规则:文件管理面向有 worker 进程的宿主机;android/ios/harmony 记录指向的是宿主机上的设备,文件管理不对其开放)。
 
-权限:沿用 env_machine 现有权限体系,不新增权限项。
+权限:沿用 env_machine 现有权限体系,不新增权限项(权限表无记录时中间件默认放行)。
 
-**下载接口鉴权(实施时确认)**:前端用 `window.open` 触发浏览器原生下载,GET 导航无法携带 JWT header。方案:该下载路由额外接受 `?access_token=` 查询参数校验(实施时按平台现有 JWT 依赖的实现方式落地;若平台已有 query token 先例则照抄)。
+**下载接口鉴权(已确认方案)**:前端 `window.open` 触发浏览器原生下载,GET 导航无法携带 JWT header。平台 `utils/auth_middleware.py` 已有现成机制:`QUERY_TOKEN_ALLOWED_PATTERNS` 白名单内的路径允许 `?token=` 查询参数传递 token(`_extract_token` 已实现)。只需新增一条模式 `^/api/core/env/machine/[^/]+/files/download$`,前端拼接 `?path=...&token=<accessToken>` 即可。
 
 ## 6. 前端改动(web-ele)
 
@@ -122,7 +122,7 @@ files:
   - 工具栏:`el-breadcrumb` 目录导航(点击任意层级跳转)+ 刷新 + 上传文件
   - `el-table` 纯列表:**名称**(文件夹蓝色可点进入;文件普通文本)/ 大小(人类可读格式)/ 修改时间 / 操作(下载、删除)
   - 底部:条目统计
-- **下载**:点击 → `window.open(平台下载URL?access_token=...)`,交给浏览器原生下载条,页内不显示进度
+- **下载**:点击 → `window.open(平台下载URL?path=...&token=accessStore.accessToken)`,交给浏览器原生下载条,页内不显示进度
 - **上传**:`el-upload` 自定义 `http-request` 走 axios,`onUploadProgress` 显示进度条(速率/剩余时间);请求不设超时(1GB / 1MB/s 可达 17 分钟);完成后刷新列表;收到 409 → `ElMessageBox.confirm("文件已存在,是否覆盖?")` → 带 `overwrite=true` 重传
 - **删除**:`ElMessageBox.confirm` 确认后调 DELETE,完成后刷新
 - 无预览、无文件类型图标/徽标(用户明确要求简化)
@@ -161,5 +161,6 @@ files:
 
 ## 10. 待实施时确认的开放点
 
-- 平台下载路由的 query token 鉴权落地方式(§5.2):按现有 JWT 依赖实现照抄或新建轻量依赖,实施计划阶段定
 - `files.root` 默认目录名(`data/collected`)是否符合脚本收集习惯,实施前与收集脚本对齐
+
+(原"下载接口 query token 鉴权"开放点已解决:复用 `auth_middleware.py` 现有 `QUERY_TOKEN_ALLOWED_PATTERNS` 机制,参数名 `token`。)
