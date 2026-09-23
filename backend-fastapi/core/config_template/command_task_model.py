@@ -41,6 +41,12 @@ class CommandTask(BaseModel):
     # 命令内容（仅command类型）
     command = Column(Text, nullable=True, comment="命令内容")
 
+    # 命令超时时间(秒)
+    command_timeout = Column(
+        Integer, nullable=False, default=120, server_default="120",
+        comment="命令超时时间(秒)",
+    )
+
     # 目标机器数量
     machine_count = Column(Integer, nullable=False, default=0, comment="目标机器数量")
 

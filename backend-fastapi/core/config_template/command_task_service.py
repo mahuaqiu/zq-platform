@@ -39,7 +39,8 @@ class CommandTaskService(BaseService):
         template_name: str,
         command: Optional[str],
         machine_count: int,
-        auto_commit: bool = True
+        auto_commit: bool = True,
+        command_timeout: int = 120,
     ) -> CommandTask:
         """创建任务记录"""
         # 显式赋值创建时间：base_model 用 server_default=func.now()，依赖数据库端填充，
@@ -50,6 +51,7 @@ class CommandTaskService(BaseService):
             template_type=template_type,
             template_name=template_name,
             command=command,
+            command_timeout=command_timeout,
             machine_count=machine_count,
             status="running",
             success_count=0,

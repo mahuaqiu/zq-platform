@@ -150,7 +150,9 @@ async def deploy_config(
 
         # 如果是 command 类型，使用异步执行
         if template.type == "command":
-            return await CommandDeployService.execute_command_deploy(db, template, data.machine_ids, data.command)
+            return await CommandDeployService.execute_command_deploy(
+                db, template, data.machine_ids, data.command, data.timeout
+            )
 
         # config/script 类型使用原有逻��
         response = await ConfigTemplateService.deploy_config(

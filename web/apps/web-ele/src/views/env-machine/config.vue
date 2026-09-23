@@ -21,6 +21,7 @@ import {
   ElButton,
   ElDialog,
   ElInput,
+  ElInputNumber,
   ElMessage,
   ElMessageBox,
   ElOption,
@@ -82,6 +83,7 @@ const templateForm = ref({
   type: 'config' as 'command' | 'config' | 'script',
   script_name: '',
   command: '',
+  command_timeout: 120,
   namespace: '',
   config_content: '',
   note: '',
@@ -270,6 +272,7 @@ function handleCreateTemplate() {
     type: 'config',
     script_name: '',
     command: '',
+    command_timeout: 120,
     namespace: '',
     config_content: '',
     note: '',
@@ -285,6 +288,7 @@ function handleEditTemplate(template: ConfigTemplate) {
     type: template.type || 'config',
     script_name: template.script_name || '',
     command: template.command || '',
+    command_timeout: template.command_timeout ?? 120,
     namespace: template.namespace || '',
     config_content: template.config_content,
     note: template.note || '',
@@ -322,6 +326,19 @@ async function handleSaveTemplate() {
     return;
   }
 
+  // 命令超时校验：非法/越界时回退默认，避免提交被后端 422 拒绝
+  if (templateForm.value.type === 'command') {
+    const timeoutValue = Number(templateForm.value.command_timeout);
+    if (!Number.isFinite(timeoutValue) || timeoutValue < 1) {
+      templateForm.value.command_timeout = 120;
+    } else {
+      templateForm.value.command_timeout = Math.min(
+        Math.floor(timeoutValue),
+        3600,
+      );
+    }
+  }
+
   // 配置/脚本类型必须有内容；命令类型 config_content 可为空
   if (
     templateForm.value.type !== 'command' &&
@@ -344,6 +361,10 @@ async function handleSaveTemplate() {
       command:
         templateForm.value.type === 'command'
           ? templateForm.value.command
+          : undefined,
+      command_timeout:
+        templateForm.value.type === 'command'
+          ? templateForm.value.command_timeout || 120
           : undefined,
       namespace: templateForm.value.namespace || undefined,
       config_content:
@@ -510,6 +531,11 @@ async function executeDeploy() {
       command:
         selectedTemplate.value.type === 'command'
           ? selectedTemplate.value.command
+          : undefined,
+      // 运行命令类型：带上模板中的超时设置（允许后端覆盖）
+      timeout:
+        selectedTemplate.value.type === 'command'
+          ? selectedTemplate.value.command_timeout ?? 120
           : undefined,
     };
     const result = await deployConfigApi(params);
@@ -1111,6 +1137,9 @@ onMounted(async () => {
                       <code class="script-name command-preview">{{
                         item.command
                       }}</code>
+                      <div class="command-timeout-badge">
+                        超时 {{ item.command_timeout ?? 120 }} 秒
+                      </div>
                     </div>
 
                     <div class="template-version">版本：{{ item.version }}</div>
@@ -1521,6 +1550,21 @@ onMounted(async () => {
                       :line-numbers="true"
                       :line-wrapping="true"
                     />
+                    <div class="command-timeout-field">
+                      <label class="form-label">超时时间(秒)</label>
+                      <ElInputNumber
+                        v-model="templateForm.command_timeout"
+                        :min="1"
+                        :max="3600"
+                        :step="30"
+                        :precision="0"
+                        step-strictly
+                        controls-position="right"
+                      />
+                      <span class="command-timeout-tip"
+                        >命令执行超过该时长将被终止，默认 120 秒，最长 1 小时</span
+                      >
+                    </div>
                   </div>
 
                   <div class="form-row">
@@ -2531,6 +2575,24 @@ onMounted(async () => {
   margin-bottom: 12px;
 }
 
+/* 命令超时设置：代码框下方一行，输入框 + 提示文字 */
+.command-timeout-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.command-timeout-field .form-label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.command-timeout-field .command-timeout-tip {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
 .template-dialog-footer {
   display: flex;
   justify-content: flex-end;
@@ -2825,6 +2887,13 @@ onMounted(async () => {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #fa8c16;
+}
+
+/* 命令模板卡片上的超时角标 */
+.command-timeout-badge {
+  margin-top: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 /* 操作按钮行 */

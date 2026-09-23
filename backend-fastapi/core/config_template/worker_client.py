@@ -21,6 +21,12 @@ from core.config_template.service import (
     ConfigTemplateService,
 )
 
+# 命令下发默认超时(秒)：与模板 command_timeout 字段默认值一致
+DEFAULT_COMMAND_TIMEOUT = 120
+# 任务级总超时在命令超时基础上追加的调度余量(秒)，
+# 保证动作级超时先触发并返回明确的 "Command timeout" 错误
+TASK_TIMEOUT_BUFFER = 60
+
 
 def worker_http_error_message(response: httpx.Response, fallback: str) -> str:
     """提取 Worker HTTP 错误，兼容结构化 detail 和旧文本响应。"""
@@ -34,8 +40,18 @@ def worker_http_error_message(response: httpx.Response, fallback: str) -> str:
     return str(detail or payload.get("message") or fallback) if isinstance(payload, dict) else fallback
 
 
-async def execute_single_command(machine: dict, command: str, parent_task_id: str) -> dict:
-    """执行单台机器的命令（machine 为机器快照 dict: id/ip/port/device_type）"""
+async def execute_single_command(
+    machine: dict,
+    command: str,
+    parent_task_id: str,
+    command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
+) -> dict:
+    """执行单台机器的命令（machine 为机器快照 dict: id/ip/port/device_type）。
+
+    command_timeout: 命令超时(秒)。动作级 timeout 让 worker 的 cmd_exec 到点
+    终止并返回明确错误；任务级 config.timeout 追加调度余量兜底，
+    轮询总时长与任务级总超时保持一致。
+    """
     start_time = time.time()
     machine_id = machine["id"]
     ip = machine["ip"]
@@ -48,7 +64,16 @@ async def execute_single_command(machine: dict, command: str, parent_task_id: st
     worker_request = {
         "platform": device_type,
         "device_id": device_sn or machine_id,
-        "actions": [{"action_type": "cmd_exec", "value": command}],
+        "actions": [
+            {
+                "action_type": "cmd_exec",
+                "value": command,
+                # 动作级超时(ms)：cmd_exec 到点终止进程树并返回 FAILED
+                "timeout": command_timeout * 1000,
+            }
+        ],
+        # 任务级总超时(ms)：命令超时 + 余量，防止任务在 worker 上悬挂
+        "config": {"timeout": (command_timeout + TASK_TIMEOUT_BUFFER) * 1000},
     }
     idempotency_key = hashlib.sha256(
         f"{parent_task_id}:{machine_id}:{command}".encode("utf-8")
@@ -69,7 +94,12 @@ async def execute_single_command(machine: dict, command: str, parent_task_id: st
 
                 # 等待任务完成（轮询）—— 用默认总超时，不能用 POST 阶段的 duration
                 # （duration 只是发起请求的耗时，约 0.x 秒，当 timeout 会导致一次都不查就超时）
-                result = await wait_task_result(ip, port, task_id)
+                result = await wait_task_result(
+                    ip,
+                    port,
+                    task_id,
+                    total_timeout=command_timeout + TASK_TIMEOUT_BUFFER,
+                )
                 return {
                     "machine_id": machine_id,
                     "ip": ip,
@@ -165,34 +195,43 @@ def interpret_task_poll(
     return "retry", None
 
 
-async def wait_task_result(ip: str, port: int, task_id: str) -> dict:
+def poll_interval_for(elapsed: float, total_timeout: float) -> float:
+    """按已耗时与任务预算返回轮询间隔(秒)。
+
+    - 前 60 秒固定 3 秒一次（快速感知短任务结束）
+    - 之后按任务预算的 1/20 拉长，夹在 [20, 120] 秒之间并向下取整到 5 秒：
+      20 分钟预算 → 60 秒一次，超过 40 分钟封顶 120 秒
+    """
+    if elapsed < 60.0:
+        return 3.0
+    clamped = max(20.0, min(120.0, total_timeout / 20.0))
+    return float(int(clamped // 5) * 5)
+
+
+async def wait_task_result(
+    ip: str, port: int, task_id: str, total_timeout: float = 600.0
+) -> dict:
     """等待任务完成并返回结果。
 
     Worker 的 /task/{task_id} 是幂等查询接口，结果可重复读取。
     只有明确终态才结束轮询，cancelling 等中间状态继续等待。
 
-    轮询策略（两段频率，总超时 10 分钟）：
-    - 前 60 秒：每 3 秒查询一次（快速感知短任务结束）
-    - 60 秒之后：每 20 秒查询一次（长任务降频，减少无效请求）
-    - 网络异常 / 非 200（404 除外）连续失败达到上限时快速终止，
-      避免 Worker 不可达时空轮询 600 秒、任务记录长期悬挂 running
+    total_timeout: 总超时(秒)，默认 600（10 分钟）；命令下发时与任务级
+    config.timeout 一致，长命令经 poll_interval_for 自动拉长轮询间隔。
+
+    网络异常 / 非 200（404 除外）连续失败达到上限时快速终止，
+    避免 Worker 不可达时空轮询、任务记录长期悬挂 running。
     """
     worker_url = f"http://{ip}:{port}/task/{task_id}"
     start_time = time.time()
 
-    # 总超时 10 分钟
-    timeout = 600.0
-    # 前 60 秒以 3 秒间隔轮询，之后以 20 秒间隔轮询的分界点
-    fast_phase_deadline = 60.0
-    fast_interval = 3.0
-    slow_interval = 20.0
+    timeout = float(total_timeout)
     # 连续查询失败上限（网络异常 / 5xx / 响应解析失败）
     MAX_CONSECUTIVE_FAILURES = 5
 
     def _next_interval() -> float:
         """根据已耗时返回下一次轮询的等待间隔"""
-        elapsed = time.time() - start_time
-        return fast_interval if elapsed < fast_phase_deadline else slow_interval
+        return poll_interval_for(time.time() - start_time, timeout)
 
     # 首次查询前加短暂延迟，给 worker 把任务跑起来的时间，避免过早查到 running
     await asyncio.sleep(0.5)

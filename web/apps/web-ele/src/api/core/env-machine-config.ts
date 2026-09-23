@@ -9,6 +9,8 @@ export interface ConfigTemplate {
   type: 'config' | 'script' | 'command';
   script_name?: string;
   command?: string;
+  /** 命令超时时间(秒)，仅 command 类型，默认 120 */
+  command_timeout?: number;
   namespace?: string;
   note?: string;
   config_content: string;
@@ -49,6 +51,8 @@ export interface DeployRequest {
   template_id: string;
   machine_ids: string[];
   command?: string;
+  /** 命令超时时间(秒)，覆盖模板设置，默认用模板的 command_timeout */
+  timeout?: number;
 }
 
 /**
@@ -246,6 +250,8 @@ export interface CommandTask {
   template_type: string;
   template_name: string;
   command?: string;
+  /** 命令超时时间(秒) */
+  command_timeout?: number;
   machine_count: number;
   status: string;
   success_count: number;

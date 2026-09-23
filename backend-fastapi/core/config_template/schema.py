@@ -19,6 +19,7 @@ class ConfigTemplateCreate(BaseModel):
     type: str = Field(default="config", description="模板类型: config/script/command")
     script_name: Optional[str] = Field(None, max_length=128, description="脚本名称")
     command: Optional[str] = Field(None, description="命令内容（仅command类型）")
+    command_timeout: int = Field(120, ge=1, le=3600, description="命令超时时间(秒)，仅command类型")
     namespace: Optional[str] = Field(None, max_length=64, description="命名空间")
     note: Optional[str] = Field(None, description="备注")
     config_content: str = Field(..., description="配置内容")
@@ -58,6 +59,7 @@ class ConfigTemplateUpdate(BaseModel):
     type: Optional[str] = Field(None, description="模板类型")
     script_name: Optional[str] = Field(None, max_length=128, description="脚本名称")
     command: Optional[str] = Field(None, description="命令内容")
+    command_timeout: Optional[int] = Field(None, ge=1, le=3600, description="命令超时时间(秒)")
     namespace: Optional[str] = Field(None, max_length=64, description="命名空间")
     note: Optional[str] = Field(None, description="备注")
     config_content: Optional[str] = Field(None, description="配置内容")
@@ -77,6 +79,7 @@ class ConfigTemplateResponse(BaseModel):
     type: str = Field(..., description="模板类型")
     script_name: Optional[str] = Field(None, description="脚本名称")
     command: Optional[str] = Field(None, description="命令内容")
+    command_timeout: int = Field(120, description="命令超时时间(秒)")
     namespace: Optional[str] = Field(None, description="命名空间")
     note: Optional[str] = Field(None, description="备注")
     config_content: str = Field(..., description="配置内容")
@@ -93,6 +96,10 @@ class DeployRequest(BaseModel):
     machine_ids: List[str] = Field(..., description="机器ID列表")
     # command 类型时支持覆盖命令内容
     command: Optional[str] = Field(None, description="命令内容（仅command类型使用，可选覆盖）")
+    # command 类型时支持覆盖命令超时时间(秒)
+    timeout: Optional[int] = Field(
+        None, ge=1, le=3600, description="命令超时时间(秒)，覆盖模板设置"
+    )
 
 
 class DeployDetail(BaseModel):
@@ -213,6 +220,7 @@ class CommandTaskResponse(BaseModel):
     template_type: str = Field(..., description="模板类型: config/script/command")
     template_name: str = Field(..., description="模板名称")
     command: Optional[str] = Field(None, description="命令内容")
+    command_timeout: int = Field(120, description="命令超时时间(秒)")
     machine_count: int = Field(..., description="目标机器数量")
     status: str = Field(..., description="任务状态: running/success/failed/partial")
     success_count: int = Field(..., description="成功数量")

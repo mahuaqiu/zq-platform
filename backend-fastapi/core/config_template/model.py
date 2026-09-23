@@ -7,7 +7,7 @@
 @File: model.py
 @Desc: ConfigTemplate Model - 配置模板模型
 """
-from sqlalchemy import Column, String, Text, Index, text
+from sqlalchemy import Column, Integer, String, Text, Index, text
 
 from app.base_model import BaseModel
 
@@ -21,6 +21,7 @@ class ConfigTemplate(BaseModel):
     - type: 模板类型（config/script/command）
     - script_name: 脚本名称（仅脚本类型）
     - command: 命令内容（仅command类型）
+    - command_timeout: 命令超时时间(秒)（仅command类型，默认120）
     - namespace: 适用命名空间（可选，null表示全部）
     - note: 备注说明
     - config_content: YAML 配置内容或脚本内容
@@ -39,6 +40,12 @@ class ConfigTemplate(BaseModel):
 
     # 命令内容（仅command类型使用）
     command = Column(Text, nullable=True, comment="命令内容")
+
+    # 命令超时时间(秒)（仅command类型使用，worker 侧命令执行最长等待）
+    command_timeout = Column(
+        Integer, nullable=False, default=120, server_default="120",
+        comment="命令超时时间(秒)",
+    )
 
     # 适用命名空间（可选）
     namespace = Column(String(64), nullable=True, comment="适用命名空间")

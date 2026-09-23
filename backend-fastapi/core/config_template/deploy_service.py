@@ -35,13 +35,17 @@ class CommandDeployService:
         db: AsyncSession,
         template,
         machine_ids: List[str],
-        command_override: Optional[str] = None
+        command_override: Optional[str] = None,
+        timeout_override: Optional[int] = None,
     ) -> "DeployResponse":
         """执行运行命令下发（异步方式）"""
         # 获取实际命令内容
         command = command_override or template.command
         if not command:
             raise HTTPException(status_code=400, detail="命令内容不能为空")
+
+        # 命令超时(秒)：请求覆盖 > 模板设置 > 默认 120
+        command_timeout = timeout_override or getattr(template, "command_timeout", None) or 120
 
         # 查询机器
         # 命令执行独立于配置/脚本下发，不依赖版本状态；
@@ -77,6 +81,7 @@ class CommandDeployService:
             template_name=template.name,
             command=command,
             machine_count=len(machines),
+            command_timeout=command_timeout,
         )
 
         # 拷贝机器快照（避免 session 关闭后对象变成 detached 状态）
@@ -95,7 +100,7 @@ class CommandDeployService:
         # 异步执行命令（使用独立的 session，不依赖请求级 db）
         # 通过 spawn_background_task 持有强引用并记录异常，避免任务被 GC 中途取消
         spawn_background_task(
-            cls.run_command_batch(task_id, machine_snapshot, command),
+            cls.run_command_batch(task_id, machine_snapshot, command, command_timeout),
             name=f"command-deploy-{task_id}",
         )
 
@@ -111,7 +116,9 @@ class CommandDeployService:
         )
 
     @classmethod
-    async def run_command_batch(cls, task_id: str, machines: List[dict], command: str) -> None:
+    async def run_command_batch(
+        cls, task_id: str, machines: List[dict], command: str, command_timeout: int = 120
+    ) -> None:
         """异步执行命令（后台任务，使用独立 session）。
 
         机器数超过 COMMAND_BATCH_SIZE 时分批并发：批内 asyncio.gather 并发执行，
@@ -124,7 +131,10 @@ class CommandDeployService:
         it = iter(machines)
         while batch := list(islice(it, COMMAND_BATCH_SIZE)):
             batch_results = await asyncio.gather(
-                *(execute_single_command(m, command, task_id) for m in batch)
+                *(
+                    execute_single_command(m, command, task_id, command_timeout)
+                    for m in batch
+                )
             )
             for result in batch_results:
                 results.append(result)
