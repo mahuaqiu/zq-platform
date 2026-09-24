@@ -100,6 +100,7 @@ QUERY_TOKEN_ALLOWED_PATTERNS = [
     r"^/api/core/file_manager/stream/.*",      # 文件流式传输
     r"^/api/core/file_manager/proxy/.*",       # 文件代理访问
     r"^/api/core/file_manager/file/download.*", # 文件下载
+    r"^/api/core/env/machine/[^/]+/files/download$",  # 执行机产物文件下载(浏览器原生下载无法带 Header,?token= 鉴权)
 ]
 
 

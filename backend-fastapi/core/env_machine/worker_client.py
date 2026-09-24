@@ -11,6 +11,7 @@ from typing import Optional
 
 import httpx
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 
 from core.env_machine.model import EnvMachine
 from core.env_machine.schema import CommandResultItem
@@ -208,3 +209,134 @@ async def fetch_worker_logs(
         raise HTTPException(status_code=504, detail="获取日志超时")
     except httpx.ConnectError:
         raise HTTPException(status_code=502, detail="无法连接到设备")
+
+
+# ============ 产物文件管理代理 ============
+# Worker /files/* 接口的代理出口。错误映射与上方日志代理一致;
+# 下载/上传走流式转发,平台不落盘。read/write 不设超时:worker 端限速
+# 慢速产出,且并发下载排队时首字节延迟可达分钟级。
+
+_WORKER_FILES_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=None, pool=None)
+
+
+def _worker_files_url(machine: EnvMachine, endpoint: str) -> str:
+    return f"http://{machine.ip}:{machine.port}/files/{endpoint}"
+
+
+def _raise_files_error(resp: httpx.Response) -> None:
+    """非 200 时按 worker 语义抛 HTTPException。"""
+    detail_map = {
+        400: "非法路径或文件名",
+        404: "路径不存在",
+        409: "file_exists",
+        413: "文件超过大小限制",
+        503: "Worker 未初始化",
+    }
+    if resp.status_code in detail_map:
+        raise HTTPException(status_code=resp.status_code, detail=detail_map[resp.status_code])
+    raise HTTPException(status_code=502, detail=f"设备返回异常: {resp.status_code}")
+
+
+def _connect_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, httpx.TimeoutException):
+        return HTTPException(status_code=504, detail="连接设备超时")
+    return HTTPException(status_code=502, detail="无法连接到设备")
+
+
+async def list_worker_files(machine: EnvMachine, path: str | None = None) -> dict:
+    """代理 worker /files/list。返回 {"path", "entries": [{name,is_dir,size,mtime}]}。"""
+    params = {"path": path} if path else {}
+    try:
+        async with httpx.AsyncClient(timeout=30.0, trust_env=False, verify=False) as client:
+            resp = await client.get(_worker_files_url(machine, "list"), params=params)
+    except httpx.HTTPError as e:
+        raise _connect_error(e)
+    if resp.status_code == 200:
+        return resp.json()
+    _raise_files_error(resp)
+    raise HTTPException(status_code=502, detail="设备返回异常")  # pragma: no cover
+
+
+async def download_worker_file(machine: EnvMachine, path: str) -> StreamingResponse:
+    """代理 worker /files/download,返回边收边转发的 StreamingResponse。"""
+    try:
+        client = httpx.AsyncClient(
+            timeout=_WORKER_FILES_TIMEOUT, trust_env=False, verify=False
+        )
+        resp = await client.send(
+            client.build_request(
+                "GET", _worker_files_url(machine, "download"), params={"path": path}
+            ),
+            stream=True,
+        )
+    except httpx.HTTPError as e:
+        raise _connect_error(e)
+    if resp.status_code != 200:
+        await resp.aclose()
+        await client.aclose()
+        _raise_files_error(resp)
+
+    headers = {}
+    if "content-length" in resp.headers:
+        headers["Content-Length"] = resp.headers["content-length"]
+    if "content-disposition" in resp.headers:
+        headers["Content-Disposition"] = resp.headers["content-disposition"]
+
+    async def relay():
+        try:
+            async for chunk in resp.aiter_bytes():
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        relay(),
+        media_type=resp.headers.get("content-type", "application/octet-stream"),
+        headers=headers,
+    )
+
+
+async def upload_worker_file(
+    machine: EnvMachine,
+    *,
+    path: str | None,
+    name: str,
+    overwrite: bool,
+    content_stream,
+) -> dict:
+    """把浏览器上传的原始字节流转发给 worker /files/upload(不缓冲整包)。"""
+    params: dict[str, str] = {"name": name, "overwrite": str(overwrite).lower()}
+    if path:
+        params["path"] = path
+    try:
+        async with httpx.AsyncClient(
+            timeout=_WORKER_FILES_TIMEOUT, trust_env=False, verify=False
+        ) as client:
+            resp = await client.post(
+                _worker_files_url(machine, "upload"),
+                params=params,
+                content=content_stream,
+                headers={"Content-Type": "application/octet-stream"},
+            )
+    except httpx.HTTPError as e:
+        raise _connect_error(e)
+    if resp.status_code == 200:
+        return resp.json()
+    _raise_files_error(resp)
+    raise HTTPException(status_code=502, detail="设备返回异常")  # pragma: no cover
+
+
+async def delete_worker_file(machine: EnvMachine, path: str) -> dict:
+    """代理 worker DELETE /files。注意不能用 _worker_files_url(machine, ""):
+    /files/ 尾斜杠会触发 Starlette 307 重定向,httpx 默认不跟随会误报 502。"""
+    url = f"http://{machine.ip}:{machine.port}/files"
+    try:
+        async with httpx.AsyncClient(timeout=30.0, trust_env=False, verify=False) as client:
+            resp = await client.delete(url, params={"path": path})
+    except httpx.HTTPError as e:
+        raise _connect_error(e)
+    if resp.status_code == 200:
+        return resp.json()
+    _raise_files_error(resp)
+    raise HTTPException(status_code=502, detail="设备返回异常")  # pragma: no cover
