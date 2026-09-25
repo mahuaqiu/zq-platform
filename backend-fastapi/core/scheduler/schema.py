@@ -7,9 +7,6 @@
 @File: schema.py
 @Desc: Scheduler Schema - 定时任务数据验证和序列化
 """
-"""
-Scheduler Schema - 定时任务数据验证和序列化
-"""
 from datetime import datetime
 from typing import Optional, List
 

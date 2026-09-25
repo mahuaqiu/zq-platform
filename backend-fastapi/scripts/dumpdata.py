@@ -7,10 +7,6 @@
 @File: dumpdata.py
 @Desc: 数据导出脚本 - 类似 Django 的 dumpdata - 使用方法: python scripts/dumpdata.py [app_name] > data.json
 """
-"""
-数据导出脚本 - 类似 Django 的 dumpdata
-使用方法: python scripts/dumpdata.py [app_name] > data.json
-"""
 import asyncio
 import json
 import sys

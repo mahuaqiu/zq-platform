@@ -7,17 +7,10 @@
 @File: auth_middleware.py
 @Desc: Auth Middleware - 全局认证和鉴权中间件 - 
 """
-"""
-Auth Middleware - 全局认证和鉴权中间件
-
-功能：
-1. 认证（Authentication）：验证JWT Token的有效性
-2. 鉴权（Authorization）：基于API路径的动态权限检查
-"""
 from typing import List, Optional, Callable
 import re
 
-from fastapi import Request, HTTPException, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 

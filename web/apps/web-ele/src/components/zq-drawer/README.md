@@ -71,35 +71,35 @@ function handleCancel() {
 
 ### Events
 
-| 事件名 | 说明 | 回调参数 |
-| --- | --- | --- |
-| update:modelValue | 显示状态改变时触发 | `(value: boolean)` |
-| confirm | 点击确认按钮时触发 | - |
-| cancel | 点击取消按钮时触发 | - |
-| open | 抽屉打开动画开始时触发 | - |
-| opened | 抽屉打开动画结束时触发 | - |
-| close | 抽屉关闭动画开始时触发 | - |
-| closed | 抽屉关闭动画结束时触发 | - |
+| 事件名            | 说明                   | 回调参数           |
+| ----------------- | ---------------------- | ------------------ |
+| update:modelValue | 显示状态改变时触发     | `(value: boolean)` |
+| confirm           | 点击确认按钮时触发     | -                  |
+| cancel            | 点击取消按钮时触发     | -                  |
+| open              | 抽屉打开动画开始时触发 | -                  |
+| opened            | 抽屉打开动画结束时触发 | -                  |
+| close             | 抽屉关闭动画开始时触发 | -                  |
+| closed            | 抽屉关闭动画结束时触发 | -                  |
 
 ### Slots
 
-| 插槽名 | 说明 |
-| --- | --- |
-| default | 抽屉内容 |
-| title | 标题区域 |
-| header-extra | 标题右侧额外内容（在全屏和关闭按钮之前） |
-| footer | 底部内容（完全自定义底部） |
-| footer-left | 底部左侧内容 |
-| footer-prepend | 底部按钮前置插槽（在取消按钮之前） |
-| footer-append | 底部按钮后置插槽（在确认按钮之后） |
+| 插槽名         | 说明                                     |
+| -------------- | ---------------------------------------- |
+| default        | 抽屉内容                                 |
+| title          | 标题区域                                 |
+| header-extra   | 标题右侧额外内容（在全屏和关闭按钮之前） |
+| footer         | 底部内容（完全自定义底部）               |
+| footer-left    | 底部左侧内容                             |
+| footer-prepend | 底部按钮前置插槽（在取消按钮之前）       |
+| footer-append  | 底部按钮后置插槽（在确认按钮之后）       |
 
 ### Expose Methods
 
-| 方法名 | 说明 | 参数 |
-| --- | --- | --- |
-| open | 打开抽屉 | - |
-| close | 关闭抽屉 | - |
-| setLoading | 设置内容区 loading 状态 | `(value: boolean)` |
+| 方法名            | 说明                      | 参数               |
+| ----------------- | ------------------------- | ------------------ |
+| open              | 打开抽屉                  | -                  |
+| close             | 关闭抽屉                  | -                  |
+| setLoading        | 设置内容区 loading 状态   | `(value: boolean)` |
 | setConfirmLoading | 设置确认按钮 loading 状态 | `(value: boolean)` |
 
 ## 示例

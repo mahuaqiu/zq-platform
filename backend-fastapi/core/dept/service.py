@@ -7,15 +7,11 @@
 @File: service.py
 @Desc: Dept Service - 部门服务层
 """
-"""
-Dept Service - 部门服务层
-"""
 from io import BytesIO
 from typing import Tuple, Dict, Any, Optional, List
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.base_service import BaseService
 from core.dept.model import Dept
@@ -181,8 +177,6 @@ class DeptService(BaseService[Dept, DeptCreate, DeptUpdate]):
         )
         all_depts = result.scalars().all()
         
-        # 构建部门字典
-        dept_dict = {dept.id: dept for dept in all_depts}
         
         # 构建树形结构
         def build_tree(parent_id: Optional[str]) -> List[DeptTreeNode]:
@@ -384,7 +378,6 @@ class DeptService(BaseService[Dept, DeptCreate, DeptUpdate]):
         )
         all_depts = list(result.scalars().all())
         
-        # 构建部门字典
         dept_dict_map = {}
         for dept in all_depts:
             child_count = await cls.get_child_count(db, dept.id)

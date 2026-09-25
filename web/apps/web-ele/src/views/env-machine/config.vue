@@ -1,8 +1,4 @@
 <script lang="ts" setup>
-/* eslint-disable vue/html-closing-bracket-newline --
-   该规则与 prettier/prettier 对“含 Mustache/文本且属性行接近 80 列的元素”
-   存在死锁：prettier 会拆成多行、vue 规则又要求闭合不另起行，二者均为
-   error 且无法同时满足。本文件这类行较多，统一在此关闭该单条规则。 */
 import type {
   ConfigPreviewMachine,
   ConfigPreviewResponse,
@@ -47,11 +43,11 @@ import {
   getMachineSelectionTemplateListApi,
   updateConfigTemplateApi,
 } from '#/api/core/env-machine-config';
-
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
+import { copyToClipboard } from '#/utils/clipboard';
+
 import CommandTaskHistory from './modules/CommandTaskHistory.vue';
 import { useNamespaceStore } from './store';
-import { copyToClipboard } from '#/utils/clipboard';
 
 defineOptions({ name: 'EnvMachineConfigPage' });
 
@@ -329,14 +325,10 @@ async function handleSaveTemplate() {
   // 命令超时校验：非法/越界时回退默认，避免提交被后端 422 拒绝
   if (templateForm.value.type === 'command') {
     const timeoutValue = Number(templateForm.value.command_timeout);
-    if (!Number.isFinite(timeoutValue) || timeoutValue < 1) {
-      templateForm.value.command_timeout = 120;
-    } else {
-      templateForm.value.command_timeout = Math.min(
-        Math.floor(timeoutValue),
-        3600,
-      );
-    }
+    templateForm.value.command_timeout =
+      !Number.isFinite(timeoutValue) || timeoutValue < 1
+        ? 120
+        : Math.min(Math.floor(timeoutValue), 3600);
   }
 
   // 配置/脚本类型必须有内容；命令类型 config_content 可为空
@@ -535,7 +527,7 @@ async function executeDeploy() {
       // 运行命令类型：带上模板中的超时设置（允许后端覆盖）
       timeout:
         selectedTemplate.value.type === 'command'
-          ? selectedTemplate.value.command_timeout ?? 120
+          ? (selectedTemplate.value.command_timeout ?? 120)
           : undefined,
     };
     const result = await deployConfigApi(params);
@@ -713,7 +705,9 @@ async function copyDeployScript() {
 // 页面操作区一键复制：仅命令模板对外提供 API 调用脚本，且必须已勾选下发机器
 async function copyDeployScriptFromPage() {
   if (selectedMachineIds.value.length === 0) {
-    ElMessage.warning('请先勾选要下发的机器（可点击"使用IP模板"快速选择），再复制调用脚本');
+    ElMessage.warning(
+      '请先勾选要下发的机器（可点击"使用IP模板"快速选择），再复制调用脚本',
+    );
     return;
   }
   await copyDeployScript();
@@ -1562,7 +1556,8 @@ onMounted(async () => {
                         controls-position="right"
                       />
                       <span class="command-timeout-tip"
-                        >命令执行超过该时长将被终止，默认 120 秒，最长 1 小时</span
+                        >命令执行超过该时长将被终止，默认 120 秒，最长 1
+                        小时</span
                       >
                     </div>
                   </div>
@@ -2150,15 +2145,15 @@ onMounted(async () => {
 
 .panel-body {
   flex: 1;
-  overflow-y: auto;
   padding: 12px;
+  overflow-y: auto;
 }
 
 .loading-text,
 .empty-text {
   padding: 20px;
-  text-align: center;
   color: #999;
+  text-align: center;
 }
 
 .template-list {
@@ -2186,8 +2181,8 @@ onMounted(async () => {
 }
 
 .template-item.active {
-  border: 2px solid #1890ff;
   background: #e6f7ff;
+  border: 2px solid #1890ff;
 }
 
 .template-info {
@@ -2264,11 +2259,11 @@ onMounted(async () => {
 
 .deploy-header {
   padding: 12px 16px;
-  background: #fafafa;
-  border-bottom: 1px solid #e8e8e8;
   font-size: 14px;
   font-weight: 500;
   color: #333;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .deploy-body {
@@ -2283,15 +2278,15 @@ onMounted(async () => {
   gap: 16px;
   align-items: center;
   padding: 12px;
+  margin-bottom: 16px;
   background: #f5f5f5;
   border-radius: 4px;
-  margin-bottom: 16px;
 }
 
 .filter-item {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .filter-label {
@@ -2306,9 +2301,9 @@ onMounted(async () => {
 }
 
 .filter-hint {
+  margin-left: 8px;
   font-size: 12px;
   color: #faad14;
-  margin-left: 8px;
 }
 
 /* 当前模板提示条 */
@@ -2317,10 +2312,10 @@ onMounted(async () => {
   gap: 4px;
   align-items: center;
   padding: 10px 12px;
+  margin-bottom: 12px;
   background: #fff7e6;
   border: 1px solid #ffd591;
   border-radius: 4px;
-  margin-bottom: 12px;
 }
 
 .tip-label {
@@ -2340,9 +2335,9 @@ onMounted(async () => {
 }
 
 .tip-hint {
+  margin-left: 8px;
   font-size: 12px;
   color: #999;
-  margin-left: 8px;
 }
 
 /* 统计信息行 */
@@ -2350,11 +2345,11 @@ onMounted(async () => {
   display: flex;
   gap: 16px;
   padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
   background: #e6f7ff;
   border: 1px solid #91d5ff;
   border-radius: 4px;
-  margin-bottom: 12px;
-  font-size: 12px;
 }
 
 .stats-item {
@@ -2371,9 +2366,9 @@ onMounted(async () => {
 
 /* 表格 */
 .table-wrapper {
+  overflow-x: auto;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
-  overflow-x: auto;
 }
 
 .preview-table {
@@ -2425,9 +2420,9 @@ onMounted(async () => {
 .native-checkbox {
   width: 14px;
   height: 14px;
+  vertical-align: middle;
   accent-color: #1890ff;
   cursor: pointer;
-  vertical-align: middle;
 }
 
 .native-checkbox:disabled {
@@ -2453,8 +2448,8 @@ onMounted(async () => {
 /* 操作按钮 */
 .action-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-top: 16px;
 }
 
@@ -2476,22 +2471,22 @@ onMounted(async () => {
 
 .template-dialog-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px 20px;
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
 }
 
 .template-dialog-title {
-  color: #fff;
   font-size: 16px;
   font-weight: 500;
+  color: #fff;
 }
 
 .template-dialog-close {
+  font-size: 18px;
   color: #fff;
   cursor: pointer;
-  font-size: 18px;
 }
 
 .template-dialog-close:hover {
@@ -2507,11 +2502,11 @@ onMounted(async () => {
 }
 
 .section-title {
+  padding-bottom: 8px;
+  margin-bottom: 12px;
   font-size: 13px;
   font-weight: 500;
   color: #333;
-  padding-bottom: 8px;
-  margin-bottom: 12px;
   border-bottom: 1px solid #eee;
 }
 
@@ -2548,9 +2543,9 @@ onMounted(async () => {
 }
 
 .yaml-editor {
+  padding: 16px;
   background: #1e1e1e;
   border-radius: 4px;
-  padding: 16px;
 }
 
 .yaml-textarea {
@@ -2560,10 +2555,10 @@ onMounted(async () => {
   font-size: 13px;
   line-height: 1.6;
   color: #d4d4d4;
-  background: transparent;
-  border: none;
   resize: vertical;
   outline: none;
+  background: transparent;
+  border: none;
 }
 
 .yaml-textarea::placeholder {
@@ -2578,8 +2573,8 @@ onMounted(async () => {
 /* 命令超时设置：代码框下方一行，输入框 + 提示文字 */
 .command-timeout-field {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-top: 8px;
 }
 
@@ -2589,14 +2584,14 @@ onMounted(async () => {
 }
 
 .command-timeout-field .command-timeout-tip {
-  color: var(--el-text-color-secondary);
   font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .template-dialog-footer {
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
+  justify-content: flex-end;
   padding: 16px 20px;
   border-top: 1px solid #eee;
 }
@@ -2637,42 +2632,42 @@ onMounted(async () => {
 }
 
 .delete-icon {
-  width: 48px;
-  height: 48px;
-  background: #fff1f0;
-  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 48px;
+  height: 48px;
   margin-bottom: 16px;
+  background: #fff1f0;
+  border-radius: 50%;
 }
 
 .delete-title {
+  margin-bottom: 8px;
   font-size: 16px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 8px;
 }
 
 .delete-desc {
+  margin-bottom: 16px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 16px;
 }
 
 .delete-template-name {
   padding: 12px;
+  font-size: 13px;
   background: #f5f5f5;
   border-radius: 4px;
-  font-size: 13px;
 }
 
 .delete-dialog-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
   padding: 16px 24px;
   background: #fafafa;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
 }
 
 .btn-delete {
@@ -2809,8 +2804,8 @@ onMounted(async () => {
 }
 
 .btn-copy-script {
-  margin-right: auto;
   padding: 10px 20px;
+  margin-right: auto;
   font-size: 14px;
   color: #1890ff !important;
   background: #ecf5ff !important;
@@ -2861,23 +2856,23 @@ onMounted(async () => {
   padding: 1px 6px;
   margin-right: 6px;
   font-size: 11px;
-  border-radius: 3px;
   vertical-align: middle;
+  border-radius: 3px;
 }
 
 .type-tag-config {
-  background: #e6f7ff;
   color: #1890ff;
+  background: #e6f7ff;
 }
 
 .type-tag-script {
-  background: #f6ffed;
   color: #52c41a;
+  background: #f6ffed;
 }
 
 .type-tag-command {
-  background: #fff7e6;
   color: #fa8c16;
+  background: #fff7e6;
 }
 
 .command-preview {
@@ -2885,15 +2880,15 @@ onMounted(async () => {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
   color: #fa8c16;
+  white-space: nowrap;
 }
 
 /* 命令模板卡片上的超时角标 */
 .command-timeout-badge {
   margin-top: 2px;
-  color: var(--el-text-color-secondary);
   font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 /* 操作按钮行 */
@@ -2906,18 +2901,18 @@ onMounted(async () => {
 /* IP 模板按钮通用样式 */
 .ip-btn {
   display: inline-flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   padding: 7px 16px;
   font-size: 13px;
   font-weight: 500;
   line-height: 1;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  cursor: pointer;
   user-select: none;
   outline: none;
+  border-radius: 6px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ip-btn-icon {
@@ -2951,10 +2946,10 @@ onMounted(async () => {
 
 .ip-btn-save:disabled {
   color: #bfbfbf;
+  cursor: not-allowed;
   background: #f5f5f5;
   border-color: #d9d9d9;
   box-shadow: none;
-  cursor: not-allowed;
   transform: none;
 }
 
@@ -3012,11 +3007,11 @@ onMounted(async () => {
   display: block;
   padding: 6px 8px;
   margin-top: 4px;
-  background: #f5f5f5;
-  border-radius: 3px;
   font-family: Consolas, Monaco, monospace;
   font-size: 12px;
   word-break: break-all;
+  background: #f5f5f5;
+  border-radius: 3px;
 }
 
 /* IP 模板弹窗 */
@@ -3043,10 +3038,10 @@ onMounted(async () => {
 
 .ip-preview {
   padding: 8px 12px;
+  font-size: 13px;
+  color: #1890ff;
   background: #f0f5ff;
   border-radius: 4px;
-  color: #1890ff;
-  font-size: 13px;
 }
 
 .ip-template-list {
@@ -3056,8 +3051,8 @@ onMounted(async () => {
 
 .ip-empty {
   padding: 32px;
-  text-align: center;
   color: #999;
+  text-align: center;
 }
 
 .ip-template-item {
@@ -3179,21 +3174,24 @@ onMounted(async () => {
 .ip-use-dialog :deep(.el-dialog__body) {
   padding: 0;
 }
+
 .ip-use-body {
   display: flex;
   height: 460px;
   border-top: 1px solid #f0f0f0;
   border-bottom: 1px solid #f0f0f0;
 }
+
 /* 左栏 */
 .ip-use-left {
-  width: 300px;
-  min-width: 300px;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #eee;
+  width: 300px;
+  min-width: 300px;
   background: #fafbfd;
+  border-right: 1px solid #eee;
 }
+
 .ip-use-left-title {
   padding: 10px 12px;
   font-size: 12px;
@@ -3201,180 +3199,215 @@ onMounted(async () => {
   letter-spacing: 0.5px;
   border-bottom: 1px solid #f0f0f0;
 }
+
 .ip-use-left-list {
   flex: 1;
-  overflow-y: auto;
   padding: 8px;
+  overflow-y: auto;
 }
+
 .ip-use-tpl-item {
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 6px;
   padding: 8px 10px;
   margin-bottom: 6px;
   cursor: pointer;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
   transition: all 0.15s;
 }
+
 .ip-use-tpl-item:hover {
   border-color: #91d5ff;
 }
+
 .ip-use-tpl-item.active {
-  border: 1.5px solid #1890ff;
   background: #e6f7ff;
+  border: 1.5px solid #1890ff;
 }
+
 .ip-use-tpl-head {
   display: flex;
+  gap: 6px;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
 }
+
 .ip-use-tpl-name {
-  font-weight: 600;
-  font-size: 13px;
-  color: #333;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
   white-space: nowrap;
 }
+
 .ip-use-tpl-del {
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s;
 }
+
 .ip-use-tpl-item:hover .ip-use-tpl-del,
 .ip-use-tpl-item.active .ip-use-tpl-del {
   opacity: 1;
 }
+
 .ip-use-tpl-item.active .ip-use-tpl-name {
   color: #1890ff;
 }
+
 .ip-use-tpl-pills {
-  margin-top: 5px;
   display: flex;
-  gap: 4px;
   flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
 }
+
 .ip-use-left-empty {
   padding: 20px;
-  text-align: center;
-  color: #aaa;
   font-size: 12px;
+  color: #aaa;
+  text-align: center;
 }
+
 /* 右栏 */
 .ip-use-right {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   overflow: hidden;
 }
+
 .ip-use-topbar {
-  padding: 10px 14px;
-  border-bottom: 1px solid #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 10px 14px;
   background: #fff;
+  border-bottom: 1px solid #f0f0f0;
 }
+
 .ip-use-topbar-info {
   font-size: 13px;
 }
+
 .ip-use-topbar-note {
-  color: #888;
-  font-size: 11px;
   margin-left: 4px;
+  font-size: 11px;
+  color: #888;
 }
+
 .ip-use-stats {
-  padding: 8px 14px;
   display: flex;
   gap: 6px;
+  padding: 8px 14px;
   background: #fafbfd;
   border-bottom: 1px solid #f0f0f0;
 }
+
 .ip-use-table-wrap {
   flex: 1;
-  overflow-y: auto;
   padding: 0 14px;
+  overflow-y: auto;
 }
+
 .ip-use-table {
   width: 100%;
-  border-collapse: collapse;
   font-size: 12px;
+  border-collapse: collapse;
 }
+
 .ip-use-table thead th {
   position: sticky;
   top: 0;
-  background: #fafafa;
-  text-align: left;
+  z-index: 1;
   padding: 6px 8px;
   font-weight: 600;
   color: #666;
+  text-align: left;
+  background: #fafafa;
   border-bottom: 1px solid #f0f0f0;
-  z-index: 1;
 }
+
 .ip-use-row {
   border-bottom: 1px solid #f5f5f5;
 }
+
 .ip-use-row.row-lost {
   background: #fff7f6;
 }
+
 .ip-use-table td {
   padding: 6px 8px;
 }
+
 .col-check {
   width: 36px;
 }
+
 .col-ip code {
+  padding: 1px 4px;
   font-family: Consolas, monospace;
   font-size: 12px;
-  padding: 1px 4px;
   background: #f5f5f5;
   border-radius: 2px;
 }
+
 .col-ip code.ip-lost {
   color: #bbb;
   text-decoration: line-through;
   background: transparent;
 }
+
 .col-type {
   width: 70px;
   color: #666;
 }
+
 .col-status {
   width: 90px;
 }
+
 .status-online {
   color: #52c41a;
 }
+
 .status-offline {
   color: #faad14;
 }
+
 .status-lost {
   color: #ff4d4f;
 }
+
 .ip-use-empty {
-  text-align: center;
-  color: #aaa;
   padding: 20px;
-}
-.ip-use-error {
+  color: #aaa;
   text-align: center;
-  color: #ff4d4f;
-  padding: 30px;
 }
+
+.ip-use-error {
+  padding: 30px;
+  color: #ff4d4f;
+  text-align: center;
+}
+
 .ip-use-bottombar {
-  padding: 10px 14px;
-  border-top: 1px solid #f0f0f0;
-  background: #fafbfd;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 10px 14px;
+  background: #fafbfd;
+  border-top: 1px solid #f0f0f0;
 }
+
 .ip-use-selected-count {
   font-size: 12px;
   color: #666;
 }
+
 .ip-use-selected-count strong {
   color: #1890ff;
 }
@@ -3383,25 +3416,29 @@ onMounted(async () => {
 .pill {
   display: inline-block;
   padding: 1px 7px;
-  border-radius: 10px;
   font-size: 10px;
   font-weight: 600;
+  border-radius: 10px;
 }
+
 .pill-blue {
-  background: #e6f7ff;
   color: #1890ff;
+  background: #e6f7ff;
 }
+
 .pill-red {
-  background: #fff1f0;
   color: #ff4d4f;
+  background: #fff1f0;
 }
+
 .pill-orange {
-  background: #fff7e6;
   color: #faad14;
+  background: #fff7e6;
 }
+
 .pill-gray {
-  background: #fafafa;
   color: #999;
+  background: #fafafa;
 }
 
 /* ========== 保存为 IP 模板弹窗 ========== */
@@ -3410,62 +3447,74 @@ onMounted(async () => {
   flex-direction: column;
   gap: 12px;
 }
+
 .ip-save-preview {
+  overflow: hidden;
   border: 1px solid #f0f0f0;
   border-radius: 6px;
-  overflow: hidden;
 }
+
 .ip-save-stats {
   padding: 8px 12px;
-  background: #fafbfd;
-  border-bottom: 1px solid #f0f0f0;
   font-size: 12px;
   color: #666;
+  background: #fafbfd;
+  border-bottom: 1px solid #f0f0f0;
 }
+
 .ip-save-stats strong {
   color: #1890ff;
 }
+
 .ip-save-online {
   margin-left: 10px;
   color: #52c41a;
 }
+
 .ip-save-offline {
   margin-left: 6px;
   color: #faad14;
 }
+
 .ip-save-table-wrap {
   max-height: 200px;
   overflow-y: auto;
 }
+
 .ip-save-table {
   width: 100%;
-  border-collapse: collapse;
   font-size: 12px;
+  border-collapse: collapse;
 }
+
 .ip-save-table thead th {
-  background: #fafafa;
-  text-align: left;
+  position: sticky;
+  top: 0;
   padding: 6px 10px;
   font-weight: 600;
   color: #666;
-  position: sticky;
-  top: 0;
+  text-align: left;
+  background: #fafafa;
 }
+
 .ip-save-table td {
   padding: 5px 10px;
   border-bottom: 1px solid #f5f5f5;
 }
+
 .ip-save-table .col-ip code {
+  padding: 1px 4px;
   font-family: Consolas, monospace;
   font-size: 12px;
-  padding: 1px 4px;
   background: #f5f5f5;
   border-radius: 2px;
 }
+
 .ip-save-table .col-type {
   width: 70px;
   color: #666;
 }
+
 .ip-save-table .col-status {
   width: 80px;
 }

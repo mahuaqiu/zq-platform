@@ -302,7 +302,8 @@ watch(
               <span
                 v-if="multiple && isMenuSelected(item.menu.id)"
                 class="text-primary shrink-0 text-sm"
-                >✓</span>
+                >✓</span
+              >
             </div>
             <div
               v-if="flattenedMenuList.length === 0"
@@ -403,7 +404,8 @@ watch(
               <span
                 v-if="multiple && isMenuSelected(item.menu.id)"
                 class="text-primary shrink-0 text-sm"
-                >✓</span>
+                >✓</span
+              >
             </div>
             <div
               v-if="flattenedMenuList.length === 0"

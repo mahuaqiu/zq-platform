@@ -7,29 +7,12 @@
 @File: permission.py
 @Desc: Permission Utils - 基于API路径的动态权限鉴权 - 
 """
-"""
-Permission Utils - 基于API路径的动态权限鉴权
-
-工作原理：
-1. 用户访问某个API时，根据请求的路径和方法，查找Permission表中是否有对应的权限记录
-2. 如果有权限记录，检查用户的角色是否关联了该权限
-3. 如果用户角色有该权限，则放行；否则返回403
-4. 如果Permission表中没有该API的权限记录，则默认放行（未配置权限的API不做限制）
-
-缓存一致性：
-- 缓存加载采用"构建新字典后整体替换"，读方要么看到旧表要么看到新表，不存在半空窗口
-- 缓存带 TTL（CACHE_TTL_SECONDS），超期后下次请求自动重载，兜底多进程间的最终一致
-- 权限变更时通过 Redis pub/sub 广播失效（broadcast_permission_cache_invalidation），
-  所有 worker 进程的监听任务收到消息后立即重载，避免 gunicorn 多进程长期持有陈旧权限表
-"""
 import asyncio
 import logging
 import re
 import time
 from typing import Optional, Dict
-from functools import lru_cache
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload

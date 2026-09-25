@@ -43,7 +43,8 @@ export async function javascript(): Promise<Linter.Config[]> {
         'constructor-super': 'error',
         'default-case-last': 'error',
         'dot-notation': ['error', { allowKeywords: true }],
-        eqeqeq: ['error', 'always'],
+        // 与 vue/eqeqeq 的 'smart' 对齐：仅豁免 == null 空值判断，其余仍强制严格相等
+        eqeqeq: ['error', 'always', { null: 'ignore' }],
         'keyword-spacing': 'off',
 
         'new-cap': [

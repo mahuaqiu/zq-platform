@@ -4,13 +4,13 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import {
   ElButton,
-  ElDialog,
-  ElMessage,
-  ElInput,
-  ElTabs,
-  ElTabPane,
-  ElInputNumber,
   ElDatePicker,
+  ElDialog,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElTabPane,
+  ElTabs,
   ElTag,
   ElTooltip,
 } from 'element-plus';
@@ -150,7 +150,8 @@ async function executeQuery() {
       ElMessage.warning('请选择时间范围');
       return;
     }
-    const diffMs = timeRangeEnd.value.getTime() - timeRangeStart.value.getTime();
+    const diffMs =
+      timeRangeEnd.value.getTime() - timeRangeStart.value.getTime();
     const diffMin = diffMs / (1000 * 60);
     if (diffMin > 5) {
       ElMessage.warning('时间区间不能超过 5 分钟');
@@ -177,19 +178,22 @@ async function executeQuery() {
   error.value = '';
 
   try {
-    let params: Record<string, any> = {};
+    const params: Record<string, any> = {};
 
     switch (queryMode.value) {
-      case 'lines':
+      case 'lines': {
         params.lines = linesCount.value;
         break;
-      case 'request_id':
+      }
+      case 'request_id': {
         params.request_id = requestIdInput.value.trim();
         break;
-      case 'time_range':
+      }
+      case 'time_range': {
         params.start_time = formatIsoTime(timeRangeStart.value!);
         params.end_time = formatIsoTime(timeRangeEnd.value!);
         break;
+      }
     }
 
     const res = await getMachineLogsApi(props.machineId, params, {
@@ -219,11 +223,12 @@ async function executeQuery() {
     if (newLines.length === 0) {
       ElMessage.info('查询结果为空');
     }
-  } catch (err: any) {
+  } catch (error_: any) {
     // 请求已被新查询/关闭弹窗取消或取代，静默丢弃
     if (seq !== querySeq) return;
-    console.error('获取日志失败:', err);
-    const errorMsg = err?.response?.data?.detail || err?.message || '获取日志失败';
+    console.error('获取日志失败:', error_);
+    const errorMsg =
+      error_?.response?.data?.detail || error_?.message || '获取日志失败';
     error.value = errorMsg;
   } finally {
     // 只有最新一次查询有权结束 loading
@@ -343,7 +348,10 @@ const highlightedLines = computed(() => {
   const keyword = activeKeyword.value;
   const regex =
     keyword && keyword.length >= MIN_SEARCH_LENGTH
-      ? new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+      ? new RegExp(
+          keyword.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`),
+          'gi',
+        )
       : null;
 
   return logLines.value.map((line) => {
@@ -406,33 +414,30 @@ const MIN_SEARCH_LENGTH = 4;
  * 监听搜索关键词变化
  * 少于 MIN_SEARCH_LENGTH 个字符时不进行搜索，避免短关键词匹配太多内容导致卡顿
  */
-watch(
-  [activeKeyword, logLines],
-  ([keyword, lines]) => {
-    // 少于最小长度时不进行搜索
-    if (!keyword || keyword.length < MIN_SEARCH_LENGTH || lines.length === 0) {
-      allMatchIndices.value = [];
-      currentMatchIndex.value = -1;
-      return;
-    }
+watch([activeKeyword, logLines], ([keyword, lines]) => {
+  // 少于最小长度时不进行搜索
+  if (!keyword || keyword.length < MIN_SEARCH_LENGTH || lines.length === 0) {
+    allMatchIndices.value = [];
+    currentMatchIndex.value = -1;
+    return;
+  }
 
-    const indices: number[] = [];
-    const lowerKeyword = keyword.toLowerCase();
-    lines.forEach((line, index) => {
-      if (line.toLowerCase().includes(lowerKeyword)) {
-        indices.push(index);
-      }
-    });
-
-    allMatchIndices.value = indices;
-    if (indices.length > 0) {
-      currentMatchIndex.value = 0;
-      scrollToMatch(0);
-    } else {
-      currentMatchIndex.value = -1;
+  const indices: number[] = [];
+  const lowerKeyword = keyword.toLowerCase();
+  lines.forEach((line, index) => {
+    if (line.toLowerCase().includes(lowerKeyword)) {
+      indices.push(index);
     }
-  },
-);
+  });
+
+  allMatchIndices.value = indices;
+  if (indices.length > 0) {
+    currentMatchIndex.value = 0;
+    scrollToMatch(0);
+  } else {
+    currentMatchIndex.value = -1;
+  }
+});
 
 /**
  * 弹窗关闭时清理
@@ -469,12 +474,8 @@ function handleDialogClose() {
           <span class="machine-ip-code">{{ machineIp }}</span>
         </div>
         <div class="header-stats">
-          <ElTag size="small" type="info">
-            行数: {{ logCount }}
-          </ElTag>
-          <ElTag size="small" type="info">
-            扫描文件: {{ filesScanned }}
-          </ElTag>
+          <ElTag size="small" type="info"> 行数: {{ logCount }} </ElTag>
+          <ElTag size="small" type="info"> 扫描文件: {{ filesScanned }} </ElTag>
         </div>
       </div>
     </template>
@@ -554,13 +555,28 @@ function handleDialogClose() {
               </div>
               <div class="quick-time-row">
                 <span class="quick-label">快捷选择:</span>
-                <ElButton size="small" text type="primary" @click="setQuickTimeRange(1)">
+                <ElButton
+                  size="small"
+                  text
+                  type="primary"
+                  @click="setQuickTimeRange(1)"
+                >
                   最近1分钟
                 </ElButton>
-                <ElButton size="small" text type="primary" @click="setQuickTimeRange(3)">
+                <ElButton
+                  size="small"
+                  text
+                  type="primary"
+                  @click="setQuickTimeRange(3)"
+                >
                   最近3分钟
                 </ElButton>
-                <ElButton size="small" text type="primary" @click="setQuickTimeRange(5)">
+                <ElButton
+                  size="small"
+                  text
+                  type="primary"
+                  @click="setQuickTimeRange(5)"
+                >
                   最近5分钟
                 </ElButton>
               </div>
@@ -582,7 +598,11 @@ function handleDialogClose() {
 
       <!-- 工具栏 -->
       <div class="log-toolbar">
-        <ElButton size="small" @click="copyLogs" :disabled="logLines.length === 0">
+        <ElButton
+          size="small"
+          @click="copyLogs"
+          :disabled="logLines.length === 0"
+        >
           📋 复制日志
         </ElButton>
         <div class="log-search">
@@ -612,7 +632,11 @@ function handleDialogClose() {
               ▼
             </ElButton>
             <span class="match-count">
-              {{ allMatchIndices.length > 0 ? `${currentMatchIndex + 1}/${allMatchIndices.length}` : '0/0' }}
+              {{
+                allMatchIndices.length > 0
+                  ? `${currentMatchIndex + 1}/${allMatchIndices.length}`
+                  : '0/0'
+              }}
             </span>
           </template>
         </div>
@@ -622,7 +646,7 @@ function handleDialogClose() {
       <!-- 日志区域 -->
       <div class="log-container" ref="logContainerRef">
         <div v-if="loading && logLines.length === 0" class="log-loading">
-          <div class="spinner" />
+          <div class="spinner"></div>
           <span>加载中...</span>
         </div>
 
@@ -636,6 +660,7 @@ function handleDialogClose() {
         </div>
 
         <template v-else>
+          <!-- eslint-disable vue/no-v-html -- 日志行高亮需要渲染 HTML，内容来自本地日志文件，内部工具页面 -->
           <div
             v-for="(line, index) in logLines"
             :key="index"
@@ -647,7 +672,8 @@ function handleDialogClose() {
               { 'long-line': line.length > 300 },
             ]"
             v-html="highlightedLines[index]"
-          />
+          ></div>
+          <!-- eslint-enable vue/no-v-html -->
         </template>
       </div>
 
@@ -703,11 +729,11 @@ function handleDialogClose() {
 }
 
 .machine-ip-code {
+  padding: 2px 8px;
   font-size: 13px;
   font-weight: 500;
   color: #333;
   background: #f5f5f5;
-  padding: 2px 8px;
   border-radius: 4px;
 }
 
@@ -724,9 +750,9 @@ function handleDialogClose() {
 }
 
 .log-dialog-v2 :deep(.el-dialog__body) {
-  padding: 0;
   min-height: 350px;
   max-height: 70vh;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -746,11 +772,11 @@ function handleDialogClose() {
 
 .query-panel {
   display: flex;
+  gap: 16px;
   align-items: flex-end;
   padding: 12px 20px;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
-  gap: 16px;
 }
 
 .query-tabs {
@@ -776,8 +802,8 @@ function handleDialogClose() {
 }
 
 .query-tabs :deep(.el-tabs__item.is-active) {
-  color: #409eff;
   font-weight: 500;
+  color: #409eff;
 }
 
 .query-content {
@@ -786,8 +812,8 @@ function handleDialogClose() {
 
 .query-row {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .query-label {
@@ -802,8 +828,8 @@ function handleDialogClose() {
 
 .quick-time-row {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-top: 8px;
 }
 
@@ -818,8 +844,8 @@ function handleDialogClose() {
 
 .log-toolbar {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 12px 20px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
@@ -827,8 +853,8 @@ function handleDialogClose() {
 
 .log-search {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
 }
 
 .log-search-input {
@@ -878,12 +904,12 @@ function handleDialogClose() {
 }
 
 .log-line.long-line {
-  white-space: pre-wrap;
   word-break: break-all;
+  white-space: pre-wrap;
 }
 
 .log-line:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(255 255 255 / 5%);
 }
 
 /* 日志级别颜色 */
@@ -900,7 +926,7 @@ function handleDialogClose() {
 .log-critical {
   font-weight: 700;
   color: #ef5350;
-  background: rgba(239, 83, 80, 0.1);
+  background: rgb(239 83 80 / 10%);
 }
 
 .log-debug {
@@ -930,9 +956,9 @@ function handleDialogClose() {
 /* 错误显示 */
 .log-error-display {
   display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   height: 120px;
   color: #ff4d4f;
 }
@@ -968,9 +994,9 @@ function handleDialogClose() {
 /* 模式提示 */
 .mode-hint {
   padding: 8px 20px;
-  background: #f5f5f5;
   font-size: 12px;
   color: #666;
+  background: #f5f5f5;
 }
 
 /* 滚动条样式 */

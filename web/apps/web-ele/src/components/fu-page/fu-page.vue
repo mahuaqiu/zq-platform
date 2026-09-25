@@ -132,6 +132,12 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  leftTitle: undefined,
+  rightTitle: undefined,
+  pageTitle: undefined,
+  pageDescription: undefined,
+  leftContentClass: undefined,
+  rightContentClass: undefined,
   leftWidth: '250px',
   leftMinWidth: 200,
   leftMaxWidth: 400,

@@ -1,7 +1,7 @@
 // 曲线图数据点
 export interface ChartDataPoint {
   time: number; // 相对时间（秒），由 elapsed_ms 换算
-  value: number | null;
+  value: null | number;
 }
 
 // 图表系列
@@ -17,7 +17,7 @@ export interface ChartTag {
   name: string;
   start: number; // 起始相对时间
   duration: number; // 时间长度
-  type: 'peak' | 'mean';
+  type: 'mean' | 'peak';
   color: string;
 }
 
@@ -46,8 +46,8 @@ export interface PerformanceData {
   sequence?: number;
   elapsed_ms?: number;
   system_metrics?: {
-    cpu_percent?: number | null;
-    gpu_percent?: number | null;
+    cpu_percent?: null | number;
+    gpu_percent?: null | number;
     gpu_source?: string;
   };
   cpu_usage?: number;
@@ -84,7 +84,7 @@ export enum CollectStatusEnum {
 }
 
 // 标签类型
-export type TagType = 'peak' | 'mean';
+export type TagType = 'mean' | 'peak';
 
 // 区间合并结果
 export interface MergedInterval {
@@ -115,7 +115,7 @@ export interface SummaryRow {
 
 // 时间轴标记点
 export interface TimelineMarker {
-  type: 'version' | 'collect' | 'current';
+  type: 'collect' | 'current' | 'version';
   id: string;
   time: Date;
   name?: string;
@@ -126,7 +126,7 @@ export interface TimelineMarker {
 export interface TagSummary {
   tagId: string;
   tagName: string;
-  tagType: 'peak' | 'mean';
+  tagType: 'mean' | 'peak';
   start: number;
   duration: number;
   metrics: Record<string, number>;

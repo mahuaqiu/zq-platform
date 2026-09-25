@@ -272,9 +272,12 @@ export async function getSchedulerJobGroupsApi() {
  * 获取定时任务列表（分页）
  */
 export async function getSchedulerJobListApi(params: SchedulerJobQueryParams) {
-  return requestClient.get<PaginatedResponse<SchedulerJob>>('/api/core/scheduler/job', {
-    params,
-  });
+  return requestClient.get<PaginatedResponse<SchedulerJob>>(
+    '/api/core/scheduler/job',
+    {
+      params,
+    },
+  );
 }
 
 /**
@@ -305,7 +308,10 @@ export async function updateSchedulerJobApi(
   jobId: string,
   data: SchedulerJobUpdateParams,
 ) {
-  return requestClient.put<SchedulerJob>(`/api/core/scheduler/job/${jobId}`, data);
+  return requestClient.put<SchedulerJob>(
+    `/api/core/scheduler/job/${jobId}`,
+    data,
+  );
 }
 
 /**
@@ -321,20 +327,27 @@ export async function deleteSchedulerJobApi(jobId: string, hard?: boolean) {
  * 立即执行任务
  */
 export async function executeSchedulerJobApi(data: ExecuteJobParams) {
-  return requestClient.post<ExecuteJobResponse>('/api/core/scheduler/job/execute', data);
+  return requestClient.post<ExecuteJobResponse>(
+    '/api/core/scheduler/job/execute',
+    data,
+  );
 }
 
 /**
  * 获取任务统计信息
  */
 export async function getSchedulerStatisticsApi() {
-  return requestClient.get<SchedulerStatistics>('/api/core/scheduler/job/statistics/data');
+  return requestClient.get<SchedulerStatistics>(
+    '/api/core/scheduler/job/statistics/data',
+  );
 }
 
 /**
  * 批量更新任务状态
  */
-export async function batchUpdateSchedulerJobStatusApi(data: BatchUpdateStatusParams) {
+export async function batchUpdateSchedulerJobStatusApi(
+  data: BatchUpdateStatusParams,
+) {
   return requestClient.post<BatchUpdateStatusResponse>(
     '/api/core/scheduler/job/batch/update_status',
     data,
@@ -370,19 +383,27 @@ export async function searchSchedulerJobsApi(
 /**
  * 获取日志统计信息
  */
-export async function getSchedulerLogStatisticsApi(params?: SchedulerLogStatisticsParams) {
-  return requestClient.get<SchedulerLogStatistics>('/api/core/scheduler/log/statistics/data', {
-    params,
-  });
+export async function getSchedulerLogStatisticsApi(
+  params?: SchedulerLogStatisticsParams,
+) {
+  return requestClient.get<SchedulerLogStatistics>(
+    '/api/core/scheduler/log/statistics/data',
+    {
+      params,
+    },
+  );
 }
 
 /**
  * 获取执行日志列表（分页）
  */
 export async function getSchedulerLogListApi(params: SchedulerLogQueryParams) {
-  return requestClient.get<PaginatedResponse<SchedulerLog>>('/api/core/scheduler/log', {
-    params,
-  });
+  return requestClient.get<PaginatedResponse<SchedulerLog>>(
+    '/api/core/scheduler/log',
+    {
+      params,
+    },
+  );
 }
 
 /**
@@ -426,7 +447,10 @@ export async function batchDeleteSchedulerLogsApi(data: BatchDeleteParams) {
  * 清理旧日志
  */
 export async function cleanSchedulerLogsApi(data: CleanLogParams) {
-  return requestClient.post<CleanLogResponse>('/api/core/scheduler/log/clean', data);
+  return requestClient.post<CleanLogResponse>(
+    '/api/core/scheduler/log/clean',
+    data,
+  );
 }
 
 // ==================== 调度器控制 API ====================

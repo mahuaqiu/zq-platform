@@ -13,7 +13,7 @@ src/locales/langs/
 ### 菜单管理 (system.menu)
 
 | 键值 | 中文 | 英文 | 用途 |
-|------|------|------|------|
+| --- | --- | --- | --- |
 | `name` | 菜单管理 | Menu Management | 菜单名称 |
 | `title` | 菜单管理 | Menu Management | 页面标题 |
 | `menuName` | 菜单名称 | Menu Name | 表单字段标签 |
@@ -53,7 +53,7 @@ src/locales/langs/
 ### 按钮管理 (system.button)
 
 | 键值 | 中文 | 英文 | 用途 |
-|------|------|------|------|
+| --- | --- | --- | --- |
 | `name` | 按钮 | Button | 按钮名称 |
 | `buttonName` | 按钮名称 | Button Name | 表单字段标签 |
 | `buttonCode` | 按钮编码 | Button Code | 表单字段标签 |
@@ -91,7 +91,11 @@ const title = $t('system.menu.title');
 const message = $t('system.button.manageButtons', ['菜单名称']);
 
 // 在模板中使用
-{{ $t('system.menu.menuName') }}
+{
+  {
+    $t('system.menu.menuName');
+  }
+}
 ```
 
 ### 在 TypeScript 中使用
@@ -103,7 +107,7 @@ const schema: VbenFormSchema[] = [
   {
     component: 'Input',
     fieldName: 'name',
-    label: $t('system.menu.menuName'),  // 使用国际化文本
+    label: $t('system.menu.menuName'), // 使用国际化文本
   },
 ];
 ```
@@ -116,12 +120,12 @@ const schema: VbenFormSchema[] = [
 {
   "menu": {
     "name": "...",
-    "title": "...",
+    "title": "..."
     // ... 菜单相关翻译
   },
   "button": {
     "name": "...",
-    "buttonName": "...",
+    "buttonName": "..."
     // ... 按钮相关翻译
   }
 }
@@ -145,6 +149,7 @@ const localesMap = loadLocalesMapFromDir(
 ```
 
 这意味着：
+
 - 新增的 system.json 会自动被加载
 - 无需手动注册
 - 支持动态切换语言
@@ -154,6 +159,7 @@ const localesMap = loadLocalesMapFromDir(
 ### 添加新的国际化字段
 
 1. 在 `zh-CN/system.json` 中添加中文翻译：
+
    ```json
    {
      "menu": {
@@ -163,6 +169,7 @@ const localesMap = loadLocalesMapFromDir(
    ```
 
 2. 在 `en-US/system.json` 中添加英文翻译：
+
    ```json
    {
      "menu": {
@@ -173,7 +180,7 @@ const localesMap = loadLocalesMapFromDir(
 
 3. 在代码中使用：
    ```typescript
-   $t('system.menu.newField')
+   $t('system.menu.newField');
    ```
 
 ### 参数化翻译
@@ -191,7 +198,7 @@ const localesMap = loadLocalesMapFromDir(
 在代码中使用：
 
 ```typescript
-$t('system.button.manageButtons', ['菜单名称'])
+$t('system.button.manageButtons', ['菜单名称']);
 // 结果：管理【菜单名称】的按钮
 ```
 
@@ -212,6 +219,4 @@ $t('system.button.manageButtons', ['菜单名称'])
 
 ---
 
-**创建时间**：2025年1月
-**维护状态**：活跃
-**语言支持**：中文、英文
+**创建时间**：2025年1月 **维护状态**：活跃 **语言支持**：中文、英文

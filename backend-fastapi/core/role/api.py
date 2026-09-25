@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: Role API - 角色管理接口 - 提供角色的 CRUD 操作和权限管理
 """
-"""
-Role API - 角色管理接口
-提供角色的 CRUD 操作和权限管理
-"""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query

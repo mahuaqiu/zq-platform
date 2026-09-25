@@ -143,7 +143,7 @@ const loadData = async (page: number = 1, append: boolean = false) => {
     if (result) {
       const existingValues = new Set(options.value.map((o) => o.value));
       const newOptions = (result.items || [])
-        .map(convertToOption)
+        .map((item) => convertToOption(item))
         .filter((o) => !existingValues.has(o.value));
 
       options.value = append
@@ -177,7 +177,7 @@ const loadDataByIds = async (ids: string[]) => {
     if (result && result.length > 0) {
       const existingValues = new Set(options.value.map((o) => o.value));
       const newOptions = result
-        .map(convertToOption)
+        .map((item) => convertToOption(item))
         .filter((o) => !existingValues.has(o.value));
       options.value = [...options.value, ...newOptions];
       hasLoadedData.value = true;

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 
-import { ElDialog, ElInput, ElButton } from 'element-plus';
+import { ElButton, ElDialog, ElInput } from 'element-plus';
 
 interface Props {
   visible: boolean;

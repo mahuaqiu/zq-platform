@@ -1,17 +1,11 @@
 <script lang="ts" setup>
 import type { TestReportDetail } from '#/api/core/test-report';
 
-import { ref, onMounted, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
-import {
-  ElButton,
-  ElTable,
-  ElTableColumn,
-  ElTabs,
-  ElTabPane,
-} from 'element-plus';
+import { ElTable, ElTableColumn, ElTabPane, ElTabs } from 'element-plus';
 
-import { getReportDetailApi, getCaseLogApi } from '#/api/core/test-report';
+import { getCaseLogApi, getReportDetailApi } from '#/api/core/test-report';
 
 import LogDialog from './LogDialog.vue';
 
@@ -20,7 +14,7 @@ const props = defineProps<{
 }>();
 
 // Tab 分类
-type Category = 'final_fail' | 'always_fail' | 'unstable' | 'all';
+type Category = 'all' | 'always_fail' | 'final_fail' | 'unstable';
 const activeTab = ref<Category>('final_fail');
 
 // 数据
@@ -29,7 +23,7 @@ const loading = ref(false);
 
 // 日志弹窗
 const logDialogVisible = ref(false);
-const currentLogUrl = ref<string | null>(null);
+const currentLogUrl = ref<null | string>(null);
 const currentCaseName = ref('');
 
 // 分类标签映射
@@ -76,7 +70,7 @@ async function handleViewLog(row: TestReportDetail) {
 }
 
 // 格式化失败时间
-function formatFailTime(time: string | null) {
+function formatFailTime(time: null | string) {
   if (!time) return '--';
   const date = new Date(time);
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -116,8 +110,18 @@ onMounted(() => {
       />
     </ElTabs>
 
-    <ElTable :data="tableData" v-loading="loading" class="fail-table-inner" border>
-      <ElTableColumn prop="caseName" label="用例名称" min-width="200" show-overflow-tooltip />
+    <ElTable
+      :data="tableData"
+      v-loading="loading"
+      class="fail-table-inner"
+      border
+    >
+      <ElTableColumn
+        prop="caseName"
+        label="用例名称"
+        min-width="200"
+        show-overflow-tooltip
+      />
       <ElTableColumn prop="caseFailStep" label="失败步骤" min-width="120">
         <template #default="{ row }">
           <span class="fail-step">{{ row.caseFailStep }}</span>
@@ -130,7 +134,12 @@ onMounted(() => {
           </div>
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="failTime" label="失败时间" min-width="80" align="center">
+      <ElTableColumn
+        prop="failTime"
+        label="失败时间"
+        min-width="80"
+        align="center"
+      >
         <template #default="{ row }">
           {{ formatFailTime(row.failTime) }}
         </template>

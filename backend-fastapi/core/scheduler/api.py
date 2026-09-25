@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: Scheduler API - 定时任务管理接口 - 提供定时任务的 CRUD 操作和管理功能
 """
-"""
-Scheduler API - 定时任务管理接口
-提供定时任务的 CRUD 操作和管理功能
-"""
 from datetime import datetime, timedelta, date
 from typing import List, Optional
 

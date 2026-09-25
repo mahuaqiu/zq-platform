@@ -4,7 +4,6 @@
 测试报告 API - Test Report API
 """
 import asyncio
-import logging
 import re
 import shutil
 from datetime import datetime
@@ -20,6 +19,21 @@ from app.config import settings
 from app.database import get_db
 from app.base_schema import PaginatedResponse, ResponseModel
 from utils.logging_config import get_logger
+
+from core.test_report.schema import (
+    FailReportCreate,
+    TestReportDetailResponse,
+    TestReportSummaryResponse,
+    TestReportListItem,
+    AggregatedReportSummaryResponse,
+)
+from core.test_report.service import (
+    TestReportSummaryService,
+    TestReportDetailQueryService,
+)
+from core.test_report.model import TestReportDetail, TestReportUploadLog, TestReportSummary
+from core.test_report.utils import should_store_task
+
 
 logger = get_logger("api.test_report")
 
@@ -40,21 +54,6 @@ def _cleanup_html_dir(html_path: Path) -> bool:
         return False
     shutil.rmtree(html_path)
     return True
-from core.test_report.schema import (
-    FailReportCreate,
-    TestReportDetailResponse,
-    TestReportSummaryResponse,
-    TestReportListItem,
-    UploadResponse,
-    AggregatedReportSummaryResponse,
-)
-from core.test_report.service import (
-    TestReportSummaryService,
-    TestReportDetailQueryService,
-)
-from core.test_report.model import TestReportDetail, TestReportUploadLog, TestReportSummary
-from core.test_report.utils import should_store_task
-
 router = APIRouter(prefix="/test-report", tags=["测试报告"])
 
 
@@ -139,7 +138,7 @@ async def upload_html(
             TestReportUploadLog.task_project_id == taskProjectID,
             TestReportUploadLog.round == round,
             TestReportUploadLog.testcase_block_id == testcaseBlockID,
-            TestReportUploadLog.is_deleted == False
+            TestReportUploadLog.is_deleted.is_(False)
         )
     )
     record = result.scalar_one_or_none()
@@ -167,7 +166,7 @@ async def upload_html(
                 TestReportUploadLog.task_project_id == taskProjectID,
                 TestReportUploadLog.round == round,
                 TestReportUploadLog.testcase_block_id == testcaseBlockID,
-                TestReportUploadLog.is_deleted == False
+                TestReportUploadLog.is_deleted.is_(False)
             )
         )
         record = result.scalar_one_or_none()
@@ -301,7 +300,7 @@ async def get_case_log(
         select(TestReportDetail).where(
             TestReportDetail.task_project_id == task_id,
             TestReportDetail.case_name == case_name,
-            TestReportDetail.is_deleted == False
+            TestReportDetail.is_deleted.is_(False)
         ).order_by(TestReportDetail.round.desc()).limit(1)
     )
     detail = result.scalar_one_or_none()
@@ -344,7 +343,7 @@ async def delete_report(
                 update(TestReportDetail)
                 .where(
                     TestReportDetail.task_project_id == task_project_id,
-                    TestReportDetail.is_deleted == False
+                    TestReportDetail.is_deleted.is_(False)
                 )
                 .values(is_deleted=True)
             )
@@ -353,7 +352,7 @@ async def delete_report(
                 update(TestReportUploadLog)
                 .where(
                     TestReportUploadLog.task_project_id == task_project_id,
-                    TestReportUploadLog.is_deleted == False
+                    TestReportUploadLog.is_deleted.is_(False)
                 )
                 .values(is_deleted=True)
             )

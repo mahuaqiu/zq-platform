@@ -7,13 +7,10 @@
 @File: schema.py
 @Desc: User Schema - 用户数据验证模式
 """
-"""
-User Schema - 用户数据验证模式
-"""
 from datetime import datetime, date
 from typing import Optional, List
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserBase(BaseModel):

@@ -1,42 +1,64 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { ElTable, ElTableColumn } from 'element-plus';
 import type { SummaryRow } from '../types';
 
+import { computed } from 'vue';
+
+import { ElTable, ElTableColumn } from 'element-plus';
+
 const props = defineProps<{
-  summaryData: SummaryRow[];
   currentMetric: string;
   hwinfoUnit?: string; // HWiNFO 指标单位
+  summaryData: SummaryRow[];
 }>();
 
 // 是否有冲高标签数据
 const hasPeakData = computed(() => {
-  return props.summaryData.some(row => row.peak_cpu !== undefined || row.peak_gpu !== undefined || row.peak_hwinfo !== undefined);
+  return props.summaryData.some(
+    (row) =>
+      row.peak_cpu !== undefined ||
+      row.peak_gpu !== undefined ||
+      row.peak_hwinfo !== undefined,
+  );
 });
 
 // 是否有稳态标签数据
 const hasStableData = computed(() => {
-  return props.summaryData.some(row => row.mean_cpu !== undefined || row.mean_gpu !== undefined || row.mean_hwinfo !== undefined);
+  return props.summaryData.some(
+    (row) =>
+      row.mean_cpu !== undefined ||
+      row.mean_gpu !== undefined ||
+      row.mean_hwinfo !== undefined,
+  );
 });
 
 // 根据当前指标判断显示哪些列
 const isCpuMetric = computed(() => props.currentMetric === 'cpu_usage');
 const isGpuMetric = computed(() => props.currentMetric === 'gpu_usage');
 const isMemoryMetric = computed(() => props.currentMetric === 'memory_usage');
-const isCommitMemoryMetric = computed(() => props.currentMetric === 'commit_memory');
+const isCommitMemoryMetric = computed(
+  () => props.currentMetric === 'commit_memory',
+);
 const isHwinfoMetric = computed(() => props.currentMetric === 'hwinfo');
 
 // Find best/worst values
-const getMetricClass = (value: number | undefined, metricKey: string, allData: SummaryRow[]) => {
+const getMetricClass = (
+  value: number | undefined,
+  metricKey: string,
+  allData: SummaryRow[],
+) => {
   if (value === undefined) return '';
 
   const values = allData
-    .map(row => row[metricKey as keyof SummaryRow] as number | undefined)
-    .filter(v => v !== undefined) as number[];
+    .map((row) => row[metricKey as keyof SummaryRow] as number | undefined)
+    .filter((v) => v !== undefined) as number[];
 
   if (values.length === 0) return '';
 
-  const isLowerBetter = metricKey.includes('cpu') || metricKey.includes('gpu') || metricKey.includes('memory') || metricKey.includes('hwinfo');
+  const isLowerBetter =
+    metricKey.includes('cpu') ||
+    metricKey.includes('gpu') ||
+    metricKey.includes('memory') ||
+    metricKey.includes('hwinfo');
   const best = isLowerBetter ? Math.min(...values) : Math.max(...values);
   const worst = isLowerBetter ? Math.max(...values) : Math.min(...values);
 
@@ -70,55 +92,130 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
             </template>
           </ElTableColumn>
           <!-- CPU 指标 -->
-          <ElTableColumn v-if="isCpuMetric" prop="peak_cpu" label="系统" width="80">
+          <ElTableColumn
+            v-if="isCpuMetric"
+            prop="peak_cpu"
+            label="系统"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_cpu, 'peak_cpu', summaryData)">
+              <span
+                :class="getMetricClass(row.peak_cpu, 'peak_cpu', summaryData)"
+              >
                 {{ formatValue(row.peak_cpu) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn v-if="isCpuMetric" prop="peak_process_cpu" label="进程" width="80">
+          <ElTableColumn
+            v-if="isCpuMetric"
+            prop="peak_process_cpu"
+            label="进程"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_process_cpu, 'peak_process_cpu', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.peak_process_cpu,
+                    'peak_process_cpu',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.peak_process_cpu) }}
               </span>
             </template>
           </ElTableColumn>
           <!-- GPU 指标 -->
-          <ElTableColumn v-if="isGpuMetric" prop="peak_gpu" label="系统" width="80">
+          <ElTableColumn
+            v-if="isGpuMetric"
+            prop="peak_gpu"
+            label="系统"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_gpu, 'peak_gpu', summaryData)">
+              <span
+                :class="getMetricClass(row.peak_gpu, 'peak_gpu', summaryData)"
+              >
                 {{ formatValue(row.peak_gpu) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn v-if="isGpuMetric" prop="peak_process_gpu" label="进程" width="80">
+          <ElTableColumn
+            v-if="isGpuMetric"
+            prop="peak_process_gpu"
+            label="进程"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_process_gpu, 'peak_process_gpu', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.peak_process_gpu,
+                    'peak_process_gpu',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.peak_process_gpu) }}
               </span>
             </template>
           </ElTableColumn>
           <!-- 内存指标 -->
-          <ElTableColumn v-if="isMemoryMetric" prop="peak_memory_usage" label="峰值" width="80">
+          <ElTableColumn
+            v-if="isMemoryMetric"
+            prop="peak_memory_usage"
+            label="峰值"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_memory_usage, 'peak_memory_usage', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.peak_memory_usage,
+                    'peak_memory_usage',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.peak_memory_usage, 'GB') }}
               </span>
             </template>
           </ElTableColumn>
           <!-- 提交内存指标 -->
-          <ElTableColumn v-if="isCommitMemoryMetric" prop="peak_commit_memory" label="峰值" width="80">
+          <ElTableColumn
+            v-if="isCommitMemoryMetric"
+            prop="peak_commit_memory"
+            label="峰值"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_commit_memory, 'peak_commit_memory', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.peak_commit_memory,
+                    'peak_commit_memory',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.peak_commit_memory, 'GB') }}
               </span>
             </template>
           </ElTableColumn>
           <!-- HWiNFO 指标 -->
-          <ElTableColumn v-if="isHwinfoMetric" prop="peak_hwinfo" label="峰值" width="100">
+          <ElTableColumn
+            v-if="isHwinfoMetric"
+            prop="peak_hwinfo"
+            label="峰值"
+            width="100"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.peak_hwinfo, 'peak_hwinfo', summaryData)">
+              <span
+                :class="
+                  getMetricClass(row.peak_hwinfo, 'peak_hwinfo', summaryData)
+                "
+              >
                 {{ formatValue(row.peak_hwinfo, hwinfoUnit || '') }}
               </span>
             </template>
@@ -138,55 +235,130 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
             </template>
           </ElTableColumn>
           <!-- CPU 指标 -->
-          <ElTableColumn v-if="isCpuMetric" prop="mean_cpu" label="系统" width="80">
+          <ElTableColumn
+            v-if="isCpuMetric"
+            prop="mean_cpu"
+            label="系统"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_cpu, 'mean_cpu', summaryData)">
+              <span
+                :class="getMetricClass(row.mean_cpu, 'mean_cpu', summaryData)"
+              >
                 {{ formatValue(row.mean_cpu) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn v-if="isCpuMetric" prop="mean_process_cpu" label="进程" width="80">
+          <ElTableColumn
+            v-if="isCpuMetric"
+            prop="mean_process_cpu"
+            label="进程"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_process_cpu, 'mean_process_cpu', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.mean_process_cpu,
+                    'mean_process_cpu',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.mean_process_cpu) }}
               </span>
             </template>
           </ElTableColumn>
           <!-- GPU 指标 -->
-          <ElTableColumn v-if="isGpuMetric" prop="mean_gpu" label="系统" width="80">
+          <ElTableColumn
+            v-if="isGpuMetric"
+            prop="mean_gpu"
+            label="系统"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_gpu, 'mean_gpu', summaryData)">
+              <span
+                :class="getMetricClass(row.mean_gpu, 'mean_gpu', summaryData)"
+              >
                 {{ formatValue(row.mean_gpu) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn v-if="isGpuMetric" prop="mean_process_gpu" label="进程" width="80">
+          <ElTableColumn
+            v-if="isGpuMetric"
+            prop="mean_process_gpu"
+            label="进程"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_process_gpu, 'mean_process_gpu', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.mean_process_gpu,
+                    'mean_process_gpu',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.mean_process_gpu) }}
               </span>
             </template>
           </ElTableColumn>
           <!-- 内存指标 -->
-          <ElTableColumn v-if="isMemoryMetric" prop="mean_memory_usage" label="平均" width="80">
+          <ElTableColumn
+            v-if="isMemoryMetric"
+            prop="mean_memory_usage"
+            label="平均"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_memory_usage, 'mean_memory_usage', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.mean_memory_usage,
+                    'mean_memory_usage',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.mean_memory_usage, 'GB') }}
               </span>
             </template>
           </ElTableColumn>
           <!-- 提交内存指标 -->
-          <ElTableColumn v-if="isCommitMemoryMetric" prop="mean_commit_memory" label="平均" width="80">
+          <ElTableColumn
+            v-if="isCommitMemoryMetric"
+            prop="mean_commit_memory"
+            label="平均"
+            width="80"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_commit_memory, 'mean_commit_memory', summaryData)">
+              <span
+                :class="
+                  getMetricClass(
+                    row.mean_commit_memory,
+                    'mean_commit_memory',
+                    summaryData,
+                  )
+                "
+              >
                 {{ formatValue(row.mean_commit_memory, 'GB') }}
               </span>
             </template>
           </ElTableColumn>
           <!-- HWiNFO 指标 -->
-          <ElTableColumn v-if="isHwinfoMetric" prop="mean_hwinfo" label="平均" width="100">
+          <ElTableColumn
+            v-if="isHwinfoMetric"
+            prop="mean_hwinfo"
+            label="平均"
+            width="100"
+          >
             <template #default="{ row }">
-              <span :class="getMetricClass(row.mean_hwinfo, 'mean_hwinfo', summaryData)">
+              <span
+                :class="
+                  getMetricClass(row.mean_hwinfo, 'mean_hwinfo', summaryData)
+                "
+              >
                 {{ formatValue(row.mean_hwinfo, hwinfoUnit || '') }}
               </span>
             </template>
@@ -204,22 +376,22 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
 
 <style scoped>
 .compare-summary-table {
+  padding: 16px;
   background: #fff;
   border-radius: 8px;
-  padding: 16px;
 }
 
 .title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
   color: #333;
 }
 
 .tables-container {
   display: flex;
-  gap: 24px;
   flex-wrap: wrap;
+  gap: 24px;
 }
 
 .summary-section {
@@ -227,27 +399,27 @@ const formatValue = (value: number | undefined, unit: string = '%') => {
 }
 
 .section-title {
-  font-size: 12px;
-  color: #666;
   margin-bottom: 8px;
+  font-size: 12px;
   font-weight: 500;
+  color: #666;
 }
 
 .no-tags-tip {
+  padding: 12px;
   font-size: 13px;
   color: #999;
-  padding: 12px;
   background: #f9f9f9;
   border-radius: 4px;
 }
 
 .best {
-  color: #67c23a;
   font-weight: 500;
+  color: #67c23a;
 }
 
 .worst {
-  color: #f56c6c;
   font-weight: 500;
+  color: #f56c6c;
 }
 </style>

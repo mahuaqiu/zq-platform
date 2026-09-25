@@ -7,9 +7,6 @@
 @File: test_consumer.py
 @Desc: 测试 WebSocket 消费者
 """
-"""
-测试 WebSocket 消费者
-"""
 import platform
 from datetime import datetime
 from typing import Dict, Any

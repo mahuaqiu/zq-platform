@@ -50,10 +50,8 @@ export interface CodeEditorProps {
 }
 
 export interface CodeEditorEmits {
-  (e: 'update:modelValue', value: string): void;
-  (e: 'change', value: string): void;
-  (e: 'focus'): void;
-  (e: 'blur'): void;
+  (e: 'change' | 'update:modelValue', value: string): void;
+  (e: 'blur' | 'focus'): void;
   (e: 'ready', view: EditorView): void;
 }
 

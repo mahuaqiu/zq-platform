@@ -1,6 +1,5 @@
 import asyncio
 import importlib
-import pkgutil
 from logging.config import fileConfig
 from pathlib import Path
 

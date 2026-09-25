@@ -7,9 +7,6 @@
 @File: __init__.py
 @Desc: Role Module - 角色管理模块
 """
-"""
-Role Module - 角色管理模块
-"""
 from core.role.model import Role
 from core.role.service import RoleService
 from core.role.api import router

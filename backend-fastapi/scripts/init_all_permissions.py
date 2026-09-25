@@ -222,7 +222,6 @@ async def clear_and_init_permissions():
         # 4. 创建权限
         print("\n[4] 开始创建权限...")
         total_created = 0
-        total_skipped = 0
 
         for menu_id, permissions in ALL_PERMISSIONS.items():
             menu_title = menu_map.get(menu_id, menu_id)

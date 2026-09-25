@@ -7,12 +7,7 @@
 @File: service.py
 @Desc: Scheduler Service - APScheduler 4.x 调度服务 - 基于 APScheduler 4.x 实现的定时任务调度核心服务
 """
-"""
-Scheduler Service - APScheduler 4.x 调度服务
-基于 APScheduler 4.x 实现的定时任务调度核心服务
-"""
 import json
-import logging
 import os
 import socket
 from datetime import datetime

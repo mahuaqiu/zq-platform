@@ -1,11 +1,11 @@
 <script lang="ts" setup>
 import type { DashboardStatsResponse } from '#/api/core/device-monitor';
 
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { ElScrollbar, ElSelect, ElOption, ElTag } from 'element-plus';
+import { ElOption, ElScrollbar, ElSelect, ElTag } from 'element-plus';
 
 import { getDashboardStatsApi } from '#/api/core/device-monitor';
 import { useNamespaceStore } from '#/views/env-machine/store';
@@ -17,7 +17,7 @@ const namespaceStore = useNamespaceStore();
 
 // namespace 选项（排除"全部"选项）
 const namespaceOptions = computed(() => {
-  return namespaceStore.namespaceOptions.filter(opt => opt.value !== '');
+  return namespaceStore.namespaceOptions.filter((opt) => opt.value !== '');
 });
 
 // 判断是否选中了所有 namespace
@@ -29,10 +29,12 @@ const isAllSelected = computed(() => {
 const loading = ref(false);
 const stats = ref<DashboardStatsResponse | null>(null);
 // 默认选中所有配置的 namespace
-const selectedNamespaces = ref<string[]>(namespaceOptions.value.map(opt => opt.value));
+const selectedNamespaces = ref<string[]>(
+  namespaceOptions.value.map((opt) => opt.value),
+);
 
 // 自动刷新定时器
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let refreshTimer: null | ReturnType<typeof setInterval> = null;
 
 // 计算最大申请次数（用于柱状图比例）
 const maxTagCount = computed(() => {
@@ -49,7 +51,10 @@ const maxInsufficientCount = computed(() => {
 // 计算最大占用时长
 const maxDuration = computed(() => {
   if (!stats.value?.top20_duration?.length) return 1;
-  return Math.max(...stats.value.top20_duration.map((t) => t.duration_minutes), 1);
+  return Math.max(
+    ...stats.value.top20_duration.map((t) => t.duration_minutes),
+    1,
+  );
 });
 
 // 计算其他失败次数（除资源不足外的非成功次数）
@@ -66,17 +71,17 @@ const DURATION_BAR_MAX = 280; // 占用时长TOP20最大宽度
 
 function getTagBarWidth(value: number): string {
   const percent = Math.min((value / maxTagCount.value) * 100, 100);
-  return `${Math.max(percent * TOP_TAG_BAR_MAX / 100, 10)}px`;
+  return `${Math.max((percent * TOP_TAG_BAR_MAX) / 100, 10)}px`;
 }
 
 function getInsufficientBarWidth(value: number): string {
   const percent = Math.min((value / maxInsufficientCount.value) * 100, 100);
-  return `${Math.max(percent * TOP_INSUFFICIENT_BAR_MAX / 100, 10)}px`;
+  return `${Math.max((percent * TOP_INSUFFICIENT_BAR_MAX) / 100, 10)}px`;
 }
 
 function getDurationBarWidth(value: number): string {
   const percent = Math.min((value / maxDuration.value) * 100, 100);
-  return `${Math.max(percent * DURATION_BAR_MAX / 100, 10)}px`;
+  return `${Math.max((percent * DURATION_BAR_MAX) / 100, 10)}px`;
 }
 
 // 设备类型显示名称
@@ -90,7 +95,7 @@ const deviceTypeNames: Record<string, string> = {
 };
 
 // 获取设备显示名称（主位置）- 优先显示name，其次IP
-function getDeviceDisplayName(item: { name?: string; ip?: string }): string {
+function getDeviceDisplayName(item: { ip?: string; name?: string }): string {
   if (item.name) return item.name;
   if (item.ip) return item.ip;
   return '未命名';
@@ -102,9 +107,10 @@ async function loadStats() {
   try {
     // 传递选中的 namespace 列表（逗号分隔）
     // 如果没有选中任何 namespace，传递空字符串让后端返回空数据
-    const namespaceParam = selectedNamespaces.value.length > 0
-      ? selectedNamespaces.value.join(',')
-      : '';
+    const namespaceParam =
+      selectedNamespaces.value.length > 0
+        ? selectedNamespaces.value.join(',')
+        : '';
     const res = await getDashboardStatsApi(namespaceParam);
     stats.value = res;
   } catch (error) {
@@ -118,7 +124,7 @@ async function loadStats() {
 function handleNamespaceChange(val: string[]) {
   // 如果清空了所有选项，恢复到选中所有
   if (val.length === 0) {
-    selectedNamespaces.value = namespaceOptions.value.map(opt => opt.value);
+    selectedNamespaces.value = namespaceOptions.value.map((opt) => opt.value);
   }
   loadStats();
 }
@@ -128,7 +134,7 @@ onMounted(async () => {
   // 加载命名空间配置
   await namespaceStore.loadNamespaceConfig();
   // 初始化选中所有 namespace
-  selectedNamespaces.value = namespaceOptions.value.map(opt => opt.value);
+  selectedNamespaces.value = namespaceOptions.value.map((opt) => opt.value);
   // 加载统计数据
   loadStats();
   // 30分钟自动刷新
@@ -165,7 +171,9 @@ onUnmounted(() => {
                 :key="ns"
                 type="info"
               >
-                {{ namespaceOptions.find(opt => opt.value === ns)?.label || ns }}
+                {{
+                  namespaceOptions.find((opt) => opt.value === ns)?.label || ns
+                }}
               </ElTag>
               <ElTag v-if="selectedNamespaces.length > 1" type="info">
                 +{{ selectedNamespaces.length - 1 }}
@@ -192,15 +200,21 @@ onUnmounted(() => {
             <!-- 汇总行 -->
             <div class="summary-row">
               <div class="summary-item">
-                <span class="summary-value stat-blue">{{ stats?.device_stats?.total || 0 }}</span>
+                <span class="summary-value stat-blue">{{
+                  stats?.device_stats?.total || 0
+                }}</span>
                 <span class="summary-label">总数</span>
               </div>
               <div class="summary-item">
-                <span class="summary-value stat-green">{{ stats?.device_stats?.online || 0 }}</span>
+                <span class="summary-value stat-green">{{
+                  stats?.device_stats?.online || 0
+                }}</span>
                 <span class="summary-label">在线</span>
               </div>
               <div class="summary-item">
-                <span class="summary-value stat-red">{{ stats?.device_stats?.offline || 0 }}</span>
+                <span class="summary-value stat-red">{{
+                  stats?.device_stats?.offline || 0
+                }}</span>
                 <span class="summary-label">离线</span>
               </div>
             </div>
@@ -213,34 +227,64 @@ onUnmounted(() => {
                 class="type-item"
               >
                 <div class="type-value stat-blue">{{ item.total }}</div>
-                <div class="type-label">{{ deviceTypeNames[item.type] || item.type }}</div>
+                <div class="type-label">
+                  {{ deviceTypeNames[item.type] || item.type }}
+                </div>
               </div>
             </div>
 
             <!-- 启用/未启用 -->
             <div class="enabled-row">
-              <div class="enabled-item enabled-green">启用 {{ stats?.device_stats?.by_type?.reduce((sum, t) => sum + t.enabled, 0) || 0 }}</div>
-              <div class="enabled-item enabled-red">未启用 {{ stats?.device_stats?.by_type?.reduce((sum, t) => sum + t.disabled, 0) || 0 }}</div>
+              <div class="enabled-item enabled-green">
+                启用
+                {{
+                  stats?.device_stats?.by_type?.reduce(
+                    (sum, t) => sum + t.enabled,
+                    0,
+                  ) || 0
+                }}
+              </div>
+              <div class="enabled-item enabled-red">
+                未启用
+                {{
+                  stats?.device_stats?.by_type?.reduce(
+                    (sum, t) => sum + t.disabled,
+                    0,
+                  ) || 0
+                }}
+              </div>
             </div>
           </div>
 
           <!-- 异常机器排查 -->
           <div class="stats-card offline-card">
-            <div class="card-title">
-              异常机器排查
-            </div>
+            <div class="card-title">异常机器排查</div>
             <div class="card-subtitle">（启用但离线）</div>
-            <ElScrollbar class="offline-list" v-if="stats?.offline_machines?.length">
+            <ElScrollbar
+              class="offline-list"
+              v-if="stats?.offline_machines?.length"
+            >
               <div
                 v-for="item in stats?.offline_machines || []"
                 :key="item.id"
                 class="offline-item"
               >
                 <span class="offline-dot"></span>
-                <span class="offline-type">{{ deviceTypeNames[item.device_type] || item.device_type }}</span>
-                <span class="offline-name">{{ getDeviceDisplayName(item) }}</span>
-                <span v-if="item.device_sn" class="offline-sn" :title="item.device_sn">{{ item.device_sn }}</span>
-                <span class="offline-duration">离线 {{ item.offline_duration }}</span>
+                <span class="offline-type">{{
+                  deviceTypeNames[item.device_type] || item.device_type
+                }}</span>
+                <span class="offline-name">{{
+                  getDeviceDisplayName(item)
+                }}</span>
+                <span
+                  v-if="item.device_sn"
+                  class="offline-sn"
+                  :title="item.device_sn"
+                  >{{ item.device_sn }}</span
+                >
+                <span class="offline-duration"
+                  >离线 {{ item.offline_duration }}</span
+                >
               </div>
             </ElScrollbar>
             <div v-else class="no-data">暂无更多离线设备</div>
@@ -254,20 +298,28 @@ onUnmounted(() => {
             <div class="card-title">24小时申请统计</div>
             <div class="apply-main">
               <div class="apply-total">
-                <div class="apply-value stat-blue">{{ stats?.apply_24h?.total || 0 }}</div>
+                <div class="apply-value stat-blue">
+                  {{ stats?.apply_24h?.total || 0 }}
+                </div>
                 <div class="apply-label">申请总次数</div>
               </div>
               <div class="apply-detail">
                 <div class="detail-item success">
-                  <div class="detail-value stat-green">{{ stats?.apply_24h?.success || 0 }}</div>
+                  <div class="detail-value stat-green">
+                    {{ stats?.apply_24h?.success || 0 }}
+                  </div>
                   <div class="detail-label">成功</div>
                 </div>
                 <div class="detail-item insufficient">
-                  <div class="detail-value stat-orange">{{ stats?.apply_24h?.failed || 0 }}</div>
+                  <div class="detail-value stat-orange">
+                    {{ stats?.apply_24h?.failed || 0 }}
+                  </div>
                   <div class="detail-label">资源不足</div>
                 </div>
                 <div class="detail-item failed">
-                  <div class="detail-value stat-red">{{ otherFailedCount }}</div>
+                  <div class="detail-value stat-red">
+                    {{ otherFailedCount }}
+                  </div>
                   <div class="detail-label">失败</div>
                 </div>
               </div>
@@ -294,16 +346,21 @@ onUnmounted(() => {
                   </div>
                   <span class="top-count stat-blue">{{ item.count }}</span>
                 </div>
-                <div v-if="!stats?.top10_tags?.length" class="no-data">暂无数据</div>
+                <div v-if="!stats?.top10_tags?.length" class="no-data">
+                  暂无数据
+                </div>
               </div>
             </div>
 
             <!-- 资源不足 TOP10 -->
             <div class="stats-card top-card">
-              <div class="card-title">
-                资源不足 TOP10 标签
+              <div class="card-title">资源不足 TOP10 标签</div>
+              <div
+                v-if="stats?.top10_insufficient?.length"
+                class="card-subtitle"
+              >
+                设备资源紧张，需关注
               </div>
-              <div v-if="stats?.top10_insufficient?.length" class="card-subtitle">设备资源紧张，需关注</div>
               <div class="top-list">
                 <div
                   v-for="(item, index) in stats?.top10_insufficient || []"
@@ -319,7 +376,9 @@ onUnmounted(() => {
                   </div>
                   <span class="top-count stat-red">{{ item.count }}</span>
                 </div>
-                <div v-if="!stats?.top10_insufficient?.length" class="no-data">暂无数据</div>
+                <div v-if="!stats?.top10_insufficient?.length" class="no-data">
+                  暂无数据
+                </div>
               </div>
             </div>
           </div>
@@ -335,17 +394,25 @@ onUnmounted(() => {
               >
                 <div class="duration-info">
                   <div class="duration-ip">{{ item.ip || item.device_sn }}</div>
-                  <div class="duration-type">{{ deviceTypeNames[item.device_type] || item.device_type }}</div>
+                  <div class="duration-type">
+                    {{ deviceTypeNames[item.device_type] || item.device_type }}
+                  </div>
                 </div>
                 <div class="duration-bar-bg">
                   <div
                     class="duration-bar"
-                    :style="{ width: getDurationBarWidth(item.duration_minutes) }"
+                    :style="{
+                      width: getDurationBarWidth(item.duration_minutes),
+                    }"
                   ></div>
                 </div>
-                <span class="duration-value stat-green">{{ item.duration_display }}</span>
+                <span class="duration-value stat-green">{{
+                  item.duration_display
+                }}</span>
               </div>
-              <div v-if="!stats?.top20_duration?.length" class="no-data">更多数据请向下滚动查看</div>
+              <div v-if="!stats?.top20_duration?.length" class="no-data">
+                更多数据请向下滚动查看
+              </div>
             </ElScrollbar>
           </div>
         </div>
@@ -365,8 +432,8 @@ onUnmounted(() => {
 /* 页面顶部标题栏 */
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 20px 24px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
@@ -384,8 +451,8 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   gap: 20px;
-  padding: 24px;
   min-height: 0;
+  padding: 24px;
 }
 
 /* 左侧面板 */
@@ -409,7 +476,7 @@ onUnmounted(() => {
   padding: 24px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .card-title {
@@ -440,8 +507,8 @@ onUnmounted(() => {
 
 .summary-item {
   display: flex;
-  align-items: baseline;
   gap: 8px;
+  align-items: baseline;
 }
 
 .summary-value {
@@ -509,14 +576,14 @@ onUnmounted(() => {
 }
 
 .enabled-green {
-  background: #dcfce7;
   color: #166534;
+  background: #dcfce7;
   border: 1px solid #86efac;
 }
 
 .enabled-red {
-  background: #fee2e2;
   color: #991b1b;
+  background: #fee2e2;
   border: 1px solid #fecaca;
 }
 
@@ -543,8 +610,8 @@ onUnmounted(() => {
 
 .offline-item {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   padding: 14px;
   margin-bottom: 8px;
   background: #fff5f5;
@@ -564,9 +631,9 @@ onUnmounted(() => {
   padding: 2px 8px;
   font-size: 11px;
   color: #1e40af;
+  text-align: center;
   background: #dbeafe;
   border-radius: 4px;
-  text-align: center;
 }
 
 .offline-name {
@@ -680,14 +747,14 @@ onUnmounted(() => {
 
 .top-item {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .top-tag {
+  flex-shrink: 0;
   min-width: 80px;
   max-width: 120px;
-  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 12px;
@@ -697,17 +764,17 @@ onUnmounted(() => {
 
 /* 进度条背景轨道 */
 .top-bar-bg {
+  position: relative;
   flex: 1;
   height: 12px;
   background: #e5e5e5;
   border-radius: 3px;
-  position: relative;
 }
 
 .top-bar {
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
   height: 100%;
   background: #3b82f6;
   border-radius: 3px;
@@ -742,8 +809,8 @@ onUnmounted(() => {
 
 .duration-item {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   margin-bottom: 10px;
 }
 
@@ -763,17 +830,17 @@ onUnmounted(() => {
 
 /* 进度条背景轨道 */
 .duration-bar-bg {
+  position: relative;
   flex: 1;
   height: 14px;
   background: #e5e5e5;
   border-radius: 3px;
-  position: relative;
 }
 
 .duration-bar {
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
   height: 100%;
   background: #22c55e;
   border-radius: 3px;

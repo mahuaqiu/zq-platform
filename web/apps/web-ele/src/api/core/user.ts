@@ -51,7 +51,7 @@ export interface UserCreateInput {
   core_roles?: string[];
 }
 
-export interface UserUpdateInput extends Partial<UserCreateInput> {}
+export type UserUpdateInput = Partial<UserCreateInput>;
 
 export interface UserPasswordResetInput {
   new_password: string;

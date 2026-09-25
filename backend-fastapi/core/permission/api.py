@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: Permission API - 权限管理接口 - 提供权限的 CRUD 操作
 """
-"""
-Permission API - 权限管理接口
-提供权限的 CRUD 操作
-"""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,8 +16,7 @@ from app.database import get_db
 from app.config import settings
 from app.base_schema import PaginatedResponse, ResponseModel
 from core.permission.schema import (
-    PermissionCreate, PermissionUpdate, PermissionResponse, PermissionSimple,
-    PermissionBatchDeleteIn, PermissionBatchDeleteOut,
+    PermissionCreate, PermissionUpdate, PermissionResponse, PermissionBatchDeleteIn, PermissionBatchDeleteOut,
     PermissionBatchUpdateStatusIn, PermissionBatchUpdateStatusOut,
     PermissionSearchRequest, PermissionBatchCreateFromRoutesIn, PermissionBatchCreateFromRoutesOut
 )

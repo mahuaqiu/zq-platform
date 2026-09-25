@@ -4,7 +4,7 @@
 import asyncio
 import logging
 from itertools import islice
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import and_, select
@@ -17,6 +17,9 @@ from core.config_template.command_task_service import CommandTaskService
 from core.config_template.worker_client import deploy_single_script, execute_single_command
 from core.config_template.service import SUPPORTED_CONFIG_DEVICE_TYPES
 from core.env_machine.model import EnvMachine
+
+if TYPE_CHECKING:
+    from core.config_template.schema import DeployResponse
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +58,7 @@ class CommandDeployService:
                 and_(
                     EnvMachine.id.in_(machine_ids),
                     EnvMachine.is_deleted == False,  # noqa: E712
-                    EnvMachine.is_virtual == False,
+                    EnvMachine.is_virtual.is_(False),
                     EnvMachine.status.in_(["online", "using"]),
                 )
             )

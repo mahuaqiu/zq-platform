@@ -7,10 +7,6 @@
 @File: client_info.py
 @Desc: 客户端信息提取工具 - 从HTTP请求中提取客户端IP、浏览器、操作系统等信息
 """
-"""
-客户端信息提取工具
-从HTTP请求中提取客户端IP、浏览器、操作系统等信息
-"""
 from fastapi import Request
 
 

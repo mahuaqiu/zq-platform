@@ -1,10 +1,8 @@
 <script lang="ts" setup>
 import type { RoundStatItem } from '#/api/core/test-report';
 
-import { computed } from 'vue';
-
-const props = defineProps<{
-  roundStats: RoundStatItem[] | null;
+defineProps<{
+  roundStats: null | RoundStatItem[];
 }>();
 
 // 获取颜色类
@@ -37,7 +35,7 @@ function getRoundClass(index: number, total: number) {
   padding: 16px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .round-title {
@@ -55,9 +53,9 @@ function getRoundClass(index: number, total: number) {
 
 .round-card {
   padding: 16px 24px;
+  text-align: center;
   background: #fff;
   border-radius: 8px;
-  text-align: center;
 }
 
 .round-value {

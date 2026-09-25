@@ -28,7 +28,6 @@ from core.env_machine.upgrade_service import (
     WorkerUpgradeQueueService,
     UpgradeService,
     SUPPORTED_WORKER_UPGRADE_TYPES,
-    send_upgrade_to_worker,
 )
 
 logger = logging.getLogger(__name__)

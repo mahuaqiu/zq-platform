@@ -162,9 +162,9 @@ setupVbenVxeTable({
           const buttonType =
             btnProps.type === 'danger'
               ? 'danger'
-              : (btnProps.type === 'primary'
+              : btnProps.type === 'primary'
                 ? 'primary'
-                : 'default');
+                : 'default';
 
           const button = h(
             ElButton,

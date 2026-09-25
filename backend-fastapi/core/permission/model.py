@@ -7,10 +7,6 @@
 @File: model.py
 @Desc: Permission Model - 权限模型 - 用于管理系统中的操作权限（如按钮权限、接口权限等）
 """
-"""
-Permission Model - 权限模型
-用于管理系统中的操作权限（如按钮权限、接口权限等）
-"""
 from sqlalchemy import Column, String, Integer, Boolean, Text, Index, text
 
 from app.base_model import BaseModel

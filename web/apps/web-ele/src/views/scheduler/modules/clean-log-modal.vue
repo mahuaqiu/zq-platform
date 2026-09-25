@@ -1,11 +1,10 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
-
 import { ElMessage, ElOption, ElSelect } from 'element-plus';
 
 import { cleanSchedulerLogsApi } from '#/api/core/scheduler';
+import { ZqDialog } from '#/components/zq-dialog';
 
 // Props
 interface Props {
@@ -16,8 +15,8 @@ const props = defineProps<Props>();
 
 // Emits
 const emit = defineEmits<{
-  'update:visible': [value: boolean];
   success: [];
+  'update:visible': [value: boolean];
 }>();
 
 // 表单数据
@@ -111,7 +110,9 @@ async function handleSubmit() {
 
         <!-- 警告提示 -->
         <div class="warning-box">
-          <span style=" font-size: 13px;color: #d48806;">⚠️ 清理后无法恢复，请谨慎操作</span>
+          <span style="font-size: 13px; color: #d48806"
+            >⚠️ 清理后无法恢复，请谨慎操作</span
+          >
         </div>
       </div>
     </div>

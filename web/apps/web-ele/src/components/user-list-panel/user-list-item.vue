@@ -53,7 +53,12 @@ const avatarText = computed(() => {
 
     <!-- 头像 -->
     <div class="user-list-item-avatar">
-      <img v-if="user.avatar" :src="user.avatar" class="avatar-image" alt="avatar" />
+      <img
+        v-if="user.avatar"
+        :src="user.avatar"
+        class="avatar-image"
+        alt="avatar"
+      />
       <div v-else class="avatar-placeholder">
         {{ avatarText }}
       </div>
@@ -134,7 +139,11 @@ const avatarText = computed(() => {
       font-size: 16px;
       font-weight: 600;
       color: white;
-      background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 70%));
+      background: linear-gradient(
+        135deg,
+        hsl(var(--primary)),
+        hsl(var(--primary) / 70%)
+      );
     }
   }
 

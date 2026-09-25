@@ -7,10 +7,6 @@
 @File: service.py
 @Desc: 登录日志服务层 - Login Log Service（异步版本） - 处理登录日志的业务逻辑
 """
-"""
-登录日志服务层 - Login Log Service（异步版本）
-处理登录日志的业务逻辑
-"""
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 

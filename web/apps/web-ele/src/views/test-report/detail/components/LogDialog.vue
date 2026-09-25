@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 
-import { ElDialog, ElButton, ElMessage } from 'element-plus';
+import { ElButton, ElDialog, ElMessage } from 'element-plus';
 
 const props = defineProps<{
-  visible: boolean;
-  logUrl: string | null;
   caseName: string;
+  logUrl: null | string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{

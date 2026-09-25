@@ -114,9 +114,7 @@ async function onDeleteRole(role: Role, e?: Event) {
  * 添加角色成功后的回调
  */
 async function onRoleFormSuccess() {
-  ElMessage.success(
-    $t('ui.actionMessage.createSuccess', [$t('role.name')]),
-  );
+  ElMessage.success($t('ui.actionMessage.createSuccess', [$t('role.name')]));
   await fetchRoleList();
 }
 

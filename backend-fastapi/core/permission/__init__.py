@@ -7,9 +7,6 @@
 @File: __init__.py
 @Desc: Permission Module - 权限管理模块
 """
-"""
-Permission Module - 权限管理模块
-"""
 from core.permission.model import Permission
 from core.permission.service import PermissionService
 from core.permission.api import router

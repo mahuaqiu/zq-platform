@@ -7,10 +7,6 @@
 @File: service.py
 @Desc: OAuth Service - OAuth 业务逻辑层 - 处理第三方 OAuth 登录逻辑（异步版本）
 """
-"""
-OAuth Service - OAuth 业务逻辑层
-处理第三方 OAuth 登录逻辑（异步版本）
-"""
 import json
 import logging
 import re
@@ -200,7 +196,7 @@ class QQOAuthService(BaseOAuthService):
                 match = re.search(r'access_token=([^&]+)', response_text)
                 if match:
                     access_token = match.group(1)
-                    logger.info(f"QQ access_token 获取成功")
+                    logger.info("QQ access_token 获取成功")
                     return access_token
                 else:
                     logger.error(f"QQ access_token 解析失败: {response_text}")
@@ -592,7 +588,7 @@ class DingTalkOAuthService(BaseOAuthService):
                 result = response.json()
 
                 if 'accessToken' in result:
-                    logger.info(f"钉钉 access_token 获取成功")
+                    logger.info("钉钉 access_token 获取成功")
                     return result['accessToken']
                 else:
                     logger.error(f"钉钉 token 响应格式错误: {result}")
@@ -736,7 +732,7 @@ class FeishuOAuthService(BaseOAuthService):
                 if result.get('code') == 0 and 'data' in result:
                     access_token = result['data'].get('access_token')
                     if access_token:
-                        logger.info(f"飞书 access_token 获取成功")
+                        logger.info("飞书 access_token 获取成功")
                         return access_token
 
                 logger.error(f"飞书 token 响应格式错误: {result}")

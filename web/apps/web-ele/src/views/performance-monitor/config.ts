@@ -9,7 +9,10 @@
 function getPresetProcessesFromEnv(): string[] {
   const envValue = import.meta.env.VITE_PERF_MONITOR_PRESET_PROCESSSES;
   if (envValue) {
-    return envValue.split(',').map((s: string) => s.trim()).filter(Boolean);
+    return envValue
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
   }
   // 默认预设进程
   return [

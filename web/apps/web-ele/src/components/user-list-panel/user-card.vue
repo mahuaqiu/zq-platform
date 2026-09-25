@@ -57,7 +57,12 @@ const avatarText = computed(() => {
     <div class="user-card-content">
       <!-- 头像 -->
       <div class="user-card-avatar">
-        <img v-if="user.avatar" :src="user.avatar" class="avatar-image" alt="avatar" />
+        <img
+          v-if="user.avatar"
+          :src="user.avatar"
+          class="avatar-image"
+          alt="avatar"
+        />
         <div v-else class="avatar-placeholder">
           {{ avatarText }}
         </div>
@@ -167,7 +172,11 @@ const avatarText = computed(() => {
       font-size: 24px;
       font-weight: 600;
       color: white;
-      background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 70%));
+      background: linear-gradient(
+        135deg,
+        hsl(var(--primary)),
+        hsl(var(--primary) / 70%)
+      );
     }
   }
 

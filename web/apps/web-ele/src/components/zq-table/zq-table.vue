@@ -22,7 +22,6 @@ import {
   RotateCcw as LucideRotateCcw,
 } from '@vben/icons';
 import { $t } from '@vben/locales';
-import { usePreferences } from '@vben/preferences';
 import { cn, isBoolean, isEqual, mergeWithArrayOverride } from '@vben/utils';
 
 import { FullScreen, Refresh, Search, Setting } from '@element-plus/icons-vue';
@@ -59,8 +58,8 @@ interface ColumnState {
 
 const props = withDefaults(defineProps<Props>(), {});
 const emit = defineEmits([
-  'selection-change',
-  'sort-change',
+  'selectionChange',
+  'sortChange',
   'row-click',
   'row-dblclick',
 ]);
@@ -102,7 +101,6 @@ const {
   separator,
 } = usePriorityValues(props, state);
 
-const { isMobile } = usePreferences();
 const isSeparator = computed(() => {
   if (
     !formOptions.value ||
@@ -215,20 +213,6 @@ const showToolbar = computed(() => {
     showTableTitle.value ||
     !!gridOptions.value?.toolbarConfig
   );
-});
-
-const delegatedSlots = computed(() => {
-  const resultSlots: string[] = [];
-  for (const key of Object.keys(slots)) {
-    if (
-      !['empty', 'form', 'loading', TOOLBAR_ACTIONS, TOOLBAR_TOOLS].includes(
-        key,
-      )
-    ) {
-      resultSlots.push(key);
-    }
-  }
-  return resultSlots;
 });
 
 const delegatedFormSlots = computed(() => {
@@ -408,7 +392,7 @@ const columns = computed(() => {
 
   // 如果没有初始化 columnState，直接返回所有列
   if (columnState.value.length === 0) {
-    const processedCols = cols.map(processCol);
+    const processedCols = cols.map((col) => processCol(col));
 
     // 处理 Selection 和 Index
     const prefixCols: any[] = [];
@@ -494,11 +478,11 @@ const columns = computed(() => {
 });
 
 function handleSelectionChange(val: any[]) {
-  emit('selection-change', val);
+  emit('selectionChange', val);
 }
 
 function handleSortChange(data: any) {
-  emit('sort-change', data);
+  emit('sortChange', data);
 }
 </script>
 

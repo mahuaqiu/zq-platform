@@ -8,7 +8,6 @@
 @Desc: EnvMachine Model - 执行机模型 - 用于管理自动化测试执行机
 """
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, String, Boolean, Text, DateTime, JSON, Index, text
 

@@ -7,10 +7,6 @@
 @File: router.py
 @Desc: WebSocket 路由 - 定义 WebSocket 端点
 """
-"""
-WebSocket 路由
-定义 WebSocket 端点
-"""
 from fastapi import APIRouter, WebSocket
 
 from core.websocket.consumers import (

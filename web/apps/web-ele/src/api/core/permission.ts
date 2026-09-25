@@ -34,7 +34,7 @@ export interface PermissionCreateInput {
   is_active?: boolean;
 }
 
-export interface PermissionUpdateInput extends Partial<PermissionCreateInput> {}
+export type PermissionUpdateInput = Partial<PermissionCreateInput>;
 
 export interface PermissionBatchDeleteInput {
   ids: string[];

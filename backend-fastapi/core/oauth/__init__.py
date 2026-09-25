@@ -7,9 +7,6 @@
 @File: __init__.py
 @Desc: OAuth 第三方登录模块
 """
-"""
-OAuth 第三方登录模块
-"""
 from core.oauth.api import router
 
 __all__ = ['router']

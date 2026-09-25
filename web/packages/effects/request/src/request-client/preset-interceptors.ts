@@ -167,11 +167,10 @@ export const errorMessageResponseInterceptor = (
         default: {
           // 如果没有 status（如 token 刷新失败抛出的错误），使用错误本身的 message
           // 避免将非 HTTP 错误误报为"内部服务器错误"
-          if (status === undefined || status === null) {
-            errorMessage = error?.message || '';
-          } else {
-            errorMessage = $t('ui.fallback.http.internalServerError');
-          }
+          errorMessage =
+            status === undefined || status === null
+              ? error?.message || ''
+              : $t('ui.fallback.http.internalServerError');
         }
       }
       if (errorMessage) {

@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
-import * as echarts from 'echarts';
-import { ElDialog, ElInput, ElButton, ElColorPicker, ElDatePicker, ElMessage, ElMessageBox, ElTooltip } from 'element-plus';
-import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 import type { MarkerResponse } from '#/api/core/performance-monitor';
+
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
+import * as echarts from 'echarts';
+import {
+  ElButton,
+  ElColorPicker,
+  ElDatePicker,
+  ElDialog,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElTooltip,
+} from 'element-plus';
+
+import { createMarker, deleteMarker } from '#/api/core/performance-monitor';
 
 interface Props {
   duration: number; // 总时长（秒）
@@ -16,6 +28,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  collectId: undefined,
   startTime: 0,
   endTime: 0,
   collectionStartTime: () => new Date(),
@@ -36,7 +49,11 @@ const quickButtons = [
 ];
 
 // 根据范围计算初始激活按钮（允许±10秒的误差）
-function getActiveButtonFromRange(start: number, end: number, duration: number): number {
+function getActiveButtonFromRange(
+  start: number,
+  end: number,
+  duration: number,
+): number {
   if (duration <= 0) return -1;
   const range = end - start;
   const tolerance = 10; // 允许10秒误差
@@ -50,7 +67,9 @@ function getActiveButtonFromRange(start: number, end: number, duration: number):
   return -1;
 }
 
-const activeButton = ref(getActiveButtonFromRange(props.startTime, props.endTime, props.duration));
+const activeButton = ref(
+  getActiveButtonFromRange(props.startTime, props.endTime, props.duration),
+);
 const chartRef = ref<HTMLDivElement>();
 const trackRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;
@@ -63,8 +82,8 @@ const currentEndTime = ref(props.endTime);
 const showAddDialog = ref(false);
 const newMarker = ref({
   name: '',
-  start_time: null as Date | null,  // 绝对时间
-  end_time: null as Date | null,    // 绝对时间
+  start_time: null as Date | null, // 绝对时间
+  end_time: null as Date | null, // 绝对时间
   color: '#409eff',
   note: '',
 });
@@ -114,7 +133,9 @@ function formatTimeRange(): string {
 // 格式化标记的时间区间tooltip
 function getMarkerTooltip(marker: MarkerResponse): string {
   const startTimeStr = formatTime(marker.start_time);
-  const endTimeStr = marker.end_time ? formatTime(marker.end_time, true) : '未结束';
+  const endTimeStr = marker.end_time
+    ? formatTime(marker.end_time, true)
+    : '未结束';
   const duration = marker.end_time
     ? `${marker.end_time - marker.start_time}秒`
     : '未结束';
@@ -140,10 +161,12 @@ function handleQuickSelect(value: number) {
   emit('rangeChange', [currentStartTime.value, props.duration]);
   if (chartInstance) {
     chartInstance.setOption({
-      dataZoom: [{
-        start: getStartPercent(),
-        end: getEndPercent(),
-      }],
+      dataZoom: [
+        {
+          start: getStartPercent(),
+          end: getEndPercent(),
+        },
+      ],
     });
   }
 }
@@ -185,7 +208,9 @@ async function handleAddMarker() {
   }
   // 将绝对时间转换为相对时间（秒）
   const startRelative = absoluteToRelative(newMarker.value.start_time);
-  const endRelative = newMarker.value.end_time ? absoluteToRelative(newMarker.value.end_time) : undefined;
+  const endRelative = newMarker.value.end_time
+    ? absoluteToRelative(newMarker.value.end_time)
+    : undefined;
 
   await createMarker({
     collect_id: props.collectId,
@@ -209,7 +234,7 @@ async function handleDeleteMarker(markerId: string, markerName: string) {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning',
-      }
+      },
     );
     await deleteMarker(markerId);
     ElMessage.success('标记删除成功');
@@ -241,7 +266,11 @@ function updateChart() {
   if (!chartInstance) return;
 
   const xAxisData: number[] = [];
-  for (let i = 0; i <= props.duration; i += Math.max(1, Math.floor(props.duration / 100))) {
+  for (
+    let i = 0;
+    i <= props.duration;
+    i += Math.max(1, Math.floor(props.duration / 100))
+  ) {
     xAxisData.push(i);
   }
 
@@ -334,30 +363,44 @@ watch(
     activeButton.value = getActiveButtonFromRange(start, end, duration);
     updateChart();
   },
-  { immediate: true }
+  { immediate: true },
 );
 
-watch(() => props.startTime, (v) => {
-  currentStartTime.value = v;
-  // 更新按钮激活状态
-  activeButton.value = getActiveButtonFromRange(v, props.endTime, props.duration);
-  if (chartInstance) {
-    chartInstance.setOption({
-      dataZoom: [{ start: getStartPercent() }],
-    });
-  }
-});
+watch(
+  () => props.startTime,
+  (v) => {
+    currentStartTime.value = v;
+    // 更新按钮激活状态
+    activeButton.value = getActiveButtonFromRange(
+      v,
+      props.endTime,
+      props.duration,
+    );
+    if (chartInstance) {
+      chartInstance.setOption({
+        dataZoom: [{ start: getStartPercent() }],
+      });
+    }
+  },
+);
 
-watch(() => props.endTime, (v) => {
-  currentEndTime.value = v;
-  // 更新按钮激活状态
-  activeButton.value = getActiveButtonFromRange(props.startTime, v, props.duration);
-  if (chartInstance) {
-    chartInstance.setOption({
-      dataZoom: [{ end: getEndPercent() }],
-    });
-  }
-});
+watch(
+  () => props.endTime,
+  (v) => {
+    currentEndTime.value = v;
+    // 更新按钮激活状态
+    activeButton.value = getActiveButtonFromRange(
+      props.startTime,
+      v,
+      props.duration,
+    );
+    if (chartInstance) {
+      chartInstance.setOption({
+        dataZoom: [{ end: getEndPercent() }],
+      });
+    }
+  },
+);
 
 watch(() => props.previewData, updateChart, { deep: true });
 
@@ -415,14 +458,21 @@ onUnmounted(() => {
             :style="{
               borderColor: marker.color,
               color: marker.color,
-              background: marker.color + '15',
+              background: `${marker.color}15`,
             }"
           >
             {{ marker.name }}
-            <button class="marker-delete" @click.stop="handleDeleteMarker(marker.id, marker.name)">×</button>
+            <button
+              class="marker-delete"
+              @click.stop="handleDeleteMarker(marker.id, marker.name)"
+            >
+              ×
+            </button>
           </span>
         </ElTooltip>
-        <button class="add-marker-btn" @click="handleOpenAddMarker">+标记</button>
+        <button class="add-marker-btn" @click="handleOpenAddMarker">
+          +标记
+        </button>
       </div>
     </div>
 
@@ -514,8 +564,8 @@ onUnmounted(() => {
 .chart-container {
   position: absolute;
   top: 0;
-  left: 0;
   right: 0;
+  left: 0;
   width: 100%;
   height: 20px;
 }
@@ -556,28 +606,28 @@ onUnmounted(() => {
   flex: 1;
   gap: 6px;
   align-items: center;
-  margin-left: auto;
   min-width: 100px;
+  margin-left: auto;
 }
 
 .marker-tag {
+  display: flex;
+  gap: 4px;
+  align-items: center;
   padding: 2px 8px;
-  border-radius: 3px;
   font-size: 11px;
   border: 1px solid;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  border-radius: 3px;
 }
 
 .marker-delete {
-  background: none;
-  border: none;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
   color: inherit;
   cursor: pointer;
-  font-size: 12px;
-  padding: 0;
-  line-height: 1;
+  background: none;
+  border: none;
   opacity: 0.6;
 }
 
@@ -586,18 +636,18 @@ onUnmounted(() => {
 }
 
 .add-marker-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #409eff;
+  cursor: pointer;
   background: white;
   border: 1px solid #409eff;
-  color: #409eff;
-  padding: 2px 8px;
   border-radius: 3px;
-  font-size: 11px;
-  cursor: pointer;
 }
 
 .add-marker-btn:hover {
-  background: #409eff;
   color: white;
+  background: #409eff;
 }
 
 /* 弹窗表单 */

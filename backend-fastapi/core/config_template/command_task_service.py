@@ -15,10 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
 from core.config_template.command_task_model import CommandTask
-from core.config_template.schema import (
-    CommandTaskResponse,
-    CommandTaskDetailResponse,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +105,7 @@ class CommandTaskService(BaseService):
         template_type: Optional[str] = None,
     ) -> tuple[List[CommandTask], int]:
         """获取任务列表（分页）"""
-        query = select(CommandTask).where(CommandTask.is_deleted == False)
+        query = select(CommandTask).where(CommandTask.is_deleted.is_(False))
         
         if template_type:
             query = query.where(CommandTask.template_type == template_type)

@@ -7,11 +7,6 @@
 @File: base.py
 @Desc: WebSocket 基础消费者类 - 提供 Token 认证和基础消息处理功能
 """
-"""
-WebSocket 基础消费者类
-提供 Token 认证和基础消息处理功能
-"""
-import asyncio
 import json
 from datetime import datetime
 from typing import Optional, Dict, Any, Set
@@ -19,7 +14,6 @@ from urllib.parse import parse_qs
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.config import settings
 from utils.logging_config import get_logger
 from utils.security import verify_access_token
 

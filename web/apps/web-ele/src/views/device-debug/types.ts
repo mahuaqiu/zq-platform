@@ -1,12 +1,22 @@
 /**
  * 设备类型
  */
-export type DeviceType = 'windows' | 'mac' | 'ios' | 'android' | 'harmony_mobile' | 'harmony_pc';
+export type DeviceType =
+  | 'android'
+  | 'harmony_mobile'
+  | 'harmony_pc'
+  | 'ios'
+  | 'mac'
+  | 'windows';
 
 /**
  * WebSocket 连接状态
  */
-export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type WebSocketStatus =
+  | 'connected'
+  | 'connecting'
+  | 'disconnected'
+  | 'error';
 
 /**
  * WebSocket 关闭原因
@@ -22,11 +32,11 @@ export interface WebSocketCloseInfo {
  */
 export interface InputEventPayload {
   action: 'down' | 'move' | 'up' | 'wheel';
-  button?: 'left' | 'right' | 'middle' | null;
+  button?: 'left' | 'middle' | 'right' | null;
   x?: number;
   y?: number;
   /** wheel 专用（stop 需跟在 up/down 后发送，鸿蒙官方 SDK 要求） */
-  direction?: 'up' | 'down' | 'stop';
+  direction?: 'down' | 'stop' | 'up';
   amount?: number;
   /** 诊断用：前端单调序号与时间戳 */
   seq?: number;
@@ -36,7 +46,12 @@ export interface InputEventPayload {
 /**
  * 设备操作类型
  */
-export type DeviceActionType = 'click' | 'swipe' | 'input' | 'press' | 'screenshot';
+export type DeviceActionType =
+  | 'click'
+  | 'input'
+  | 'press'
+  | 'screenshot'
+  | 'swipe';
 
 /**
  * 操作参数
@@ -84,7 +99,7 @@ export interface DeviceDetail {
 export interface OperationRecord {
   type: string;
   params: string;
-  status: 'pending' | 'success' | 'failed';
+  status: 'failed' | 'pending' | 'success';
   time: string;
   error?: string;
 }

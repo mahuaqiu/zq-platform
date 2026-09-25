@@ -13,7 +13,6 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, Callable
 
-import paramiko
 from paramiko import SSHClient, AutoAddPolicy
 
 logger = logging.getLogger(__name__)
@@ -325,7 +324,7 @@ class LinuxDataCollector:
 
         lines = output.strip().split('\n')
         if not lines:
-            logger.warning(f"/proc/stat 输出为空")
+            logger.warning("/proc/stat 输出为空")
             return result
 
         # 找到第一行 cpu 数据
@@ -336,7 +335,7 @@ class LinuxDataCollector:
                 break
 
         if not cpu_line:
-            logger.warning(f"/proc/stat 未找到 cpu 行")
+            logger.warning("/proc/stat 未找到 cpu 行")
             return result
 
         # 解析数据：cpu  user nice system idle iowait irq softirq steal guest guest_nice
@@ -445,7 +444,7 @@ class LinuxDataCollector:
 
         lines = output.strip().split('\n')
         if not lines:
-            logger.warning(f"/proc/meminfo 输出为空")
+            logger.warning("/proc/meminfo 输出为空")
             return result
 
         for line in lines:
@@ -621,11 +620,8 @@ def start_linux_collect_task(
         async def collect_loop():
             """采集循环"""
             from app.database import AsyncSessionLocal
-            from core.performance_monitor.model import PerformanceCollect, PerformanceData
-            from sqlalchemy import select
+            from core.performance_monitor.model import PerformanceData
 
-            start_time_utc = datetime.now(timezone.utc)
-            start_time_naive = start_time_utc.replace(tzinfo=None)
 
             try:
                 # 建立 SSH 连接

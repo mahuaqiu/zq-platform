@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 interface Props {
   currentMetric: string;
-  isLinuxDevice?: boolean;  // 是否为 Linux 设备
+  isLinuxDevice?: boolean; // 是否为 Linux 设备
   isHarmonyDevice?: boolean;
 }
 
@@ -16,15 +18,19 @@ const emit = defineEmits<{
 const mainMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu_usage', label: 'CPU' },
-    ...((props.isLinuxDevice || props.isHarmonyDevice) ? [] : [{ key: 'gpu_usage', label: 'GPU' }]),
+    ...(props.isLinuxDevice || props.isHarmonyDevice
+      ? []
+      : [{ key: 'gpu_usage', label: 'GPU' }]),
     { key: 'memory_usage', label: '内存' },
-    ...((props.isLinuxDevice || props.isHarmonyDevice) ? [] : [{ key: 'commit_memory', label: '提交内存' }]),
-    ...((props.isLinuxDevice || props.isHarmonyDevice) ? [] : [{ key: 'process_handles', label: '进程句柄' }]),
+    ...(props.isLinuxDevice || props.isHarmonyDevice
+      ? []
+      : [{ key: 'commit_memory', label: '提交内存' }]),
+    ...(props.isLinuxDevice || props.isHarmonyDevice
+      ? []
+      : [{ key: 'process_handles', label: '进程句柄' }]),
   ];
   return baseMetrics;
 });
-
-import { computed } from 'vue';
 
 function handleMetricClick(metric: string) {
   emit('change', metric);
@@ -41,7 +47,8 @@ function handleMoreClick() {
       <button
         v-for="metric in mainMetrics"
         :key="metric.key"
-        :class="['metric-card', { active: currentMetric === metric.key }]"
+        class="metric-card"
+        :class="[{ active: currentMetric === metric.key }]"
         @click="handleMetricClick(metric.key)"
       >
         {{ metric.label }}
@@ -66,13 +73,13 @@ function handleMoreClick() {
 
 .metric-card {
   padding: 10px 20px;
-  border-radius: 6px;
-  font-weight: 600;
   font-size: 14px;
+  font-weight: 600;
+  color: var(--el-color-primary);
   cursor: pointer;
   background: #fff;
   border: 1px solid var(--el-color-primary);
-  color: var(--el-color-primary);
+  border-radius: 6px;
   transition: all 0.3s ease;
 }
 
@@ -81,8 +88,8 @@ function handleMoreClick() {
 }
 
 .metric-card.active {
-  background: var(--el-color-primary);
   color: white;
+  background: var(--el-color-primary);
   border: none;
 }
 

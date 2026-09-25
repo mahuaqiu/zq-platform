@@ -1,4 +1,4 @@
-﻿import { requestClient } from '#/api/request';
+import { requestClient } from '#/api/request';
 
 /**
  * 配置模板
@@ -6,7 +6,7 @@
 export interface ConfigTemplate {
   id: string;
   name: string;
-  type: 'config' | 'script' | 'command';
+  type: 'command' | 'config' | 'script';
   script_name?: string;
   command?: string;
   /** 命令超时时间(秒)，仅 command 类型，默认 120 */
@@ -95,7 +95,10 @@ export async function getConfigTemplateListApi(params?: {
   page_size?: number;
   template_type?: string;
 }) {
-  return requestClient.get<PaginatedResponse<ConfigTemplate>>('/api/core/config-template', { params });
+  return requestClient.get<PaginatedResponse<ConfigTemplate>>(
+    '/api/core/config-template',
+    { params },
+  );
 }
 
 /**
@@ -108,8 +111,14 @@ export async function createConfigTemplateApi(data: Partial<ConfigTemplate>) {
 /**
  * 更新配置模板
  */
-export async function updateConfigTemplateApi(id: string, data: Partial<ConfigTemplate>) {
-  return requestClient.put<ConfigTemplate>(`/api/core/config-template/${id}`, data);
+export async function updateConfigTemplateApi(
+  id: string,
+  data: Partial<ConfigTemplate>,
+) {
+  return requestClient.put<ConfigTemplate>(
+    `/api/core/config-template/${id}`,
+    data,
+  );
 }
 
 /**
@@ -125,26 +134,33 @@ export async function deleteConfigTemplateApi(id: string) {
 export async function getConfigPreviewApi(
   templateId: string,
   options?: {
-    namespace?: string;
     device_type?: string;
     ip?: string;
     machine_ids?: string[];
-  }
+    namespace?: string;
+  },
 ) {
   const params: Record<string, string> = { template_id: templateId };
   if (options?.namespace) params.namespace = options.namespace;
   if (options?.device_type) params.device_type = options.device_type;
   if (options?.ip) params.ip = options.ip;
-  if (options?.machine_ids?.length) params.machine_ids = options.machine_ids.join(',');
-  
-  return requestClient.get<ConfigPreviewResponse>('/api/core/config-template/preview', { params });
+  if (options?.machine_ids?.length)
+    params.machine_ids = options.machine_ids.join(',');
+
+  return requestClient.get<ConfigPreviewResponse>(
+    '/api/core/config-template/preview',
+    { params },
+  );
 }
 
 /**
  * 下发配置/脚本/命令
  */
 export async function deployConfigApi(data: DeployRequest) {
-  return requestClient.post<DeployResponse>('/api/core/config-template/deploy', data);
+  return requestClient.post<DeployResponse>(
+    '/api/core/config-template/deploy',
+    data,
+  );
 }
 
 // ========== IP 模板 API ==========
@@ -166,9 +182,9 @@ export interface MachineSelectionTemplateStats {
  */
 export interface MachineDetail {
   id: string;
-  ip?: string | null;
-  device_type?: string | null;
-  status?: string | null;
+  ip?: null | string;
+  device_type?: null | string;
+  status?: null | string;
   exists: boolean;
 }
 
@@ -205,22 +221,39 @@ export interface MachineSelectionTemplate {
 /**
  * 获取 IP 模板列表
  */
-export async function getMachineSelectionTemplateListApi(params?: { page?: number; page_size?: number }) {
-  return requestClient.get<PaginatedResponse<MachineSelectionTemplate>>('/api/core/machine-selection-template', { params });
+export async function getMachineSelectionTemplateListApi(params?: {
+  page?: number;
+  page_size?: number;
+}) {
+  return requestClient.get<PaginatedResponse<MachineSelectionTemplate>>(
+    '/api/core/machine-selection-template',
+    { params },
+  );
 }
 
 /**
  * 创建 IP 模板
  */
-export async function createMachineSelectionTemplateApi(data: Partial<MachineSelectionTemplate>) {
-  return requestClient.post<MachineSelectionTemplate>('/api/core/machine-selection-template', data);
+export async function createMachineSelectionTemplateApi(
+  data: Partial<MachineSelectionTemplate>,
+) {
+  return requestClient.post<MachineSelectionTemplate>(
+    '/api/core/machine-selection-template',
+    data,
+  );
 }
 
 /**
  * 更新 IP 模板
  */
-export async function updateMachineSelectionTemplateApi(id: string, data: Partial<MachineSelectionTemplate>) {
-  return requestClient.put<MachineSelectionTemplate>(`/api/core/machine-selection-template/${id}`, data);
+export async function updateMachineSelectionTemplateApi(
+  id: string,
+  data: Partial<MachineSelectionTemplate>,
+) {
+  return requestClient.put<MachineSelectionTemplate>(
+    `/api/core/machine-selection-template/${id}`,
+    data,
+  );
 }
 
 /**
@@ -257,13 +290,13 @@ export interface CommandTask {
   success_count: number;
   failed_count: number;
   result_detail?: Array<{
-    machine_id: string;
-    ip: string;
     device_type: string;
-    success: boolean;
-    stdout: string;
-    stderr: string;
     duration_seconds: number;
+    ip: string;
+    machine_id: string;
+    stderr: string;
+    stdout: string;
+    success: boolean;
   }>;
   sys_create_datetime?: string;
   finished_datetime?: string;
@@ -272,8 +305,15 @@ export interface CommandTask {
 /**
  * 获取任务历史列表
  */
-export async function getCommandTaskListApi(params?: { page?: number; page_size?: number; template_type?: string }) {
-  return requestClient.get<PaginatedResponse<CommandTask>>('/api/core/command-task', { params });
+export async function getCommandTaskListApi(params?: {
+  page?: number;
+  page_size?: number;
+  template_type?: string;
+}) {
+  return requestClient.get<PaginatedResponse<CommandTask>>(
+    '/api/core/command-task',
+    { params },
+  );
 }
 
 /**

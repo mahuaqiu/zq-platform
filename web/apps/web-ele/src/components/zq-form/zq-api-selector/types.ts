@@ -74,6 +74,8 @@ export interface ZqApiSelectProps extends Partial<
 }
 
 export interface ZqApiSelectEmits {
-  (e: 'update:modelValue', value: string | string[] | undefined): void;
-  (e: 'change', value: string | string[] | undefined): void;
+  (
+    e: 'change' | 'update:modelValue',
+    value: string | string[] | undefined,
+  ): void;
 }

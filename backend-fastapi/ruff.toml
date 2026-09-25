@@ -1,0 +1,6 @@
+# Ruff 配置(在默认规则集基础上,只做例外声明)
+# 默认规则:E4(部分 pycodestyle)、E7、E9、F(pyflakes)
+
+[lint.per-file-ignores]
+# 独立脚本需先把项目根目录插入 sys.path 才能导入项目模块,E402 属预期模式
+"scripts/*" = ["E402"]

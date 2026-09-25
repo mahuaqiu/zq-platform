@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
-import { ElDialog, ElProgress, ElButton, ElMessage } from 'element-plus';
-import { getExportStatus, getExportDownloadUrl, type ExportTaskStatus } from '#/api/core/performance-monitor';
+import type { ExportTaskStatus } from '#/api/core/performance-monitor';
+
+import { computed, onUnmounted, ref, watch } from 'vue';
+
+import { ElButton, ElDialog, ElMessage, ElProgress } from 'element-plus';
+
+import {
+  getExportDownloadUrl,
+  getExportStatus,
+} from '#/api/core/performance-monitor';
 
 const props = defineProps<{
-  visible: boolean;
   taskId: string;
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -20,7 +27,7 @@ const status = ref<ExportTaskStatus>({
   message: '',
 });
 
-const pollingTimer = ref<number | null>(null);
+const pollingTimer = ref<null | number>(null);
 const retryCount = ref(0);
 const MAX_RETRY = 3;
 const POLLING_INTERVAL = 3000;
@@ -38,7 +45,7 @@ async function pollStatus() {
     if (isCompleted.value || isFailed.value) {
       stopPolling();
     }
-  } catch (error) {
+  } catch {
     retryCount.value++;
     if (retryCount.value >= MAX_RETRY) {
       ElMessage.error('网络异常，请稍后重试');
@@ -68,13 +75,16 @@ function handleClose() {
   emit('update:visible', false);
 }
 
-watch(() => props.visible, (newVal) => {
-  if (newVal && props.taskId) {
-    startPolling();
-  } else {
-    stopPolling();
-  }
-});
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal && props.taskId) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+  },
+);
 
 onUnmounted(() => {
   stopPolling();
@@ -96,9 +106,7 @@ onUnmounted(() => {
       <div class="status-message">{{ status.message }}</div>
 
       <div v-if="isCompleted" class="download-section">
-        <ElButton type="success" @click="handleDownload">
-          下载文件
-        </ElButton>
+        <ElButton type="success" @click="handleDownload"> 下载文件 </ElButton>
       </div>
 
       <div v-if="isFailed" class="error-section">

@@ -1,6 +1,15 @@
 <script setup lang="ts">
+import type {
+  PerformanceData,
+  ProcessData,
+  ProcessInstance,
+} from '#/api/core/performance-monitor';
+
 import { computed } from 'vue';
-import type { PerformanceData, ProcessData, ProcessInstance } from '#/api/core/performance-monitor';
+
+const props = withDefaults(defineProps<Props>(), {
+  clickedTime: 0,
+});
 
 function sampleTimeSeconds(data: PerformanceData): number {
   return (data.elapsed_ms ?? data.relative_time * 1000) / 1000;
@@ -9,28 +18,33 @@ function sampleTimeSeconds(data: PerformanceData): number {
 interface Props {
   data: PerformanceData[];
   clickedTime?: number;
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'hwinfo' | 'handles';
+  chartType: 'commitMemory' | 'cpu' | 'gpu' | 'handles' | 'hwinfo' | 'memory';
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  clickedTime: 0,
-});
-
 // 根据图表类型获取实例值
-function getInstanceValue(instance: ProcessInstance, chartType: string): number {
+function getInstanceValue(
+  instance: ProcessInstance,
+  chartType: string,
+): number {
   switch (chartType) {
-    case 'cpu':
-      return instance.cpu;
-    case 'gpu':
-      return instance.gpu || 0;
-    case 'memory':
-      return instance.memory || 0;
-    case 'commitMemory':
+    case 'commitMemory': {
       return instance.committed_memory || 0;
-    case 'handles':
-      return instance.handles || 0;
-    default:
+    }
+    case 'cpu': {
       return instance.cpu;
+    }
+    case 'gpu': {
+      return instance.gpu || 0;
+    }
+    case 'handles': {
+      return instance.handles || 0;
+    }
+    case 'memory': {
+      return instance.memory || 0;
+    }
+    default: {
+      return instance.cpu;
+    }
   }
 }
 
@@ -52,11 +66,13 @@ function formatValue(value: number, chartType: string): string {
 
 // 根据点击时间获取对应数据点
 const selectedDataPoint = computed(() => {
-  if (!props.data.length) return null;
+  if (props.data.length === 0) return null;
 
   // 如果有点击时间，找到对应数据点
   if (props.clickedTime > 0) {
-    const point = props.data.find(d => sampleTimeSeconds(d) === props.clickedTime);
+    const point = props.data.find(
+      (d) => sampleTimeSeconds(d) === props.clickedTime,
+    );
     if (point) return point;
   }
 
@@ -74,8 +90,10 @@ const filteredProcesses = computed(() => {
     .map((process: ProcessData) => ({
       name: process.name,
       // 拷贝后再排序，避免原地修改样本数据
-      instances: [...process.instances].sort((a: ProcessInstance, b: ProcessInstance) =>
-        getInstanceValue(b, props.chartType) - getInstanceValue(a, props.chartType)
+      instances: [...process.instances].sort(
+        (a: ProcessInstance, b: ProcessInstance) =>
+          getInstanceValue(b, props.chartType) -
+          getInstanceValue(a, props.chartType),
       ),
     }))
     .filter((process) => process.instances.length > 0);
@@ -83,7 +101,10 @@ const filteredProcesses = computed(() => {
 
 // 统计总实例数
 const totalInstances = computed(() => {
-  return filteredProcesses.value.reduce((sum, p) => sum + p.instances.length, 0);
+  return filteredProcesses.value.reduce(
+    (sum, p) => sum + p.instances.length,
+    0,
+  );
 });
 
 // 时间戳格式化（完整日期时间）
@@ -121,9 +142,18 @@ const formattedTimestamp = computed(() => {
             :key="instance.pid"
             class="instance-row"
           >
-            <span class="instance-name">{{ (instance.name || process.name).replace('.exe', '').replace('.EXE', '') }} (PID:{{ instance.pid }})</span>
+            <span class="instance-name"
+              >{{
+                (instance.name || process.name)
+                  .replace('.exe', '')
+                  .replace('.EXE', '')
+              }}
+              (PID:{{ instance.pid }})</span
+            >
             <span class="instance-value">
-              {{ formatValue(getInstanceValue(instance, chartType), chartType) }}
+              {{
+                formatValue(getInstanceValue(instance, chartType), chartType)
+              }}
             </span>
           </div>
         </div>
@@ -138,23 +168,23 @@ const formattedTimestamp = computed(() => {
 <style scoped>
 .target-process-panel {
   width: 100%;
-  background: #fff;
-  border-radius: 8px;
   padding: 16px;
+  background: #fff;
   border: 1px solid #e5e5e5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 12px;
 }
 
 .panel-title {
-  font-weight: 600;
   font-size: 14px;
+  font-weight: 600;
   color: #333;
 }
 
@@ -184,8 +214,8 @@ const formattedTimestamp = computed(() => {
 
 .instance-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 6px 8px;
   margin-bottom: 4px;
   font-size: 12px;
@@ -198,14 +228,14 @@ const formattedTimestamp = computed(() => {
 }
 
 .instance-value {
-  font-weight: 600;
   font-size: 13px;
+  font-weight: 600;
   color: #409eff;
 }
 
 .no-data {
   padding: 40px 20px;
-  text-align: center;
   color: #999;
+  text-align: center;
 }
 </style>

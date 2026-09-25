@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import type { OperationRecord } from '../types';
-import { isDesktopDevice } from '../utils';
 
 import { computed } from 'vue';
+
+import { isDesktopDevice } from '../utils';
 
 interface Props {
   deviceType: string;
@@ -65,32 +66,32 @@ function handleScreenshot() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 56px;
+  min-height: 56px;
   padding: 0 32px;
   background: #fff;
   border-top: 1px solid #e8e8e8;
-  height: 56px;
-  min-height: 56px;
 }
 
 .toolbar-left {
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
 }
 
 .toolbar-btn {
   padding: 10px 20px;
-  border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
 .toolbar-btn.orange {
-  background: #f59e0b;
   color: #fff;
+  background: #f59e0b;
 }
 
 .toolbar-btn.orange:hover {
@@ -98,8 +99,8 @@ function handleScreenshot() {
 }
 
 .toolbar-btn.gray {
-  background: #6b7280;
   color: #fff;
+  background: #6b7280;
 }
 
 .toolbar-btn.gray:hover {
@@ -107,8 +108,8 @@ function handleScreenshot() {
 }
 
 .toolbar-btn.purple {
-  background: #9b59b6;
   color: #fff;
+  background: #9b59b6;
 }
 
 .toolbar-btn.purple:hover {
@@ -116,9 +117,9 @@ function handleScreenshot() {
 }
 
 .toolbar-btn.light {
+  color: #333;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
 }
 
 .toolbar-btn.light:hover {

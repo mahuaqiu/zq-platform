@@ -41,7 +41,10 @@ function onFormSuccess() {
 
 <template>
   <Page auto-content-height>
-    <PermissionFormModal ref="permissionFormModalRef" @success="onFormSuccess" />
+    <PermissionFormModal
+      ref="permissionFormModalRef"
+      @success="onFormSuccess"
+    />
 
     <div class="flex h-full">
       <!-- 左侧：菜单树 -->

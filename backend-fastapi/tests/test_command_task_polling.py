@@ -98,8 +98,6 @@ class _NotFoundClient(_AlwaysFailClient):
 @pytest.mark.asyncio
 async def test_wait_task_result_fails_fast_on_connection_errors(monkeypatch):
     """网络连续失败 5 次必须终止，而不是空轮询 600 秒"""
-    import core.config_template.worker_client as worker_client_module
-
     async def _no_sleep(_):
         pass
 
@@ -119,8 +117,6 @@ async def test_wait_task_result_fails_fast_on_connection_errors(monkeypatch):
 @pytest.mark.asyncio
 async def test_wait_task_result_404_returns_immediately(monkeypatch):
     """Worker 返回 404 时第一次查询即失败返回"""
-    import core.config_template.worker_client as worker_client_module
-
     async def _no_sleep(_):
         pass
 

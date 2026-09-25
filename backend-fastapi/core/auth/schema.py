@@ -7,10 +7,6 @@
 @File: schema.py
 @Desc: Auth Schema - 认证相关Schema
 """
-"""
-Auth Schema - 认证相关Schema
-"""
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field

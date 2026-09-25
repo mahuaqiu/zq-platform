@@ -168,12 +168,12 @@ export function useTabSetup(props: any, context: any, options: UseTabOptions) {
       } else if (value.includes('W')) {
         type.value = TypeEnum.work;
         const values = value.split('W');
-        if (!values[0] && !isNaN(Number.parseInt(values[0]))) {
+        if (!values[0] && !Number.isNaN(Number.parseInt(values[0]))) {
           valueWork.value = Number.parseInt(values[0]);
         }
       } else if (value.includes('L')) {
         type.value = TypeEnum.last;
-      } else if (value.includes(',') || !isNaN(Number.parseInt(value))) {
+      } else if (value.includes(',') || !Number.isNaN(Number.parseInt(value))) {
         type.value = TypeEnum.specify;
         valueList.value = value.split(',').map((item) => Number.parseInt(item));
       } else {

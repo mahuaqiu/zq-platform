@@ -5,7 +5,6 @@
 @File: upgrade_service.py
 @Desc: Worker 升级管理服务层
 """
-import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
@@ -19,7 +18,6 @@ from core.env_machine.upgrade_model import WorkerUpgradeConfig, WorkerUpgradeQue
 from core.env_machine.upgrade_schema import (
     UpgradeDetail,
     BatchUpgradeResponse,
-    UpgradeQueueItem,
 )
 from utils.version import compare_versions
 
@@ -43,7 +41,7 @@ class WorkerUpgradeConfigService:
     async def get_all(db: AsyncSession) -> List[WorkerUpgradeConfig]:
         """获取所有配置"""
         result = await db.execute(
-            select(WorkerUpgradeConfig).where(WorkerUpgradeConfig.is_deleted == False)
+            select(WorkerUpgradeConfig).where(WorkerUpgradeConfig.is_deleted.is_(False))
         )
         return result.scalars().all()
 
@@ -54,7 +52,7 @@ class WorkerUpgradeConfigService:
             select(WorkerUpgradeConfig).where(
                 and_(
                     WorkerUpgradeConfig.device_type == device_type,
-                    WorkerUpgradeConfig.is_deleted == False
+                    WorkerUpgradeConfig.is_deleted.is_(False)
                 )
             )
         )
@@ -87,7 +85,7 @@ class WorkerUpgradeQueueService:
                 and_(
                     WorkerUpgradeQueue.machine_id == machine_id,
                     WorkerUpgradeQueue.status == "waiting",
-                    WorkerUpgradeQueue.is_deleted == False
+                    WorkerUpgradeQueue.is_deleted.is_(False)
                 )
             )
         )
@@ -124,7 +122,7 @@ class WorkerUpgradeQueueService:
     @staticmethod
     async def get_list(db: AsyncSession, namespace: Optional[str] = None, status: Optional[str] = None) -> Tuple[List[WorkerUpgradeQueue], int]:
         """获取队列列表"""
-        conditions = [WorkerUpgradeQueue.is_deleted == False]
+        conditions = [WorkerUpgradeQueue.is_deleted.is_(False)]
         if namespace:
             conditions.append(WorkerUpgradeQueue.namespace == namespace)
         if status:
@@ -197,7 +195,7 @@ class WorkerUpgradeQueueService:
             select(WorkerUpgradeQueue).where(
                 and_(
                     WorkerUpgradeQueue.status == "processing",
-                    WorkerUpgradeQueue.is_deleted == False
+                    WorkerUpgradeQueue.is_deleted.is_(False)
                 )
             )
         )
@@ -219,7 +217,7 @@ class WorkerUpgradeQueueService:
             select(WorkerUpgradeQueue).where(
                 and_(
                     WorkerUpgradeQueue.status == "waiting",
-                    WorkerUpgradeQueue.is_deleted == False
+                    WorkerUpgradeQueue.is_deleted.is_(False)
                 )
             ).order_by(WorkerUpgradeQueue.created_at.asc()).limit(limit)
         )
@@ -268,8 +266,8 @@ class UpgradeConcurrencyService:
             select(EnvMachine).where(
                 and_(
                     EnvMachine.status == "upgrading",
-                    EnvMachine.is_deleted == False,
-                    EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
+                    EnvMachine.is_deleted.is_(False),
+                    EnvMachine.is_virtual.is_(False)  # 新增：跳过虚拟设备
                 )
             )
         )
@@ -405,8 +403,8 @@ class UpgradeService:
 
         # 查询机器
         conditions = [
-            EnvMachine.is_deleted == False,
-            EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
+            EnvMachine.is_deleted.is_(False),
+            EnvMachine.is_virtual.is_(False)  # 新增：跳过虚拟设备
         ]
         if machine_ids:
             conditions.append(EnvMachine.id.in_(machine_ids))
@@ -550,8 +548,8 @@ class UpgradeService:
         config_map = {c.device_type: c for c in configs}
 
         conditions = [
-            EnvMachine.is_deleted == False,
-            EnvMachine.is_virtual == False  # 新增：跳过虚拟设备
+            EnvMachine.is_deleted.is_(False),
+            EnvMachine.is_virtual.is_(False)  # 新增：跳过虚拟设备
         ]
         if namespace:
             conditions.append(EnvMachine.namespace == namespace)

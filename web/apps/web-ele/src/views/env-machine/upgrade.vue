@@ -1,5 +1,10 @@
 <script lang="ts" setup>
-import type { UpgradeConfig, UpgradePreviewResponse, UpgradeQueueItem, BatchUpgradeParams } from '#/api/core/env-machine-upgrade';
+import type {
+  BatchUpgradeParams,
+  UpgradeConfig,
+  UpgradePreviewResponse,
+  UpgradeQueueItem,
+} from '#/api/core/env-machine-upgrade';
 
 import { computed, onMounted, ref } from 'vue';
 
@@ -18,12 +23,12 @@ import {
 } from 'element-plus';
 
 import {
-  getUpgradeConfigListApi,
-  updateUpgradeConfigApi,
-  getUpgradePreviewApi,
   batchUpgradeApi,
+  getUpgradeConfigListApi,
+  getUpgradePreviewApi,
   getUpgradeQueueApi,
   removeUpgradeQueueApi,
+  updateUpgradeConfigApi,
 } from '#/api/core/env-machine-upgrade';
 
 import { useNamespaceStore } from './store';
@@ -34,8 +39,8 @@ defineOptions({ name: 'EnvMachineUpgradePage' });
 const namespaceStore = useNamespaceStore();
 
 // 版本配置数据
-const windowsConfig = ref<UpgradeConfig | null>(null);
-const macConfig = ref<UpgradeConfig | null>(null);
+const windowsConfig = ref<null | UpgradeConfig>(null);
+const macConfig = ref<null | UpgradeConfig>(null);
 const configLoading = ref(false);
 
 // 批量升级筛选
@@ -53,12 +58,15 @@ const DEVICE_TYPE_FILTER_OPTIONS = [
 ];
 
 // 预览数据
-const previewData = ref<UpgradePreviewResponse | null>(null);
+const previewData = ref<null | UpgradePreviewResponse>(null);
 const previewLoading = ref(false);
 const selectedMachineIds = ref<string[]>([]);
 
 // 升级队列数据
-const queueData = ref<{ items: UpgradeQueueItem[]; total: number }>({ items: [], total: 0 });
+const queueData = ref<{ items: UpgradeQueueItem[]; total: number }>({
+  items: [],
+  total: 0,
+});
 const queueLoading = ref(false);
 
 // 确认弹窗
@@ -68,8 +76,8 @@ const upgradeLoading = ref(false);
 // 可选机器列表（待升级 + 待队列）
 const selectableMachines = computed(() => {
   if (!previewData.value) return [];
-  return previewData.value.machines.filter(m =>
-    m.upgrade_status === '待升级' || m.upgrade_status === '待队列'
+  return previewData.value.machines.filter(
+    (m) => m.upgrade_status === '待升级' || m.upgrade_status === '待队列',
   );
 });
 
@@ -107,7 +115,10 @@ async function loadConfigs() {
 }
 
 // 保存配置
-async function saveConfig(config: UpgradeConfig | null, formData: { version: string; download_url: string; note: string }) {
+async function saveConfig(
+  config: null | UpgradeConfig,
+  formData: { download_url: string; note: string; version: string },
+) {
   if (!config) return;
   try {
     await updateUpgradeConfigApi(config.id, {
@@ -142,9 +153,13 @@ async function loadPreview() {
   previewLoading.value = true;
   try {
     const data = await getUpgradePreviewApi(
-      filterForm.value.namespace === 'all' ? undefined : filterForm.value.namespace,
-      filterForm.value.device_type === 'all' ? undefined : filterForm.value.device_type,
-      filterForm.value.ip || undefined
+      filterForm.value.namespace === 'all'
+        ? undefined
+        : filterForm.value.namespace,
+      filterForm.value.device_type === 'all'
+        ? undefined
+        : filterForm.value.device_type,
+      filterForm.value.ip || undefined,
     );
     previewData.value = data;
     selectedMachineIds.value = [];
@@ -173,11 +188,9 @@ async function loadQueue() {
 // 全选切换
 function handleSelectAllChange(event: Event) {
   const val = (event.target as HTMLInputElement).checked;
-  if (val) {
-    selectedMachineIds.value = selectableMachines.value.map(m => m.id);
-  } else {
-    selectedMachineIds.value = [];
-  }
+  selectedMachineIds.value = val
+    ? selectableMachines.value.map((m) => m.id)
+    : [];
 }
 
 // 单选切换
@@ -188,7 +201,9 @@ function handleCheckboxChange(machineId: string, event: Event) {
       selectedMachineIds.value.push(machineId);
     }
   } else {
-    selectedMachineIds.value = selectedMachineIds.value.filter(id => id !== machineId);
+    selectedMachineIds.value = selectedMachineIds.value.filter(
+      (id) => id !== machineId,
+    );
   }
 }
 
@@ -223,13 +238,17 @@ async function executeBatchUpgrade() {
 
     if (result.failed_count > 0) {
       // 显示详细失败信息
-      const failedMessages = failedDetails.map(d => `${d.ip}: ${d.message}`).join('\n');
+      const failedMessages = failedDetails
+        .map((d) => `${d.ip}: ${d.message}`)
+        .join('\n');
       ElMessage.warning({
         message: `升级完成，但有 ${result.failed_count} 台失败:\n${failedMessages}`,
         duration: 5000,
       });
     } else {
-      ElMessage.success(`升级成功：${result.upgraded_count} 台已升级，${result.waiting_count} 台待队列`);
+      ElMessage.success(
+        `升级成功：${result.upgraded_count} 台已升级，${result.waiting_count} 台待队列`,
+      );
     }
 
     confirmDialogVisible.value = false;
@@ -268,22 +287,22 @@ async function handleRemoveQueue(item: UpgradeQueueItem) {
 // 获取升级状态标签样式
 function getUpgradeStatusStyle(status: string): { bg: string; color: string } {
   const styleMap: Record<string, { bg: string; color: string }> = {
-    '待升级': { bg: '#fff7e6', color: '#faad14' },
-    '已最新': { bg: '#f6ffed', color: '#52c41a' },
-    '待队列': { bg: '#f9f0ff', color: '#722ed1' },
-    '离线': { bg: '#fff1f0', color: '#ff4d4f' },
-    '升级中': { bg: '#e6f7ff', color: '#1890ff' },
-    '下发中': { bg: '#e6f7ff', color: '#1890ff' },
-    '失败': { bg: '#fff1f0', color: '#ff4d4f' },
-    '已完成': { bg: '#f6ffed', color: '#52c41a' },
-    'upgradable': { bg: '#fff7e6', color: '#faad14' },
-    'latest': { bg: '#f6ffed', color: '#52c41a' },
-    'waiting': { bg: '#f9f0ff', color: '#722ed1' },
-    'offline': { bg: '#fff1f0', color: '#ff4d4f' },
-    'upgrading': { bg: '#e6f7ff', color: '#1890ff' },
-    'processing': { bg: '#e6f7ff', color: '#1890ff' },
-    'failed': { bg: '#fff1f0', color: '#ff4d4f' },
-    'completed': { bg: '#f6ffed', color: '#52c41a' },
+    待升级: { bg: '#fff7e6', color: '#faad14' },
+    已最新: { bg: '#f6ffed', color: '#52c41a' },
+    待队列: { bg: '#f9f0ff', color: '#722ed1' },
+    离线: { bg: '#fff1f0', color: '#ff4d4f' },
+    升级中: { bg: '#e6f7ff', color: '#1890ff' },
+    下发中: { bg: '#e6f7ff', color: '#1890ff' },
+    失败: { bg: '#fff1f0', color: '#ff4d4f' },
+    已完成: { bg: '#f6ffed', color: '#52c41a' },
+    upgradable: { bg: '#fff7e6', color: '#faad14' },
+    latest: { bg: '#f6ffed', color: '#52c41a' },
+    waiting: { bg: '#f9f0ff', color: '#722ed1' },
+    offline: { bg: '#fff1f0', color: '#ff4d4f' },
+    upgrading: { bg: '#e6f7ff', color: '#1890ff' },
+    processing: { bg: '#e6f7ff', color: '#1890ff' },
+    failed: { bg: '#fff1f0', color: '#ff4d4f' },
+    completed: { bg: '#f6ffed', color: '#52c41a' },
   };
   return styleMap[status] || { bg: '#f5f5f5', color: '#666' };
 }
@@ -302,11 +321,11 @@ function getStatusText(status: string): string {
 // 获取升级状态文本
 function getUpgradeStatusText(status: string): string {
   const textMap: Record<string, string> = {
-    'upgradable': '待升级',
-    'latest': '已最新',
-    'waiting': '待队列',
-    'offline': '离线',
-    'upgrading': '升级中',
+    upgradable: '待升级',
+    latest: '已最新',
+    waiting: '待队列',
+    offline: '离线',
+    upgrading: '升级中',
   };
   return textMap[status] || status;
 }
@@ -314,10 +333,10 @@ function getUpgradeStatusText(status: string): string {
 // 获取队列状态文本
 function getQueueStatusText(status: string): string {
   const textMap: Record<string, string> = {
-    'waiting': '等待中',
-    'processing': '下发中',
-    'completed': '已完成',
-    'failed': '失败',
+    waiting: '等待中',
+    processing: '下发中',
+    completed: '已完成',
+    failed: '失败',
   };
   return textMap[status] || status;
 }
@@ -370,17 +389,29 @@ onMounted(async () => {
               <div class="config-form">
                 <div class="config-field">
                   <label class="config-label">目标版本</label>
-                  <ElInput v-model="windowsForm.version" placeholder="时间戳格式" />
+                  <ElInput
+                    v-model="windowsForm.version"
+                    placeholder="时间戳格式"
+                  />
                 </div>
                 <div class="config-field">
                   <label class="config-label">下载地址</label>
-                  <ElInput v-model="windowsForm.download_url" placeholder="安装包下载地址" />
+                  <ElInput
+                    v-model="windowsForm.download_url"
+                    placeholder="安装包下载地址"
+                  />
                 </div>
                 <div class="config-field">
                   <label class="config-label">备注</label>
                   <ElInput v-model="windowsForm.note" placeholder="版本说明" />
                 </div>
-                <ElButton type="success" class="save-btn" @click="saveConfig(windowsConfig, windowsForm)">保存配置</ElButton>
+                <ElButton
+                  type="success"
+                  class="save-btn"
+                  @click="saveConfig(windowsConfig, windowsForm)"
+                >
+                  保存配置
+                </ElButton>
               </div>
             </div>
 
@@ -394,13 +425,22 @@ onMounted(async () => {
                 </div>
                 <div class="config-field">
                   <label class="config-label">下载地址</label>
-                  <ElInput v-model="macForm.download_url" placeholder="安装包下载地址" />
+                  <ElInput
+                    v-model="macForm.download_url"
+                    placeholder="安装包下载地址"
+                  />
                 </div>
                 <div class="config-field">
                   <label class="config-label">备注</label>
                   <ElInput v-model="macForm.note" placeholder="版本说明" />
                 </div>
-                <ElButton type="success" class="save-btn" @click="saveConfig(macConfig, macForm)">保存配置</ElButton>
+                <ElButton
+                  type="success"
+                  class="save-btn"
+                  @click="saveConfig(macConfig, macForm)"
+                >
+                  保存配置
+                </ElButton>
               </div>
             </div>
           </div>
@@ -418,28 +458,53 @@ onMounted(async () => {
             <div class="filter-item">
               <label class="filter-label">设备类别:</label>
               <ElSelect v-model="filterForm.namespace" style="width: 150px">
-                <ElOption v-for="opt in namespaceStore.namespaceOptionsWithAll" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <ElOption
+                  v-for="opt in namespaceStore.namespaceOptionsWithAll"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </ElSelect>
             </div>
             <div class="filter-item">
               <label class="filter-label">设备类型:</label>
               <ElSelect v-model="filterForm.device_type" style="width: 120px">
-                <ElOption v-for="opt in DEVICE_TYPE_FILTER_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <ElOption
+                  v-for="opt in DEVICE_TYPE_FILTER_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </ElSelect>
             </div>
             <div class="filter-item">
               <label class="filter-label">IP地址:</label>
-              <ElInput v-model="filterForm.ip" placeholder="输入IP模糊匹配" clearable style="width: 160px" />
+              <ElInput
+                v-model="filterForm.ip"
+                placeholder="输入IP模糊匹配"
+                clearable
+                style="width: 160px"
+              />
             </div>
             <ElButton type="primary" @click="loadPreview">查询预览</ElButton>
           </div>
 
           <!-- 统计信息 -->
           <div class="stats-row" v-if="previewData">
-            <span class="stats-item stats-primary"><strong>可升级:</strong> {{ previewData.upgradable_count }}台</span>
-            <span class="stats-item stats-warning"><strong>使用中(待队列):</strong> {{ previewData.waiting_count }}台</span>
-            <span class="stats-item stats-success"><strong>已最新:</strong> {{ previewData.latest_count }}台</span>
-            <span class="stats-item stats-danger"><strong>离线:</strong> {{ previewData.offline_count }}台</span>
+            <span class="stats-item stats-primary"
+              ><strong>可升级:</strong>
+              {{ previewData.upgradable_count }}台</span
+            >
+            <span class="stats-item stats-warning"
+              ><strong>使用中(待队列):</strong>
+              {{ previewData.waiting_count }}台</span
+            >
+            <span class="stats-item stats-success"
+              ><strong>已最新:</strong> {{ previewData.latest_count }}台</span
+            >
+            <span class="stats-item stats-danger"
+              ><strong>离线:</strong> {{ previewData.offline_count }}台</span
+            >
           </div>
 
           <!-- 机器列表 -->
@@ -479,30 +544,50 @@ onMounted(async () => {
                   <code class="ip-code">{{ row.ip }}</code>
                 </template>
               </ElTableColumn>
-              <ElTableColumn prop="device_type" label="设备类型" min-width="100">
+              <ElTableColumn
+                prop="device_type"
+                label="设备类型"
+                min-width="100"
+              >
                 <template #default="{ row }">
-                  {{ row.device_type === 'windows' ? 'Windows' : row.device_type === 'mac' ? 'Mac' : row.device_type === 'harmony_mobile' ? '鸿蒙移动' : '鸿蒙 PC' }}
+                  {{
+                    row.device_type === 'windows'
+                      ? 'Windows'
+                      : row.device_type === 'mac'
+                        ? 'Mac'
+                        : row.device_type === 'harmony_mobile'
+                          ? '鸿蒙移动'
+                          : '鸿蒙 PC'
+                  }}
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="version" label="当前版本" min-width="120">
                 <template #default="{ row }">
-                  <span :class="{'version-old': row.upgrade_status === '待升级'}">
+                  <span
+                    :class="{ 'version-old': row.upgrade_status === '待升级' }"
+                  >
                     {{ row.version || '-' }}
                   </span>
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="status" label="状态" min-width="80">
                 <template #default="{ row }">
-                  <span :class="`status-${row.status}`">{{ getStatusText(row.status) }}</span>
+                  <span :class="`status-${row.status}`">{{
+                    getStatusText(row.status)
+                  }}</span>
                 </template>
               </ElTableColumn>
-              <ElTableColumn prop="upgrade_status" label="升级状态" min-width="100">
+              <ElTableColumn
+                prop="upgrade_status"
+                label="升级状态"
+                min-width="100"
+              >
                 <template #default="{ row }">
                   <span
                     class="upgrade-status-tag"
                     :style="{
                       background: getUpgradeStatusStyle(row.upgrade_status).bg,
-                      color: getUpgradeStatusStyle(row.upgrade_status).color
+                      color: getUpgradeStatusStyle(row.upgrade_status).color,
                     }"
                   >
                     {{ getUpgradeStatusText(row.upgrade_status) }}
@@ -530,26 +615,52 @@ onMounted(async () => {
         </div>
         <div class="card-body">
           <div class="table-wrapper">
-            <ElTable :data="queueData.items" v-loading="queueLoading" border stripe class="queue-table">
+            <ElTable
+              :data="queueData.items"
+              v-loading="queueLoading"
+              border
+              stripe
+              class="queue-table"
+            >
               <ElTableColumn prop="ip" label="IP地址" min-width="140">
                 <template #default="{ row }">
                   <code class="ip-code">{{ row.ip }}</code>
                 </template>
               </ElTableColumn>
-              <ElTableColumn prop="device_type" label="设备类型" min-width="100">
+              <ElTableColumn
+                prop="device_type"
+                label="设备类型"
+                min-width="100"
+              >
                 <template #default="{ row }">
-                  {{ row.device_type === 'windows' ? 'Windows' : row.device_type === 'mac' ? 'Mac' : row.device_type === 'harmony_mobile' ? '鸿蒙移动' : '鸿蒙 PC' }}
+                  {{
+                    row.device_type === 'windows'
+                      ? 'Windows'
+                      : row.device_type === 'mac'
+                        ? 'Mac'
+                        : row.device_type === 'harmony_mobile'
+                          ? '鸿蒙移动'
+                          : '鸿蒙 PC'
+                  }}
                 </template>
               </ElTableColumn>
-              <ElTableColumn prop="target_version" label="目标版本" min-width="120" />
-              <ElTableColumn prop="created_at" label="入队时间" min-width="160" />
+              <ElTableColumn
+                prop="target_version"
+                label="目标版本"
+                min-width="120"
+              />
+              <ElTableColumn
+                prop="created_at"
+                label="入队时间"
+                min-width="160"
+              />
               <ElTableColumn prop="status" label="状态" min-width="80">
                 <template #default="{ row }">
                   <span
                     class="upgrade-status-tag"
                     :style="{
                       background: getUpgradeStatusStyle(row.status).bg,
-                      color: getUpgradeStatusStyle(row.status).color
+                      color: getUpgradeStatusStyle(row.status).color,
                     }"
                   >
                     {{ getQueueStatusText(row.status) }}
@@ -558,7 +669,12 @@ onMounted(async () => {
               </ElTableColumn>
               <ElTableColumn label="操作" min-width="80">
                 <template #default="{ row }">
-                  <a class="remove-link" @click="handleRemoveQueue(row)" v-if="row.status === 'waiting'">移除队列</a>
+                  <a
+                    class="remove-link"
+                    @click="handleRemoveQueue(row)"
+                    v-if="row.status === 'waiting'"
+                    >移除队列</a
+                  >
                   <span v-else class="disabled-link">-</span>
                 </template>
               </ElTableColumn>
@@ -566,7 +682,6 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-
 
       <!-- 确认弹窗 -->
       <ElDialog
@@ -582,7 +697,10 @@ onMounted(async () => {
           <div class="dialog-header">
             <div class="dialog-icon">
               <svg viewBox="0 0 24 24" width="24" height="24">
-                <path fill="#fff" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                <path
+                  fill="#fff"
+                  d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                />
               </svg>
             </div>
             <div class="dialog-title">确认批量升级</div>
@@ -590,7 +708,9 @@ onMounted(async () => {
 
           <!-- 内容 -->
           <div class="dialog-body">
-            <p class="dialog-desc">即将对选中的设备执行升级操作，升级过程中设备将暂时不可用。</p>
+            <p class="dialog-desc">
+              即将对选中的设备执行升级操作，升级过程中设备将暂时不可用。
+            </p>
 
             <div class="count-card">
               <div class="count-number">{{ selectedMachineIds.length }}</div>
@@ -598,17 +718,35 @@ onMounted(async () => {
             </div>
 
             <div class="warning-box">
-              <svg class="warning-icon" viewBox="0 0 24 24" width="20" height="20">
-                <path fill="#fa8c16" d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+              <svg
+                class="warning-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  fill="#fa8c16"
+                  d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"
+                />
               </svg>
-              <span class="warning-text">升级期间机器将暂停服务，请确保不影响正在进行的任务</span>
+              <span class="warning-text"
+                >升级期间机器将暂停服务，请确保不影响正在进行的任务</span
+              >
             </div>
           </div>
 
           <!-- 底部 -->
           <div class="dialog-footer">
-            <ElButton class="btn-cancel" @click="confirmDialogVisible = false">取消</ElButton>
-            <ElButton class="btn-confirm" :loading="upgradeLoading" @click="executeBatchUpgrade">确认升级</ElButton>
+            <ElButton class="btn-cancel" @click="confirmDialogVisible = false">
+              取消
+            </ElButton>
+            <ElButton
+              class="btn-confirm"
+              :loading="upgradeLoading"
+              @click="executeBatchUpgrade"
+            >
+              确认升级
+            </ElButton>
           </div>
         </div>
       </ElDialog>
@@ -620,7 +758,9 @@ onMounted(async () => {
 .upgrade-page {
   min-height: 100%;
   padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
   font-size: 13px;
   background: #f5f5f5;
 }

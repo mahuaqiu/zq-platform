@@ -144,8 +144,16 @@ export const PRIMARY_HWINFO_METRICS: HwinfoMetric[] = [
 
   // GPU 功耗相关
   { key: 'GPU Power', label: 'GPU 功耗', unit: 'W' },
-  { key: 'Total GPU Power [% of TDP]', label: 'GPU 总功耗(TDP百分比)', unit: '%' },
-  { key: 'Total GPU Power (normalized) [% of TDP]', label: 'GPU 标准化功耗(TDP百分比)', unit: '%' },
+  {
+    key: 'Total GPU Power [% of TDP]',
+    label: 'GPU 总功耗(TDP百分比)',
+    unit: '%',
+  },
+  {
+    key: 'Total GPU Power (normalized) [% of TDP]',
+    label: 'GPU 标准化功耗(TDP百分比)',
+    unit: '%',
+  },
 
   // GPU 显存相关
   { key: 'GPU Memory Allocated', label: 'GPU 显存分配', unit: 'MB' },
@@ -270,18 +278,66 @@ export const CPU_CORE_METRICS: HwinfoMetric[] = [
   { key: 'Core 5 T1 Usage', label: '核心5线程1使用率', unit: '%' },
 
   // 核心线程有效频率
-  { key: 'Core 0 T0 Effective Clock', label: '核心0线程0有效频率', unit: 'MHz' },
-  { key: 'Core 0 T1 Effective Clock', label: '核心0线程1有效频率', unit: 'MHz' },
-  { key: 'Core 1 T0 Effective Clock', label: '核心1线程0有效频率', unit: 'MHz' },
-  { key: 'Core 1 T1 Effective Clock', label: '核心1线程1有效频率', unit: 'MHz' },
-  { key: 'Core 2 T0 Effective Clock', label: '核心2线程0有效频率', unit: 'MHz' },
-  { key: 'Core 2 T1 Effective Clock', label: '核心2线程1有效频率', unit: 'MHz' },
-  { key: 'Core 3 T0 Effective Clock', label: '核心3线程0有效频率', unit: 'MHz' },
-  { key: 'Core 3 T1 Effective Clock', label: '核心3线程1有效频率', unit: 'MHz' },
-  { key: 'Core 4 T0 Effective Clock', label: '核心4线程0有效频率', unit: 'MHz' },
-  { key: 'Core 4 T1 Effective Clock', label: '核心4线程1有效频率', unit: 'MHz' },
-  { key: 'Core 5 T0 Effective Clock', label: '核心5线程0有效频率', unit: 'MHz' },
-  { key: 'Core 5 T1 Effective Clock', label: '核心5线程1有效频率', unit: 'MHz' },
+  {
+    key: 'Core 0 T0 Effective Clock',
+    label: '核心0线程0有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 0 T1 Effective Clock',
+    label: '核心0线程1有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 1 T0 Effective Clock',
+    label: '核心1线程0有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 1 T1 Effective Clock',
+    label: '核心1线程1有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 2 T0 Effective Clock',
+    label: '核心2线程0有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 2 T1 Effective Clock',
+    label: '核心2线程1有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 3 T0 Effective Clock',
+    label: '核心3线程0有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 3 T1 Effective Clock',
+    label: '核心3线程1有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 4 T0 Effective Clock',
+    label: '核心4线程0有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 4 T1 Effective Clock',
+    label: '核心4线程1有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 5 T0 Effective Clock',
+    label: '核心5线程0有效频率',
+    unit: 'MHz',
+  },
+  {
+    key: 'Core 5 T1 Effective Clock',
+    label: '核心5线程1有效频率',
+    unit: 'MHz',
+  },
 
   // 核心热节流状态
   { key: 'Core 0 Thermal Throttling', label: '核心0 热节流', unit: '' },
@@ -312,11 +368,27 @@ export const CPU_CORE_METRICS: HwinfoMetric[] = [
 export const GPU_DETAIL_METRICS: HwinfoMetric[] = [
   { key: 'GPU 6-pin #1 Input Power', label: 'GPU 6针脚1输入功耗', unit: 'W' },
   { key: 'GPU 6-pin #1 Input Voltage', label: 'GPU 6针脚1输入电压', unit: 'V' },
-  { key: 'GPU Core (NVVDD) Input Power (sum)', label: 'GPU核心输入功耗总和', unit: 'W' },
+  {
+    key: 'GPU Core (NVVDD) Input Power (sum)',
+    label: 'GPU核心输入功耗总和',
+    unit: 'W',
+  },
   { key: 'GPU Core (NVVDD) Output Power', label: 'GPU核心输出功耗', unit: 'W' },
-  { key: 'GPU PCIe +12V Input Power', label: 'GPU PCIe 12V输入功耗', unit: 'W' },
-  { key: 'GPU PCIe +12V Input Voltage', label: 'GPU PCIe 12V输入电压', unit: 'V' },
-  { key: 'GPU Input PP Source Power (sum)', label: 'GPU PP源功耗总和', unit: 'W' },
+  {
+    key: 'GPU PCIe +12V Input Power',
+    label: 'GPU PCIe 12V输入功耗',
+    unit: 'W',
+  },
+  {
+    key: 'GPU PCIe +12V Input Voltage',
+    label: 'GPU PCIe 12V输入电压',
+    unit: 'V',
+  },
+  {
+    key: 'GPU Input PP Source Power (sum)',
+    label: 'GPU PP源功耗总和',
+    unit: 'W',
+  },
   { key: 'GPU VR Usage', label: 'GPU VR使用率', unit: '%' },
 ];
 
@@ -389,16 +461,32 @@ export const DISK_DETAIL_METRICS: HwinfoMetric[] = [
  * 帧率详细指标
  */
 export const FRAMERATE_METRICS: HwinfoMetric[] = [
-  { key: 'Frame Time Displayed (0.1% high)', label: '帧时间显示(0.1%高)', unit: 'ms' },
-  { key: 'Frame Time Displayed (1% high)', label: '帧时间显示(1%高)', unit: 'ms' },
+  {
+    key: 'Frame Time Displayed (0.1% high)',
+    label: '帧时间显示(0.1%高)',
+    unit: 'ms',
+  },
+  {
+    key: 'Frame Time Displayed (1% high)',
+    label: '帧时间显示(1%高)',
+    unit: 'ms',
+  },
   { key: 'Frame Time Presented (0.1%)', label: '帧时间呈现(0.1%)', unit: 'ms' },
   { key: 'Frame Time Presented (1%)', label: '帧时间呈现(1%)', unit: 'ms' },
   { key: 'Frame Time Presented (99%)', label: '帧时间呈现(99%)', unit: 'ms' },
   { key: 'Frame Time Presented (avg)', label: '帧时间呈现(平均)', unit: 'ms' },
-  { key: 'Framerate Displayed (0.1% low)', label: '帧率显示(0.1%低)', unit: 'FPS' },
+  {
+    key: 'Framerate Displayed (0.1% low)',
+    label: '帧率显示(0.1%低)',
+    unit: 'FPS',
+  },
   { key: 'Framerate Displayed (1% low)', label: '帧率显示(1%低)', unit: 'FPS' },
   { key: 'Framerate Displayed (99%)', label: '帧率显示(99%)', unit: 'FPS' },
-  { key: 'Framerate Presented (0.1% low)', label: '帧率呈现(0.1%低)', unit: 'FPS' },
+  {
+    key: 'Framerate Presented (0.1% low)',
+    label: '帧率呈现(0.1%低)',
+    unit: 'FPS',
+  },
   { key: 'Framerate Presented (1% low)', label: '帧率呈现(1%低)', unit: 'FPS' },
   { key: 'Framerate Presented (99%)', label: '帧率呈现(99%)', unit: 'FPS' },
   { key: 'Animation Error (avg)', label: '动画错误(平均)', unit: '' },
@@ -443,7 +531,7 @@ export const ALL_HWINFO_METRICS: HwinfoMetric[] = [
  * 获取指标的中文显示名称
  */
 export function getMetricLabel(key: string): string {
-  const metric = ALL_HWINFO_METRICS.find(m => m.key === key);
+  const metric = ALL_HWINFO_METRICS.find((m) => m.key === key);
   if (metric) return metric.label;
   // 鸿蒙各核主频指标核数动态，按模式翻译（如 Harmony CPU3 Freq → CPU3 主频）
   const coreFreq = key.match(/^Harmony CPU(\d+) Freq$/);
@@ -455,7 +543,7 @@ export function getMetricLabel(key: string): string {
  * 获取指标的单位
  */
 export function getMetricUnit(key: string): string | undefined {
-  const metric = ALL_HWINFO_METRICS.find(m => m.key === key);
+  const metric = ALL_HWINFO_METRICS.find((m) => m.key === key);
   if (metric) return metric.unit;
   if (/^Harmony CPU\d+ Freq$/.test(key)) return 'MHz';
   return undefined;

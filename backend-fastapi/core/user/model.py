@@ -7,11 +7,6 @@
 @File: model.py
 @Desc: User Model - 用户模型 - 用于管理系统用户
 """
-"""
-User Model - 用户模型
-用于管理系统用户
-"""
-from datetime import date
 
 from sqlalchemy import Column, String, Text, Boolean, Integer, Date, DateTime, Index, text
 from sqlalchemy.orm import relationship

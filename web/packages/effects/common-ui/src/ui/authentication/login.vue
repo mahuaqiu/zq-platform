@@ -11,10 +11,9 @@ import { useRouter } from 'vue-router';
 import { $t } from '@vben/locales';
 
 import { useVbenForm } from '@vben-core/form-ui';
-import { VbenButton, VbenCheckbox } from '@vben-core/shadcn-ui';
+import { VbenButton } from '@vben-core/shadcn-ui';
 
 import Title from './auth-title.vue';
-import ThirdPartyLogin from './third-party-login.vue';
 
 interface Props extends AuthenticationProps {
   formSchema?: VbenFormSchema[];
@@ -110,28 +109,28 @@ defineExpose({
 
     <Form />
 
-<!--    <div-->
-<!--      v-if="showRememberMe || showForgetPassword"-->
-<!--      class="mb-6 flex justify-between"-->
-<!--    >-->
-<!--      <div class="flex-center">-->
-<!--        <VbenCheckbox-->
-<!--          v-if="showRememberMe"-->
-<!--          v-model:checked="rememberMe"-->
-<!--          name="rememberMe"-->
-<!--        >-->
-<!--          {{ $t('authentication.rememberMe') }}-->
-<!--        </VbenCheckbox>-->
-<!--      </div>-->
+    <!--    <div-->
+    <!--      v-if="showRememberMe || showForgetPassword"-->
+    <!--      class="mb-6 flex justify-between"-->
+    <!--    >-->
+    <!--      <div class="flex-center">-->
+    <!--        <VbenCheckbox-->
+    <!--          v-if="showRememberMe"-->
+    <!--          v-model:checked="rememberMe"-->
+    <!--          name="rememberMe"-->
+    <!--        >-->
+    <!--          {{ $t('authentication.rememberMe') }}-->
+    <!--        </VbenCheckbox>-->
+    <!--      </div>-->
 
-<!--      <span-->
-<!--        v-if="showForgetPassword"-->
-<!--        class="vben-link text-sm font-normal"-->
-<!--        @click="handleGo(forgetPasswordPath)"-->
-<!--      >-->
-<!--        {{ $t('authentication.forgetPassword') }}-->
-<!--      </span>-->
-<!--    </div>-->
+    <!--      <span-->
+    <!--        v-if="showForgetPassword"-->
+    <!--        class="vben-link text-sm font-normal"-->
+    <!--        @click="handleGo(forgetPasswordPath)"-->
+    <!--      >-->
+    <!--        {{ $t('authentication.forgetPassword') }}-->
+    <!--      </span>-->
+    <!--    </div>-->
     <VbenButton
       :class="{
         'cursor-wait': loading,
@@ -171,16 +170,16 @@ defineExpose({
       <ThirdPartyLogin v-if="showThirdPartyLogin" />
     </slot> -->
 
-<!--    <slot name="to-register">-->
-<!--      <div v-if="showRegister" class="mt-3 text-center text-sm">-->
-<!--        {{ $t('authentication.accountTip') }}-->
-<!--        <span-->
-<!--          class="vben-link text-sm font-normal"-->
-<!--          @click="handleGo(registerPath)"-->
-<!--        >-->
-<!--          {{ $t('authentication.createAccount') }}-->
-<!--        </span>-->
-<!--      </div>-->
-<!--    </slot>-->
+    <!--    <slot name="to-register">-->
+    <!--      <div v-if="showRegister" class="mt-3 text-center text-sm">-->
+    <!--        {{ $t('authentication.accountTip') }}-->
+    <!--        <span-->
+    <!--          class="vben-link text-sm font-normal"-->
+    <!--          @click="handleGo(registerPath)"-->
+    <!--        >-->
+    <!--          {{ $t('authentication.createAccount') }}-->
+    <!--        </span>-->
+    <!--      </div>-->
+    <!--    </slot>-->
   </div>
 </template>

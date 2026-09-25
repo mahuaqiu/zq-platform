@@ -26,6 +26,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  remote: undefined,
   modelValue: '',
   disabled: false,
   hideSecond: true,
@@ -62,17 +63,16 @@ const preTimeList = ref('执行预览，会忽略年份参数。');
 const cronValueInner = computed(() => {
   const result: string[] = [];
   if (!props.hideSecond) {
-    result.push(second.value ? second.value : '*');
+    result.push(second.value || '*');
   }
   result.push(
-    minute.value ? minute.value : '*',
-    hour.value ? hour.value : '*',
-    day.value ? day.value : '*',
-    month.value ? month.value : '*',
-    week.value ? week.value : '*',
+    minute.value || '*',
+    hour.value || '*',
+    day.value || '*',
+    month.value || '*',
+    week.value || '*',
   );
-  if (!props.hideYear && !props.hideSecond)
-    result.push(year.value ? year.value : '*');
+  if (!props.hideYear && !props.hideSecond) result.push(year.value || '*');
   return result.join(' ');
 });
 
@@ -152,7 +152,7 @@ function convertWeekToQuartz(week: string) {
   };
 
   const patten1 = /^([0-7])([-/])([0-7])$/;
-  const patten2 = /^([0-7])(,[0-7])+$/;
+  const patten2 = /^[0-7](?:,[0-7])+$/;
 
   if (/^[0-7]$/.test(week)) {
     return convert(week);

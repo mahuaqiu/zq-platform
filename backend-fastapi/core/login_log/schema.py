@@ -7,9 +7,6 @@
 @File: schema.py
 @Desc: 登录日志数据验证模式 - Login Log Schema
 """
-"""
-登录日志数据验证模式 - Login Log Schema
-"""
 from datetime import datetime
 from typing import Optional
 

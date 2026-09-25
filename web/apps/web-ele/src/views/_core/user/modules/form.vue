@@ -3,11 +3,11 @@ import type { User } from '#/api/core';
 
 import { computed, ref } from 'vue';
 
-import { ZqDrawer } from '#/components/zq-drawer';
 import { $t } from '@vben/locales';
 
 import { useVbenForm } from '#/adapter/form';
 import { createUserApi, updateUserApi } from '#/api/core';
+import { ZqDrawer } from '#/components/zq-drawer';
 
 import { getFormSchema } from '../data';
 

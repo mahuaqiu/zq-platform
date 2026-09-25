@@ -21,12 +21,13 @@ const emit = defineEmits<FormulaInputEmits>();
 const parseFormula = (formula: string): string[] => {
   const regex = /\{([^}]+)\}/g;
   const fields: string[] = [];
-  let match;
+  let match = regex.exec(formula);
 
-  while ((match = regex.exec(formula)) !== null) {
+  while (match !== null) {
     if (match[1]) {
       fields.push(match[1]);
     }
+    match = regex.exec(formula);
   }
 
   return fields;
@@ -62,6 +63,8 @@ const evaluateFormula = (
 
     if (!expression) return null;
 
+    // expression 已被上一行清洗为仅含数字与四则运算符，动态求值安全
+    // eslint-disable-next-line no-new-func
     const result = new Function(`return ${expression}`)();
 
     if (

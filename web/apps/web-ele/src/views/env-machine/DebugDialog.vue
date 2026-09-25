@@ -1,19 +1,14 @@
 <script lang="ts" setup>
 import type { EnvMachine } from '#/api/core/env-machine';
 
-import { onMounted, ref, computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
-import {
-  ElButton,
-  ElDialog,
-  ElInput,
-  ElMessage,
-  ElTag,
-} from 'element-plus';
+import { ElButton, ElDialog, ElInput, ElMessage, ElTag } from 'element-plus';
 
 import { debugDeviceActionApi } from '#/api/core/env-machine';
-import { DEVICE_TYPE_OPTIONS, STATUS_OPTIONS } from './types';
+
 import KeyPressDialog from './modules/KeyPressDialog.vue';
+import { DEVICE_TYPE_OPTIONS, STATUS_OPTIONS } from './types';
 
 interface Props {
   visible: boolean;
@@ -36,8 +31,12 @@ const dialogVisible = computed({
 // 设备信息
 const deviceInfo = computed(() => {
   if (!props.machine) return null;
-  const typeOpt = DEVICE_TYPE_OPTIONS.find(o => o.value === props.machine!.device_type);
-  const statusOpt = STATUS_OPTIONS.find(o => o.value === props.machine!.status);
+  const typeOpt = DEVICE_TYPE_OPTIONS.find(
+    (o) => o.value === props.machine!.device_type,
+  );
+  const statusOpt = STATUS_OPTIONS.find(
+    (o) => o.value === props.machine!.status,
+  );
   return {
     type: typeOpt?.label || props.machine.device_type,
     status: statusOpt?.label || props.machine.status,
@@ -51,15 +50,19 @@ const screenshotWidth = ref(400);
 const screenshotHeight = ref(700);
 
 // 坐标显示
-const mouseCoord = ref<{ x: number; y: number } | null>(null);
+const mouseCoord = ref<null | { x: number; y: number }>(null);
 
 // 点击指示器
-const clickIndicator = ref<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+const clickIndicator = ref<{ show: boolean; x: number; y: number }>({
+  x: 0,
+  y: 0,
+  show: false,
+});
 
 // 拖拽滑动状态
 const isDragging = ref(false);
-const dragStart = ref<{ x: number; y: number } | null>(null);
-const dragEnd = ref<{ x: number; y: number } | null>(null);
+const dragStart = ref<null | { x: number; y: number }>(null);
+const dragEnd = ref<null | { x: number; y: number }>(null);
 
 // 操作状态
 const isOperating = ref(false);
@@ -70,7 +73,7 @@ const lastScreenshotTime = ref(0);
 interface OperationRecord {
   type: string;
   params: string;
-  status: 'pending' | 'success' | 'failed';
+  status: 'failed' | 'pending' | 'success';
   time: string;
 }
 const operationHistory = ref<OperationRecord[]>([]);
@@ -85,14 +88,14 @@ const textInputValue = ref('');
 const unlockPassword = ref('');
 
 // 常量
-const OPERATION_TIMEOUT = 20000;  // 普通操作超时：20秒
-const UNLOCK_TIMEOUT = 30000;     // 解锁屏幕超时：30秒（解锁操作耗时较长）
+const OPERATION_TIMEOUT = 20_000; // 普通操作超时：20秒
+const UNLOCK_TIMEOUT = 30_000; // 解锁屏幕超时：30秒（解锁操作耗时较长）
 const MIN_OPERATION_INTERVAL = 300;
 const SCREENSHOT_COOLDOWN = 1000;
 
 // 辅助函数
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function formatTime() {
@@ -100,27 +103,41 @@ function formatTime() {
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 }
 
-function formatHistoryDisplay(type: string, params: Record<string, any>): string {
+function formatHistoryDisplay(
+  type: string,
+  params: Record<string, any>,
+): string {
   switch (type) {
-    case 'screenshot':
-      return ''; // 截图操作不显示在历史中
-    case 'click':
+    case 'click': {
       return `点击(${params.x}, ${params.y})`;
-    case 'swipe':
-      return '滑动';
-    case 'input':
+    }
+    case 'input': {
       const text = params.text || '';
-      return `输入"${text.length > 10 ? text.slice(0, 10) + '...' : text}"`;
-    case 'press':
+      return `输入"${text.length > 10 ? `${text.slice(0, 10)}...` : text}"`;
+    }
+    case 'press': {
       return `${params.key}`;
-    case 'unlock_screen':
+    }
+    case 'screenshot': {
+      return '';
+    } // 截图操作不显示在历史中
+    case 'swipe': {
+      return '滑动';
+    }
+    case 'unlock_screen': {
       return `解锁屏幕`;
-    default:
+    }
+    default: {
       return type;
+    }
   }
 }
 
-function addHistory(type: string, params: string, status: 'pending' | 'success' | 'failed') {
+function addHistory(
+  type: string,
+  params: string,
+  status: 'failed' | 'pending' | 'success',
+) {
   operationHistory.value.unshift({
     type,
     params,
@@ -133,7 +150,7 @@ function addHistory(type: string, params: string, status: 'pending' | 'success' 
   }
 }
 
-function updateHistoryStatus(status: 'success' | 'failed') {
+function updateHistoryStatus(status: 'failed' | 'success') {
   const record = operationHistory.value[0];
   if (record) {
     record.status = status;
@@ -145,7 +162,7 @@ async function executeOperation(
   actionType: string,
   params: Record<string, any>,
   skipRefresh = false,
-  isAuto = false,  // 自动操作不记录历史
+  isAuto = false, // 自动操作不记录历史
 ): Promise<boolean> {
   if (!props.machine) return false;
 
@@ -168,7 +185,8 @@ async function executeOperation(
 
   try {
     // 根据操作类型选择超时时间（解锁操作使用更长超时）
-    const timeout = actionType === 'unlock_screen' ? UNLOCK_TIMEOUT : OPERATION_TIMEOUT;
+    const timeout =
+      actionType === 'unlock_screen' ? UNLOCK_TIMEOUT : OPERATION_TIMEOUT;
 
     // 调用API时传递超时配置，避免axios默认10秒超时
     const result = await debugDeviceActionApi(
@@ -190,16 +208,16 @@ async function executeOperation(
 
         // 解析图片尺寸
         const img = new Image();
-        img.onload = () => {
+        img.addEventListener('load', () => {
           screenshotWidth.value = img.width;
           screenshotHeight.value = img.height;
-        };
+        });
         img.src = `data:image/png;base64,${result.result!.screenshot_base64}`;
       }
 
       // 操作成功后自动刷新截图（除了截图操作本身）
       if (!skipRefresh && actionType !== 'screenshot') {
-        await sleep(1000);  // 等待 1 秒后再截图
+        await sleep(1000); // 等待 1 秒后再截图
         await refreshScreenshot(true);
       }
 
@@ -246,8 +264,12 @@ async function refreshScreenshot(auto = false) {
 function getImageCoords(event: MouseEvent): { x: number; y: number } {
   const img = event.currentTarget as HTMLImageElement;
   const rect = img.getBoundingClientRect();
-  const x = Math.round((event.clientX - rect.left) * (screenshotWidth.value / rect.width));
-  const y = Math.round((event.clientY - rect.top) * (screenshotHeight.value / rect.height));
+  const x = Math.round(
+    (event.clientX - rect.left) * (screenshotWidth.value / rect.width),
+  );
+  const y = Math.round(
+    (event.clientY - rect.top) * (screenshotHeight.value / rect.height),
+  );
   return { x, y };
 }
 
@@ -285,11 +307,18 @@ async function handleDragEnd(event: MouseEvent) {
 
   if (dx < 20 && dy < 20) {
     // 距离太短，执行点击
-    clickIndicator.value = { x: dragStart.value.x, y: dragStart.value.y, show: true };
+    clickIndicator.value = {
+      x: dragStart.value.x,
+      y: dragStart.value.y,
+      show: true,
+    };
     setTimeout(() => {
       clickIndicator.value.show = false;
     }, 500);
-    await executeOperation('click', { x: dragStart.value.x, y: dragStart.value.y });
+    await executeOperation('click', {
+      x: dragStart.value.x,
+      y: dragStart.value.y,
+    });
   } else {
     // 执行滑动
     await executeOperation('swipe', {
@@ -310,8 +339,12 @@ function handleMouseMove(event: MouseEvent) {
   if (!screenshotBase64.value) return;
   const img = event.currentTarget as HTMLImageElement;
   const rect = img.getBoundingClientRect();
-  const x = Math.round((event.clientX - rect.left) * (screenshotWidth.value / rect.width));
-  const y = Math.round((event.clientY - rect.top) * (screenshotHeight.value / rect.height));
+  const x = Math.round(
+    (event.clientX - rect.left) * (screenshotWidth.value / rect.width),
+  );
+  const y = Math.round(
+    (event.clientY - rect.top) * (screenshotHeight.value / rect.height),
+  );
   mouseCoord.value = { x, y };
 }
 
@@ -381,7 +414,9 @@ function handleDialogOpen() {
     <div class="debug-header">
       <ElTag v-if="deviceInfo" type="success">{{ deviceInfo.status }}</ElTag>
       <ElTag v-if="deviceInfo" type="info">{{ deviceInfo.type }}</ElTag>
-      <span class="device-id">设备SN: {{ machine?.device_sn || machine?.id }}</span>
+      <span class="device-id"
+        >设备SN: {{ machine?.device_sn || machine?.id }}</span
+      >
     </div>
 
     <!-- 三栏布局 -->
@@ -445,42 +480,49 @@ function handleDialogOpen() {
               left: `${(clickIndicator.x / screenshotWidth) * 100}%`,
               top: `${(clickIndicator.y / screenshotHeight) * 100}%`,
             }"
-          />
+          ></div>
 
           <!-- 拖拽轨迹指示器 -->
-          <div
-            v-if="isDragging && dragStart && dragEnd"
-            class="drag-track"
-          >
+          <div v-if="isDragging && dragStart && dragEnd" class="drag-track">
             <div
               class="drag-point drag-point-start"
               :style="{
                 left: `${(dragStart.x / screenshotWidth) * 100}%`,
                 top: `${(dragStart.y / screenshotHeight) * 100}%`,
               }"
-            />
+            ></div>
             <div
               class="drag-line-visual"
               :style="{
                 left: `${(dragStart.x / screenshotWidth) * 100}%`,
                 top: `${(dragStart.y / screenshotHeight) * 100}%`,
                 width: `${Math.sqrt(
-                  Math.pow((dragEnd.x - dragStart.x) / screenshotWidth * 100, 2) +
-                  Math.pow((dragEnd.y - dragStart.y) / screenshotHeight * 100, 2)
+                  Math.pow(
+                    ((dragEnd.x - dragStart.x) / screenshotWidth) * 100,
+                    2,
+                  ) +
+                    Math.pow(
+                      ((dragEnd.y - dragStart.y) / screenshotHeight) * 100,
+                      2,
+                    ),
                 )}%`,
-                transform: `rotate(${Math.atan2(
-                  (dragEnd.y - dragStart.y) / screenshotHeight,
-                  (dragEnd.x - dragStart.x) / screenshotWidth
-                ) * 180 / Math.PI}deg)`,
+                transform: `rotate(${
+                  (Math.atan2(
+                    (dragEnd.y - dragStart.y) / screenshotHeight,
+                    (dragEnd.x - dragStart.x) / screenshotWidth,
+                  ) *
+                    180) /
+                  Math.PI
+                }deg)`,
               }"
-            />
+            ></div>
             <div
               class="drag-point drag-point-end"
               :style="{
                 left: `${(dragEnd.x / screenshotWidth) * 100}%`,
                 top: `${(dragEnd.y / screenshotHeight) * 100}%`,
               }"
-            />
+            ></div>
           </div>
         </div>
       </div>
@@ -519,7 +561,11 @@ function handleDialogOpen() {
         </div>
 
         <!-- 按键操作 -->
-        <ElButton class="outline-btn toolbar-btn" :disabled="isOperating" @click="handleOpenKeyPressDialog">
+        <ElButton
+          class="outline-btn toolbar-btn"
+          :disabled="isOperating"
+          @click="handleOpenKeyPressDialog"
+        >
           🎹 按键操作
         </ElButton>
 
@@ -545,8 +591,8 @@ function handleDialogOpen() {
 
         <!-- 操作提示 -->
         <div class="tip-section">
-          💡 点击截图发送点击指令<br>
-          拖拽（按住拖动）执行滑动操作<br>
+          💡 点击截图发送点击指令<br />
+          拖拽（按住拖动）执行滑动操作<br />
           鼠标悬停显示实时坐标
         </div>
       </div>
@@ -563,10 +609,22 @@ function handleDialogOpen() {
 </template>
 
 <style scoped>
+@keyframes click-pulse {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .debug-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 16px;
 }
 
@@ -584,9 +642,9 @@ function handleDialogOpen() {
 /* 左侧操作历史 */
 .debug-history {
   width: 240px;
+  overflow: hidden;
   background: #f5f5f5;
   border-radius: 8px;
-  overflow: hidden;
 }
 
 .history-title {
@@ -598,21 +656,21 @@ function handleDialogOpen() {
 }
 
 .history-list {
-  padding: 8px;
   height: calc(100% - 40px);
+  padding: 8px;
   overflow-y: auto;
 }
 
 .history-item {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   padding: 6px 8px;
-  font-size: 12px;
-  border-radius: 4px;
   margin-bottom: 4px;
-  background: #fff;
+  font-size: 12px;
   white-space: nowrap;
+  background: #fff;
+  border-radius: 4px;
 }
 
 .history-status {
@@ -645,18 +703,18 @@ function handleDialogOpen() {
 }
 
 .history-empty {
-  text-align: center;
-  color: #999;
   padding: 20px;
+  color: #999;
+  text-align: center;
 }
 
 /* 中间截图 */
 .debug-screenshot {
+  position: relative;
   flex: 1;
+  overflow: hidden;
   background: #1a1a1a;
   border-radius: 8px;
-  overflow: hidden;
-  position: relative;
 }
 
 .debug-screenshot.operating {
@@ -667,10 +725,10 @@ function handleDialogOpen() {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
   padding: 4px 8px;
   font-size: 12px;
+  color: #fff;
+  background: rgb(0 0 0 / 70%);
   border-radius: 4px;
 }
 
@@ -688,30 +746,19 @@ function handleDialogOpen() {
 }
 
 .screenshot-placeholder {
-  color: #666;
   font-size: 14px;
+  color: #666;
 }
 
 .click-indicator {
   position: absolute;
   width: 32px;
   height: 32px;
-  background: rgba(24, 144, 255, 0.8);
+  background: rgb(24 144 255 / 80%);
   border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
   transform: translate(-50%, -50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  animation: clickPulse 0.5s ease-out;
-}
-
-@keyframes clickPulse {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0;
-  }
+  animation: click-pulse 0.5s ease-out;
 }
 
 /* 拖拽轨迹 */
@@ -728,10 +775,10 @@ function handleDialogOpen() {
   position: absolute;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
   border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 50%);
+  transform: translate(-50%, -50%);
 }
 
 .drag-point-start {
@@ -745,18 +792,18 @@ function handleDialogOpen() {
 .drag-line-visual {
   position: absolute;
   height: 4px;
-  background: linear-gradient(90deg, #22c55e, #ef4444);
-  transform-origin: left center;
-  border-radius: 2px;
   pointer-events: none;
+  background: linear-gradient(90deg, #22c55e, #ef4444);
+  border-radius: 2px;
+  transform-origin: left center;
 }
 
 /* 右侧工具栏 */
 .debug-toolbar {
-  width: 200px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 200px;
 }
 
 /* 工具栏按钮 */
@@ -768,23 +815,23 @@ function handleDialogOpen() {
 
 .toolbar-btn :deep(.el-button__content) {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
 }
 
 /* 工具栏卡片 */
 .toolbar-card {
+  padding: 12px;
   background: #fff;
   border: 1px solid #e5e5e5;
   border-radius: 6px;
-  padding: 12px;
 }
 
 .card-title {
+  margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 8px;
 }
 
 /* 发送按钮 */
@@ -795,9 +842,9 @@ function handleDialogOpen() {
 
 /* 白色背景+边框按钮 */
 .outline-btn {
+  color: #333;
   background: #fff;
   border: 1px solid #e5e5e5;
-  color: #333;
 }
 
 .outline-btn:hover:not(:disabled) {
@@ -807,12 +854,12 @@ function handleDialogOpen() {
 
 /* 操作提示 */
 .tip-section {
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #333;
   background: #f0f7ff;
   border: 1px solid #3b82f6;
   border-radius: 6px;
-  padding: 10px;
-  font-size: 12px;
-  color: #333;
-  line-height: 1.5;
 }
 </style>

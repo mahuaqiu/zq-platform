@@ -7,10 +7,6 @@
 @File: base_oauth_service.py
 @Desc: OAuth 基础服务类 - 提供通用的 OAuth 认证流程（异步版本）
 """
-"""
-OAuth 基础服务类
-提供通用的 OAuth 认证流程（异步版本）
-"""
 import logging
 from abc import ABC, abstractmethod
 from datetime import timedelta
@@ -230,7 +226,6 @@ class BaseOAuthService(ABC):
         username = user_info['username']
         name = user_info['name']
         email = user_info.get('email')
-        avatar = user_info.get('avatar')
         bio = user_info.get('bio')
 
         # 4. 查找或创建用户
@@ -239,7 +234,7 @@ class BaseOAuthService(ABC):
         # 根据 provider_id 查找用户
         stmt = select(User).where(
             getattr(User, user_id_field) == provider_id,
-            User.is_deleted == False
+            User.is_deleted.is_(False)
         )
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()

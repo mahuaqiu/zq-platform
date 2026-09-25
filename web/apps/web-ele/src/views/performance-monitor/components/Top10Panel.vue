@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import type { PerformanceData } from '#/api/core/performance-monitor';
+
+import { computed } from 'vue';
+
+const props = withDefaults(defineProps<Props>(), {
+  clickedTime: 0,
+});
 
 function sampleTimeSeconds(data: PerformanceData): number {
   return (data.elapsed_ms ?? data.relative_time * 1000) / 1000;
@@ -11,10 +16,6 @@ interface Props {
   clickedTime?: number;
   metricType: 'cpu' | 'gpu';
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  clickedTime: 0,
-});
 
 // 排名颜色：1-4 使用彩色，5-10 使用灰色
 const rankColors: string[] = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c'];
@@ -27,11 +28,13 @@ function getRankColor(rank: number): string {
 
 // 根据点击时间获取对应数据点
 const selectedDataPoint = computed(() => {
-  if (!props.data.length) return null;
+  if (props.data.length === 0) return null;
 
   // 如果有点击时间，找到对应数据点
   if (props.clickedTime > 0) {
-    const point = props.data.find(d => sampleTimeSeconds(d) === props.clickedTime);
+    const point = props.data.find(
+      (d) => sampleTimeSeconds(d) === props.clickedTime,
+    );
     if (point) return point;
   }
 
@@ -45,20 +48,21 @@ const top10Processes = computed(() => {
   if (!point) return [];
 
   // 根据 metricType 选择数据
-  const top10Data = props.metricType === 'cpu' ? point.top10_cpu : point.top10_gpu;
+  const top10Data =
+    props.metricType === 'cpu' ? point.top10_cpu : point.top10_gpu;
   if (!top10Data) return [];
 
   // 按进程名合并汇总
   const processMap = new Map<string, number>();
-  top10Data.forEach(p => {
+  top10Data.forEach((p) => {
     const name = p.name.replace('.exe', '').replace('.EXE', '');
-    const value = props.metricType === 'cpu' ? (p.cpu || 0) : (p.gpu || 0);
+    const value = props.metricType === 'cpu' ? p.cpu || 0 : p.gpu || 0;
     const existing = processMap.get(name) || 0;
     processMap.set(name, existing + value);
   });
 
   // 转换为数组并排序，取前10
-  return Array.from(processMap.entries())
+  return [...processMap.entries()]
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
@@ -66,8 +70,8 @@ const top10Processes = computed(() => {
 
 // 计算最大值用于进度条
 const maxValue = computed(() => {
-  if (!top10Processes.value.length) return 100;
-  return Math.max(...top10Processes.value.map(d => d.value), 1);
+  if (top10Processes.value.length === 0) return 100;
+  return Math.max(...top10Processes.value.map((d) => d.value), 1);
 });
 
 // 时间戳格式化（完整日期时间）
@@ -91,14 +95,20 @@ const formattedTimestamp = computed(() => {
       <span class="panel-time">{{ formattedTimestamp }}</span>
     </div>
     <div v-if="top10Processes.length > 0" class="top10-list">
-      <div v-for="(item, index) in top10Processes" :key="item.name" class="top10-item">
-        <span class="rank" :style="{ color: getRankColor(index + 1) }">{{ index + 1 }}</span>
+      <div
+        v-for="(item, index) in top10Processes"
+        :key="item.name"
+        class="top10-item"
+      >
+        <span class="rank" :style="{ color: getRankColor(index + 1) }">{{
+          index + 1
+        }}</span>
         <div class="progress-bar-bg">
           <div
             class="progress-bar"
             :style="{
               width: `${(item.value / maxValue) * 100}%`,
-              background: getRankColor(index + 1)
+              background: getRankColor(index + 1),
             }"
           ></div>
         </div>
@@ -117,23 +127,23 @@ const formattedTimestamp = computed(() => {
 <style scoped>
 .top10-panel {
   width: 100%;
-  background: #fff;
-  border-radius: 8px;
   padding: 16px;
+  background: #fff;
   border: 1px solid #e5e5e5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 10px;
 }
 
 .panel-title {
-  font-weight: 600;
   font-size: 14px;
+  font-weight: 600;
   color: #333;
 }
 
@@ -143,15 +153,15 @@ const formattedTimestamp = computed(() => {
 }
 
 .top10-list {
-  font-size: 12px;
   height: 260px;
   overflow-y: auto;
+  font-size: 12px;
 }
 
 .top10-item {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   padding: 4px 8px;
   margin-bottom: 2px;
   background: #f9f9f9;
@@ -160,8 +170,8 @@ const formattedTimestamp = computed(() => {
 
 .rank {
   width: 18px;
-  font-weight: 600;
   font-size: 12px;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -179,26 +189,26 @@ const formattedTimestamp = computed(() => {
 }
 
 .process-name {
-  font-weight: 500;
-  font-size: 12px;
-  color: #333;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
   white-space: nowrap;
-  max-width: 120px;
 }
 
 .process-value {
-  font-weight: 600;
-  font-size: 12px;
-  white-space: nowrap;
   min-width: 45px;
+  font-size: 12px;
+  font-weight: 600;
   text-align: right;
+  white-space: nowrap;
 }
 
 .no-data {
   padding: 40px 20px;
-  text-align: center;
   color: #999;
+  text-align: center;
 }
 </style>

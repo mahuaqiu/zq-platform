@@ -454,9 +454,6 @@ async function saveSelection() {
     const menuIds = [...selectedMenuIds.value];
     const permissionIds = [...selectedPermissions.value];
 
-    console.log('保存 - 选中的菜单:', menuIds);
-    console.log('保存 - 选中的权限:', permissionIds);
-
     await updateRoleMenusPermissionsApi(props.role.id, {
       menu_ids: menuIds,
       permission_ids: permissionIds,
@@ -771,9 +768,8 @@ provide('expandedMenuIds', expandedMenuIds);
                   </span>
                   <span class="text-xs text-gray-400">
                     ({{
-                      currentMenuPermissions[1]?.filter(
-                        (p: PermissionNode) =>
-                          selectedPermissions.has(p.id),
+                      currentMenuPermissions[1]?.filter((p: PermissionNode) =>
+                        selectedPermissions.has(p.id),
                       ).length || 0
                     }}/{{ currentMenuPermissions[1]?.length || 0 }})
                   </span>

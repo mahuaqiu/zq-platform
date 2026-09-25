@@ -48,7 +48,9 @@ export interface KeyValuePair {
 /**
  * 获取配置项列表（分页）
  */
-export async function getConfigItemListApi(params?: ConfigCenterItemListParams) {
+export async function getConfigItemListApi(
+  params?: ConfigCenterItemListParams,
+) {
   return requestClient.get<PaginatedResponse<ConfigCenterItem>>(
     '/api/core/config-center',
     { params },
@@ -79,7 +81,7 @@ export async function updateConfigItemApi(
  * 删除配置项（软删除）
  */
 export async function deleteConfigItemApi(itemId: string) {
-  return requestClient.delete<{ status: string; message: string }>(
+  return requestClient.delete<{ message: string; status: string }>(
     `/api/core/config-center/${itemId}`,
   );
 }
@@ -91,9 +93,9 @@ export async function batchDeleteConfigItemApi(
   data: ConfigCenterBatchDeleteInput,
 ) {
   return requestClient.post<{
+    fail_count: number;
     status: string;
     success_count: number;
-    fail_count: number;
   }>('/api/core/config-center/batch/delete', data);
 }
 

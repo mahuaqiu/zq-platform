@@ -7,9 +7,6 @@
 @File: api.py
 @Desc: User API - 用户接口
 """
-"""
-User API - 用户接口
-"""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request

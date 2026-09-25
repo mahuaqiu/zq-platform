@@ -1,13 +1,15 @@
-import { onUnmounted, ref } from 'vue';
 import type { Ref } from 'vue';
 
 import type { InputEventPayload, ScreenSize } from '../types';
-import { convertToDeviceCoords, calculateContainRenderArea } from '../utils';
+
+import { onUnmounted, ref } from 'vue';
+
+import { calculateContainRenderArea, convertToDeviceCoords } from '../utils';
 
 // 滑动判断阈值配置（legacy 回退路径使用）
-const SWIPE_THRESHOLD_NORMAL = 50;  // 普通区域的滑动阈值（像素）
-const SWIPE_THRESHOLD_EDGE = 30;    // 边缘区域的滑动阈值（像素）
-const EDGE_ZONE_RATIO = 0.15;       // 边缘区域比例（屏幕底部 15%）
+const SWIPE_THRESHOLD_NORMAL = 50; // 普通区域的滑动阈值（像素）
+const SWIPE_THRESHOLD_EDGE = 30; // 边缘区域的滑动阈值（像素）
+const EDGE_ZONE_RATIO = 0.15; // 边缘区域比例（屏幕底部 15%）
 
 // 实时指针流参数
 const HOVER_MOVE_INTERVAL_MS = 1500; // hover 移动节流（光标跟随低频同步即可）
@@ -26,18 +28,22 @@ export interface RealtimeInputContext {
 }
 
 // 滑动方向类型
-type SwipeDirection = 'vertical' | 'horizontal' | 'diagonal';
+type SwipeDirection = 'diagonal' | 'horizontal' | 'vertical';
 
 export function useScreenInteraction(
   screenSize: Ref<ScreenSize>,
   input?: RealtimeInputContext,
 ) {
-  const mouseCoord = ref<{ x: number; y: number } | null>(null);
+  const mouseCoord = ref<null | { x: number; y: number }>(null);
   const isInScreen = ref(false); // 鼠标是否在屏幕渲染区域内
-  const clickIndicator = ref<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+  const clickIndicator = ref<{ show: boolean; x: number; y: number }>({
+    x: 0,
+    y: 0,
+    show: false,
+  });
   const isDragging = ref(false);
-  const dragStart = ref<{ x: number; y: number } | null>(null);
-  const dragEnd = ref<{ x: number; y: number } | null>(null);
+  const dragStart = ref<null | { x: number; y: number }>(null);
+  const dragEnd = ref<null | { x: number; y: number }>(null);
 
   /**
    * 从事件源元素提取"源内容尺寸"。
@@ -50,9 +56,12 @@ export function useScreenInteraction(
    * 因此坐标换算逻辑完全一致，仅需统一尺寸来源。
    */
   function getMediaSourceSize(
-    target: EventTarget | null
-  ): { el: HTMLElement; naturalW: number; naturalH: number } | null {
-    if (!(target instanceof HTMLImageElement) && !(target instanceof HTMLVideoElement)) {
+    target: EventTarget | null,
+  ): null | { el: HTMLElement; naturalH: number; naturalW: number } {
+    if (
+      !(target instanceof HTMLImageElement) &&
+      !(target instanceof HTMLVideoElement)
+    ) {
       return null;
     }
     const el = target;
@@ -82,7 +91,9 @@ export function useScreenInteraction(
    * 为空，因此 ScreenDisplay 会额外附带 screenElement 供这里使用。
    */
   function getEventMediaElement(event: MouseEvent): HTMLElement | null {
-    const eventWithElement = event as MouseEvent & { screenElement?: EventTarget | null };
+    const eventWithElement = event as MouseEvent & {
+      screenElement?: EventTarget | null;
+    };
     return (
       getMediaSourceSize(event.currentTarget)?.el ??
       getMediaSourceSize(event.target)?.el ??
@@ -97,12 +108,14 @@ export function useScreenInteraction(
 
     const wrapper = getScreenWrapper(media);
     const rect = wrapper.getBoundingClientRect();
-    const naturalW = 'naturalWidth' in media
-      ? (media as HTMLImageElement).naturalWidth
-      : (media as HTMLVideoElement).videoWidth;
-    const naturalH = 'naturalHeight' in media
-      ? (media as HTMLImageElement).naturalHeight
-      : (media as HTMLVideoElement).videoHeight;
+    const naturalW =
+      'naturalWidth' in media
+        ? (media as HTMLImageElement).naturalWidth
+        : (media as HTMLVideoElement).videoWidth;
+    const naturalH =
+      'naturalHeight' in media
+        ? (media as HTMLImageElement).naturalHeight
+        : (media as HTMLVideoElement).videoHeight;
 
     if (naturalW <= 0 || naturalH <= 0 || rect.width <= 0 || rect.height <= 0) {
       return null;
@@ -119,14 +132,23 @@ export function useScreenInteraction(
       mouseY,
     );
 
-    return { media, wrapper, rect, naturalW, naturalH, mouseX, mouseY, renderInfo };
+    return {
+      media,
+      wrapper,
+      rect,
+      naturalW,
+      naturalH,
+      mouseX,
+      mouseY,
+      renderInfo,
+    };
   }
 
   /**
    * 获取设备实际坐标
    * 返回 null 表示点击在屏幕之外
    */
-  function getDeviceCoords(event: MouseEvent): { x: number; y: number } | null {
+  function getDeviceCoords(event: MouseEvent): null | { x: number; y: number } {
     const renderInfo = getRenderInfo(event)?.renderInfo;
     if (!renderInfo || !renderInfo.isValidClick) {
       return null; // 点击在屏幕之外
@@ -138,7 +160,7 @@ export function useScreenInteraction(
       renderInfo.renderedWidth,
       renderInfo.renderedHeight,
       screenSize.value.width,
-      screenSize.value.height
+      screenSize.value.height,
     );
   }
 
@@ -146,7 +168,7 @@ export function useScreenInteraction(
    * 拖拽开始
    * 返回 null 表示点击在屏幕之外，不开始拖拽
    */
-  function handleDragStart(event: MouseEvent): { x: number; y: number } | null {
+  function handleDragStart(event: MouseEvent): null | { x: number; y: number } {
     event.preventDefault();
     const coords = getDeviceCoords(event);
 
@@ -167,7 +189,7 @@ export function useScreenInteraction(
    * 拖拽移动
    * 返回 null 表示鼠标在屏幕之外
    */
-  function handleDragMove(event: MouseEvent): { x: number; y: number } | null {
+  function handleDragMove(event: MouseEvent): null | { x: number; y: number } {
     const coords = getDeviceCoords(event);
     isInScreen.value = coords !== null;
 
@@ -217,7 +239,10 @@ export function useScreenInteraction(
    * 获取适合的滑动阈值
    * 边缘区域使用较小的阈值，让向上滑动更容易触发
    */
-  function getSwipeThreshold(startY: number, direction: SwipeDirection): number {
+  function getSwipeThreshold(
+    startY: number,
+    direction: SwipeDirection,
+  ): number {
     // 如果在底部边缘区域且是向上滑动，使用更小的阈值
     if (isInEdgeZone(startY) && direction === 'vertical') {
       return SWIPE_THRESHOLD_EDGE;
@@ -230,10 +255,18 @@ export function useScreenInteraction(
    * 拖拽结束，判断是点击还是滑动
    * 如果拖拽结束点在屏幕之外，使用最后一个有效坐标
    */
-  function handleDragEnd(event: MouseEvent): {
+  function handleDragEnd(event: MouseEvent): null | {
+    params:
+      | {
+          duration: number;
+          from_x: number;
+          from_y: number;
+          to_x: number;
+          to_y: number;
+        }
+      | { x: number; y: number };
     type: 'click' | 'swipe';
-    params: { x: number; y: number } | { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
-  } | null {
+  } {
     if (!isDragging.value || !dragStart.value) return null;
 
     isDragging.value = false;
@@ -252,7 +285,7 @@ export function useScreenInteraction(
     // 计算滑动距离
     const dx = endCoords.x - dragStart.value.x;
     const dy = endCoords.y - dragStart.value.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance = Math.hypot(dx, dy);
 
     // 检测滑动方向
     const direction = detectSwipeDirection(dx, dy);
@@ -263,17 +296,21 @@ export function useScreenInteraction(
     // 距离小于阈值视为点击
     if (distance < threshold) {
       // 点击操作
-      clickIndicator.value = { x: dragStart.value.x, y: dragStart.value.y, show: true };
+      clickIndicator.value = {
+        x: dragStart.value.x,
+        y: dragStart.value.y,
+        show: true,
+      };
       setTimeout(() => {
         clickIndicator.value.show = false;
       }, 500);
 
       const result: {
-        type: 'click';
         params: { x: number; y: number };
+        type: 'click';
       } = {
         type: 'click',
-        params: { x: dragStart.value.x, y: dragStart.value.y }
+        params: { x: dragStart.value.x, y: dragStart.value.y },
       };
       dragStart.value = null;
       dragEnd.value = null;
@@ -284,8 +321,14 @@ export function useScreenInteraction(
       const duration = direction === 'vertical' ? 600 : 500;
 
       const result: {
+        params: {
+          duration: number;
+          from_x: number;
+          from_y: number;
+          to_x: number;
+          to_y: number;
+        };
         type: 'swipe';
-        params: { from_x: number; from_y: number; to_x: number; to_y: number; duration: number };
       } = {
         type: 'swipe',
         params: {
@@ -293,8 +336,8 @@ export function useScreenInteraction(
           from_y: dragStart.value.y,
           to_x: endCoords.x,
           to_y: endCoords.y,
-          duration
-        }
+          duration,
+        },
       };
       dragStart.value = null;
       dragEnd.value = null;
@@ -329,13 +372,13 @@ export function useScreenInteraction(
   // 保留的 legacy click/swipe 路径（mouseup 合成一条 REST 手势）。
   let pressing = false;
   let pressButton: 'left' | 'right' = 'left';
-  let pendingMove: { x: number; y: number } | null = null;
-  let moveRafId: number | null = null;
+  let pendingMove: null | { x: number; y: number } = null;
+  let moveRafId: null | number = null;
   let firstMoveSent = false;
   let hoverLastSentAt = 0;
   let wheelLastSentAt = 0;
-  let wheelStopTimer: ReturnType<typeof setTimeout> | null = null;
-  let wheelLastCoord: { x: number; y: number } | null = null;
+  let wheelStopTimer: null | ReturnType<typeof setTimeout> = null;
+  let wheelLastCoord: null | { x: number; y: number } = null;
   let inputSeq = 0;
   // hover 移动开关：用户点击过远程屏幕（进入"操控"状态）才发送；
   // 鼠标离开画面或浏览器失焦即复位，避免指针掠过页面产生无意义的设备侧移动。

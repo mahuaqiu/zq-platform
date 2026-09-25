@@ -78,7 +78,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   refresh: [];
-  'selection-change': [selection: T[]];
+  selectionChange: [selection: T[]];
   'update:mode': [mode: 'card' | 'list'];
 }>();
 
@@ -246,7 +246,7 @@ function emitSelectionChange() {
   const selectedItems = currentItems.filter((item) =>
     selectedKeys.value.has(item[props.rowKey]),
   );
-  emit('selection-change', selectedItems as T[]);
+  emit('selectionChange', selectedItems as T[]);
 }
 
 function isSelected(item: any) {

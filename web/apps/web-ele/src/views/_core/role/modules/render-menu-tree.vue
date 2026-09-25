@@ -18,7 +18,7 @@ interface Props {
   level?: number;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   level: 0,
 });
 

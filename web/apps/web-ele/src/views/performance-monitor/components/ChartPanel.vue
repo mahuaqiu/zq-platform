@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
-import * as echarts from 'echarts';
 import type { ChartSeries, ChartTag } from '../types';
+
 import type {
-  PerformanceData,
   MarkerResponse,
+  PerformanceData,
 } from '#/api/core/performance-monitor';
+
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
+import * as echarts from 'echarts';
 
 // 定义 Props 类型
 interface Props {
@@ -20,11 +23,15 @@ interface Props {
   enableTagClick?: boolean; // 是否允许点击添加标签
   collectId?: string; // 采集ID（用于标签操作）
   showActualTime?: boolean; // 是否显示实际时间
-  chartType?: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo'; // 图表类型，用于区分 tooltip
+  chartType?: 'commitMemory' | 'cpu' | 'gpu' | 'handles' | 'hwinfo' | 'memory'; // 图表类型，用于区分 tooltip
   markers?: MarkerResponse[]; // 标记列表（v0.3.0）
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  timeRange: undefined,
+  tags: undefined,
+  rawData: undefined,
+  collectId: undefined,
   showTop10: false,
   height: 310,
   enableTagClick: false,
@@ -35,24 +42,52 @@ const props = withDefaults(defineProps<Props>(), {
 
 // 定义 Events（改造为双区域tooltip）
 const emit = defineEmits<{
-  (e: 'point-click', data: { time: number; collectId: string }): void;
-  (e: 'tag-delete', tagId: string): void;
-  (e: 'mini-tooltip-show', data: {
-    position: { x: number; y: number };
-    data: PerformanceData | undefined;
-    seriesData: { name: string; value: number | null; color: string; unit: string }[];
-    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
-    containerRect: DOMRect;
-  }): void;
-  (e: 'mini-tooltip-hide'): void;
-  (e: 'detail-click', data: {
-    data: PerformanceData | undefined;
-    seriesData: { name: string; value: number | null; color: string; unit: string }[];
-    chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
-    chartKey: string;
-    position: { x: number; y: number };
-    containerWidth: number;
-  }): void;
+  (e: 'pointClick', data: { collectId: string; time: number }): void;
+  (e: 'tagDelete', tagId: string): void;
+  (
+    e: 'miniTooltipShow',
+    data: {
+      chartType:
+        | 'commitMemory'
+        | 'cpu'
+        | 'gpu'
+        | 'handles'
+        | 'hwinfo'
+        | 'memory';
+      containerRect: DOMRect;
+      data: PerformanceData | undefined;
+      position: { x: number; y: number };
+      seriesData: {
+        color: string;
+        name: string;
+        unit: string;
+        value: null | number;
+      }[];
+    },
+  ): void;
+  (e: 'miniTooltipHide'): void;
+  (
+    e: 'detailClick',
+    data: {
+      chartKey: string;
+      chartType:
+        | 'commitMemory'
+        | 'cpu'
+        | 'gpu'
+        | 'handles'
+        | 'hwinfo'
+        | 'memory';
+      containerWidth: number;
+      data: PerformanceData | undefined;
+      position: { x: number; y: number };
+      seriesData: {
+        color: string;
+        name: string;
+        unit: string;
+        value: null | number;
+      }[];
+    },
+  ): void;
 }>();
 
 const chartRef = ref<HTMLDivElement>();
@@ -73,7 +108,7 @@ onMounted(() => {
     // 鼠标移动事件
     chartRef.value.addEventListener('mousemove', (e) => {
       // 检查图表是否有数据
-      if (!props.series.length || !chartInstance) return;
+      if (props.series.length === 0 || !chartInstance) return;
 
       // 获取鼠标在图表中的位置
       const offsetX = e.offsetX;
@@ -82,13 +117,19 @@ onMounted(() => {
       // 使用 ECharts 的 convertFromPixel 来获取数据索引
       try {
         const pointInPixel = [offsetX, offsetY];
-        const pointInGrid = chartInstance.convertFromPixel('grid', pointInPixel);
+        const pointInGrid = chartInstance.convertFromPixel(
+          'grid',
+          pointInPixel,
+        );
 
         if (pointInGrid && pointInGrid[0] !== undefined) {
           // pointInGrid[0] 是 x 轴索引（ dataIndex ）
           const dataIndex = Math.round(pointInGrid[0]);
 
-          if (dataIndex >= 0 && dataIndex < (props.series[0]?.data.length ?? 0)) {
+          if (
+            dataIndex >= 0 &&
+            dataIndex < (props.series[0]?.data.length ?? 0)
+          ) {
             const rawDataPoint = props.rawData?.[dataIndex];
 
             // 构建主曲线数据
@@ -99,7 +140,7 @@ onMounted(() => {
               unit: s.unit || '%',
             }));
 
-            emit('mini-tooltip-show', {
+            emit('miniTooltipShow', {
               position: { x: offsetX, y: offsetY },
               data: rawDataPoint,
               seriesData,
@@ -108,19 +149,19 @@ onMounted(() => {
             });
           }
         }
-      } catch (err) {
+      } catch {
         // 忽略错误
       }
     });
 
     // 鼠标离开事件
     chartRef.value.addEventListener('mouseout', () => {
-      emit('mini-tooltip-hide');
+      emit('miniTooltipHide');
     });
 
     // 点击事件
     chartRef.value.addEventListener('click', (e) => {
-      if (!props.series.length || !chartInstance) {
+      if (props.series.length === 0 || !chartInstance) {
         return;
       }
 
@@ -129,12 +170,18 @@ onMounted(() => {
 
       try {
         const pointInPixel = [offsetX, offsetY];
-        const pointInGrid = chartInstance.convertFromPixel('grid', pointInPixel);
+        const pointInGrid = chartInstance.convertFromPixel(
+          'grid',
+          pointInPixel,
+        );
 
         if (pointInGrid && pointInGrid[0] !== undefined) {
           const dataIndex = Math.round(pointInGrid[0]);
 
-          if (dataIndex >= 0 && dataIndex < (props.series[0]?.data.length ?? 0)) {
+          if (
+            dataIndex >= 0 &&
+            dataIndex < (props.series[0]?.data.length ?? 0)
+          ) {
             const rawDataPoint = props.rawData?.[dataIndex];
 
             const seriesData = props.series.map((s) => ({
@@ -144,7 +191,7 @@ onMounted(() => {
               unit: s.unit || '%',
             }));
 
-            emit('detail-click', {
+            emit('detailClick', {
               data: rawDataPoint,
               seriesData,
               chartType: props.chartType,
@@ -154,7 +201,7 @@ onMounted(() => {
             });
           }
         }
-      } catch (err) {
+      } catch {
         // 忽略点击错误
       }
     });
@@ -222,7 +269,7 @@ function initChart() {
         const dataIndex = params.dataIndex;
         const time = props.series[0]?.data[dataIndex]?.time;
         if (time !== undefined && props.collectId) {
-          emit('point-click', { time, collectId: props.collectId });
+          emit('pointClick', { time, collectId: props.collectId });
         }
       }
     });
@@ -234,7 +281,11 @@ function initChart() {
 // 计算Y轴范围（智能分段，根据数据范围动态调整）
 const yAxisConfig = computed(() => {
   const unit = mainUnit.value;
-  const allValues = props.series.flatMap((s) => s.data.map((d) => d.value).filter((value): value is number => value !== null));
+  const allValues = props.series.flatMap((s) =>
+    s.data
+      .map((d) => d.value)
+      .filter((value): value is number => value !== null),
+  );
 
   if (allValues.length === 0) {
     return { min: 0, max: 100, interval: 20, gridLeft: 40 };
@@ -249,92 +300,97 @@ const yAxisConfig = computed(() => {
   const valueLength = Math.ceil(maxValue).toString().length;
   const gridLeft = Math.max(40, valueLength * 8 + 5);
 
-  if (unit === '%') {
-    // 百分比：从0开始，根据最大值智能分段
-    if (maxValue <= 10) {
-      return { min: 0, max: 10, interval: 2, gridLeft };
-    } else if (maxValue <= 20) {
-      return { min: 0, max: 20, interval: 4, gridLeft };
-    } else if (maxValue <= 50) {
-      return { min: 0, max: 50, interval: 10, gridLeft };
-    } else if (maxValue <= 100) {
-      return { min: 0, max: 100, interval: 20, gridLeft };
-    } else {
-      const roundedMax = Math.ceil(maxValue / 20) * 20;
-      return { min: 0, max: roundedMax, interval: 20, gridLeft };
+  switch (unit) {
+    case '%': {
+      // 百分比：从0开始，根据最大值智能分段
+      if (maxValue <= 10) {
+        return { min: 0, max: 10, interval: 2, gridLeft };
+      } else if (maxValue <= 20) {
+        return { min: 0, max: 20, interval: 4, gridLeft };
+      } else if (maxValue <= 50) {
+        return { min: 0, max: 50, interval: 10, gridLeft };
+      } else if (maxValue <= 100) {
+        return { min: 0, max: 100, interval: 20, gridLeft };
+      } else {
+        const roundedMax = Math.ceil(maxValue / 20) * 20;
+        return { min: 0, max: roundedMax, interval: 20, gridLeft };
+      }
     }
-  } else if (unit === 'MB') {
-    // MB单位：智能计算范围，数据集中在某个区间时不从0开始
-    // 当数据波动小于最大值的20%时，Y轴从最小值附近开始
-    if (range < maxValue * 0.3 && minValue > 200) {
-      // 计算合适的Y轴范围
-      const padding = range * 0.2; // 上下留20%空间
-      let baseMin = Math.floor((minValue - padding) / 50) * 50;
-      let baseMax = Math.ceil((maxValue + padding) / 50) * 50;
+    case 'MB': {
+      // MB单位：智能计算范围，数据集中在某个区间时不从0开始
+      // 当数据波动小于最大值的20%时，Y轴从最小值附近开始
+      if (range < maxValue * 0.3 && minValue > 200) {
+        // 计算合适的Y轴范围
+        const padding = range * 0.2; // 上下留20%空间
+        let baseMin = Math.floor((minValue - padding) / 50) * 50;
+        const baseMax = Math.ceil((maxValue + padding) / 50) * 50;
 
-      // 确保最小值不小于0
-      if (baseMin < 0) baseMin = 0;
+        // 确保最小值不小于0
+        if (baseMin < 0) baseMin = 0;
 
-      // 计算合适的间隔（约4-5个刻度）
-      const diff = baseMax - baseMin;
-      let interval = Math.ceil(diff / 4 / 50) * 50;
-      if (interval < 50) interval = 50;
-      if (interval > 500) interval = Math.ceil(interval / 100) * 100;
+        // 计算合适的间隔（约4-5个刻度）
+        const diff = baseMax - baseMin;
+        let interval = Math.ceil(diff / 4 / 50) * 50;
+        if (interval < 50) interval = 50;
+        if (interval > 500) interval = Math.ceil(interval / 100) * 100;
 
-      return { min: baseMin, max: baseMax, interval, gridLeft };
+        return { min: baseMin, max: baseMax, interval, gridLeft };
+      }
+
+      // 数据波动大或最小值较小，从0开始
+      if (maxValue <= 100) {
+        return { min: 0, max: 100, interval: 25, gridLeft };
+      } else if (maxValue <= 200) {
+        return { min: 0, max: 200, interval: 50, gridLeft };
+      } else if (maxValue <= 500) {
+        return { min: 0, max: 500, interval: 100, gridLeft };
+      } else if (maxValue <= 1000) {
+        return { min: 0, max: 1000, interval: 200, gridLeft };
+      } else if (maxValue <= 2000) {
+        return { min: 0, max: 2000, interval: 400, gridLeft };
+      } else if (maxValue <= 5000) {
+        return { min: 0, max: 5000, interval: 1000, gridLeft };
+      } else if (maxValue <= 10_000) {
+        return { min: 0, max: 10_000, interval: 2000, gridLeft };
+      } else {
+        const roundedMax = Math.ceil(maxValue / 2000) * 2000;
+        return {
+          min: 0,
+          max: roundedMax,
+          interval: Math.ceil(roundedMax / 5 / 100) * 100,
+          gridLeft,
+        };
+      }
     }
+    case 'GB': {
+      // GB单位：智能计算范围
+      if (range < maxValue * 0.3 && minValue > 0.5) {
+        const padding = range * 0.2;
+        let baseMin = Math.floor((minValue - padding) * 10) / 10;
+        const baseMax = Math.ceil((maxValue + padding) * 10) / 10;
+        if (baseMin < 0) baseMin = 0;
+        const diff = baseMax - baseMin;
+        let interval = Math.ceil((diff * 10) / 4) / 10;
+        if (interval < 0.1) interval = 0.1;
+        return { min: baseMin, max: baseMax, interval, gridLeft };
+      }
 
-    // 数据波动大或最小值较小，从0开始
-    if (maxValue <= 100) {
-      return { min: 0, max: 100, interval: 25, gridLeft };
-    } else if (maxValue <= 200) {
-      return { min: 0, max: 200, interval: 50, gridLeft };
-    } else if (maxValue <= 500) {
-      return { min: 0, max: 500, interval: 100, gridLeft };
-    } else if (maxValue <= 1000) {
-      return { min: 0, max: 1000, interval: 200, gridLeft };
-    } else if (maxValue <= 2000) {
-      return { min: 0, max: 2000, interval: 400, gridLeft };
-    } else if (maxValue <= 5000) {
-      return { min: 0, max: 5000, interval: 1000, gridLeft };
-    } else if (maxValue <= 10000) {
-      return { min: 0, max: 10000, interval: 2000, gridLeft };
-    } else {
-      const roundedMax = Math.ceil(maxValue / 2000) * 2000;
-      return {
-        min: 0,
-        max: roundedMax,
-        interval: Math.ceil(roundedMax / 5 / 100) * 100,
-        gridLeft,
-      };
+      if (maxValue <= 1) {
+        return { min: 0, max: 1, interval: 0.2, gridLeft };
+      } else if (maxValue <= 2) {
+        return { min: 0, max: 2, interval: 0.5, gridLeft };
+      } else if (maxValue <= 5) {
+        return { min: 0, max: 5, interval: 1, gridLeft };
+      } else if (maxValue <= 10) {
+        return { min: 0, max: 10, interval: 2, gridLeft };
+      } else if (maxValue <= 20) {
+        return { min: 0, max: 20, interval: 4, gridLeft };
+      } else {
+        const roundedMax = Math.ceil(maxValue / 4) * 4;
+        return { min: 0, max: roundedMax, interval: 4, gridLeft };
+      }
     }
-  } else if (unit === 'GB') {
-    // GB单位：智能计算范围
-    if (range < maxValue * 0.3 && minValue > 0.5) {
-      const padding = range * 0.2;
-      let baseMin = Math.floor((minValue - padding) * 10) / 10;
-      let baseMax = Math.ceil((maxValue + padding) * 10) / 10;
-      if (baseMin < 0) baseMin = 0;
-      const diff = baseMax - baseMin;
-      let interval = Math.ceil((diff * 10) / 4) / 10;
-      if (interval < 0.1) interval = 0.1;
-      return { min: baseMin, max: baseMax, interval, gridLeft };
-    }
-
-    if (maxValue <= 1) {
-      return { min: 0, max: 1, interval: 0.2, gridLeft };
-    } else if (maxValue <= 2) {
-      return { min: 0, max: 2, interval: 0.5, gridLeft };
-    } else if (maxValue <= 5) {
-      return { min: 0, max: 5, interval: 1, gridLeft };
-    } else if (maxValue <= 10) {
-      return { min: 0, max: 10, interval: 2, gridLeft };
-    } else if (maxValue <= 20) {
-      return { min: 0, max: 20, interval: 4, gridLeft };
-    } else {
-      const roundedMax = Math.ceil(maxValue / 4) * 4;
-      return { min: 0, max: roundedMax, interval: 4, gridLeft };
-    }
+    // No default
   }
 
   // 其他单位（如"个"）：从0开始，大数值使用缩写
@@ -371,20 +427,22 @@ function updateChart() {
     // 渐进式渲染（超过3000个点时启用，每帧渲染400个点）
     progressive: 400,
     progressiveThreshold: 3000,
-    progressiveChunkMode: 'mod',  // 交错渲染，体感更流畅
+    progressiveChunkMode: 'mod', // 交错渲染，体感更流畅
     // 均值线（当开启时显示）
-    markLine: showMeanLine.value ? {
-      silent: true,
-      symbol: 'none',
-      label: { show: false }, // 不显示均值数值
-      lineStyle: {
-        color: s.color,
-        type: 'dashed',
-        width: 2,
-        opacity: 0.8,
-      },
-      data: [{ type: 'average' }],
-    } : undefined,
+    markLine: showMeanLine.value
+      ? {
+          silent: true,
+          symbol: 'none',
+          label: { show: false }, // 不显示均值数值
+          lineStyle: {
+            color: s.color,
+            type: 'dashed',
+            width: 2,
+            opacity: 0.8,
+          },
+          data: [{ type: 'average' }],
+        }
+      : undefined,
   }));
 
   // 标记圆点显示
@@ -483,10 +541,10 @@ function updateChart() {
         color: '#666',
         fontSize: 12,
       },
-      data: props.series.map(s => s.name),
+      data: props.series.map((s) => s.name),
     },
     tooltip: {
-      show: false  // 禁用原 tooltip，使用原生 DOM 事件
+      show: false, // 禁用原 tooltip，使用原生 DOM 事件
     },
     grid: {
       left: yAxisConfig.value.gridLeft,
@@ -524,8 +582,8 @@ function updateChart() {
             return Math.round(num);
           }
           // 大数值（如句柄数）使用缩写格式
-          if (num >= 10000) {
-            return (num / 1000).toFixed(1) + 'k';
+          if (num >= 10_000) {
+            return `${(num / 1000).toFixed(1)}k`;
           }
           return num;
         },
@@ -562,7 +620,7 @@ onUnmounted(() => {
       if (chartRef.value && document.body.contains(chartRef.value)) {
         chartInstance.dispose();
       }
-    } catch (e) {
+    } catch {
       // 忽略 dispose 错误
     }
     chartInstance = null;
@@ -576,7 +634,7 @@ onUnmounted(() => {
     <div
       ref="chartRef"
       class="chart-container"
-      :style="{ height: chartHeight + 'px' }"
+      :style="{ height: `${chartHeight}px` }"
     >
       <!-- 当前值叠加在图表右上角 -->
       <div class="chart-values-overlay">
@@ -602,7 +660,7 @@ onUnmounted(() => {
         <span class="tag-range"
           >{{ tag.start }}s - {{ tag.start + tag.duration }}s</span
         >
-        <button class="tag-delete" @click="emit('tag-delete', tag.name)">
+        <button class="tag-delete" @click="emit('tagDelete', tag.name)">
           ×
         </button>
       </div>

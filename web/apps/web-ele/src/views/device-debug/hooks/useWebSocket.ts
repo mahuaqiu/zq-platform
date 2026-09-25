@@ -1,23 +1,29 @@
+import type {
+  InputEventPayload,
+  ScreenSize,
+  WebSocketCloseInfo,
+  WebSocketStatus,
+} from '../types';
+
 import { onUnmounted, ref, shallowRef } from 'vue';
 
 import { ElMessage } from 'element-plus';
 
-import type { InputEventPayload, WebSocketCloseInfo, WebSocketStatus, ScreenSize } from '../types';
 import { buildWebSocketUrl } from '../utils';
 import { detectFrameType, FrameType } from '../utils/stream';
-import { useMseDecoder } from './useMseDecoder';
 import { useMJPEGRenderer } from './useMJPEGRenderer';
+import { useMseDecoder } from './useMseDecoder';
 
 const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 2000; // 2秒
-const IDLE_TIMEOUT = 900000; // 15分钟 = 900秒
+const IDLE_TIMEOUT = 900_000; // 15分钟 = 900秒
 
 export function useWebSocket() {
   const status = ref<WebSocketStatus>('disconnected');
   const screenshotBase64 = ref('');
   const screenSize = ref<ScreenSize>({ width: 0, height: 0 });
   const fps = ref(0);
-  const closeInfo = ref<WebSocketCloseInfo | null>(null);
+  const closeInfo = ref<null | WebSocketCloseInfo>(null);
   const errorMessage = ref('');
 
   // 是否为用户主动点击"断开"。主动断开的语义是完全断开：画面清空、
@@ -25,14 +31,14 @@ export function useWebSocket() {
   // 鸿蒙截图兜底 + 操作触发出图的能力，重连后自动复位。
   const userDisconnected = ref(false);
 
-  let ws: WebSocket | null = null;
+  let ws: null | WebSocket = null;
   let websocketGeneration = 0;
   let retryCount = 0;
   let fpsFrameCount = 0;
   let fpsLastSecond = 0;
-  let fpsTimer: ReturnType<typeof setInterval> | null = null;
-  let idleTimer: ReturnType<typeof setTimeout> | null = null;
-  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let fpsTimer: null | ReturnType<typeof setInterval> = null;
+  let idleTimer: null | ReturnType<typeof setTimeout> = null;
+  let retryTimer: null | ReturnType<typeof setTimeout> = null;
   let lastActivityTime = Date.now();
   let activityPending = false;
   let binaryMessageQueue: Promise<void> = Promise.resolve();
@@ -106,7 +112,7 @@ export function useWebSocket() {
   let savedPort = 0;
   let savedUdid = '';
   let savedDeviceType = '';
-  let savedScreenIndex: number | undefined = undefined;
+  let savedScreenIndex: number | undefined;
   let savedCodec = 'jpeg';
   let fallbackRequestInProgress = false;
 
@@ -169,6 +175,7 @@ export function useWebSocket() {
     idleTimer = setTimeout(() => {
       const elapsed = Date.now() - lastActivityTime;
       if (elapsed >= IDLE_TIMEOUT && ws && status.value === 'connected') {
+        // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
         console.log('WebSocket 因 15 分钟无操作已自动断开');
         disconnect();
         return;
@@ -230,6 +237,7 @@ export function useWebSocket() {
     hasMeta = false;
     realtimeInput.value = false;
 
+    // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
     console.log(
       `[WebSocket] Connecting to ${host}:${port}, deviceType=${deviceType}, codec=${codec}`,
     );
@@ -274,7 +282,7 @@ export function useWebSocket() {
     ws = socket;
     socket.binaryType = 'arraybuffer';
 
-    socket.onopen = () => {
+    socket.addEventListener('open', () => {
       if (generation !== websocketGeneration) return;
       status.value = 'connected';
       retryCount = 0;
@@ -290,7 +298,7 @@ export function useWebSocket() {
       if (isH264) {
         mseDecoder.init();
       }
-    };
+    });
 
     const processBinaryFrame = (
       arrayBuffer: ArrayBuffer,
@@ -306,15 +314,17 @@ export function useWebSocket() {
 
       const frameType = detectFrameType(arrayBuffer);
       switch (frameType) {
-        case FrameType.H264:
+        case FrameType.H264: {
           mseDecoder.feedFrame(arrayBuffer, receivedAt);
           break;
+        }
 
-        case FrameType.MJPEG:
+        case FrameType.MJPEG: {
           mjpegRenderer.render(arrayBuffer);
           break;
+        }
 
-        case FrameType.JPEG:
+        // FrameType.JPEG 与默认分支一致
         default: {
           const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
           const url = URL.createObjectURL(blob);
@@ -330,11 +340,11 @@ export function useWebSocket() {
 
           if (!hasMeta) {
             const img = new Image();
-            img.onload = () => {
+            img.addEventListener('load', () => {
               if (!hasMeta) {
                 screenSize.value = { width: img.width, height: img.height };
               }
-            };
+            });
             img.src = url;
           }
           break;
@@ -344,7 +354,7 @@ export function useWebSocket() {
       fpsFrameCount++;
     };
 
-    socket.onmessage = (event) => {
+    socket.addEventListener('message', (event) => {
       if (generation !== websocketGeneration) return;
       // 文本帧：worker 在流开头下发的 JSON 元数据，用于携带真机原生分辨率、
       // 编解码回退通知与锁屏等待状态。
@@ -374,10 +384,11 @@ export function useWebSocket() {
           // 无该字段时保持 false，走 REST 回退路径）。
           if (meta && meta.capabilities?.realtime_input) {
             realtimeInput.value = true;
+            // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
             console.log('[WebSocket] worker 支持实时指针输入，启用 WS 事件流');
           }
-        } catch (e) {
-          console.warn('[WebSocket] 解析 meta 文本帧失败:', e);
+        } catch (error) {
+          console.warn('[WebSocket] 解析 meta 文本帧失败:', error);
         }
         return;
       }
@@ -413,9 +424,9 @@ export function useWebSocket() {
             }
           });
       }
-    };
+    });
 
-    socket.onclose = (event) => {
+    socket.addEventListener('close', (event) => {
       if (generation !== websocketGeneration) return;
       if (ws === socket) {
         ws = null;
@@ -425,6 +436,7 @@ export function useWebSocket() {
       status.value = 'disconnected';
       closeInfo.value = { code: event.code, reason: event.reason };
 
+      // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
       console.log(
         `[WebSocket] Connection closed: code=${event.code}, reason=${event.reason}, retryCount=${retryCount}`,
       );
@@ -438,6 +450,7 @@ export function useWebSocket() {
             retryGeneration === websocketGeneration &&
             retryCount <= MAX_RETRIES
           ) {
+            // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
             console.log(
               `[WebSocket] Attempting reconnect #${retryCount} with codec=${savedCodec}`,
             );
@@ -456,14 +469,14 @@ export function useWebSocket() {
         // 达到最大重试次数后显示错误
         ElMessage.error('WebSocket 连接失败，已尝试重连 3 次，请检查设备状态');
       }
-    };
+    });
 
-    socket.onerror = (event) => {
+    socket.addEventListener('error', (event) => {
       if (generation !== websocketGeneration) return;
       status.value = 'error';
       errorMessage.value = 'WebSocket 连接失败';
       console.error(`[WebSocket] Error:`, event);
-    };
+    });
   }
 
   /**
@@ -527,6 +540,7 @@ export function useWebSocket() {
     screenIndex?: number,
     codec: string = 'jpeg',
   ): void {
+    // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
     console.log(`[WebSocket] Reconnecting with codec=${codec}`);
     retryCount = 0;
     connect(host, port, udid, deviceType, screenIndex, codec);

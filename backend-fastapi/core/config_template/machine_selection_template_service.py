@@ -18,7 +18,6 @@ from core.config_template.machine_selection_template_model import MachineSelecti
 from core.config_template.schema import (
     MachineSelectionTemplateCreate,
     MachineSelectionTemplateUpdate,
-    MachineSelectionTemplateResponse,
     MachineSelectionTemplateStatsResponse,
     MachineDetailResponse,
     MachineSelectionTemplateDetailResponse,
@@ -136,7 +135,7 @@ class MachineSelectionTemplateService(BaseService):
         """获取所有模板（排除已删除）"""
         result = await db.execute(
             select(MachineSelectionTemplate)
-            .where(MachineSelectionTemplate.is_deleted == False)
+            .where(MachineSelectionTemplate.is_deleted.is_(False))
             .order_by(MachineSelectionTemplate.sys_create_datetime.desc())
         )
         return list(result.scalars().all())

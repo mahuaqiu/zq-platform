@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: Dept API - 部门管理接口 - 提供部门的 CRUD 操作和树形结构查询
 """
-"""
-Dept API - 部门管理接口
-提供部门的 CRUD 操作和树形结构查询
-"""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File

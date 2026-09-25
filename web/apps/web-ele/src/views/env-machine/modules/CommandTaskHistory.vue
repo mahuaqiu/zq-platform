@@ -341,7 +341,8 @@ onUnmounted(() => {
                       >{{ result.stderr.length }} 字</span
                     >
                     <span v-if="result.success" class="output-hint"
-                      >命令执行成功，此为命令写入 stderr 的输出（如进度信息），非错误</span
+                      >命令执行成功，此为命令写入 stderr
+                      的输出（如进度信息），非错误</span
                     >
                   </div>
                   <el-button
@@ -398,14 +399,14 @@ onUnmounted(() => {
 
 .stats-row {
   margin-bottom: 16px;
-  color: #666;
   font-size: 14px;
+  color: #666;
 }
 
 .empty-tip {
-  text-align: center;
   padding: 40px;
   color: #999;
+  text-align: center;
 }
 
 .task-list {
@@ -415,10 +416,10 @@ onUnmounted(() => {
 }
 
 .task-item {
+  overflow: hidden;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 4px;
-  overflow: hidden;
 }
 
 .task-item.task-expanded {
@@ -427,8 +428,8 @@ onUnmounted(() => {
 
 .task-header {
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
   padding: 12px 16px;
   cursor: pointer;
   transition: background 0.2s;
@@ -439,51 +440,51 @@ onUnmounted(() => {
 }
 
 .task-info {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .task-title-row {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   min-width: 0;
 }
 
 .task-name {
-  font-weight: 600;
-  color: #1a1a1a;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
 }
 
 .task-type-badge {
-  font-size: 12px;
-  padding: 2px 8px;
-  background: #e6f7ff;
-  color: #1890ff;
-  border-radius: 4px;
   flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #1890ff;
+  background: #e6f7ff;
+  border-radius: 4px;
 }
 
 .task-time {
   font-size: 13px;
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
   white-space: nowrap;
 }
 
 .task-stats {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
   flex-shrink: 0;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
 }
 
 .stat-item .success {
@@ -495,8 +496,8 @@ onUnmounted(() => {
 }
 
 .task-actions {
-  margin-left: auto;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .task-detail {
@@ -510,21 +511,21 @@ onUnmounted(() => {
 }
 
 .detail-label {
+  margin-bottom: 8px;
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 8px;
 }
 
 .command-code {
   padding: 12px;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  border-radius: 4px;
+  margin: 0;
   font-family: Consolas, Monaco, monospace;
   font-size: 13px;
-  margin: 0;
-  white-space: pre-wrap;
+  color: #d4d4d4;
   word-break: break-all;
+  white-space: pre-wrap;
+  background: #1e1e1e;
+  border-radius: 4px;
 }
 
 .result-list {
@@ -552,8 +553,8 @@ onUnmounted(() => {
 
 .result-header {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   font-size: 13px;
 }
 
@@ -583,11 +584,11 @@ onUnmounted(() => {
 
 .output-toggle {
   display: flex;
+  gap: 12px;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
-  margin-top: 8px;
   padding: 6px 8px;
+  margin-top: 8px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -595,15 +596,15 @@ onUnmounted(() => {
 
 .output-summary {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   min-width: 0;
 }
 
 .output-stream-dot {
+  flex: 0 0 7px;
   width: 7px;
   height: 7px;
-  flex: 0 0 7px;
   background: #16a34a;
   border-radius: 50%;
 }
@@ -613,10 +614,10 @@ onUnmounted(() => {
 }
 
 .output-stream-name {
-  color: #334155;
   font-family: Consolas, Monaco, monospace;
   font-size: 12px;
   font-weight: 600;
+  color: #334155;
 }
 
 .output-toggle-stderr .output-stream-name {
@@ -624,18 +625,19 @@ onUnmounted(() => {
 }
 
 .output-length {
-  color: #94a3b8;
   font-size: 12px;
+  color: #94a3b8;
 }
 
 .output-hint {
-  color: #94a3b8;
   font-size: 12px;
+  color: #94a3b8;
 }
 
 .output-toggle-stderr .output-length {
   color: #f87171;
 }
+
 .output-toggle-stderr {
   margin-top: 6px;
   background: #fffafa;
@@ -644,20 +646,20 @@ onUnmounted(() => {
 
 .result-output-expanded {
   max-height: 360px;
-  overflow: auto;
-  margin: 0;
   padding: 14px 16px;
-  color: #dbeafe;
+  margin: 0;
+  overflow: auto;
+  font-family: Consolas, Monaco, monospace;
   font-size: 12px;
   line-height: 1.65;
-  font-family: Consolas, Monaco, monospace;
+  color: #dbeafe;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  scrollbar-color: #64748b #1e293b;
+  scrollbar-width: thin;
   background: #0f172a;
   border: 1px solid #1e293b;
   border-radius: 6px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  scrollbar-color: #64748b #1e293b;
-  scrollbar-width: thin;
 }
 
 .result-output-expanded::selection {
@@ -667,9 +669,9 @@ onUnmounted(() => {
 
 .result-output-expanded.result-stderr {
   color: #fecaca;
+  scrollbar-color: #b91c1c #450a0a;
   background: #2b1111;
   border-color: #7f1d1d;
-  scrollbar-color: #b91c1c #450a0a;
 }
 
 .result-output-expanded::-webkit-scrollbar {
@@ -701,10 +703,10 @@ onUnmounted(() => {
 }
 
 .result-item :deep(.output-toggle .el-button) {
-  height: 28px;
   min-width: 52px;
-  margin-left: 4px;
+  height: 28px;
   padding: 4px 10px;
+  margin-left: 4px;
   font-weight: 500;
   color: #2563eb;
   background: #eff6ff;

@@ -3,8 +3,7 @@ import type { RoleSelectorEmits, RoleSelectorProps } from './types';
 
 import { computed, onMounted, ref, useAttrs, watch } from 'vue';
 
-import { Loader, Search, X } from '@vben/icons';
-import { ZqDialog } from '#/components/zq-dialog';
+import { Search } from '@vben/icons';
 import { $t } from '@vben/locales';
 
 import {
@@ -20,6 +19,7 @@ import {
 } from 'element-plus';
 
 import { getRoleListApi, getRolesByIds } from '#/api/core/role';
+import { ZqDialog } from '#/components/zq-dialog';
 
 defineOptions({
   name: 'RoleSelector',
@@ -46,9 +46,9 @@ const selectedRoles = ref<Set<string>>(
   new Set(
     Array.isArray(props.modelValue)
       ? props.modelValue
-      : (props.modelValue
+      : props.modelValue
         ? [props.modelValue]
-        : []),
+        : [],
   ),
 );
 // 临时选择（用于 modal 中的选择，未确认前）
@@ -62,7 +62,6 @@ const totalRoles = ref(0);
 const isLoadingMore = ref(false);
 // 搜索相关
 const searchResults = ref<any[]>([]);
-const isSearching = ref(false);
 // 标记是否已加载过角色数据
 const hasLoadedRoles = ref(false);
 // 标记是否已加载过完整列表（用于弹窗）
@@ -131,7 +130,7 @@ const tempSelectedRolesWithInfo = computed(() => {
 });
 
 // 加载角色数据（分页）
-const loadRoles = async (page: number = 1, append: boolean = false) => {
+const loadRoles = async (page: number = 1, _append: boolean = false) => {
   try {
     if (page === 1) {
       roleLoading.value = true;
@@ -152,14 +151,8 @@ const loadRoles = async (page: number = 1, append: boolean = false) => {
         (item: any) => !existingIds.has(item.id),
       );
 
-      if (append) {
-        // 追加数据（触底加载）
-        roles.value = [...roles.value, ...newItems];
-      } else {
-        // 重新加载（首次加载或搜索）
-        // 合并已有数据（已选项）和新加载的数据
-        roles.value = [...roles.value, ...newItems];
-      }
+      // 追加与重新加载的处理相同：新数据已在上一步去重，直接合并
+      roles.value = [...roles.value, ...newItems];
 
       totalRoles.value = result.total || 0;
       currentPage.value = page;
@@ -216,7 +209,7 @@ const hasMoreData = computed(() => {
 let searchTimer: null | ReturnType<typeof setTimeout> = null;
 
 // 监听搜索文本变化，执行服务端搜索
-watch(searchText, (newVal) => {
+watch(searchText, () => {
   // 清除之前的定时器
   if (searchTimer) {
     clearTimeout(searchTimer);
@@ -267,7 +260,6 @@ const handleModalOpened = async () => {
 // 触底加载更多
 const handleScroll = ({
   scrollTop,
-  scrollLeft,
 }: {
   scrollLeft: number;
   scrollTop: number;
@@ -298,9 +290,9 @@ const handleConfirm = () => {
 
   const value = props.multiple
     ? [...selectedRoles.value]
-    : (selectedRoles.value.size > 0
+    : selectedRoles.value.size > 0
       ? [...selectedRoles.value][0]
-      : '');
+      : '';
 
   emit('update:modelValue', value);
   emit('change', value);
@@ -560,7 +552,6 @@ defineExpose({
       }
     }
   }
-
 
   &-content {
     display: flex;

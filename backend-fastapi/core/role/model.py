@@ -7,10 +7,6 @@
 @File: model.py
 @Desc: Role Model - 角色模型 - 用于管理系统角色和权限分配
 """
-"""
-Role Model - 角色模型
-用于管理系统角色和权限分配
-"""
 from sqlalchemy import Column, String, Integer, Boolean, Text, Table, ForeignKey, Index, text
 from sqlalchemy.orm import relationship
 

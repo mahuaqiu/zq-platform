@@ -126,10 +126,10 @@ const formatRelativeTimeRange = (version: PerformanceVersion) => {
   for (const range of Object.values(timeRanges)) {
     const start = range.start;
     const end = range.end;
-    if (end !== undefined) {
-      ranges.push(`相对时间 ${start}-${end}秒`);
-    } else {
+    if (end === undefined) {
       ranges.push(`相对时间 ${start}秒起`);
+    } else {
+      ranges.push(`相对时间 ${start}-${end}秒`);
     }
   }
   return ranges.join('；');
@@ -219,10 +219,7 @@ watch(showDialog, (val) => {
           />
           <span class="version-name">{{ version.name }}</span>
           <!-- 悬停tooltip显示标记区间 -->
-          <span
-            class="version-time-range"
-            :title="getVersionTooltip(version)"
-          >
+          <span class="version-time-range" :title="getVersionTooltip(version)">
             {{ formatTimeRange(version.start_time, version.end_time) }}
           </span>
           <!-- 显示相对时间区间标签 -->
@@ -253,9 +250,9 @@ watch(showDialog, (val) => {
 <style scoped>
 .version-selector {
   display: flex;
+  flex: 1;
   gap: 8px;
   align-items: center;
-  flex: 1;
 }
 
 .version-tag {
@@ -265,11 +262,11 @@ watch(showDialog, (val) => {
 }
 
 .add-btn {
-  border: 1px dashed var(--el-color-primary);
-  color: var(--el-color-primary);
-  background: transparent;
   padding: 4px 8px;
   font-size: 12px;
+  color: var(--el-color-primary);
+  background: transparent;
+  border: 1px dashed var(--el-color-primary);
 }
 
 .add-btn:hover {
@@ -290,8 +287,8 @@ watch(showDialog, (val) => {
 
 .version-item {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   padding: 10px 16px;
   cursor: pointer;
   transition: background 0.2s;
@@ -306,10 +303,10 @@ watch(showDialog, (val) => {
 }
 
 .version-name {
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
   flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
 }
 
 .version-time-range {
@@ -320,19 +317,19 @@ watch(showDialog, (val) => {
 }
 
 .relative-time-tag {
+  padding: 2px 6px;
+  margin-left: 8px;
   font-size: 11px;
   color: #409eff;
-  background: #ecf5ff;
-  padding: 2px 6px;
-  border-radius: 3px;
   white-space: nowrap;
-  margin-left: 8px;
+  background: #ecf5ff;
+  border-radius: 3px;
 }
 
 .no-result {
   padding: 20px;
-  text-align: center;
   color: #999;
+  text-align: center;
 }
 
 .select-count {

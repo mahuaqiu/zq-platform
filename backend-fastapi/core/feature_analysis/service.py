@@ -3,7 +3,7 @@
 """
 特性分析服务 - Feature Analysis Service
 """
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple
 from datetime import datetime
 
 from sqlalchemy import select, distinct, func, case
@@ -88,7 +88,7 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
         :param version: 版本筛选
         :return: 饼图数据
         """
-        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)
+        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted.is_(False))
         if version and version.strip():
             query = query.where(FeatureAnalysis.feature_version == version)
 
@@ -172,7 +172,7 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
         sort_order: Optional[str] = None
     ) -> Tuple[List[dict], int]:
         """获取质量评价列表"""
-        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)
+        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted.is_(False))
 
         if version and version.strip():
             query = query.where(FeatureAnalysis.feature_version == version)
@@ -238,7 +238,7 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
         sort_order: Optional[str] = None
     ) -> Tuple[List[FeatureAnalysis], int]:
         """获取列表（支持多条件筛选）"""
-        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted == False)
+        query = select(FeatureAnalysis).where(FeatureAnalysis.is_deleted.is_(False))
 
         if version and version.strip():
             query = query.where(FeatureAnalysis.feature_version == version)
@@ -291,7 +291,7 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
         result = await db.execute(
             select(distinct(FeatureAnalysis.feature_owner))
             .where(
-                FeatureAnalysis.is_deleted == False,
+                FeatureAnalysis.is_deleted.is_(False),
                 FeatureAnalysis.feature_owner.isnot(None),
                 FeatureAnalysis.feature_owner != ''
             )
@@ -306,7 +306,7 @@ class FeatureAnalysisService(BaseService[FeatureAnalysis, FeatureAnalysisCreate,
         result = await db.execute(
             select(distinct(FeatureAnalysis.feature_task_service))
             .where(
-                FeatureAnalysis.is_deleted == False,
+                FeatureAnalysis.is_deleted.is_(False),
                 FeatureAnalysis.feature_task_service.isnot(None),
                 FeatureAnalysis.feature_task_service != ''
             )

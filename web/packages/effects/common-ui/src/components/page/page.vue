@@ -86,7 +86,10 @@ onMounted(() => {
       </div>
     </div>
 
-    <div :class="cn('h-full page-content-scroll', contentClass)" :style="contentStyle">
+    <div
+      :class="cn('page-content-scroll h-full', contentClass)"
+      :style="contentStyle"
+    >
       <slot></slot>
     </div>
     <div
@@ -112,7 +115,8 @@ onMounted(() => {
 }
 
 .page-content-scroll:hover {
-  scrollbar-color: var(--el-scrollbar-bg-color, rgb(144 147 153 / 30%)) transparent;
+  scrollbar-color: var(--el-scrollbar-bg-color, rgb(144 147 153 / 30%))
+    transparent;
 }
 
 .page-content-scroll::-webkit-scrollbar {

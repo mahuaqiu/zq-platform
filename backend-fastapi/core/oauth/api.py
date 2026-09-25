@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: OAuth API - OAuth 接口层 - 提供第三方 OAuth 登录的 API 接口
 """
-"""
-OAuth API - OAuth 接口层
-提供第三方 OAuth 登录的 API 接口
-"""
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request

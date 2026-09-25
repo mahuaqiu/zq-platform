@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: 登录日志API - Login Log API（异步版本） - 提供登录日志的查询、分析和管理接口
 """
-"""
-登录日志API - Login Log API（异步版本）
-提供登录日志的查询、分析和管理接口
-"""
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional

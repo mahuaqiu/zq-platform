@@ -1,12 +1,19 @@
 /**
  * 设备类型
  */
-export type DeviceType = 'windows' | 'mac' | 'ios' | 'android' | 'harmony_mobile' | 'harmony_pc' | 'linux';
+export type DeviceType =
+  | 'android'
+  | 'harmony_mobile'
+  | 'harmony_pc'
+  | 'ios'
+  | 'linux'
+  | 'mac'
+  | 'windows';
 
 /**
  * 设备状态
  */
-export type DeviceStatus = 'online' | 'using' | 'offline' | 'upgrading';
+export type DeviceStatus = 'offline' | 'online' | 'upgrading' | 'using';
 
 /**
  * 标签允许的前缀列表
@@ -69,7 +76,11 @@ export const AVAILABLE_OPTIONS = [
  * 判断是否为移动端设备
  */
 export function isMobileDevice(deviceType: DeviceType): boolean {
-  return deviceType === 'ios' || deviceType === 'android' || deviceType === 'harmony_mobile';
+  return (
+    deviceType === 'ios' ||
+    deviceType === 'android' ||
+    deviceType === 'harmony_mobile'
+  );
 }
 
 /**
@@ -88,7 +99,10 @@ export function supportsWorkerLog(deviceType: DeviceType): boolean {
  * - 前缀必须是允许列表之一
  * - 下划线后必须有内容
  */
-export function validateSingleTag(tag: string): { valid: boolean; error: string } {
+export function validateSingleTag(tag: string): {
+  error: string;
+  valid: boolean;
+} {
   if (!tag) {
     return { valid: false, error: '标签不能为空' };
   }
@@ -101,7 +115,10 @@ export function validateSingleTag(tag: string): { valid: boolean; error: string 
     (item) => tag === item || tag.startsWith(`${item}_`),
   );
   if (!prefix) {
-    return { valid: false, error: `标签前缀必须是 ${ALLOWED_TAG_PREFIXES.join('/')} 之一` };
+    return {
+      valid: false,
+      error: `标签前缀必须是 ${ALLOWED_TAG_PREFIXES.join('/')} 之一`,
+    };
   }
 
   // 检查下划线后是否有内容
@@ -119,13 +136,16 @@ export function validateSingleTag(tag: string): { valid: boolean; error: string 
  * 校验 mark 字段（多个标签用逗号分隔）
  * 支持英文逗号、中文逗号、顿号作为分隔符
  */
-export function validateMarkField(mark: string): { valid: boolean; error: string } {
+export function validateMarkField(mark: string): {
+  error: string;
+  valid: boolean;
+} {
   if (!mark) {
     return { valid: true, error: '' }; // 空 mark 是允许的
   }
 
   // 支持多种分隔符：英文逗号、中文逗号、顿号
-  const tags = mark.split(/[,,、]/).map((t) => t.trim());
+  const tags = mark.split(/[,、]/).map((t) => t.trim());
   for (const tag of tags) {
     if (!tag) continue;
     const result = validateSingleTag(tag);

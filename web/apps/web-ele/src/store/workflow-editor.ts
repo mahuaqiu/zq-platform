@@ -55,8 +55,8 @@ export const useWorkflowEditorStore = defineStore('workflow-editor', () => {
     const doSave = () => {
       // 深拷贝状态
       const clonedState: WorkflowState = {
-        nodes: JSON.parse(JSON.stringify(state.nodes)),
-        edges: JSON.parse(JSON.stringify(state.edges)),
+        nodes: structuredClone(state.nodes),
+        edges: structuredClone(state.edges),
       };
 
       // 如果当前不在最新位置，删除后面的历史
@@ -109,7 +109,7 @@ export const useWorkflowEditorStore = defineStore('workflow-editor', () => {
       isUndoRedo.value = false;
     }, 100);
 
-    return state ? JSON.parse(JSON.stringify(state)) : null;
+    return state ? structuredClone(state) : null;
   }
 
   // 重做
@@ -124,7 +124,7 @@ export const useWorkflowEditorStore = defineStore('workflow-editor', () => {
       isUndoRedo.value = false;
     }, 100);
 
-    return state ? JSON.parse(JSON.stringify(state)) : null;
+    return state ? structuredClone(state) : null;
   }
 
   // 标记为已保存

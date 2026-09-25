@@ -51,16 +51,16 @@ export interface PerformanceData {
   process_handles?: number;
   upload_speed?: number;
   download_speed?: number;
-  hwinfo_raw?: Record<string, { value?: number; unit?: string } | number>;
+  hwinfo_raw?: Record<string, number | { unit?: string; value?: number }>;
   target_processes?: ProcessData[];
   top10_cpu?: Top10Process[];
   top10_gpu?: Top10Process[];
 }
 
 export interface SystemMetrics {
-  cpu_percent?: number | null;
-  gpu_percent?: number | null;
-  gpu_source?: 'rust_pdh' | 'hwinfo_fallback' | 'unavailable' | string;
+  cpu_percent?: null | number;
+  gpu_percent?: null | number;
+  gpu_source?: 'hwinfo_fallback' | 'rust_pdh' | 'unavailable' | string;
   gpu_adapters?: Array<{
     luid: string;
     name: string;
@@ -102,7 +102,7 @@ export interface PerformanceTag {
   name: string;
   start_relative_time: number;
   duration: number;
-  type: 'peak' | 'mean';
+  type: 'mean' | 'peak';
   type_display?: string;
 }
 
@@ -115,8 +115,8 @@ export interface PerformanceVersion {
   sys_create_datetime?: string;
   start_time?: string;
   end_time?: string;
-  time_ranges?: Record<string, { start: number; end: number }>;
-  device_type?: 'windows' | 'linux' | 'harmony_pc' | 'harmony_mobile' | string;
+  time_ranges?: Record<string, { end: number; start: number }>;
+  device_type?: 'harmony_mobile' | 'harmony_pc' | 'linux' | 'windows' | string;
 }
 
 // 对比标签类型（跨版本共享，使用相对时间）
@@ -134,7 +134,7 @@ export interface CollectStatus {
   is_collecting: boolean;
   collect_id?: string;
   interval?: number;
-  match_mode?: string;  // 鸿蒙匹配模式：fuzzy=PKG 包名；exact=PID 精准
+  match_mode?: string; // 鸿蒙匹配模式：fuzzy=PKG 包名；exact=PID 精准
   target_processes?: TargetProcessConfig[];
   start_time?: string;
   elapsed_seconds?: number;
@@ -195,7 +195,7 @@ export interface AdvancedMetricsResponse {
 export async function getProcesses(
   deviceId: string,
   search?: string,
-  identity?: { device_type?: string; device_sn?: string },
+  identity?: { device_sn?: string; device_type?: string },
 ) {
   return requestClient.get<{ processes: ProcessInfo[] }>(
     '/api/core/performance-monitor/processes',
@@ -213,13 +213,13 @@ export async function getProcesses(
 // 采集管理
 export async function startCollect(params: {
   device_id: string;
-  name?: string;
-  interval: number;
-  timeout?: number;  // 最大采集时间（秒）
-  target_processes?: TargetProcessConfig[];
-  device_type?: string;
   device_sn?: string;
-  match_mode?: string;  // 鸿蒙匹配模式：fuzzy=PKG 包名；exact=PID 精准
+  device_type?: string;
+  interval: number;
+  match_mode?: string; // 鸿蒙匹配模式：fuzzy=PKG 包名；exact=PID 精准
+  name?: string;
+  target_processes?: TargetProcessConfig[];
+  timeout?: number; // 最大采集时间（秒）
 }) {
   return requestClient.post<{ collect_id: string; status: string }>(
     '/api/core/performance-monitor/collect/start',
@@ -230,8 +230,8 @@ export async function startCollect(params: {
 export async function stopCollect(params: {
   collect_id?: string;
   device_id: string;
-  device_type?: string;
   device_sn?: string;
+  device_type?: string;
 }) {
   return requestClient.post<{ status: string }>(
     '/api/core/performance-monitor/collect/stop',
@@ -241,7 +241,7 @@ export async function stopCollect(params: {
 
 export async function getCollectStatus(
   deviceId: string,
-  identity?: { device_type?: string; device_sn?: string },
+  identity?: { device_sn?: string; device_type?: string },
 ) {
   return requestClient.get<CollectStatus>(
     '/api/core/performance-monitor/collect/status',
@@ -260,7 +260,7 @@ export async function getCollectList(params: {
   page: number;
   page_size: number;
 }) {
-  return requestClient.get<{ total: number; items: PerformanceCollect[] }>(
+  return requestClient.get<{ items: PerformanceCollect[]; total: number }>(
     '/api/core/performance-monitor/collect/list',
     { params },
   );
@@ -275,7 +275,7 @@ export async function getCollectDetail(collectId: string) {
 // 按时间范围获取采集数据（用于查看特定时间窗口）
 export async function getCollectDataByRange(
   collectId: string,
-  params: { start_time: number; end_time: number },
+  params: { end_time: number; start_time: number },
 ) {
   return requestClient.get<{ items: PerformanceData[] }>(
     `/api/core/performance-monitor/collect/${collectId}/data/range`,
@@ -297,7 +297,10 @@ export async function deleteCollect(collectId: string) {
 }
 
 // 设置采集记录保护状态
-export async function setCollectProtected(collectId: string, isProtected: boolean) {
+export async function setCollectProtected(
+  collectId: string,
+  isProtected: boolean,
+) {
   return requestClient.put<{ status: string }>(
     `/api/core/performance-monitor/collect/${collectId}/protected`,
     { is_protected: isProtected },
@@ -307,12 +310,12 @@ export async function setCollectProtected(collectId: string, isProtected: boolea
 // 标签管理
 export async function createTag(params: {
   collect_id: string;
+  duration: number;
   name: string;
   start_relative_time: number;
-  duration: number;
-  type: 'peak' | 'mean';
+  type: 'mean' | 'peak';
 }) {
-  return requestClient.post<{ tag_id: string; status: string }>(
+  return requestClient.post<{ status: string; tag_id: string }>(
     '/api/core/performance-monitor/tag/create',
     params,
   );
@@ -324,12 +327,15 @@ export async function getTags(collectId: string) {
   );
 }
 
-export async function updateTag(tagId: string, params: {
-  name?: string;
-  start_relative_time?: number;
-  duration?: number;
-  type?: 'peak' | 'mean';
-}) {
+export async function updateTag(
+  tagId: string,
+  params: {
+    duration?: number;
+    name?: string;
+    start_relative_time?: number;
+    type?: 'mean' | 'peak';
+  },
+) {
   return requestClient.put<{ status: string }>(
     `/api/core/performance-monitor/tag/update?tag_id=${tagId}`,
     params,
@@ -344,11 +350,11 @@ export async function deleteTag(tagId: string) {
 
 // 版本对比
 export async function createVersion(params: {
+  collect_ids: string[];
   device_id: string;
   name: string;
-  collect_ids: string[];
 }) {
-  return requestClient.post<{ version_id: string; status: string }>(
+  return requestClient.post<{ status: string; version_id: string }>(
     '/api/core/performance-monitor/version/create',
     params,
   );
@@ -364,11 +370,11 @@ export async function getVersions(deviceId?: string) {
 // 版本对比数据返回类型
 export interface CompareDataResponse {
   versions: Array<{
-    version: PerformanceVersion;
     collects: Array<{
       collect: PerformanceCollect;
       data: PerformanceData[];
     }>;
+    version: PerformanceVersion;
   }>;
 }
 
@@ -380,31 +386,45 @@ export async function getCompareData(versionIds: string[]) {
 
 // 标记 API
 export function getMarkers(collectId: string) {
-  return requestClient.get<{ items: MarkerResponse[] }>(`/api/core/performance-monitor/marker/list`, { params: { collect_id: collectId } });
+  return requestClient.get<{ items: MarkerResponse[] }>(
+    `/api/core/performance-monitor/marker/list`,
+    { params: { collect_id: collectId } },
+  );
 }
 
 export function createMarker(data: MarkerCreate) {
-  return requestClient.post<{ id: string; status: string }>(`/api/core/performance-monitor/marker`, data);
+  return requestClient.post<{ id: string; status: string }>(
+    `/api/core/performance-monitor/marker`,
+    data,
+  );
 }
 
 export function updateMarker(markerId: string, data: MarkerUpdate) {
-  return requestClient.put<{ status: string }>(`/api/core/performance-monitor/marker/${markerId}`, data);
+  return requestClient.put<{ status: string }>(
+    `/api/core/performance-monitor/marker/${markerId}`,
+    data,
+  );
 }
 
 export function deleteMarker(markerId: string) {
-  return requestClient.delete<{ status: string }>(`/api/core/performance-monitor/marker/${markerId}`);
+  return requestClient.delete<{ status: string }>(
+    `/api/core/performance-monitor/marker/${markerId}`,
+  );
 }
 
 // 高级指标查询
 export function getAvailableMetrics(collectId: string) {
   return requestClient.get<{ items: AvailableMetric[] }>(
     `/api/core/performance-monitor/metrics/list`,
-    { params: { collect_id: collectId } }
+    { params: { collect_id: collectId } },
   );
 }
 
 export function queryAdvancedMetrics(data: AdvancedMetricsQuery) {
-  return requestClient.post<AdvancedMetricsResponse>(`/api/core/performance-monitor/metrics/query`, data);
+  return requestClient.post<AdvancedMetricsResponse>(
+    `/api/core/performance-monitor/metrics/query`,
+    data,
+  );
 }
 
 // 对比标签 API（版本对比页面专用）
@@ -429,7 +449,10 @@ export async function getCompareTags() {
   );
 }
 
-export async function updateCompareTag(tagId: string, data: Partial<CompareTagCreate>) {
+export async function updateCompareTag(
+  tagId: string,
+  data: Partial<CompareTagCreate>,
+) {
   return requestClient.put<{ status: string }>(
     `/api/core/performance-monitor/compare/tag/${tagId}`,
     data,
@@ -446,7 +469,7 @@ export async function deleteCompareTag(tagId: string) {
 export interface AvailableMetric {
   key: string;
   label: string;
-  source: 'system' | 'linux' | 'harmony' | 'hwinfo';
+  source: 'harmony' | 'hwinfo' | 'linux' | 'system';
   unit?: string;
   category?: string;
 }
@@ -455,13 +478,18 @@ export interface AvailableMetric {
 
 export interface ExportTaskCreate {
   version_ids: string;
-  metric: 'cpu_usage' | 'gpu_usage' | 'memory_usage' | 'commit_memory' | 'hwinfo';
+  metric:
+    | 'commit_memory'
+    | 'cpu_usage'
+    | 'gpu_usage'
+    | 'hwinfo'
+    | 'memory_usage';
   hwinfo_key?: string;
 }
 
 export interface ExportTaskStatus {
   task_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'already_exists';
+  status: 'already_exists' | 'completed' | 'failed' | 'pending' | 'processing';
   progress: number;
   message: string;
 }
@@ -473,16 +501,19 @@ export interface ExportTaskCreateResponse {
 }
 
 // 创建导出任务
-export async function createExportTask(params: ExportTaskCreate): Promise<ExportTaskCreateResponse | ExportTaskStatus> {
-  const response = await requestClient.post<ExportTaskCreateResponse | ExportTaskStatus>(
-    '/api/core/performance-monitor/version/export/create',
-    params,
-  );
+export async function createExportTask(
+  params: ExportTaskCreate,
+): Promise<ExportTaskCreateResponse | ExportTaskStatus> {
+  const response = await requestClient.post<
+    ExportTaskCreateResponse | ExportTaskStatus
+  >('/api/core/performance-monitor/version/export/create', params);
   return response;
 }
 
 // 查询任务状态
-export async function getExportStatus(taskId: string): Promise<ExportTaskStatus> {
+export async function getExportStatus(
+  taskId: string,
+): Promise<ExportTaskStatus> {
   const response = await requestClient.get<ExportTaskStatus>(
     `/api/core/performance-monitor/version/export/status/${taskId}`,
   );

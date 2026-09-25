@@ -7,10 +7,6 @@
 @File: schema.py
 @Desc: OAuth Schema - OAuth 数据模型 - 定义 OAuth 相关的请求和响应数据结构
 """
-"""
-OAuth Schema - OAuth 数据模型
-定义 OAuth 相关的请求和响应数据结构
-"""
 from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field

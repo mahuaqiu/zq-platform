@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.env_machine.lock_manager import EnvLockManager, LockAcquireError
 from core.env_machine.model import EnvMachine
-from core.env_machine.schema import EnvMachineAllocation
 from core.env_machine.log_service import EnvMachineLogService
 from core.env_machine.log_schema import EnvMachineLogCreate, EnvMachineLogUpdate
 from utils.logging_config import get_logger
@@ -513,7 +512,7 @@ class EnvPoolManager:
 
         # 2. 获取分布式锁
         try:
-            async with EnvLockManager.env_lock_or_raise(namespace) as holder_id:
+            async with EnvLockManager.env_lock_or_raise(namespace):
                 # 3. 获取查找顺序
                 pool_hierarchy = cls._get_pool_hierarchy(namespace)
 

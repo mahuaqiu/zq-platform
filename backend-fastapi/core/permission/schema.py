@@ -7,9 +7,6 @@
 @File: schema.py
 @Desc: Permission Schema - 权限数据验证模式
 """
-"""
-Permission Schema - 权限数据验证模式
-"""
 from datetime import datetime
 from typing import Optional, List
 

@@ -96,23 +96,35 @@ export async function getUpgradeConfigListApi() {
 /**
  * 更新升级配置
  */
-export async function updateUpgradeConfigApi(id: string, data: Partial<UpgradeConfig>) {
-  return requestClient.put<UpgradeConfig>(`/api/core/env/upgrade/config/${id}`, data);
+export async function updateUpgradeConfigApi(
+  id: string,
+  data: Partial<UpgradeConfig>,
+) {
+  return requestClient.put<UpgradeConfig>(
+    `/api/core/env/upgrade/config/${id}`,
+    data,
+  );
 }
 
 /**
  * Worker 获取升级信息
  */
 export async function getWorkerUpgradeInfoApi(deviceType: string) {
-  return requestClient.get<WorkerUpgradeInfo>('/api/core/env/upgrade/worker/info', {
-    params: { device_type: deviceType },
-  });
+  return requestClient.get<WorkerUpgradeInfo>(
+    '/api/core/env/upgrade/worker/info',
+    {
+      params: { device_type: deviceType },
+    },
+  );
 }
 
 /**
  * Worker 手动触发升级
  */
-export async function workerStartUpgradeApi(machineId: string, version: string) {
+export async function workerStartUpgradeApi(
+  machineId: string,
+  version: string,
+) {
   return requestClient.post('/api/core/env/upgrade/worker/start', {
     machine_id: machineId,
     version,
@@ -123,25 +135,38 @@ export async function workerStartUpgradeApi(machineId: string, version: string) 
  * 批量升级
  */
 export async function batchUpgradeApi(data: BatchUpgradeParams) {
-  return requestClient.post<BatchUpgradeResponse>('/api/core/env/upgrade/batch', data);
+  return requestClient.post<BatchUpgradeResponse>(
+    '/api/core/env/upgrade/batch',
+    data,
+  );
 }
 
 /**
  * 升级预览
  */
-export async function getUpgradePreviewApi(namespace?: string, deviceType?: string, ip?: string) {
-  return requestClient.get<UpgradePreviewResponse>('/api/core/env/upgrade/preview', {
-    params: { namespace, device_type: deviceType, ip },
-  });
+export async function getUpgradePreviewApi(
+  namespace?: string,
+  deviceType?: string,
+  ip?: string,
+) {
+  return requestClient.get<UpgradePreviewResponse>(
+    '/api/core/env/upgrade/preview',
+    {
+      params: { namespace, device_type: deviceType, ip },
+    },
+  );
 }
 
 /**
  * 升级队列查询
  */
 export async function getUpgradeQueueApi(namespace?: string, status?: string) {
-  return requestClient.get<{ items: UpgradeQueueItem[]; total: number }>('/api/core/env/upgrade/queue', {
-    params: { namespace, status },
-  });
+  return requestClient.get<{ items: UpgradeQueueItem[]; total: number }>(
+    '/api/core/env/upgrade/queue',
+    {
+      params: { namespace, status },
+    },
+  );
 }
 
 /**

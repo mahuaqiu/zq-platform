@@ -394,7 +394,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         # 定义有效的命名空间列表（排除手工使用，从配置动态获取）
         VALID_NAMESPACES = list(settings.namespace_map.keys())
 
-        filters = [EnvMachine.is_deleted == False]
+        filters = [EnvMachine.is_deleted.is_(False)]
 
         if namespace:
             filters.append(EnvMachine.namespace == namespace)

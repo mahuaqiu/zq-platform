@@ -18,6 +18,7 @@ login-log/
 ## 主要功能
 
 ### 1. 登录日志列表
+
 - ✅ 分页查询登录日志
 - ✅ 多条件筛选（用户名、IP、状态、失败原因、浏览器、操作系统、设备类型、时间范围）
 - ✅ 显示登录状态（成功/失败）
@@ -26,6 +27,7 @@ login-log/
 - ✅ 支持多选和批量操作
 
 ### 2. 登录日志详情
+
 - ✅ 查看完整的登录信息
 - ✅ 失败原因详情
 - ✅ 用户代理信息
@@ -33,6 +35,7 @@ login-log/
 - ✅ 会话ID
 
 ### 3. 日志管理
+
 - ✅ 删除单条日志
 - ✅ 批量删除日志
 - ✅ 刷新列表
@@ -40,10 +43,12 @@ login-log/
 ## 数据字段说明
 
 ### 登录状态 (status)
+
 - `0` - 失败
 - `1` - 成功
 
 ### 失败原因 (failure_reason)
+
 - `0` - 未知错误
 - `1` - 用户不存在
 - `2` - 密码错误
@@ -54,6 +59,7 @@ login-log/
 - `7` - 其他错误
 
 ### 设备类型 (device_type)
+
 - `desktop` - 桌面设备
 - `mobile` - 移动设备
 - `tablet` - 平板设备
@@ -132,6 +138,7 @@ cleanOldLogsApi(days?: number): Promise<{deleted_count: number}>
 ## 使用说明
 
 ### 导入 API
+
 由于类型冲突问题，请直接从 login-log 模块导入：
 
 ```typescript
@@ -144,29 +151,31 @@ import {
 ```
 
 ### 访问页面
+
 页面路由需要在路由配置中添加，路径为：`/core/login-log`
 
 ### 权限要求
+
 - 查看日志：需要 `login-log:read` 权限
 - 删除日志：需要 `login-log:delete` 权限
 
 ## 表格列配置
 
-| 字段 | 标题 | 宽度 | 说明 |
-|------|------|------|------|
-| username | 用户名 | 120px | 固定在左侧 |
-| status | 登录状态 | 100px | 标签显示（成功/失败） |
-| login_ip | 登录IP | 140px | - |
-| ip_location | IP属地 | 150px | - |
-| failure_reason | 失败原因 | 120px | 默认隐藏 |
-| failure_message | 失败信息 | 180px | 默认隐藏 |
-| browser_type | 浏览器 | 120px | - |
-| os_type | 操作系统 | 120px | - |
-| device_type | 设备类型 | 100px | 标签显示 |
-| duration | 登录时长 | 120px | 默认隐藏 |
-| remark | 备注 | 150px | 默认隐藏 |
-| sys_create_datetime | 登录时间 | 180px | 可排序 |
-| operation | 操作 | 150px | 详情、删除 |
+| 字段                | 标题     | 宽度  | 说明                  |
+| ------------------- | -------- | ----- | --------------------- |
+| username            | 用户名   | 120px | 固定在左侧            |
+| status              | 登录状态 | 100px | 标签显示（成功/失败） |
+| login_ip            | 登录IP   | 140px | -                     |
+| ip_location         | IP属地   | 150px | -                     |
+| failure_reason      | 失败原因 | 120px | 默认隐藏              |
+| failure_message     | 失败信息 | 180px | 默认隐藏              |
+| browser_type        | 浏览器   | 120px | -                     |
+| os_type             | 操作系统 | 120px | -                     |
+| device_type         | 设备类型 | 100px | 标签显示              |
+| duration            | 登录时长 | 120px | 默认隐藏              |
+| remark              | 备注     | 150px | 默认隐藏              |
+| sys_create_datetime | 登录时间 | 180px | 可排序                |
+| operation           | 操作     | 150px | 详情、删除            |
 
 ## 搜索表单配置
 

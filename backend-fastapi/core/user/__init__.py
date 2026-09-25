@@ -7,9 +7,6 @@
 @File: __init__.py
 @Desc: 用户模块
 """
-"""
-用户模块
-"""
 from core.user.model import User
 from core.user.service import UserService
 

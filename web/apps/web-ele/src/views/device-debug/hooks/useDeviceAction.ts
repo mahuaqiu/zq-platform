@@ -1,13 +1,15 @@
+import type { OperationRecord } from '../types';
+
 import { ref } from 'vue';
 
 import { ElMessage } from 'element-plus';
 
 import { debugDeviceActionApi } from '#/api/core/env-machine';
-import type { OperationRecord } from '../types';
-import { formatTime, formatHistoryDisplay } from '../utils';
 
-const OPERATION_TIMEOUT = 20000; // 普通操作超时：20秒
-const UNLOCK_TIMEOUT = 30000; // 解锁操作超时：30秒
+import { formatHistoryDisplay, formatTime } from '../utils';
+
+const OPERATION_TIMEOUT = 20_000; // 普通操作超时：20秒
+const UNLOCK_TIMEOUT = 30_000; // 解锁操作超时：30秒
 const MIN_OPERATION_INTERVAL = 300; // 最小操作间隔
 
 function getActionDiagClock() {
@@ -55,7 +57,7 @@ export function useDeviceAction(deviceId: string) {
   function addHistory(
     type: string,
     params: string,
-    status: 'pending' | 'success' | 'failed',
+    status: 'failed' | 'pending' | 'success',
     error?: string,
   ): void {
     operationHistory.value.unshift({
@@ -74,7 +76,7 @@ export function useDeviceAction(deviceId: string) {
    * 更新历史记录状态
    */
   function updateHistoryStatus(
-    status: 'success' | 'failed',
+    status: 'failed' | 'success',
     error?: string,
   ): void {
     const record = operationHistory.value[0];
@@ -106,6 +108,7 @@ export function useDeviceAction(deviceId: string) {
     lastOperationTime.value = Date.now();
     const operationId = ++operationSequence;
     const operationStartedAt = performance.now();
+    // eslint-disable-next-line no-console -- 设备操作诊断日志
     console.info(
       '[action-diag] operation start',
       stringifyActionDiag({
@@ -135,6 +138,7 @@ export function useDeviceAction(deviceId: string) {
       );
 
       if (result && result.success) {
+        // eslint-disable-next-line no-console -- 设备操作诊断日志
         console.info(
           '[action-diag] operation result',
           stringifyActionDiag({
@@ -270,7 +274,7 @@ export function useDeviceAction(deviceId: string) {
   }
 
   /** 获取一次截图，不依赖实时流。 */
-  async function screenshot(monitor?: number): Promise<string | null> {
+  async function screenshot(monitor?: number): Promise<null | string> {
     const now = Date.now();
     const elapsed = now - lastOperationTime.value;
     if (elapsed < MIN_OPERATION_INTERVAL) {

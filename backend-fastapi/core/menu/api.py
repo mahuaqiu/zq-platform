@@ -7,10 +7,6 @@
 @File: api.py
 @Desc: Menu API - 菜单管理接口 - 提供菜单的 CRUD 操作和路由树生成
 """
-"""
-Menu API - 菜单管理接口
-提供菜单的 CRUD 操作和路由树生成
-"""
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,7 +19,6 @@ from core.menu.schema import (
     MenuCreate,
     MenuUpdate,
     MenuResponse,
-    MenuTreeNode,
     MenuSimple,
     MenuBatchDeleteRequest,
     MenuBatchDeleteResponse,
@@ -34,7 +29,7 @@ from core.menu.schema import (
     MenuCheckPathRequest,
 )
 from core.menu.service import MenuService
-from utils.security import get_current_user, get_current_user_id
+from utils.security import get_current_user
 
 router = APIRouter(prefix="/menu", tags=["菜单管理"])
 

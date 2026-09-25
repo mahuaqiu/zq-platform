@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 
-import { ElDialog, ElInput, ElButton, ElMessage } from 'element-plus';
+import { ElButton, ElDialog, ElInput, ElMessage } from 'element-plus';
 
 interface Props {
   visible: boolean;
@@ -52,7 +52,11 @@ function handleCancel() {
     />
     <template #footer>
       <ElButton @click="handleCancel">取消</ElButton>
-      <ElButton type="primary" :disabled="!textValue.trim()" @click="handleSend">
+      <ElButton
+        type="primary"
+        :disabled="!textValue.trim()"
+        @click="handleSend"
+      >
         发送
       </ElButton>
     </template>

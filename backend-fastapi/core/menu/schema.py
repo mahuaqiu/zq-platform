@@ -7,10 +7,6 @@
 @File: schema.py
 @Desc: Menu Schema - 菜单数据验证模式 - 字段名使用驼峰命名，与前端保持一致
 """
-"""
-Menu Schema - 菜单数据验证模式
-字段名使用驼峰命名，与前端保持一致
-"""
 from datetime import datetime
 from typing import Optional, List, Any, Dict
 

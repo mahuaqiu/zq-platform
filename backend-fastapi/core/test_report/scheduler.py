@@ -42,7 +42,7 @@ async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
         try:
             # 查询有明细但无汇总的 task_id
             subquery = select(TestReportSummary.task_project_id).where(
-                TestReportSummary.is_deleted == False
+                TestReportSummary.is_deleted.is_(False)
             )
 
             # 查询明细中有但汇总中没有的 task_project_id
@@ -51,7 +51,7 @@ async def check_and_analyze_timeout_reports(job_code: str = None, **kwargs):
                     TestReportDetail.task_project_id,
                     func.max(TestReportDetail.sys_create_datetime).label('last_report_time')
                 ).where(
-                    TestReportDetail.is_deleted == False,
+                    TestReportDetail.is_deleted.is_(False),
                     not_(TestReportDetail.task_project_id.in_(subquery))
                 ).group_by(TestReportDetail.task_project_id)
             )
@@ -140,7 +140,7 @@ async def cleanup_old_reports(job_code: str = None, **kwargs):
             result = await db.execute(
                 delete(TestReportDetail).where(
                     TestReportDetail.sys_create_datetime < detail_cutoff_time,
-                    TestReportDetail.is_deleted == False
+                    TestReportDetail.is_deleted.is_(False)
                 )
             )
             db_deleted_count = result.rowcount

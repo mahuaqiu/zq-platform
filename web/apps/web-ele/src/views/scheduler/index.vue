@@ -8,6 +8,7 @@ import { Page } from '@vben/common-ui';
 import {
   ElButton,
   ElCard,
+  ElInput,
   ElMessage,
   ElMessageBox,
   ElOption,
@@ -15,7 +16,6 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElInput,
 } from 'element-plus';
 
 import {
@@ -29,8 +29,8 @@ import {
 import {
   formatDateTime,
   formatTriggerConfig,
-  getJobStatusLabel,
   getJobStatusClass,
+  getJobStatusLabel,
   getTriggerTypeLabel,
   JOB_STATUS_OPTIONS,
   TRIGGER_TYPE_OPTIONS,
@@ -307,29 +307,55 @@ onMounted(() => {
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">启用任务</div>
-            <div class="stat-value stat-green">{{ statistics.enabled_jobs }}</div>
+            <div class="stat-value stat-green">
+              {{ statistics.enabled_jobs }}
+            </div>
           </div>
         </ElCard>
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">执行成功率</div>
-            <div class="stat-value stat-green">{{ formatSuccessRate(statistics.success_rate) }}</div>
+            <div class="stat-value stat-green">
+              {{ formatSuccessRate(statistics.success_rate) }}
+            </div>
           </div>
         </ElCard>
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">今天总执行</div>
-            <div class="stat-value stat-blue">{{ statistics.total_executions }}</div>
+            <div class="stat-value stat-blue">
+              {{ statistics.total_executions }}
+            </div>
           </div>
         </ElCard>
       </div>
 
       <!-- 表格区域 -->
       <div class="scheduler-table-wrapper">
-        <ElTable :data="tableData" v-loading="loading" class="scheduler-table" border>
-          <ElTableColumn prop="group" label="任务分组" min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="name" label="任务名称" min-width="150" show-overflow-tooltip />
-          <ElTableColumn prop="code" label="任务编码" min-width="200" show-overflow-tooltip>
+        <ElTable
+          :data="tableData"
+          v-loading="loading"
+          class="scheduler-table"
+          border
+        >
+          <ElTableColumn
+            prop="group"
+            label="任务分组"
+            min-width="100"
+            show-overflow-tooltip
+          />
+          <ElTableColumn
+            prop="name"
+            label="任务名称"
+            min-width="150"
+            show-overflow-tooltip
+          />
+          <ElTableColumn
+            prop="code"
+            label="任务编码"
+            min-width="200"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               <code class="scheduler-code">{{ row.code }}</code>
             </template>
@@ -339,33 +365,63 @@ onMounted(() => {
               {{ getTriggerTypeLabel(row.trigger_type) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="trigger_config" label="触发配置" min-width="140" show-overflow-tooltip>
+          <ElTableColumn
+            prop="trigger_config"
+            label="触发配置"
+            min-width="140"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               <code class="scheduler-code">{{ formatTriggerConfig(row) }}</code>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="status" label="状态" min-width="80" align="center">
+          <ElTableColumn
+            prop="status"
+            label="状态"
+            min-width="80"
+            align="center"
+          >
             <template #default="{ row }">
-              <span :class="`job-status-tag job-status-${getJobStatusClass(row.status)}`">
+              <span
+                :class="`job-status-tag job-status-${getJobStatusClass(row.status)}`"
+              >
                 {{ getJobStatusLabel(row.status) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="today_run_count" label="今日执行" min-width="90" align="center">
+          <ElTableColumn
+            prop="today_run_count"
+            label="今日执行"
+            min-width="90"
+            align="center"
+          >
             <template #default="{ row }">
               {{ row.today_run_count || 0 }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="next_run_time" label="下次执行时间" min-width="160">
+          <ElTableColumn
+            prop="next_run_time"
+            label="下次执行时间"
+            min-width="160"
+          >
             <template #default="{ row }">
               {{ formatDateTime(row.next_run_time) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" min-width="140" fixed="right" align="center">
+          <ElTableColumn
+            label="操作"
+            min-width="140"
+            fixed="right"
+            align="center"
+          >
             <template #default="{ row }">
               <a class="scheduler-link" @click="handleExecute(row)">执行</a>
               <a class="scheduler-link" @click="handleEdit(row)">编辑</a>
-              <a class="scheduler-link scheduler-link-danger" @click="handleDelete(row)">删除</a>
+              <a
+                class="scheduler-link scheduler-link-danger"
+                @click="handleDelete(row)"
+                >删除</a
+              >
             </template>
           </ElTableColumn>
         </ElTable>
@@ -391,11 +447,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* 页面容器 */
-.scheduler-page {
-  background: #f0f2f5;
-}
-
 /* 响应式：小屏幕下统计卡片改为2列 */
 @media (max-width: 1200px) {
   .scheduler-statistics {
@@ -407,6 +458,10 @@ onMounted(() => {
   .scheduler-statistics {
     grid-template-columns: 1fr;
   }
+}
+
+.scheduler-page {
+  background: #f0f2f5;
 }
 
 .scheduler-search-area {
@@ -440,13 +495,13 @@ onMounted(() => {
 }
 
 .scheduler-create-btn {
+  padding: 10px 20px !important;
   margin-left: auto;
-  background: #f5f5f5 !important;
+  font-weight: 500;
   color: #111 !important;
+  background: #f5f5f5 !important;
   border: 1px solid #d9d9d9 !important;
   border-radius: 8px !important;
-  padding: 10px 20px !important;
-  font-weight: 500;
 }
 
 /* 统计卡片 */
@@ -461,9 +516,9 @@ onMounted(() => {
 .stat-card {
   cursor: pointer;
   background: #fff !important;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
   transition: transform 0.2s ease;
 }
 
@@ -529,9 +584,10 @@ onMounted(() => {
   --el-table-row-hover-bg-color: #fafafa;
   --el-table-text-color: #333;
   --el-table-header-text-color: #333;
+
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 /* 确保表格有外边框 */
@@ -663,6 +719,8 @@ onMounted(() => {
   justify-content: flex-end;
   padding: 16px 0 0;
 }
+
+/* 页面容器 */
 
 /* 搜索区域 */
 </style>

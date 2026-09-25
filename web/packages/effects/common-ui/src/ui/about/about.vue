@@ -98,11 +98,17 @@ const vbenDescriptionItems: DescriptionItem[] = [
     title: props.labels?.docUrl || '文档地址',
   },
   {
-    content: renderLink(VBEN_PREVIEW_URL, props.labels?.viewDetails || '点击查看'),
+    content: renderLink(
+      VBEN_PREVIEW_URL,
+      props.labels?.viewDetails || '点击查看',
+    ),
     title: props.labels?.previewUrl || '预览地址',
   },
   {
-    content: renderLink(VBEN_GITHUB_URL, props.labels?.viewDetails || '点击查看'),
+    content: renderLink(
+      VBEN_GITHUB_URL,
+      props.labels?.viewDetails || '点击查看',
+    ),
     title: props.labels?.github || 'Github',
   },
   {
@@ -137,7 +143,9 @@ const devDependenciesItems = Object.keys(devDependencies).map((key) => ({
     </template>
     <div class="card-box p-5">
       <div>
-        <h5 class="text-foreground text-lg">{{ labels?.basicInfo || '基本信息' }}</h5>
+        <h5 class="text-foreground text-lg">
+          {{ labels?.basicInfo || '基本信息' }}
+        </h5>
       </div>
       <div class="mt-4">
         <dl class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -157,7 +165,9 @@ const devDependenciesItems = Object.keys(devDependencies).map((key) => ({
 
     <div class="card-box mt-6 p-5">
       <div>
-        <h5 class="text-foreground text-lg">{{ labels?.productionDependencies || '生产环境依赖' }}</h5>
+        <h5 class="text-foreground text-lg">
+          {{ labels?.productionDependencies || '生产环境依赖' }}
+        </h5>
       </div>
       <div class="mt-4">
         <dl class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -176,7 +186,9 @@ const devDependenciesItems = Object.keys(devDependencies).map((key) => ({
     </div>
     <div class="card-box mt-6 p-5">
       <div>
-        <h5 class="text-foreground text-lg">{{ labels?.devDependencies || '开发环境依赖' }}</h5>
+        <h5 class="text-foreground text-lg">
+          {{ labels?.devDependencies || '开发环境依赖' }}
+        </h5>
       </div>
       <div class="mt-4">
         <dl class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">

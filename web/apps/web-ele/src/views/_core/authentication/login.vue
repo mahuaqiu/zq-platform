@@ -52,12 +52,14 @@ function handleGuestLogin() {
   >
     <template #title>
       <div class="mb-7 flex items-center gap-3">
-        <h2 class="text-foreground text-3xl font-bold leading-9 tracking-tight lg:text-4xl">
+        <h2
+          class="text-foreground text-3xl font-bold leading-9 tracking-tight lg:text-4xl"
+        >
           {{ $t('authentication.welcomeBack') }} 👋🏻
         </h2>
         <button
           type="button"
-          class="cursor-pointer rounded-md border border-primary px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+          class="border-primary text-primary hover:bg-primary/10 cursor-pointer rounded-md border px-3 py-1 text-xs font-medium transition-colors"
           :disabled="authStore.loginLoading"
           @click="handleGuestLogin"
         >

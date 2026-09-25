@@ -29,7 +29,7 @@ function handleConfirm() {
 
 <template>
   <el-button @click="visible = true">打开对话框</el-button>
-  
+
   <ZqDialog
     v-model="visible"
     title="基础对话框"
@@ -79,11 +79,7 @@ async function handleConfirm() {
 ## 限制内容区高度
 
 ```vue
-<ZqDialog
-  v-model="visible"
-  title="长内容"
-  max-height="400px"
->
+<ZqDialog v-model="visible" title="长内容" max-height="400px">
   <div>很长的内容...</div>
 </ZqDialog>
 ```
@@ -126,64 +122,62 @@ function startLoading() {
 </script>
 
 <template>
-  <ZqDialog ref="dialogRef" title="测试">
-    内容
-  </ZqDialog>
+  <ZqDialog ref="dialogRef" title="测试"> 内容 </ZqDialog>
 </template>
 ```
 
 ## Props
 
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| modelValue | boolean | false | v-model 控制显隐 |
-| title | string | '' | 标题 |
-| width | string \| number | '50%' | 宽度 |
-| contentHeight | string \| number | - | 内容区固定高度 |
-| maxHeight | string \| number | - | 内容区最大高度 |
-| loading | boolean | false | 内容区 loading |
-| confirmLoading | boolean | false | 确认按钮 loading |
-| showFooter | boolean | true | 显示底部 |
-| showConfirmButton | boolean | true | 显示确认按钮 |
-| showCancelButton | boolean | true | 显示取消按钮 |
-| confirmText | string | '确定' | 确认按钮文字 |
-| cancelText | string | '取消' | 取消按钮文字 |
-| confirmButtonType | string | 'primary' | 确认按钮类型 |
-| showFullscreenButton | boolean | true | 显示全屏按钮 |
-| showCloseButton | boolean | true | 显示关闭按钮 |
-| draggable | boolean | true | 可拖拽 |
-| destroyOnClose | boolean | true | 关闭销毁 |
-| closeOnClickModal | boolean | false | 点击遮罩关闭 |
-| appendToBody | boolean | true | 插入 body |
+| 属性                 | 类型             | 默认值    | 说明             |
+| -------------------- | ---------------- | --------- | ---------------- |
+| modelValue           | boolean          | false     | v-model 控制显隐 |
+| title                | string           | ''        | 标题             |
+| width                | string \| number | '50%'     | 宽度             |
+| contentHeight        | string \| number | -         | 内容区固定高度   |
+| maxHeight            | string \| number | -         | 内容区最大高度   |
+| loading              | boolean          | false     | 内容区 loading   |
+| confirmLoading       | boolean          | false     | 确认按钮 loading |
+| showFooter           | boolean          | true      | 显示底部         |
+| showConfirmButton    | boolean          | true      | 显示确认按钮     |
+| showCancelButton     | boolean          | true      | 显示取消按钮     |
+| confirmText          | string           | '确定'    | 确认按钮文字     |
+| cancelText           | string           | '取消'    | 取消按钮文字     |
+| confirmButtonType    | string           | 'primary' | 确认按钮类型     |
+| showFullscreenButton | boolean          | true      | 显示全屏按钮     |
+| showCloseButton      | boolean          | true      | 显示关闭按钮     |
+| draggable            | boolean          | true      | 可拖拽           |
+| destroyOnClose       | boolean          | true      | 关闭销毁         |
+| closeOnClickModal    | boolean          | false     | 点击遮罩关闭     |
+| appendToBody         | boolean          | true      | 插入 body        |
 
 > 其他 ElDialog 属性通过 `v-bind="$attrs"` 透传
 
 ## Events
 
-| 事件 | 说明 |
-|------|------|
+| 事件              | 说明         |
+| ----------------- | ------------ |
 | update:modelValue | v-model 更新 |
-| confirm | 点击确认按钮 |
-| cancel | 点击取消按钮 |
-| open | 打开时 |
-| opened | 打开动画结束 |
-| close | 关闭时 |
-| closed | 关闭动画结束 |
+| confirm           | 点击确认按钮 |
+| cancel            | 点击取消按钮 |
+| open              | 打开时       |
+| opened            | 打开动画结束 |
+| close             | 关闭时       |
+| closed            | 关闭动画结束 |
 
 ## Slots
 
-| 插槽 | 说明 |
-|------|------|
-| default | 对话框内容 |
-| title | 自定义标题 |
+| 插槽         | 说明                           |
+| ------------ | ------------------------------ |
+| default      | 对话框内容                     |
+| title        | 自定义标题                     |
 | header-extra | 头部额外内容（在图标按钮之前） |
-| footer | 自定义底部 |
+| footer       | 自定义底部                     |
 
 ## Expose
 
-| 方法 | 说明 |
-|------|------|
-| open() | 打开对话框 |
-| close() | 关闭对话框 |
-| setLoading(val) | 设置内容区 loading |
+| 方法                   | 说明                 |
+| ---------------------- | -------------------- |
+| open()                 | 打开对话框           |
+| close()                | 关闭对话框           |
+| setLoading(val)        | 设置内容区 loading   |
 | setConfirmLoading(val) | 设置确认按钮 loading |

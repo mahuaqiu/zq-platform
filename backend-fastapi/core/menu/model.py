@@ -7,10 +7,6 @@
 @File: model.py
 @Desc: Menu Model - 菜单模型 - 用于管理系统菜单和前端路由
 """
-"""
-Menu Model - 菜单模型
-用于管理系统菜单和前端路由
-"""
 from sqlalchemy import Column, String, Boolean, Integer, JSON
 from sqlalchemy.orm import relationship
 

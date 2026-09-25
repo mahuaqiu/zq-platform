@@ -170,19 +170,10 @@ export class WebSocketManager {
         const separator = this.config.url.includes('?') ? '&' : '?';
         const wsUrl = `${this.config.url}${separator}token=${encodeURIComponent(token)}`;
 
-        console.log(
-          'Connecting to WebSocket:',
-          wsUrl.replace(/token=[^&]+/, 'token=***'),
-        );
-        console.log('WebSocket URL详情:', {
-          originalUrl: this.config.url,
-          finalUrl: wsUrl.replace(/token=[^&]+/, 'token=***'),
-          isDev: import.meta.env.DEV,
-        });
-
         this.ws = new WebSocket(wsUrl, this.config.protocols);
 
         this.ws.addEventListener('open', (event) => {
+          // eslint-disable-next-line no-console -- WebSocket 连接生命周期日志
           console.log('WebSocket连接已建立');
           this.reconnectAttempts = 0;
           this.startHeartbeat();
@@ -190,7 +181,7 @@ export class WebSocketManager {
           resolve();
         });
 
-        this.ws.onmessage = (event) => {
+        this.ws.addEventListener('message', (event) => {
           try {
             const message: WebSocketApi.WebSocketMessage = JSON.parse(
               event.data,
@@ -198,7 +189,6 @@ export class WebSocketManager {
 
             // 处理心跳响应
             if (message.type === 'pong') {
-              console.log('收到心跳响应');
               return;
             }
 
@@ -206,9 +196,10 @@ export class WebSocketManager {
           } catch (error) {
             console.error('解析WebSocket消息失败:', error);
           }
-        };
+        });
 
         this.ws.addEventListener('close', (event) => {
+          // eslint-disable-next-line no-console -- WebSocket 连接生命周期日志
           console.log('WebSocket连接已关闭', event.code, event.reason);
           this.stopHeartbeat();
           this.callbacks.onClose?.(event);
@@ -219,11 +210,11 @@ export class WebSocketManager {
           }
         });
 
-        this.ws.onerror = (event) => {
+        this.ws.addEventListener('error', (event) => {
           console.error('WebSocket连接错误', event);
           this.callbacks.onError?.(event);
           reject(new Error('WebSocket连接失败'));
-        };
+        });
       } catch (error) {
         reject(error);
       }
@@ -234,13 +225,13 @@ export class WebSocketManager {
    * 发送消息
    */
   send(message: WebSocketApi.WebSocketMessage): boolean {
-    if (!this.isConnected) {
+    if (!this.isConnected || !this.ws) {
       console.warn('WebSocket未连接，无法发送消息');
       return false;
     }
 
     try {
-      this.ws!.send(JSON.stringify(message));
+      this.ws.send(JSON.stringify(message));
       return true;
     } catch (error) {
       console.error('发送WebSocket消息失败:', error);
@@ -266,11 +257,13 @@ export class WebSocketManager {
       this.reconnectAttempts >= (this.config.maxReconnectAttempts || 5) ||
       this.isManualClose
     ) {
+      // eslint-disable-next-line no-console -- WebSocket 连接生命周期日志
       console.log('WebSocket重连次数已达上限或手动关闭');
       return;
     }
 
     this.reconnectAttempts++;
+    // eslint-disable-next-line no-console -- WebSocket 连接生命周期日志
     console.log(
       `WebSocket重连中... (${this.reconnectAttempts}/${this.config.maxReconnectAttempts})`,
     );

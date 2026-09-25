@@ -26,7 +26,6 @@ import {
 
 import { getDeptByParentApi, searchDeptApi } from '#/api/core/dept';
 import { getUserDetailApi } from '#/api/core/user';
-
 import { ZqDialog } from '#/components/zq-dialog';
 
 defineOptions({

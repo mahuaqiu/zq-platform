@@ -1,10 +1,9 @@
 <script lang="ts" setup>
+import type { DeviceType } from '../types';
 
 import { computed } from 'vue';
 
 import { ElButton, ElDialog } from 'element-plus';
-
-import type { DeviceType } from '../types';
 
 interface Props {
   visible: boolean;
@@ -22,14 +21,62 @@ const emit = defineEmits<Emits>();
 
 // 所有按键定义
 const allKeys = [
-  { value: 'HOME', icon: '🏠', text: 'Home', desc: '返回主页', devices: ['android', 'ios'] },
-  { value: 'BACK', icon: '↩️', text: 'Back', desc: '返回上一页', devices: ['android'] },
-  { value: 'MENU', icon: '📋', text: 'Menu', desc: '菜单键', devices: ['android'] },
-  { value: 'ENTER', icon: '⏎', text: 'Enter', desc: '确认', devices: ['android'] },
-  { value: 'SEARCH', icon: '🔍', text: 'Search', desc: '搜索键', devices: ['android'] },
-  { value: 'VOLUME_UP', icon: '🔊', text: 'Volume Up', desc: '音量+(24)', devices: ['android', 'ios'] },
-  { value: 'VOLUME_DOWN', icon: '🔉', text: 'Volume Down', desc: '音量-(25)', devices: ['android', 'ios'] },
-  { value: 'LOCK', icon: '🔴', text: 'Lock', desc: '电源键(26)', devices: ['android', 'ios'] },
+  {
+    value: 'HOME',
+    icon: '🏠',
+    text: 'Home',
+    desc: '返回主页',
+    devices: ['android', 'ios'],
+  },
+  {
+    value: 'BACK',
+    icon: '↩️',
+    text: 'Back',
+    desc: '返回上一页',
+    devices: ['android'],
+  },
+  {
+    value: 'MENU',
+    icon: '📋',
+    text: 'Menu',
+    desc: '菜单键',
+    devices: ['android'],
+  },
+  {
+    value: 'ENTER',
+    icon: '⏎',
+    text: 'Enter',
+    desc: '确认',
+    devices: ['android'],
+  },
+  {
+    value: 'SEARCH',
+    icon: '🔍',
+    text: 'Search',
+    desc: '搜索键',
+    devices: ['android'],
+  },
+  {
+    value: 'VOLUME_UP',
+    icon: '🔊',
+    text: 'Volume Up',
+    desc: '音量+(24)',
+    devices: ['android', 'ios'],
+  },
+  {
+    value: 'VOLUME_DOWN',
+    icon: '🔉',
+    text: 'Volume Down',
+    desc: '音量-(25)',
+    devices: ['android', 'ios'],
+  },
+  {
+    value: 'LOCK',
+    icon: '🔴',
+    text: 'Lock',
+    desc: '电源键(26)',
+    devices: ['android', 'ios'],
+  },
 ];
 
 // 根据设备类型过滤按键列表
@@ -38,7 +85,7 @@ const keys = computed(() => {
     // 没有设备类型时显示所有按键
     return allKeys;
   }
-  return allKeys.filter(key => key.devices.includes(props.deviceType!));
+  return allKeys.filter((key) => key.devices.includes(props.deviceType!));
 });
 
 // 关闭弹窗
@@ -82,9 +129,9 @@ function handleKeyPress(key: string) {
 
 <style scoped>
 .key-desc-top {
+  margin-bottom: 10px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 10px;
 }
 
 .key-list {
@@ -94,10 +141,10 @@ function handleKeyPress(key: string) {
 }
 
 .key-item-btn {
+  justify-content: flex-start;
   width: 100%;
   padding: 10px;
   text-align: left;
-  justify-content: flex-start;
 }
 
 .key-item-btn :deep(.el-button__content) {
@@ -111,8 +158,8 @@ function handleKeyPress(key: string) {
 }
 
 .key-text {
-  font-size: 13px;
   min-width: 100px;
+  font-size: 13px;
 }
 
 .key-desc {
@@ -121,11 +168,11 @@ function handleKeyPress(key: string) {
 }
 
 .key-tip {
-  margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #eee;
+  margin-top: 12px;
   font-size: 12px;
   color: #999;
   text-align: center;
+  border-top: 1px solid #eee;
 }
 </style>

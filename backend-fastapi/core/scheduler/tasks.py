@@ -7,7 +7,6 @@
 @File: tasks.py
 @Desc: Scheduler Tasks - 定时任务函数
 """
-import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import select

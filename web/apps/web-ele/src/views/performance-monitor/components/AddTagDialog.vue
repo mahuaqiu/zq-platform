@@ -1,15 +1,35 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElButton, ElMessage } from 'element-plus';
+
+import {
+  ElButton,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
+  ElSelect,
+} from 'element-plus';
 
 defineProps<{
-  visible: boolean;
   maxTime?: number; // 最大时间（秒），用于限制输入范围
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
-  (e: 'submit', data: { name: string; type: 'peak' | 'stable'; start_time: number; end_time: number; note?: string }): void;
+  (
+    e: 'submit',
+    data: {
+      end_time: number;
+      name: string;
+      note?: string;
+      start_time: number;
+      type: 'peak' | 'stable';
+    },
+  ): void;
 }>();
 
 const form = ref({
@@ -23,7 +43,13 @@ const form = ref({
 const handleClose = () => {
   emit('update:visible', false);
   // 重置表单
-  form.value = { name: '', type: 'peak', start_time: 0, end_time: 60, note: '' };
+  form.value = {
+    name: '',
+    type: 'peak',
+    start_time: 0,
+    end_time: 60,
+    note: '',
+  };
 };
 
 const handleSubmit = () => {
@@ -57,10 +83,7 @@ const handleSubmit = () => {
   >
     <ElForm label-width="80px">
       <ElFormItem label="标签名称">
-        <ElInput
-          v-model="form.name"
-          placeholder="如：场景加载、发起共享"
-        />
+        <ElInput v-model="form.name" placeholder="如：场景加载、发起共享" />
       </ElFormItem>
       <ElFormItem label="区间类型">
         <ElSelect v-model="form.type">
@@ -76,7 +99,7 @@ const handleSubmit = () => {
           :step="1"
           placeholder="相对秒数"
         />
-        <span style="margin-left: 8px; color: #999; font-size: 12px;">秒</span>
+        <span style="margin-left: 8px; font-size: 12px; color: #999">秒</span>
       </ElFormItem>
       <ElFormItem label="结束时间">
         <ElInputNumber
@@ -86,13 +109,10 @@ const handleSubmit = () => {
           :step="1"
           placeholder="相对秒数"
         />
-        <span style="margin-left: 8px; color: #999; font-size: 12px;">秒</span>
+        <span style="margin-left: 8px; font-size: 12px; color: #999">秒</span>
       </ElFormItem>
       <ElFormItem label="备注">
-        <ElInput
-          v-model="form.note"
-          placeholder="可选"
-        />
+        <ElInput v-model="form.note" placeholder="可选" />
       </ElFormItem>
     </ElForm>
     <template #footer>

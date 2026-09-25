@@ -1,9 +1,11 @@
 <script lang="ts" setup>
+import type { KeyDefinition } from '../keyboard-data';
+import type { DeviceType } from '../types';
+
 import { computed, ref } from 'vue';
 
 import { ElButton, ElDialog } from 'element-plus';
 
-import type { DeviceType } from '../types';
 import {
   CAPS_ROW,
   combineKeys,
@@ -12,7 +14,6 @@ import {
   SHIFT_ROW,
   TAB_ROW,
   WINDOWS_SHORTCUTS,
-  type KeyDefinition,
 } from '../keyboard-data';
 
 interface Props {
@@ -33,8 +34,11 @@ const emit = defineEmits<Emits>();
 const activeModifiers = ref<string[]>([]);
 
 // 判断是否为桌面端设备
-const isDesktop = computed(() =>
-  props.deviceType === 'windows' || props.deviceType === 'mac' || props.deviceType === 'harmony_pc'
+const isDesktop = computed(
+  () =>
+    props.deviceType === 'windows' ||
+    props.deviceType === 'mac' ||
+    props.deviceType === 'harmony_pc',
 );
 
 // 判断是否为 Mac 设备
@@ -43,7 +47,7 @@ const isHarmonyPc = computed(() => props.deviceType === 'harmony_pc');
 
 // 根据平台选择快捷键列表（精简为6个）
 const shortcuts = computed(() =>
-  isMac.value ? MAC_SHORTCUTS.slice(0, 6) : WINDOWS_SHORTCUTS.slice(0, 6)
+  isMac.value ? MAC_SHORTCUTS.slice(0, 6) : WINDOWS_SHORTCUTS.slice(0, 6),
 );
 
 // 精简的功能键行（Esc + 运算符号）
@@ -57,21 +61,39 @@ const miniFunctionKeys: KeyDefinition[] = [
 
 // 精简的数字行（去掉减号，避免重复）
 const filteredNumberRow = computed(() =>
-  NUMBER_ROW.filter(key => key.value !== '-')
+  NUMBER_ROW.filter((key) => key.value !== '-'),
 );
 
 // 精简的 Shift 行（只保留左边 Shift）
-const filteredShiftRow = computed(() =>
-  SHIFT_ROW.slice(0, -1) // 去掉最后一个 Shift
+const filteredShiftRow = computed(
+  () => SHIFT_ROW.slice(0, -1), // 去掉最后一个 Shift
 );
 
 // 精简的底行修饰键（去掉右侧重复，添加编辑键）
 const customBottomRow = computed<KeyDefinition[]>(() => {
   if (isMac.value) {
     return [
-      { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
-      { value: 'opt', label: 'Opt', type: 'modifier', width: 44, color: '#e6a23c' },
-      { value: 'cmd', label: 'Cmd', type: 'modifier', width: 44, color: '#e6a23c' },
+      {
+        value: 'ctrl',
+        label: 'Ctrl',
+        type: 'modifier',
+        width: 56,
+        color: '#e6a23c',
+      },
+      {
+        value: 'opt',
+        label: 'Opt',
+        type: 'modifier',
+        width: 44,
+        color: '#e6a23c',
+      },
+      {
+        value: 'cmd',
+        label: 'Cmd',
+        type: 'modifier',
+        width: 44,
+        color: '#e6a23c',
+      },
       { value: 'space', label: 'Space', type: 'normal', width: 120 },
       { value: 'insert', label: 'Ins', type: 'normal', width: 36 },
       { value: 'delete', label: 'Del', type: 'normal', width: 36 },
@@ -80,9 +102,27 @@ const customBottomRow = computed<KeyDefinition[]>(() => {
     ];
   }
   return [
-    { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
-    { value: 'win', label: 'Win', type: 'modifier', width: 44, color: '#e6a23c' },
-    { value: 'alt', label: 'Alt', type: 'modifier', width: 44, color: '#e6a23c' },
+    {
+      value: 'ctrl',
+      label: 'Ctrl',
+      type: 'modifier',
+      width: 56,
+      color: '#e6a23c',
+    },
+    {
+      value: 'win',
+      label: 'Win',
+      type: 'modifier',
+      width: 44,
+      color: '#e6a23c',
+    },
+    {
+      value: 'alt',
+      label: 'Alt',
+      type: 'modifier',
+      width: 44,
+      color: '#e6a23c',
+    },
     { value: 'space', label: 'Space', type: 'normal', width: 120 },
     { value: 'insert', label: 'Ins', type: 'normal', width: 36 },
     { value: 'delete', label: 'Del', type: 'normal', width: 36 },
@@ -99,10 +139,10 @@ function isKeyActive(key: string): boolean {
 // 点击修饰键
 function handleModifierClick(key: string) {
   const index = activeModifiers.value.indexOf(key);
-  if (index >= 0) {
-    activeModifiers.value.splice(index, 1);
-  } else {
+  if (index === -1) {
     activeModifiers.value.push(key);
+  } else {
+    activeModifiers.value.splice(index, 1);
   }
 }
 
@@ -193,7 +233,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
               {{ key.label }}
             </ElButton>
             <!-- 快捷键按钮（靠右放） -->
-            <div class="key-row-gap" />
+            <div class="key-row-gap"></div>
             <ElButton
               v-for="shortcut in shortcuts"
               :key="shortcut.value"
@@ -207,7 +247,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             </ElButton>
             <!-- Ctrl+Alt+Del -->
             <ElButton
-              style="background: #f56c6c; color: #fff;"
+              style="color: #fff; background: #f56c6c"
               class="key-btn"
               :disabled="disabled"
               size="small"
@@ -222,7 +262,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             <ElButton
               v-for="key in filteredNumberRow"
               :key="key.value"
-              style="width: 32px;"
+              style="width: 32px"
               :class="getKeyClass(key)"
               :disabled="disabled"
               size="small"
@@ -236,7 +276,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
           <div class="key-row">
             <ElButton
               v-for="key in TAB_ROW"
-              :key="key.value + '-tab'"
+              :key="`${key.value}-tab`"
               :style="getKeyStyle(key)"
               :class="getKeyClass(key)"
               :disabled="disabled"
@@ -251,7 +291,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
           <div class="key-row">
             <ElButton
               v-for="key in CAPS_ROW"
-              :key="key.value + '-caps'"
+              :key="`${key.value}-caps`"
               :style="getKeyStyle(key)"
               :class="getKeyClass(key)"
               :disabled="disabled"
@@ -266,7 +306,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
           <div class="key-row">
             <ElButton
               v-for="key in filteredShiftRow"
-              :key="key.value + '-shift'"
+              :key="`${key.value}-shift`"
               :style="getKeyStyle(key)"
               :class="getKeyClass(key)"
               :disabled="disabled"
@@ -281,7 +321,7 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
           <div class="key-row">
             <ElButton
               v-for="key in customBottomRow"
-              :key="key.value + '-bottom'"
+              :key="`${key.value}-bottom`"
               :style="getKeyStyle(key)"
               :class="getKeyClass(key)"
               :disabled="disabled"
@@ -305,7 +345,12 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
             <ElButton size="small" :disabled="disabled" @click="clearModifiers">
               清空
             </ElButton>
-            <ElButton size="small" type="danger" :disabled="disabled" @click="handleClose">
+            <ElButton
+              size="small"
+              type="danger"
+              :disabled="disabled"
+              @click="handleClose"
+            >
               关闭
             </ElButton>
           </div>
@@ -321,13 +366,37 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
           <ElButton
             v-for="key in [
               { value: 'HOME', icon: '🏠', text: 'Home', desc: '返回主页' },
-              { value: 'BACK', icon: '↩️', text: 'Back', desc: '返回上一页', devices: ['android'] },
-              { value: 'MENU', icon: '📋', text: 'Menu', desc: '菜单键', devices: ['android'] },
+              {
+                value: 'BACK',
+                icon: '↩️',
+                text: 'Back',
+                desc: '返回上一页',
+                devices: ['android'],
+              },
+              {
+                value: 'MENU',
+                icon: '📋',
+                text: 'Menu',
+                desc: '菜单键',
+                devices: ['android'],
+              },
               { value: 'ENTER', icon: '⏎', text: 'Enter', desc: '确认' },
-              { value: 'VOLUME_UP', icon: '🔊', text: 'Volume Up', desc: '音量+' },
-              { value: 'VOLUME_DOWN', icon: '🔉', text: 'Volume Down', desc: '音量-' },
+              {
+                value: 'VOLUME_UP',
+                icon: '🔊',
+                text: 'Volume Up',
+                desc: '音量+',
+              },
+              {
+                value: 'VOLUME_DOWN',
+                icon: '🔉',
+                text: 'Volume Down',
+                desc: '音量-',
+              },
               { value: 'LOCK', icon: '🔴', text: 'Lock', desc: '电源键' },
-            ].filter(k => !k.devices || k.devices.includes(deviceType || 'android'))"
+            ].filter(
+              (k) => !k.devices || k.devices.includes(deviceType || 'android'),
+            )"
             :key="key.value"
             type="primary"
             class="key-item-btn"
@@ -359,10 +428,10 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #fff;
   padding: 8px;
-  border-radius: 6px;
+  background: #fff;
   border: 1px solid #ddd;
+  border-radius: 6px;
 }
 
 /* 按键行 */
@@ -387,10 +456,10 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
   padding: 0 4px;
   font-size: 11px;
   font-weight: 500;
-  border-radius: 3px;
+  color: #606266;
   background-color: #f5f7fa;
   border: 1px solid #dcdfe6;
-  color: #606266;
+  border-radius: 3px;
   transition: all 0.15s;
 }
 
@@ -400,22 +469,22 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 
 /* 修饰键样式 */
 .key-modifier {
+  color: #e6a23c;
   background-color: #fdf6ec;
   border-color: #f5dab1;
-  color: #e6a23c;
 }
 
 .key-modifier.key-active {
+  color: #fff;
   background-color: #e6a23c;
   border-color: #e6a23c;
-  color: #fff;
 }
 
 /* 底部操作区 */
 .keyboard-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding-top: 8px;
 }
 
@@ -439,9 +508,9 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 }
 
 .key-desc-top {
+  margin-bottom: 8px;
   font-size: 12px;
   color: #666;
-  margin-bottom: 8px;
 }
 
 .key-list {
@@ -451,10 +520,10 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 }
 
 .key-item-btn {
+  justify-content: flex-start;
   width: 100%;
   padding: 8px;
   text-align: left;
-  justify-content: flex-start;
 }
 
 .key-item-btn :deep(.el-button__content) {
@@ -468,8 +537,8 @@ function getKeyClass(key: KeyDefinition): Record<string, boolean> {
 }
 
 .key-text {
-  font-size: 12px;
   min-width: 80px;
+  font-size: 12px;
 }
 
 .key-desc {

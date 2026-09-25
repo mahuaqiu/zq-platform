@@ -7,7 +7,7 @@
 """
 import pytest
 from fastapi import HTTPException
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from core.env_machine.auth import verify_env_apply_auth
 
 

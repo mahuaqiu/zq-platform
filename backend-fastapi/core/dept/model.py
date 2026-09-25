@@ -7,10 +7,6 @@
 @File: model.py
 @Desc: Dept Model - 部门模型 - 用于管理组织架构中的部门信息
 """
-"""
-Dept Model - 部门模型
-用于管理组织架构中的部门信息
-"""
 from sqlalchemy import Column, String, Text, Boolean, Integer, Index, text
 from sqlalchemy.orm import relationship
 

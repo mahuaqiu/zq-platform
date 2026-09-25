@@ -21,12 +21,12 @@ export interface TestReportListItem {
   id: string;
   taskProjectID: string;
   taskName: string;
-  executeTime: string | null;
+  executeTime: null | string;
   totalCases: number;
   executeTotal: number;
   failTotal: number;
   passRate: string;
-  compareChange: number | null;
+  compareChange: null | number;
 }
 
 // 报告汇总
@@ -38,15 +38,15 @@ export interface TestReportSummary {
   executeTotal: number;
   failTotal: number;
   passRate: string;
-  compareChange: number | null;
-  lastFailTotal: number | null;
-  roundStats: RoundStatItem[] | null;
-  failAlways: number | null;
-  failUnstable: number | null;
-  stepDistribution: StepDistributionItem[] | null;
-  aiAnalysis: string | null;
-  analysisStatus: string | null;
-  executeTime: string | null;
+  compareChange: null | number;
+  lastFailTotal: null | number;
+  roundStats: null | RoundStatItem[];
+  failAlways: null | number;
+  failUnstable: null | number;
+  stepDistribution: null | StepDistributionItem[];
+  aiAnalysis: null | string;
+  analysisStatus: null | string;
+  executeTime: null | string;
 }
 
 // 报告明细
@@ -58,9 +58,9 @@ export interface TestReportDetail {
   caseFailStep: string;
   caseFailLog: string;
   round: number;
-  testcaseBlockID: string | null;
-  logUrl: string | null;
-  failTime: string | null;
+  testcaseBlockID: null | string;
+  logUrl: null | string;
+  failTime: null | string;
   createTime: string;
 }
 
@@ -86,7 +86,9 @@ export async function getReportListApi(params: {
 /**
  * 获取报告汇总
  */
-export async function getReportSummaryApi(taskId: string): Promise<TestReportSummary> {
+export async function getReportSummaryApi(
+  taskId: string,
+): Promise<TestReportSummary> {
   return requestClient.get(`${BASE_URL}/summary/${taskId}`);
 }
 
@@ -110,8 +112,10 @@ export async function getReportDetailApi(
 export async function getCaseLogApi(
   taskId: string,
   caseName: string,
-): Promise<{ logUrl: string | null }> {
-  return requestClient.get(`${BASE_URL}/log/${taskId}/${encodeURIComponent(caseName)}`);
+): Promise<{ logUrl: null | string }> {
+  return requestClient.get(
+    `${BASE_URL}/log/${taskId}/${encodeURIComponent(caseName)}`,
+  );
 }
 
 /**

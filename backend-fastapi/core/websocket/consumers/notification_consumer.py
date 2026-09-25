@@ -7,9 +7,6 @@
 @File: notification_consumer.py
 @Desc: 通知 WebSocket 消费者
 """
-"""
-通知 WebSocket 消费者
-"""
 from typing import Dict, Any
 
 from fastapi import WebSocket

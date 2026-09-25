@@ -7,7 +7,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any, Type
+from typing import List, Optional, Dict, Any
 
 from fastapi import HTTPException
 from sqlalchemy import select, and_, desc, func, or_, update, String
@@ -26,9 +26,8 @@ from core.performance_monitor.utils import (
     convert_top_n_to_top10
 )
 from core.performance_monitor.schema import (
-    CollectStartRequest, CollectStopRequest,
-    TagCreateRequest, TagUpdateRequest, VersionCreateRequest,
-    WorkerReportRequestV3, MetricMappingCreate, MetricMappingUpdate,
+    CollectStartRequest, TagCreateRequest, VersionCreateRequest,
+    MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery,
     DataResponse, CollectResponse, ExportTaskCreate,
     LinuxAuthInfo
@@ -302,7 +301,7 @@ class PerformanceCollectService(BaseService):
     @classmethod
     async def get_collect_list(cls, db: AsyncSession, device_id: Optional[str], page: int, page_size: int) -> Dict[str, Any]:
         """获取采集列表"""
-        conditions = [PerformanceCollect.is_deleted == False]
+        conditions = [PerformanceCollect.is_deleted.is_(False)]
         if device_id:
             conditions.append(PerformanceCollect.device_id == device_id)
 
@@ -604,7 +603,7 @@ class PerformanceDataService(BaseService):
         if hwinfo_data and hwinfo_data.hwinfo_raw:
             mapping_stmt = select(PerformanceMetricMapping).where(
                 PerformanceMetricMapping.hwinfo_key.in_(list(hwinfo_data.hwinfo_raw.keys())),
-                PerformanceMetricMapping.is_deleted == False,
+                PerformanceMetricMapping.is_deleted.is_(False),
             )
             mapping_result = await db.execute(mapping_stmt)
             mappings = {item.hwinfo_key: item for item in mapping_result.scalars().all()}
@@ -808,7 +807,7 @@ class PerformanceVersionService(BaseService):
     @classmethod
     async def get_versions(cls, db: AsyncSession, device_id: Optional[str] = None) -> List[PerformanceVersion]:
         """获取版本列表"""
-        stmt = select(PerformanceVersion).where(PerformanceVersion.is_deleted == False)
+        stmt = select(PerformanceVersion).where(PerformanceVersion.is_deleted.is_(False))
         if device_id:
             stmt = stmt.where(PerformanceVersion.device_id == device_id)
         stmt = stmt.order_by(PerformanceVersion.sys_create_datetime.desc())
@@ -911,7 +910,7 @@ class MetricMappingService(BaseService):
         Returns:
             映射列表
         """
-        conditions = [PerformanceMetricMapping.is_deleted == False]
+        conditions = [PerformanceMetricMapping.is_deleted.is_(False)]
         if keyword:
             conditions.append(
                 or_(
@@ -1076,7 +1075,7 @@ class MarkerService(BaseService):
         stmt = select(PerformanceMarker).where(
             and_(
                 PerformanceMarker.collect_id == collect_id,
-                PerformanceMarker.is_deleted == False
+                PerformanceMarker.is_deleted.is_(False)
             )
         ).order_by(PerformanceMarker.start_time)
         result = await db.execute(stmt)
@@ -1182,7 +1181,7 @@ class MarkerService(BaseService):
         stmt = select(PerformanceVersion).where(
             and_(
                 PerformanceVersion.name == marker.name,
-                PerformanceVersion.is_deleted == False
+                PerformanceVersion.is_deleted.is_(False)
             )
         )
         result = await db.execute(stmt)
@@ -1217,7 +1216,7 @@ class CompareTagService(BaseService):
     @classmethod
     async def get_tags(cls, db: AsyncSession) -> List[CompareTag]:
         """获取所有对比标签"""
-        stmt = select(CompareTag).where(CompareTag.is_deleted == False).order_by(CompareTag.sys_create_datetime.desc())
+        stmt = select(CompareTag).where(CompareTag.is_deleted.is_(False)).order_by(CompareTag.sys_create_datetime.desc())
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
@@ -1283,7 +1282,7 @@ class ExportTaskService(BaseService):
             ExportTask.task_type == "compare_export",
             func.cast(ExportTask.params, String) == params_json,
             ExportTask.status.in_(["pending", "processing"]),
-            ExportTask.is_deleted == False
+            ExportTask.is_deleted.is_(False)
         )
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
@@ -1316,7 +1315,7 @@ class ExportTaskService(BaseService):
         """清理过期任务记录（软删除）"""
         stmt = update(ExportTask).where(
             ExportTask.completed_at < older_than,
-            ExportTask.is_deleted == False
+            ExportTask.is_deleted.is_(False)
         ).values(is_deleted=True)
         await db.execute(stmt)
         await db.commit()
@@ -1666,7 +1665,6 @@ class ExportReportService:
 
             for c in v.get("collects", []):
                 collect_start = c["collect"].start_time  # CollectResponse 是 Pydantic 对象
-                collect_id = c["collect"].id
 
                 # CPU/GPU 需要系统页、进程汇总页和进程PID明细页
                 if metric in ["cpu_usage", "gpu_usage"]:

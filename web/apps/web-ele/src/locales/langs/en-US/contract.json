@@ -48,7 +48,6 @@
   "categoryOther": "Other",
   "statusPublished": "Published",
   "statusDisabled": "Disabled",
-  "addTemplate": "Add Template",
   "batchDelete": "Batch Delete",
   "batchDeleteConfirm": "Are you sure you want to delete the selected {count} templates?",
   "batchDeleteConfirmTitle": "Batch Delete Confirmation",

@@ -1,19 +1,20 @@
 <script lang="ts" setup>
+import type { ScreenSize, WebSocketStatus } from '../types';
+
 import { onMounted, onUnmounted, ref } from 'vue';
 
-import type { WebSocketStatus, ScreenSize } from '../types';
 import { calculateContainRenderArea } from '../utils';
 
 interface Props {
   screenshotUrl: string;
   screenSize: ScreenSize;
   wsStatus: WebSocketStatus;
-  mouseCoord: { x: number; y: number } | null;
+  mouseCoord: null | { x: number; y: number };
   isInScreen: boolean;
-  clickIndicator: { x: number; y: number; show: boolean };
+  clickIndicator: { show: boolean; x: number; y: number };
   isDragging: boolean;
-  dragStart: { x: number; y: number } | null;
-  dragEnd: { x: number; y: number } | null;
+  dragStart: null | { x: number; y: number };
+  dragEnd: null | { x: number; y: number };
   /** 渲染模式：H264(MSE) 时为 true，渲染 <video>；JPEG/MJPEG 时为 false，渲染 <img> */
   videoMode?: boolean;
 }
@@ -32,7 +33,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 const screenWrapperRef = ref<HTMLElement | null>(null);
 const wrapperSize = ref({ width: 0, height: 0 });
-let resizeObserver: ResizeObserver | null = null;
+let resizeObserver: null | ResizeObserver = null;
 
 // MSE 方案渲染的 <video> 元素。
 // MSE 解码器（useMseDecoder）需要绑定此元素，由父组件通过 ref 拿到后传入 useWebSocket.attachVideoEl。
@@ -78,7 +79,10 @@ function handleContextMenu(event: MouseEvent) {
 }
 
 // 计算指示器位置百分比
-function getIndicatorStyle(coord: { x: number; y: number }): Record<string, string> {
+function getIndicatorStyle(coord: {
+  x: number;
+  y: number;
+}): Record<string, string> {
   const { width, height } = wrapperSize.value;
   const { width: sourceWidth, height: sourceHeight } = props.screenSize;
 
@@ -181,25 +185,22 @@ onUnmounted(() => {
           v-if="clickIndicator.show"
           class="click-indicator"
           :style="getIndicatorStyle(clickIndicator)"
-        />
+        ></div>
 
         <!-- 拖拽轨迹 -->
-        <div
-          v-if="isDragging && dragStart && dragEnd"
-          class="drag-track"
-        >
+        <div v-if="isDragging && dragStart && dragEnd" class="drag-track">
           <div
             class="drag-point drag-start"
             :style="{
               ...getIndicatorStyle(dragStart),
             }"
-          />
+          ></div>
           <div
             class="drag-point drag-end"
             :style="{
               ...getIndicatorStyle(dragEnd),
             }"
-          />
+          ></div>
         </div>
       </div>
     </div>
@@ -209,49 +210,49 @@ onUnmounted(() => {
 <style scoped>
 .screen-display {
   position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  background: #f0f2f5;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   padding: 0;
+  background: #f0f2f5;
 }
 
 .disconnect-banner {
   position: absolute;
   top: 50px;
   left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
+  z-index: 10;
   padding: 8px 24px;
   font-size: 14px;
+  color: #fff;
+  background: rgb(0 0 0 / 80%);
   border-radius: 8px;
-  z-index: 10;
+  transform: translateX(-50%);
 }
 
 .screen-card {
+  position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   background: #fff;
   border-radius: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  position: relative;
-  overflow: hidden;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .screen-wrapper {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  cursor: default; /* 默认为普通鼠标 */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
+  cursor: default; /* 默认为普通鼠标 */
+  background: #fff;
 }
 
 .screen-wrapper.cursor-crosshair {
@@ -259,23 +260,24 @@ onUnmounted(() => {
 }
 
 .screen-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
   /* video 默认 display:inline 会留 baseline 间隙，统一改为 block */
   display: block;
+  max-width: 100%;
+  max-height: 100%;
+
   /* 阻止触摸设备上的默认行为 */
   touch-action: none;
   user-select: none;
+  object-fit: contain;
   -webkit-user-drag: none;
 }
 
 .screen-placeholder {
   display: flex;
   flex-direction: column;
+  gap: 12px;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   color: #e8e8e8;
 }
 
@@ -292,21 +294,22 @@ onUnmounted(() => {
   position: absolute;
   width: 32px;
   height: 32px;
-  background: rgba(24, 144, 255, 0.8);
+  background: rgb(24 144 255 / 80%);
   border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
   transform: translate(-50%, -50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  animation: clickPulse 0.5s ease-out;
+  animation: click-pulse 0.5s ease-out;
 }
 
-@keyframes clickPulse {
+@keyframes click-pulse {
   0% {
-    transform: translate(-50%, -50%) scale(0);
     opacity: 1;
+    transform: translate(-50%, -50%) scale(0);
   }
+
   100% {
-    transform: translate(-50%, -50%) scale(1);
     opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -323,10 +326,10 @@ onUnmounted(() => {
   position: absolute;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
   border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 50%);
+  transform: translate(-50%, -50%);
 }
 
 .drag-start {

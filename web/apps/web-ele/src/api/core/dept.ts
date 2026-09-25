@@ -41,7 +41,7 @@ export interface DeptCreateInput {
   lead_id?: string;
 }
 
-export interface DeptUpdateInput extends Partial<DeptCreateInput> {}
+export type DeptUpdateInput = Partial<DeptCreateInput>;
 
 export interface DeptBatchDeleteInput {
   ids: string[];

@@ -6,8 +6,8 @@
  * 判断是否是汉字
  */
 function isChinese(char: string): boolean {
-  const code = char.charCodeAt(0);
-  return code >= 0x4E_00 && code <= 0x9F_FF;
+  const code = char.codePointAt(0) ?? 0;
+  return code >= 0x4e_00 && code <= 0x9f_ff;
 }
 
 /**
@@ -85,14 +85,14 @@ export function generateAvatarGradient(name?: string): string {
   // 简单的哈希函数：计算字符串的哈希值
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
-    const char = name.charCodeAt(i);
+    const char = name.codePointAt(i) ?? 0;
     hash = (hash << 5) - hash + char;
     hash = hash & hash; // 转换为 32 位整数
   }
 
   // 使用哈希值选择颜色
   const index = Math.abs(hash) % gradients.length;
-  return gradients[index]!;
+  return gradients[index] ?? '';
 }
 
 /**

@@ -13,7 +13,6 @@ from typing import Optional
 
 import httpx
 
-from fastapi import HTTPException
 
 from core.config_template.service import (
     SUPPORTED_CONFIG_DEVICE_TYPES,

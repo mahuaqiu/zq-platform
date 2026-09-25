@@ -33,7 +33,7 @@ const displayFormat = computed(() => {
     case 'time': {
       return 'HH:mm:ss';
     }
-    case 'datetime':
+    // 'datetime' 与默认分支一致
     default: {
       return 'YYYY-MM-DD HH:mm:ss';
     }

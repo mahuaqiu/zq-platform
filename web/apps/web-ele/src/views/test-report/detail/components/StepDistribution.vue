@@ -4,7 +4,7 @@ import type { StepDistributionItem } from '#/api/core/test-report';
 import { computed } from 'vue';
 
 const props = defineProps<{
-  stepDistribution: StepDistributionItem[] | null;
+  stepDistribution: null | StepDistributionItem[];
 }>();
 
 // 计算最大值用于比例
@@ -14,14 +14,28 @@ const maxCount = computed(() => {
 });
 
 // 颜色列表
-const COLORS = ['#ff4d4f', '#faad14', '#1890ff', '#52c41a', '#722ed1', '#eb2f96'];
+const COLORS = [
+  '#ff4d4f',
+  '#faad14',
+  '#1890ff',
+  '#52c41a',
+  '#722ed1',
+  '#eb2f96',
+];
 </script>
 
 <template>
-  <div class="step-distribution" v-if="stepDistribution && stepDistribution.length > 0">
+  <div
+    class="step-distribution"
+    v-if="stepDistribution && stepDistribution.length > 0"
+  >
     <div class="step-title">失败步骤分布（Top 20）</div>
     <div class="step-content">
-      <div class="step-item" v-for="(item, index) in stepDistribution" :key="item.step">
+      <div
+        class="step-item"
+        v-for="(item, index) in stepDistribution"
+        :key="item.step"
+      >
         <div class="step-name">{{ item.step }}</div>
         <div class="step-bar-wrapper">
           <div

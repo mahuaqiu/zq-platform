@@ -274,8 +274,8 @@ watch(
 }
 
 .fm-crumb {
-  cursor: pointer;
   font-weight: 500;
+  cursor: pointer;
 }
 
 .fm-actions {
@@ -289,8 +289,8 @@ watch(
 
 .fm-upload-bar {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   padding: 8px 12px;
   margin-bottom: 8px;
   background: var(--el-color-warning-light-9);
@@ -300,8 +300,8 @@ watch(
 .fm-upload-label {
   max-width: 420px;
   overflow: hidden;
-  font-size: 12px;
   text-overflow: ellipsis;
+  font-size: 12px;
   white-space: nowrap;
 }
 

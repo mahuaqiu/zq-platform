@@ -1,8 +1,5 @@
 <script lang="ts" setup>
-import type {
-  ConfigCenterItem,
-  KeyValuePair,
-} from '#/api/core/config-center';
+import type { ConfigCenterItem, KeyValuePair } from '#/api/core/config-center';
 
 import { ref } from 'vue';
 
@@ -146,7 +143,10 @@ function refreshGrid() {
 
 // 行内解析缓存：同一行的 value 在单元格模板中被多处渲染，避免每次都 JSON.parse。
 // 以 row.id 为键、row.value 变化时重新解析；超出页面容量数倍即清空防增长。
-const parsedValueCache = new Map<string, { src: string; pairs: KeyValuePair[] }>();
+const parsedValueCache = new Map<
+  string,
+  { pairs: KeyValuePair[]; src: string }
+>();
 
 function parsedPairs(row: ConfigCenterItem): KeyValuePair[] {
   const cached = parsedValueCache.get(row.id);
@@ -168,7 +168,9 @@ function parsedPairs(row: ConfigCenterItem): KeyValuePair[] {
           新增配置
         </ElButton>
         <ElButton type="danger" plain :icon="Trash2" @click="onBatchDelete">
-          批量删除{{ selectedRows.length > 0 ? `(${selectedRows.length})` : '' }}
+          批量删除{{
+            selectedRows.length > 0 ? `(${selectedRows.length})` : ''
+          }}
         </ElButton>
       </template>
 

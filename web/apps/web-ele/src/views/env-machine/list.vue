@@ -1,11 +1,15 @@
 <script lang="ts" setup>
-import type { EnvMachine } from '#/api/core/env-machine';
+import type {
+  EnvMachine,
+  EnvMachineUpdateParams,
+} from '#/api/core/env-machine';
 
 import { nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
+import { Grid } from '@element-plus/icons-vue';
 import {
   ElButton,
   ElDialog,
@@ -24,20 +28,20 @@ import {
   ElTableColumn,
 } from 'element-plus';
 
-import { Grid } from '@element-plus/icons-vue';
-
 import {
+  batchDeleteEnvMachineApi,
+  batchDisableEnvMachineApi,
+  batchEnableEnvMachineApi,
+  batchImportVirtualDevicesApi,
   deleteEnvMachineApi,
+  downloadImportTemplateApi,
   getEnvMachineListApi,
   updateEnvMachineApi,
-  batchDeleteEnvMachineApi,
-  batchImportVirtualDevicesApi,
-  downloadImportTemplateApi,
-  batchEnableEnvMachineApi,
-  batchDisableEnvMachineApi,
 } from '#/api/core/env-machine';
-import type { EnvMachineUpdateParams } from '#/api/core/env-machine';
+import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
+import FileManageDialog from './FileManageDialog.vue';
+import LogDialogV2 from './LogDialogV2.vue';
 import {
   buildEnableBlockMessage,
   formatExtraMessage,
@@ -49,9 +53,6 @@ import {
 } from './modules/common';
 import { useNamespaceStore } from './store';
 import { DEVICE_TYPE_OPTIONS, supportsWorkerLog } from './types';
-import FileManageDialog from './FileManageDialog.vue';
-import LogDialogV2 from './LogDialogV2.vue';
-import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
 defineOptions({ name: 'EnvMachineList' });
 
@@ -67,14 +68,14 @@ const total = ref(0);
 const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(20);
-const selectedRows = ref<EnvMachine[]>([]);  // 选中的行
-const tableRef = ref();  // 表格实例
-const selectedIds = ref<Set<string>>(new Set());  // 跨分页选中的 ID
-const selectedMachinesMap = ref<Map<string, EnvMachine>>(new Map());  // 跨分页选中的设备信息
+const selectedRows = ref<EnvMachine[]>([]); // 选中的行
+const tableRef = ref(); // 表格实例
+const selectedIds = ref<Set<string>>(new Set()); // 跨分页选中的 ID
+const selectedMachinesMap = ref<Map<string, EnvMachine>>(new Map()); // 跨分页选中的设备信息
 
 // 篮选条件
 const searchForm = ref({
-  namespace: '',  // 默认全部
+  namespace: '', // 默认全部
   device_type: '',
   ip: '',
   asset_number: '',
@@ -98,7 +99,7 @@ const formData = ref({
   mark: '',
   available: false,
   extra_message_raw: '',
-  device_type: '',  // 设备类型，用于判断是否为 Linux 设备
+  device_type: '', // 设备类型，用于判断是否为 Linux 设备
 });
 
 // JSON 格式错误提示
@@ -115,10 +116,10 @@ const importDialogVisible = ref(false);
 const importLoading = ref(false);
 const importFile = ref<File | null>(null);
 const importFileInputRef = ref<HTMLInputElement | null>(null); // 文件输入框引用
-const importResult = ref<{
+const importResult = ref<null | {
+  failed_items: Array<{ reason: string; row: number }>;
   success_count: number;
-  failed_items: Array<{ row: number; reason: string }>;
-} | null>(null);
+}>(null);
 
 // 打开日志弹窗
 function handleViewLogs(row: EnvMachine) {
@@ -154,7 +155,7 @@ async function loadData() {
   loading.value = true;
   try {
     const res = await getEnvMachineListApi({
-      namespace: searchForm.value.namespace || undefined,  // 空则不传
+      namespace: searchForm.value.namespace || undefined, // 空则不传
       device_type: searchForm.value.device_type || undefined,
       ip: searchForm.value.ip || undefined,
       asset_number: searchForm.value.asset_number || undefined,
@@ -227,8 +228,10 @@ function handleEdit(row: EnvMachine) {
     note: row.note || '',
     mark: row.mark || '',
     available: row.available,
-    extra_message_raw: row.extra_message ? JSON.stringify(row.extra_message, null, 2) : '',
-    device_type: row.device_type || '',  // 保存设备类型
+    extra_message_raw: row.extra_message
+      ? JSON.stringify(row.extra_message, null, 2)
+      : '',
+    device_type: row.device_type || '', // 保存设备类型
   };
   jsonError.value = '';
   dialogVisible.value = true;
@@ -267,7 +270,7 @@ function handleSelectionChange(rows: EnvMachine[]) {
   const currentPageIds = new Set(tableData.value.map((row) => row.id));
   // 移除当前页面未选中的
   currentPageIds.forEach((id) => {
-    if (!rows.find((r) => r.id === id)) {
+    if (!rows.some((r) => r.id === id)) {
       selectedIds.value.delete(id);
       selectedMachinesMap.value.delete(id);
     }
@@ -294,7 +297,7 @@ function handleBatchDelete() {
   })
     .then(async () => {
       try {
-        const ids = Array.from(selectedIds.value);
+        const ids = [...selectedIds.value];
         const res = await batchDeleteEnvMachineApi(ids);
         if (res.success_count > 0) {
           ElMessage.success(`成功删除 ${res.success_count} 台设备`);
@@ -407,7 +410,7 @@ async function handleBatchDisable() {
   })
     .then(async () => {
       try {
-        const ids = Array.from(selectedIds.value);
+        const ids = [...selectedIds.value];
         const res = await batchDisableEnvMachineApi(ids);
         if (res.success_count > 0) {
           ElMessage.success(`成功停用 ${res.success_count} 台设备`);
@@ -429,24 +432,28 @@ async function handleBatchDisable() {
 // 批量操作菜单命令处理
 function handleBatchCommand(command: string) {
   switch (command) {
-    case 'import':
-      handleOpenImport();
-      break;
-    case 'delete':
+    case 'delete': {
       handleBatchDelete();
       break;
-    case 'enable':
-      handleBatchEnable();
-      break;
-    case 'disable':
+    }
+    case 'disable': {
       handleBatchDisable();
       break;
+    }
+    case 'enable': {
+      handleBatchEnable();
+      break;
+    }
+    case 'import': {
+      handleOpenImport();
+      break;
+    }
   }
 }
 
 // 获取选中的设备列表
 function getSelectedMachines(): EnvMachine[] {
-  return Array.from(selectedMachinesMap.value.values());
+  return [...selectedMachinesMap.value.values()];
 }
 
 // 打开导入弹窗
@@ -532,7 +539,7 @@ async function handleSubmit() {
         ip: formData.value.ip,
         device_sn: formData.value.device_sn,
         mark: formData.value.mark,
-        available: formData.value.available,  // Linux 设备的 available 会被后端忽略
+        available: formData.value.available, // Linux 设备的 available 会被后端忽略
         note: formData.value.note,
         extra_message: extraMessage,
       };
@@ -561,7 +568,7 @@ async function handleSubmit() {
         {
           confirmButtonText: '确定',
           type: 'warning',
-        }
+        },
       );
       return;
     }
@@ -702,14 +709,29 @@ onMounted(async () => {
               <template #dropdown>
                 <ElDropdownMenu>
                   <ElDropdownItem command="import">批量导入</ElDropdownItem>
-                  <ElDropdownItem command="delete" :disabled="selectedIds.size === 0">
-                    批量删除{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  <ElDropdownItem
+                    command="delete"
+                    :disabled="selectedIds.size === 0"
+                  >
+                    批量删除{{
+                      selectedIds.size > 0 ? ` (${selectedIds.size})` : ''
+                    }}
                   </ElDropdownItem>
-                  <ElDropdownItem command="enable" :disabled="selectedIds.size === 0">
-                    批量启用{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  <ElDropdownItem
+                    command="enable"
+                    :disabled="selectedIds.size === 0"
+                  >
+                    批量启用{{
+                      selectedIds.size > 0 ? ` (${selectedIds.size})` : ''
+                    }}
                   </ElDropdownItem>
-                  <ElDropdownItem command="disable" :disabled="selectedIds.size === 0">
-                    批量停用{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+                  <ElDropdownItem
+                    command="disable"
+                    :disabled="selectedIds.size === 0"
+                  >
+                    批量停用{{
+                      selectedIds.size > 0 ? ` (${selectedIds.size})` : ''
+                    }}
                   </ElDropdownItem>
                 </ElDropdownMenu>
               </template>
@@ -746,18 +768,33 @@ onMounted(async () => {
               <span v-else class="env-dash">-</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="device_sn" label="SN" min-width="100" show-overflow-tooltip>
+          <ElTableColumn
+            prop="device_sn"
+            label="SN"
+            min-width="100"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               {{ row.device_sn || '-' }}
             </template>
           </ElTableColumn>
           <ElTableColumn prop="asset_number" label="资产编号" min-width="110" />
-          <ElTableColumn prop="mark" label="标签" min-width="80" show-overflow-tooltip>
+          <ElTableColumn
+            prop="mark"
+            label="标签"
+            min-width="80"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               {{ row.mark || '-' }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="status" label="状态" min-width="70" align="center">
+          <ElTableColumn
+            prop="status"
+            label="状态"
+            min-width="70"
+            align="center"
+          >
             <template #default="{ row }">
               <!-- Linux 设备不显示状态，显示 - -->
               <span v-if="row.device_type === 'linux'" class="env-dash">-</span>
@@ -765,22 +802,43 @@ onMounted(async () => {
               <span v-else-if="row.host_upgrading" class="env-status-upgrading">
                 宿主升级中
               </span>
-              <span v-else :class="getStatusClass(row.status)">{{ getStatusText(row.status) }}</span>
+              <span v-else :class="getStatusClass(row.status)">{{
+                getStatusText(row.status)
+              }}</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="available" label="是否启用" min-width="70" align="center">
+          <ElTableColumn
+            prop="available"
+            label="是否启用"
+            min-width="70"
+            align="center"
+          >
             <template #default="{ row }">
-              <span :class="row.available ? 'env-status-success' : 'env-status-danger'">
+              <span
+                :class="
+                  row.available ? 'env-status-success' : 'env-status-danger'
+                "
+              >
                 {{ row.available ? '是' : '否' }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="note" label="备注" min-width="100" show-overflow-tooltip>
+          <ElTableColumn
+            prop="note"
+            label="备注"
+            min-width="100"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               {{ row.note || '-' }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="extra_message" label="扩展信息" min-width="150" show-overflow-tooltip>
+          <ElTableColumn
+            prop="extra_message"
+            label="扩展信息"
+            min-width="150"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               <template v-if="row.extra_message">
                 {{ formatExtraMessage(row.extra_message) }}
@@ -798,7 +856,11 @@ onMounted(async () => {
               <span class="nowrap">
                 <!-- 操作按钮：日志只对 windows/mac 宿主机展示（日志内容是 worker 日志，鸿蒙/Linux 设备无 worker 进程） -->
                 <a
-                  v-if="!row.is_virtual && supportsWorkerLog(row.device_type) && row.status !== 'offline'"
+                  v-if="
+                    !row.is_virtual &&
+                    supportsWorkerLog(row.device_type) &&
+                    row.status !== 'offline'
+                  "
                   class="env-link"
                   @click="handleViewLogs(row)"
                 >
@@ -816,14 +878,20 @@ onMounted(async () => {
                   文件
                 </a>
                 <a
-                  v-if="!row.is_virtual && (row.status === 'online' || row.status === 'using') && row.device_type !== 'linux'"
+                  v-if="
+                    !row.is_virtual &&
+                    (row.status === 'online' || row.status === 'using') &&
+                    row.device_type !== 'linux'
+                  "
                   class="env-link"
                   @click="handleDebug(row)"
                 >
                   远程
                 </a>
                 <a class="env-link" @click="handleEdit(row)">编辑</a>
-                <a class="env-link env-link-danger" @click="handleDelete(row)">删除</a>
+                <a class="env-link env-link-danger" @click="handleDelete(row)"
+                  >删除</a
+                >
               </span>
             </template>
           </ElTableColumn>
@@ -853,7 +921,10 @@ onMounted(async () => {
     >
       <ElForm label-width="80px">
         <ElFormItem label="资产编号">
-          <ElInput v-model="formData.asset_number" placeholder="请输入资产编号" />
+          <ElInput
+            v-model="formData.asset_number"
+            placeholder="请输入资产编号"
+          />
         </ElFormItem>
 
         <ElFormItem label="IP地址">
@@ -861,11 +932,17 @@ onMounted(async () => {
         </ElFormItem>
 
         <ElFormItem label="SN">
-          <ElInput v-model="formData.device_sn" placeholder="请输入设备SN号（可选）" />
+          <ElInput
+            v-model="formData.device_sn"
+            placeholder="请输入设备SN号（可选）"
+          />
         </ElFormItem>
 
         <ElFormItem label="标签">
-          <ElInput v-model="formData.mark" placeholder="请输入标签，多个用逗号分隔" />
+          <ElInput
+            v-model="formData.mark"
+            placeholder="请输入标签，多个用逗号分隔"
+          />
         </ElFormItem>
 
         <!-- 是否启用（Linux 设备不支持启用功能，隐藏该选项） -->
@@ -877,7 +954,9 @@ onMounted(async () => {
         </ElFormItem>
         <!-- Linux 设备提示 -->
         <ElFormItem v-if="formData.device_type === 'linux'" label="是否启用">
-          <span style="color: #999; font-size: 12px;">Linux 设备不支持启用功能（自动采集系统级性能数据）</span>
+          <span style="font-size: 12px; color: #999"
+            >Linux 设备不支持启用功能（自动采集系统级性能数据）</span
+          >
         </ElFormItem>
 
         <ElFormItem label="扩展信息">
@@ -960,7 +1039,10 @@ onMounted(async () => {
           <div class="import-result-success">
             成功导入：{{ importResult.success_count }} 台
           </div>
-          <div v-if="importResult.failed_items.length > 0" class="import-result-failed">
+          <div
+            v-if="importResult.failed_items.length > 0"
+            class="import-result-failed"
+          >
             <div>失败项：</div>
             <ul>
               <li v-for="item in importResult.failed_items" :key="item.row">
@@ -988,9 +1070,9 @@ onMounted(async () => {
 
 <style scoped>
 .json-error {
-  color: #ff4d4f;
-  font-size: 12px;
   margin-top: 4px;
+  font-size: 12px;
+  color: #ff4d4f;
 }
 
 /* 搜索区域 */
@@ -1154,20 +1236,20 @@ onMounted(async () => {
 .import-file-input {
   width: 100%;
   padding: 8px;
+  font-size: 14px;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
-  font-size: 14px;
 }
 
 .import-file-name {
   margin-top: 8px;
-  color: #52c41a;
   font-size: 13px;
+  color: #52c41a;
 }
 
 .import-result {
-  margin-top: 24px;
   padding: 16px;
+  margin-top: 24px;
   background: #f5f5f5;
   border-radius: 4px;
 }
@@ -1180,19 +1262,19 @@ onMounted(async () => {
 }
 
 .import-result-success {
-  color: #52c41a;
   font-size: 13px;
+  color: #52c41a;
 }
 
 .import-result-failed {
   margin-top: 12px;
-  color: #ff4d4f;
   font-size: 13px;
+  color: #ff4d4f;
 }
 
 .import-result-failed ul {
-  margin: 8px 0 0;
   padding-left: 20px;
+  margin: 8px 0 0;
 }
 
 .import-result-failed li {

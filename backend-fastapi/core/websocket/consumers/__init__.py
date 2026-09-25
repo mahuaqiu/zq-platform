@@ -7,9 +7,6 @@
 @File: __init__.py
 @Desc: WebSocket Consumers 模块
 """
-"""
-WebSocket Consumers 模块
-"""
 from core.websocket.consumers.base import TokenAuthWebSocketConsumer
 from core.websocket.consumers.test_consumer import TestWebSocketConsumer
 from core.websocket.consumers.notification_consumer import NotificationConsumer

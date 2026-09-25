@@ -10,10 +10,10 @@ import { ElButton, ElMessage } from 'element-plus';
 
 import { getReportSummaryApi } from '#/api/core/test-report';
 
-import StatsCards from './components/StatsCards.vue';
-import RoundAnalysis from './components/RoundAnalysis.vue';
-import StepDistribution from './components/StepDistribution.vue';
 import FailTable from './components/FailTable.vue';
+import RoundAnalysis from './components/RoundAnalysis.vue';
+import StatsCards from './components/StatsCards.vue';
+import StepDistribution from './components/StepDistribution.vue';
 
 defineOptions({ name: 'TestReportDetailPage' });
 
@@ -21,14 +21,14 @@ const route = useRoute();
 const router = useRouter();
 
 // 数据
-const summary = ref<TestReportSummary | null>(null);
+const summary = ref<null | TestReportSummary>(null);
 const loading = ref(false);
 
 // 从路由获取 taskId
 const taskId = route.params.task_id as string;
 
 // 格式化执行时间
-function formatExecuteTime(time: string | null) {
+function formatExecuteTime(time: null | string) {
   if (!time) return '--';
   const date = new Date(time);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -71,8 +71,14 @@ onMounted(() => {
       <!-- 顶部信息区 -->
       <div class="detail-header">
         <div class="header-info">
-          <span class="header-title">任务名称：{{ summary?.taskName ?? '--' }}</span>
-          <span class="header-time">执行时间：{{ formatExecuteTime(summary?.executeTime ?? null) }}</span>
+          <span class="header-title"
+            >任务名称：{{ summary?.taskName ?? '--' }}</span
+          >
+          <span class="header-time"
+            >执行时间：{{
+              formatExecuteTime(summary?.executeTime ?? null)
+            }}</span
+          >
         </div>
         <div class="header-actions">
           <ElButton class="btn-export" @click="handleExport">导出报告</ElButton>
@@ -88,8 +94,12 @@ onMounted(() => {
         <div class="ai-title">AI 分析结论</div>
         <div class="ai-content">
           <p v-if="summary?.aiAnalysis">{{ summary.aiAnalysis }}</p>
-          <p v-else class="ai-pending">等待 AI 分析任务执行...（可配置定时任务触发分析）</p>
-          <p class="ai-hint" v-if="!summary?.aiAnalysis">分析内容将包括：失败原因归类、可能的根因建议、需要关注的用例列表</p>
+          <p v-else class="ai-pending">
+            等待 AI 分析任务执行...（可配置定时任务触发分析）
+          </p>
+          <p class="ai-hint" v-if="!summary?.aiAnalysis">
+            分析内容将包括：失败原因归类、可能的根因建议、需要关注的用例列表
+          </p>
         </div>
       </div>
 
@@ -97,7 +107,9 @@ onMounted(() => {
       <RoundAnalysis :round-stats="summary?.roundStats ?? null" />
 
       <!-- 失败步骤分布 -->
-      <StepDistribution :step-distribution="summary?.stepDistribution ?? null" />
+      <StepDistribution
+        :step-distribution="summary?.stepDistribution ?? null"
+      />
 
       <!-- 失败记录表格 -->
       <FailTable :task-id="taskId" />
@@ -147,25 +159,25 @@ onMounted(() => {
 
 /* 导出报告按钮 - 蓝色边框 */
 .btn-export {
-  background: #fff;
   color: #1890ff;
+  background: #fff;
   border: 1px solid #1890ff;
 }
 
 /* 返回列表按钮 - 浅灰背景 */
 .btn-back {
-  background: #f5f5f5;
   color: #666;
+  background: #f5f5f5;
   border: 1px solid #d9d9d9;
 }
 
 /* AI 分析区 */
 .ai-analysis {
   padding: 24px;
+  margin: 16px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  margin: 16px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .ai-title {
@@ -179,8 +191,8 @@ onMounted(() => {
   padding: 16px;
   color: #1e40af;
   background: #eff6ff;
-  border-radius: 8px;
   border: 1px solid #bfdbfe;
+  border-radius: 8px;
 }
 
 .ai-content p {

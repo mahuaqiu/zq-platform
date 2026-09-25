@@ -43,14 +43,6 @@ const setup = useTabSetup(
   },
 );
 
-const typeWorkAttrs = computed(() => ({
-  disabled:
-    setup.type.value !== TypeEnum.work ||
-    props.disabled ||
-    disabledChoice.value,
-  ...setup.inputNumberAttrs.value,
-}));
-
 watch(
   () => props.week,
   () => {
@@ -71,7 +63,6 @@ const {
   typeRangeAttrs,
   typeLoopAttrs,
   typeSpecifyAttrs,
-  beforeRadioAttrs,
 } = setup;
 </script>
 

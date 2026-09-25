@@ -7,9 +7,6 @@
 @File: server_monitor_consumer.py
 @Desc: 服务器监控 WebSocket 消费者
 """
-"""
-服务器监控 WebSocket 消费者
-"""
 import asyncio
 from typing import Dict, Any, Optional
 
@@ -125,7 +122,7 @@ class ServerMonitorConsumer(TokenAuthWebSocketConsumer):
                     # 发送错误消息但不停止监控循环
                     try:
                         await self.send_error(f'获取监控数据失败: {str(e)}')
-                    except:
+                    except Exception:
                         pass
 
                 # 等待下一次监控间隔

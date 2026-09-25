@@ -10,6 +10,5 @@ export interface CurrentUserProps {
 }
 
 export interface CurrentUserEmits {
-  (e: 'update:modelValue', value: string): void;
-  (e: 'change', value: string): void;
+  (e: 'change' | 'update:modelValue', value: string): void;
 }

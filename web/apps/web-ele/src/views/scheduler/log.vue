@@ -1,5 +1,9 @@
 <script lang="ts" setup>
-import type { SchedulerLog, SchedulerJobSimple, SchedulerLogStatistics } from '#/api/core/scheduler';
+import type {
+  SchedulerJobSimple,
+  SchedulerLog,
+  SchedulerLogStatistics,
+} from '#/api/core/scheduler';
 
 import { onMounted, ref } from 'vue';
 
@@ -8,29 +12,29 @@ import { Page } from '@vben/common-ui';
 import {
   ElButton,
   ElCard,
+  ElDatePicker,
   ElOption,
   ElPagination,
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElDatePicker,
 } from 'element-plus';
 
 import {
-  getSchedulerLogListApi,
   getSchedulerJobAllApi,
+  getSchedulerLogListApi,
   getSchedulerLogStatisticsApi,
 } from '#/api/core/scheduler';
 
 import {
   formatDateTime,
   formatDuration,
-  getLogStatusLabel,
   getLogStatusClass,
+  getLogStatusLabel,
   LOG_STATUS_OPTIONS,
 } from './data';
-import LogDetailModal from './modules/log-detail-modal.vue';
 import CleanLogModal from './modules/clean-log-modal.vue';
+import LogDetailModal from './modules/log-detail-modal.vue';
 
 defineOptions({ name: 'SchedulerLogPage' });
 
@@ -241,7 +245,11 @@ onMounted(() => {
           </div>
 
           <!-- 清理日志按钮 -->
-          <ElButton type="danger" class="scheduler-clean-btn" @click="handleCleanLogs">
+          <ElButton
+            type="danger"
+            class="scheduler-clean-btn"
+            @click="handleCleanLogs"
+          >
             清理日志
           </ElButton>
         </div>
@@ -252,62 +260,109 @@ onMounted(() => {
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">总执行次数</div>
-            <div class="stat-value stat-blue">{{ statistics.total_executions }}</div>
+            <div class="stat-value stat-blue">
+              {{ statistics.total_executions }}
+            </div>
           </div>
         </ElCard>
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">成功次数</div>
-            <div class="stat-value stat-green">{{ statistics.success_executions }}</div>
+            <div class="stat-value stat-green">
+              {{ statistics.success_executions }}
+            </div>
           </div>
         </ElCard>
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">失败次数</div>
-            <div class="stat-value stat-red">{{ statistics.failed_executions }}</div>
+            <div class="stat-value stat-red">
+              {{ statistics.failed_executions }}
+            </div>
           </div>
         </ElCard>
         <ElCard class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-label">成功率</div>
-            <div class="stat-value stat-green">{{ formatSuccessRate(statistics.success_rate) }}</div>
+            <div class="stat-value stat-green">
+              {{ formatSuccessRate(statistics.success_rate) }}
+            </div>
           </div>
         </ElCard>
       </div>
 
       <!-- 表格区域 -->
       <div class="scheduler-table-wrapper">
-        <ElTable :data="tableData" v-loading="loading" class="scheduler-table" border>
-          <ElTableColumn prop="job_name" label="任务名称" min-width="150" show-overflow-tooltip />
+        <ElTable
+          :data="tableData"
+          v-loading="loading"
+          class="scheduler-table"
+          border
+        >
+          <ElTableColumn
+            prop="job_name"
+            label="任务名称"
+            min-width="150"
+            show-overflow-tooltip
+          />
           <ElTableColumn prop="start_time" label="执行时间" min-width="160">
             <template #default="{ row }">
               {{ formatDateTime(row.start_time) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="status" label="状态" min-width="80" align="center">
+          <ElTableColumn
+            prop="status"
+            label="状态"
+            min-width="80"
+            align="center"
+          >
             <template #default="{ row }">
-              <span :class="`log-status-tag log-status-${getLogStatusClass(row.status)}`">
+              <span
+                :class="`log-status-tag log-status-${getLogStatusClass(row.status)}`"
+              >
                 {{ getLogStatusLabel(row.status) }}
               </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="duration" label="耗时" min-width="100" align="center">
+          <ElTableColumn
+            prop="duration"
+            label="耗时"
+            min-width="100"
+            align="center"
+          >
             <template #default="{ row }">
               {{ formatDuration(row.duration) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="result" label="执行结果" min-width="200" show-overflow-tooltip>
+          <ElTableColumn
+            prop="result"
+            label="执行结果"
+            min-width="200"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               {{ row.result || '-' }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="hostname" label="执行主机" min-width="120" show-overflow-tooltip>
+          <ElTableColumn
+            prop="hostname"
+            label="执行主机"
+            min-width="120"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
-              <code v-if="row.hostname" class="scheduler-code">{{ row.hostname }}</code>
+              <code v-if="row.hostname" class="scheduler-code">{{
+                row.hostname
+              }}</code>
               <span v-else>-</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" min-width="80" fixed="right" align="center">
+          <ElTableColumn
+            label="操作"
+            min-width="80"
+            fixed="right"
+            align="center"
+          >
             <template #default="{ row }">
               <a class="scheduler-link" @click="handleDetail(row)">详情</a>
             </template>
@@ -335,20 +390,12 @@ onMounted(() => {
       />
 
       <!-- 清理日志弹窗 -->
-      <CleanLogModal
-        v-model:visible="cleanLogVisible"
-        @success="loadData"
-      />
+      <CleanLogModal v-model:visible="cleanLogVisible" @success="loadData" />
     </div>
   </Page>
 </template>
 
 <style scoped>
-/* 页面容器 */
-.scheduler-page {
-  background: #f0f2f5;
-}
-
 /* 响应式：小屏幕下统计卡片改为2列 */
 @media (max-width: 1200px) {
   .scheduler-statistics {
@@ -360,6 +407,10 @@ onMounted(() => {
   .scheduler-statistics {
     grid-template-columns: 1fr;
   }
+}
+
+.scheduler-page {
+  background: #f0f2f5;
 }
 
 .scheduler-search-area {
@@ -408,9 +459,9 @@ onMounted(() => {
 .stat-card {
   cursor: pointer;
   background: #fff !important;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
   transition: transform 0.2s ease;
 }
 
@@ -472,9 +523,10 @@ onMounted(() => {
   --el-table-row-hover-bg-color: #fafafa;
   --el-table-text-color: #333;
   --el-table-header-text-color: #333;
+
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 /* 确保表格有外边框 */
@@ -580,4 +632,6 @@ onMounted(() => {
   justify-content: flex-end;
   padding: 16px 0 0;
 }
+
+/* 页面容器 */
 </style>

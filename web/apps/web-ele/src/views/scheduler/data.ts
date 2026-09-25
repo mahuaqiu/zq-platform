@@ -67,14 +67,21 @@ export function getJobStatusLabel(status: number): string {
  */
 export function getJobStatusClass(status: number): string {
   switch (status) {
-    case 1: // 启用
-      return 'success';
-    case 0: // 禁用
+    case 0: {
+      // 禁用
       return 'danger';
-    case 2: // 暂停
+    }
+    case 1: {
+      // 启用
+      return 'success';
+    }
+    case 2: {
+      // 暂停
       return 'warning';
-    default:
+    }
+    default: {
       return 'info';
+    }
   }
 }
 
@@ -95,18 +102,24 @@ export function getLogStatusLabel(status: string): string {
  */
 export function getLogStatusClass(status: string): string {
   switch (status) {
-    case 'success':
-      return 'success';
-    case 'failed':
+    case 'failed': {
       return 'danger';
-    case 'timeout':
+    }
+    case 'pending': {
+      return 'info';
+    }
+    case 'running': {
+      return 'info';
+    }
+    case 'success': {
+      return 'success';
+    }
+    case 'timeout': {
       return 'warning';
-    case 'running':
+    }
+    default: {
       return 'info';
-    case 'pending':
-      return 'info';
-    default:
-      return 'info';
+    }
   }
 }
 
@@ -119,14 +132,18 @@ export function formatTriggerConfig(job: SchedulerJob): string {
   if (!job) return '-';
 
   switch (job.trigger_type) {
-    case 'cron':
+    case 'cron': {
       return job.cron_expression || '-';
-    case 'interval':
-      return job.interval_seconds ? `${job.interval_seconds}秒` : '-';
-    case 'date':
+    }
+    case 'date': {
       return job.run_date || '-';
-    default:
+    }
+    case 'interval': {
+      return job.interval_seconds ? `${job.interval_seconds}秒` : '-';
+    }
+    default: {
       return '-';
+    }
   }
 }
 

@@ -28,6 +28,8 @@ export interface UserSelectorProps extends Partial<
 }
 
 export interface UserSelectorEmits {
-  (e: 'update:modelValue', value: string | string[] | undefined): void;
-  (e: 'change', value: string | string[] | undefined): void;
+  (
+    e: 'change' | 'update:modelValue',
+    value: string | string[] | undefined,
+  ): void;
 }

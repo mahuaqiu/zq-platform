@@ -33,8 +33,8 @@ async def cleanup_offline_devices_task(job_code: str = None, days: int = 7, **kw
         async with AsyncSessionLocal() as db:
             # 物理删除：available=False、status=offline、sync_time超过指定天数、排除manual namespace
             stmt = delete(EnvMachine).where(
-                EnvMachine.is_deleted == False,
-                EnvMachine.available == False,
+                EnvMachine.is_deleted.is_(False),
+                EnvMachine.available.is_(False),
                 EnvMachine.status == 'offline',
                 EnvMachine.sync_time < cutoff,
                 EnvMachine.namespace.notlike('%manual%')

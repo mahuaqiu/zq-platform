@@ -7,9 +7,6 @@
 @File: __init__.py
 @Desc: 部门模块
 """
-"""
-部门模块
-"""
 from core.dept.model import Dept
 from core.dept.service import DeptService
 

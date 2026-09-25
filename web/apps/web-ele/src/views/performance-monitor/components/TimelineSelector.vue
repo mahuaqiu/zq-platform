@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import type { PerformanceCollect, PerformanceVersion } from '#/api/core/performance-monitor';
+import type {
+  PerformanceCollect,
+  PerformanceVersion,
+} from '#/api/core/performance-monitor';
+
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
 import { VERSION_COLORS } from '../types';
 
 interface Props {
@@ -15,18 +20,22 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  currentCollectId: undefined,
+  selectedWindow: undefined,
+  actualStartTime: undefined,
+  actualEndTime: undefined,
   totalDuration: 60,
 });
 
 const emit = defineEmits<{
-  (e: 'window-change', range: [Date, Date]): void;
-  (e: 'version-click', versionId: string): void;
+  (e: 'windowChange', range: [Date, Date]): void;
+  (e: 'versionClick', versionId: string): void;
   (e: 'collect-click', collectId: string): void;
 }>();
 
 const timelineRef = ref<HTMLDivElement>();
 const isDragging = ref(false);
-const dragType = ref<'window' | 'left' | 'right'>('window');
+const dragType = ref<'left' | 'right' | 'window'>('window');
 const windowStart = ref(0); // 左侧位置百分比（默认从0开始显示全部数据）
 const windowWidth = ref(1); // 窗口宽度百分比（默认100%）
 
@@ -42,12 +51,14 @@ const timeRange = computed(() => {
 
   // 如果有当前采集ID，找对应的采集记录时间
   if (props.currentCollectId) {
-    const currentCollect = props.collects.find(c => c.id === props.currentCollectId);
+    const currentCollect = props.collects.find(
+      (c) => c.id === props.currentCollectId,
+    );
     if (currentCollect?.start_time) {
       const startTime = new Date(currentCollect.start_time).getTime();
       const endTime = currentCollect.end_time
         ? new Date(currentCollect.end_time).getTime()
-        : new Date().getTime();
+        : Date.now();
       return { start: startTime, end: endTime };
     }
   }
@@ -59,7 +70,7 @@ const timeRange = computed(() => {
       const startTime = new Date(latestCollect.start_time).getTime();
       const endTime = latestCollect.end_time
         ? new Date(latestCollect.end_time).getTime()
-        : new Date().getTime();
+        : Date.now();
       return { start: startTime, end: endTime };
     }
   }
@@ -74,26 +85,34 @@ const timeRange = computed(() => {
 });
 
 // 监听外部传入的时间窗口，更新导航栏显示
-watch(() => props.selectedWindow, (newWindow) => {
-  if (!timeRange.value) return;
+watch(
+  () => props.selectedWindow,
+  (newWindow) => {
+    if (!timeRange.value) return;
 
-  // 如果没有传入时间窗口，显示全部
-  if (!newWindow) {
-    windowStart.value = 0;
-    windowWidth.value = 1;
-    return;
-  }
+    // 如果没有传入时间窗口，显示全部
+    if (!newWindow) {
+      windowStart.value = 0;
+      windowWidth.value = 1;
+      return;
+    }
 
-  const [startDate, endDate] = newWindow;
-  const totalMs = timeRange.value.end - timeRange.value.start;
+    const [startDate, endDate] = newWindow;
+    const totalMs = timeRange.value.end - timeRange.value.start;
 
-  // 计算百分比位置
-  const startPercent = (startDate.getTime() - timeRange.value.start) / totalMs;
-  const endPercent = (endDate.getTime() - timeRange.value.start) / totalMs;
+    // 计算百分比位置
+    const startPercent =
+      (startDate.getTime() - timeRange.value.start) / totalMs;
+    const endPercent = (endDate.getTime() - timeRange.value.start) / totalMs;
 
-  windowStart.value = Math.max(0, Math.min(1, startPercent));
-  windowWidth.value = Math.max(0.05, Math.min(1 - windowStart.value, endPercent - startPercent));
-}, { immediate: true });
+    windowStart.value = Math.max(0, Math.min(1, startPercent));
+    windowWidth.value = Math.max(
+      0.05,
+      Math.min(1 - windowStart.value, endPercent - startPercent),
+    );
+  },
+  { immediate: true },
+);
 
 // 时间刻度 - 基于实际时间范围，根据时长动态调整刻度数量
 const timeLabels = computed(() => {
@@ -115,10 +134,14 @@ const timeLabels = computed(() => {
   }
 
   for (let i = 0; i <= tickCount; i++) {
-    const time = new Date(timeRange.value.start + i * totalMs / tickCount);
+    const time = new Date(timeRange.value.start + (i * totalMs) / tickCount);
     // 统一显示完整的时分秒格式
     labels.push(
-      time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      time.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
     );
   }
   return labels;
@@ -126,27 +149,27 @@ const timeLabels = computed(() => {
 
 // 版本标记点位置 - 基于实际时间范围
 const versionMarkers = computed(() => {
-  return props.versions.map((v, i) => {
-    // 根据版本的采集时间计算位置
-    const collect = props.collects.find((c) =>
-      v.collect_ids.includes(c.id),
-    );
-    if (!collect?.start_time) return null;
+  return props.versions
+    .map((v, i) => {
+      // 根据版本的采集时间计算位置
+      const collect = props.collects.find((c) => v.collect_ids.includes(c.id));
+      if (!collect?.start_time) return null;
 
-    const startTime = new Date(collect.start_time).getTime();
-    const totalMs = timeRange.value.end - timeRange.value.start;
-    const position = (startTime - timeRange.value.start) / totalMs;
+      const startTime = new Date(collect.start_time).getTime();
+      const totalMs = timeRange.value.end - timeRange.value.start;
+      const position = (startTime - timeRange.value.start) / totalMs;
 
-    return {
-      id: v.id,
-      name: v.name,
-      position: Math.max(0, Math.min(1, position)),
-      color: VERSION_COLORS[i % VERSION_COLORS.length],
-    };
-  }).filter(Boolean);
+      return {
+        id: v.id,
+        name: v.name,
+        position: Math.max(0, Math.min(1, position)),
+        color: VERSION_COLORS[i % VERSION_COLORS.length],
+      };
+    })
+    .filter(Boolean);
 });
 
-function handleMouseDown(e: MouseEvent, type: 'window' | 'left' | 'right') {
+function handleMouseDown(e: MouseEvent, type: 'left' | 'right' | 'window') {
   if (!timelineRef.value) return;
   e.preventDefault();
   isDragging.value = true;
@@ -159,19 +182,39 @@ function handleMouseMove(e: MouseEvent) {
   const rect = timelineRef.value.getBoundingClientRect();
   const x = (e.clientX - rect.left) / rect.width;
 
-  if (dragType.value === 'window') {
-    // 移动整个窗口
-    const newStart = Math.max(0, Math.min(1 - windowWidth.value, x - windowWidth.value / 2));
-    windowStart.value = newStart;
-  } else if (dragType.value === 'left') {
-    // 调整左侧边界
-    const newStart = Math.max(0, Math.min(windowStart.value + windowWidth.value - 0.05, x));
-    windowWidth.value = windowStart.value + windowWidth.value - newStart;
-    windowStart.value = newStart;
-  } else if (dragType.value === 'right') {
-    // 调整右侧边界
-    const newWidth = Math.max(0.05, Math.min(1 - windowStart.value, x - windowStart.value));
-    windowWidth.value = newWidth;
+  switch (dragType.value) {
+    case 'left': {
+      // 调整左侧边界
+      const newStart = Math.max(
+        0,
+        Math.min(windowStart.value + windowWidth.value - 0.05, x),
+      );
+      windowWidth.value = windowStart.value + windowWidth.value - newStart;
+      windowStart.value = newStart;
+
+      break;
+    }
+    case 'right': {
+      // 调整右侧边界
+      const newWidth = Math.max(
+        0.05,
+        Math.min(1 - windowStart.value, x - windowStart.value),
+      );
+      windowWidth.value = newWidth;
+
+      break;
+    }
+    case 'window': {
+      // 移动整个窗口
+      const newStart = Math.max(
+        0,
+        Math.min(1 - windowWidth.value, x - windowWidth.value / 2),
+      );
+      windowStart.value = newStart;
+
+      break;
+    }
+    // No default
   }
 
   // 触发事件
@@ -184,14 +227,18 @@ function handleMouseUp() {
 
 function emitWindowChange() {
   const totalMs = timeRange.value.end - timeRange.value.start;
-  const startDate = new Date(timeRange.value.start + windowStart.value * totalMs);
-  const endDate = new Date(timeRange.value.start + (windowStart.value + windowWidth.value) * totalMs);
+  const startDate = new Date(
+    timeRange.value.start + windowStart.value * totalMs,
+  );
+  const endDate = new Date(
+    timeRange.value.start + (windowStart.value + windowWidth.value) * totalMs,
+  );
 
-  emit('window-change', [startDate, endDate]);
+  emit('windowChange', [startDate, endDate]);
 }
 
 function handleVersionClick(versionId: string) {
-  emit('version-click', versionId);
+  emit('versionClick', versionId);
 }
 
 onMounted(() => {
@@ -235,7 +282,10 @@ onUnmounted(() => {
         v-for="marker in versionMarkers"
         :key="marker!.id"
         class="marker version-marker"
-        :style="{ left: `${marker!.position * 100}%`, background: marker!.color }"
+        :style="{
+          left: `${marker!.position * 100}%`,
+          background: marker!.color,
+        }"
         :title="marker!.name"
         @click.stop="handleVersionClick(marker!.id)"
       ></div>
@@ -254,66 +304,77 @@ onUnmounted(() => {
 .timeline-selector {
   flex: 1;
 }
+
 .timeline-track {
   position: relative;
   height: 40px;
+  user-select: none;
   background: #e8e8e8;
   border-radius: 4px;
-  user-select: none;
 }
+
 .time-window {
   position: absolute;
   top: 0;
   height: 100%;
-  background: rgba(64, 158, 255, 0.1);
-  border: 2px solid rgba(64, 158, 255, 0.4);
-  border-radius: 4px;
   cursor: move;
+  background: rgb(64 158 255 / 10%);
+  border: 2px solid rgb(64 158 255 / 40%);
+  border-radius: 4px;
 }
+
 .window-handle {
   position: absolute;
   top: 0;
   width: 12px;
   height: 100%;
-  background: rgba(64, 158, 255, 0.3);
   cursor: ew-resize;
+  background: rgb(64 158 255 / 30%);
   border-radius: 2px;
 }
+
 .window-handle.left {
   left: -6px;
 }
+
 .window-handle.right {
   right: -6px;
 }
+
 .window-handle:hover {
-  background: rgba(64, 158, 255, 0.5);
+  background: rgb(64 158 255 / 50%);
 }
+
 .marker {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  border-radius: 50%;
-  border: 1px solid #fff;
-  cursor: pointer;
-  transition: transform 0.2s;
   z-index: 10;
+  cursor: pointer;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: transform 0.2s;
 }
+
 .marker:hover {
   transform: translateY(-50%) scale(1.3);
 }
+
 .version-marker {
   width: 10px;
   height: 10px;
 }
+
 .time-labels {
   position: absolute;
+  right: 0;
   bottom: 2px;
   left: 0;
-  right: 0;
   display: flex;
   justify-content: space-between;
   padding: 0 8px;
 }
+
 .time-label {
   font-size: 10px;
   color: #666;

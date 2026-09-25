@@ -6,7 +6,6 @@ import type { Menu } from '#/api/core/menu';
 
 import { computed, h, ref } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
 import { IconifyIcon } from '@vben/icons';
 import { $t, $te } from '@vben/locales';
 import { getPopupContainer } from '@vben/utils';
@@ -20,6 +19,7 @@ import {
   createMenuApi,
   getAllMenuTreeApi,
 } from '#/api/core/menu';
+import { ZqDialog } from '#/components/zq-dialog';
 
 const emit = defineEmits<{
   success: [menuData?: any];
@@ -224,8 +224,7 @@ async function open(data?: Partial<Menu> & { parent_path?: string }) {
 
     if (data.parent_path) {
       parentPath = data.parent_path;
-    }
-    else if (data.parent_id && menuTreeData.value.length > 0) {
+    } else if (data.parent_id && menuTreeData.value.length > 0) {
       const parentMenu = findMenuById(menuTreeData.value, data.parent_id);
       if (parentMenu?.path) {
         parentPath = parentMenu.path;

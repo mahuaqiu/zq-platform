@@ -7,9 +7,6 @@
 @File: api.py
 @Desc: Auth API - 认证相关接口
 """
-"""
-Auth API - 认证相关接口
-"""
 from datetime import timedelta
 from typing import Optional
 

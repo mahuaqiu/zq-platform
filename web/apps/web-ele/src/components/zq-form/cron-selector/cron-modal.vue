@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 
-import { ElButton } from 'element-plus';
 import { ZqDialog } from '#/components/zq-dialog';
 
 import CronInner from './cron-inner.vue';
@@ -19,6 +18,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  remote: undefined,
   modelValue: '',
   disabled: false,
   hideSecond: true,

@@ -1,40 +1,54 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { ElSelect, ElOption, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElDatePicker } from 'element-plus';
-import ChartPanel from './components/ChartPanel.vue';
-import Top10Panel from './components/Top10Panel.vue';
-import CollectDialog from './components/CollectDialog.vue';
-import TimeNavigator from './components/TimeNavigator.vue';
-import MetricSelector from './components/MetricSelector.vue';
-import MetricSearchPopup from './components/MetricSearchPopup.vue';
-import MiniTooltip from './components/MiniTooltip.vue';
-import TargetProcessPanel from './components/TargetProcessPanel.vue';
-import { getMetricLabel, getMetricUnit } from './hwinfo-metrics-config';
-import {
-  getCollectStatus,
-  stopCollect,
-  getLatestData,
-  getCollectDataByRange,
-  getCollectList,
-  getVersions,
-  createVersion,
-  deleteCollect,
-  setCollectProtected,
-  getMarkers,
-  queryAdvancedMetrics,
-} from '#/api/core/performance-monitor';
-import { getEnvMachineListApi } from '#/api/core/env-machine';
-import type {
-  PerformanceData,
-  CollectStatus,
-  PerformanceCollect,
-  PerformanceVersion,
-  MarkerResponse,
-} from '#/api/core/performance-monitor';
-import type { EnvMachine } from '#/api/core/env-machine';
 import type { ChartSeries } from './types';
 
+import type { EnvMachine } from '#/api/core/env-machine';
+import type {
+  CollectStatus,
+  MarkerResponse,
+  PerformanceCollect,
+  PerformanceData,
+  PerformanceVersion,
+} from '#/api/core/performance-monitor';
+
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+
+import {
+  ElButton,
+  ElDatePicker,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElSelect,
+} from 'element-plus';
+
+import { getEnvMachineListApi } from '#/api/core/env-machine';
+import {
+  createVersion,
+  deleteCollect,
+  getCollectDataByRange,
+  getCollectList,
+  getCollectStatus,
+  getLatestData,
+  getMarkers,
+  getVersions,
+  queryAdvancedMetrics,
+  setCollectProtected,
+  stopCollect,
+} from '#/api/core/performance-monitor';
+
+import ChartPanel from './components/ChartPanel.vue';
+import CollectDialog from './components/CollectDialog.vue';
+import MetricSearchPopup from './components/MetricSearchPopup.vue';
+import MetricSelector from './components/MetricSelector.vue';
+import MiniTooltip from './components/MiniTooltip.vue';
+import TargetProcessPanel from './components/TargetProcessPanel.vue';
+import TimeNavigator from './components/TimeNavigator.vue';
+import Top10Panel from './components/Top10Panel.vue';
+import { getMetricLabel, getMetricUnit } from './hwinfo-metrics-config';
 
 // 设备选择
 const deviceId = ref('');
@@ -43,10 +57,13 @@ const loadingDevices = ref(true);
 
 // 在线设备列表（过滤虚拟设备和不支持性能采集的类型）
 const onlineDevices = computed(() =>
-  devices.value.filter((d) =>
-    (d.status === 'online' || d.status === 'using') &&
-    !d.is_virtual &&
-    ['windows', 'linux', 'harmony_pc', 'harmony_mobile'].includes(d.device_type),
+  devices.value.filter(
+    (d) =>
+      (d.status === 'online' || d.status === 'using') &&
+      !d.is_virtual &&
+      ['harmony_mobile', 'harmony_pc', 'linux', 'windows'].includes(
+        d.device_type,
+      ),
   ),
 );
 
@@ -64,7 +81,7 @@ const currentDeviceInfo = computed(() => {
 });
 
 // SN 展示缩略：超长时保留尾部 8 位（SN 尾部是唯一性最高的部分）
-function shortSn(sn?: string | null): string {
+function shortSn(sn?: null | string): string {
   if (!sn) return '';
   return sn.length > 10 ? `…${sn.slice(-8)}` : sn;
 }
@@ -77,11 +94,14 @@ function deviceLabel(device: EnvMachine): string {
 
 // 采集记录的设备标识后缀，用于历史/版本对比时区分来源设备
 function collectDeviceSuffix(
-  c: Pick<PerformanceCollect, 'device_type' | 'device_ip' | 'device_sn'>,
+  c: Pick<PerformanceCollect, 'device_ip' | 'device_sn' | 'device_type'>,
 ): string {
-  const parts = [c.device_type, c.device_ip, c.device_sn ? `SN ${shortSn(c.device_sn)}` : '']
-    .filter(Boolean);
-  return parts.length ? ` · ${parts.join('·')}` : '';
+  const parts = [
+    c.device_type,
+    c.device_ip,
+    c.device_sn ? `SN ${shortSn(c.device_sn)}` : '',
+  ].filter(Boolean);
+  return parts.length > 0 ? ` · ${parts.join('·')}` : '';
 }
 
 // 采集状态
@@ -95,7 +115,7 @@ const showCollectDialog = ref(false);
 const performanceData = ref<PerformanceData[]>([]);
 const historyData = ref<PerformanceData[]>([]); // 历史数据用于趋势线
 
-type SampleTime = { relative_time: number; elapsed_ms?: number };
+type SampleTime = { elapsed_ms?: number; relative_time: number };
 
 function timeMs(data: SampleTime): number {
   return data.elapsed_ms ?? data.relative_time * 1000;
@@ -107,7 +127,8 @@ function timeSeconds(data: SampleTime | undefined): number {
 
 function formatCollectedDuration(seconds: number): string {
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`;
+  if (seconds < 3600)
+    return `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`;
   return `${Math.floor(seconds / 3600)}小时${Math.floor((seconds % 3600) / 60)}分`;
 }
 
@@ -135,7 +156,7 @@ const showHistoryDialog = ref(false);
 const historySearchDate = ref<[Date, Date] | null>(null);
 const historySearchProcess = ref('');
 const historyLoading = ref(false);
-const historyDeleting = ref<string | null>(null);
+const historyDeleting = ref<null | string>(null);
 const selectedCollectIds = ref<Set<string>>(new Set()); // 多选状态
 const batchDeleting = ref(false); // 批量删除loading
 
@@ -143,24 +164,34 @@ const batchDeleting = ref(false); // 批量删除loading
 interface MiniTooltipState {
   position: { x: number; y: number };
   data: PerformanceData | undefined;
-  seriesData: { name: string; value: number | null; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
+  seriesData: {
+    color: string;
+    name: string;
+    unit: string;
+    value: null | number;
+  }[];
+  chartType: 'commitMemory' | 'cpu' | 'gpu' | 'handles' | 'hwinfo' | 'memory';
   containerRect: DOMRect;
-  chartKey?: string;  // 标识当前hover的图表
+  chartKey?: string; // 标识当前hover的图表
 }
 const miniTooltipState = ref<MiniTooltipState | null>(null);
 
 // 大面板状态（click 触发）
 interface DetailPanelState {
-  data: PerformanceData;  // 点击的数据点完整数据
-  seriesData: { name: string; value: number | null; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
-  chartKey: string;  // 标识是哪个图表（cpu/gpu/memory/commitMemory/handles/hwinfo）
-  position?: { x: number; y: number };  // 点击位置
-  containerWidth?: number;  // 图表容器宽度
+  data: PerformanceData; // 点击的数据点完整数据
+  seriesData: {
+    color: string;
+    name: string;
+    unit: string;
+    value: null | number;
+  }[];
+  chartType: 'commitMemory' | 'cpu' | 'gpu' | 'handles' | 'hwinfo' | 'memory';
+  chartKey: string; // 标识是哪个图表（cpu/gpu/memory/commitMemory/handles/hwinfo）
+  position?: { x: number; y: number }; // 点击位置
+  containerWidth?: number; // 图表容器宽度
 }
 const detailPanelState = ref<DetailPanelState | null>(null);
-const activeChartKey = ref<string | null>(null);  // 当前激活的图表
+const activeChartKey = ref<null | string>(null); // 当前激活的图表
 
 // 按钮操作 loading 状态（防止重复点击）
 const isStopping = ref(false);
@@ -168,12 +199,16 @@ const isStopping = ref(false);
 // 过滤后的历史采集列表
 const filteredCollectHistory = computed(() => {
   const list = collectHistory.value;
-  if (!list.length) return list;
+  if (list.length === 0) return list;
 
   let filtered = list;
 
   // 按日期过滤
-  if (historySearchDate.value && historySearchDate.value[0] && historySearchDate.value[1]) {
+  if (
+    historySearchDate.value &&
+    historySearchDate.value[0] &&
+    historySearchDate.value[1]
+  ) {
     const startDate = historySearchDate.value[0];
     const endDate = historySearchDate.value[1];
     filtered = filtered.filter((c) => {
@@ -195,14 +230,14 @@ const filteredCollectHistory = computed(() => {
 });
 
 // 定时轮询
-let pollingTimer: number | null = null;
+let pollingTimer: null | number = null;
 let isMounted = false; // 组件挂载状态
 
 // 用户选择的时间窗口范围（相对时间，秒）- 由 TimeNavigator 控制
 const selectedRelativeTimeRange = ref<[number, number] | null>(null);
 
 // 已加载的数据时间范围（用于判断是否需要动态加载更多数据）
-const loadedTimeRange = ref<{ min: number; max: number } | null>(null);
+const loadedTimeRange = ref<null | { max: number; min: number }>(null);
 
 // 总时长（采集记录的完整时长，不受加载范围限制）
 const totalDuration = ref<number>(0);
@@ -213,24 +248,35 @@ const isLoadingMoreData = ref(false);
 // 根据时间窗口过滤后的数据
 const filteredPerformanceData = computed(() => {
   const data = performanceData.value;
-  if (!data.length) return data;
+  if (data.length === 0) return data;
 
   // 如果用户没有选择时间窗口，显示全部数据
   if (!selectedRelativeTimeRange.value) return data;
 
   const [startTime, endTime] = selectedRelativeTimeRange.value;
-  return data.filter((d) => timeSeconds(d) >= startTime && timeSeconds(d) <= endTime);
+  return data.filter(
+    (d) => timeSeconds(d) >= startTime && timeSeconds(d) <= endTime,
+  );
 });
 
 // 当前选中的指标
-type MetricKey = 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
+type MetricKey =
+  | 'commitMemory'
+  | 'cpu'
+  | 'gpu'
+  | 'handles'
+  | 'hwinfo'
+  | 'memory';
 const currentMetric = ref<MetricKey>('cpu');
 const showMorePopup = ref(false);
 
 // HWiNFO 指标状态
 const hwinfoMetricKey = ref<string>(''); // 具体的 HWiNFO 指标 key
 const hwinfoMetricData = ref<{ relative_time: number; value: number }[]>([]); // HWiNFO 指标数据
-const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({ displayName: '', unit: '' });
+const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({
+  displayName: '',
+  unit: '',
+});
 
 // 处理选择指标（区分 HWiNFO 指标和进程指标）
 async function handleHwinfoMetricSelect(metricKey: string) {
@@ -281,7 +327,9 @@ async function handleHwinfoMetricSelect(metricKey: string) {
 // 判型依据设备：优先当前正在查看的采集记录所属设备（图表展示的是该设备的数据），
 // 记录未加载时退回下拉框选中设备；避免鸿蒙设备离线后历史数据被按 Windows 分支渲染
 const kindDevice = computed(() => {
-  const collect = collectHistory.value.find((c) => c.id === currentCollectId.value);
+  const collect = collectHistory.value.find(
+    (c) => c.id === currentCollectId.value,
+  );
   const collectDevice = collect
     ? devices.value.find((d) => d.id === collect.device_id)
     : undefined;
@@ -297,7 +345,7 @@ const isHarmonyDevice = computed(() => {
   return type === 'harmony_pc' || type === 'harmony_mobile';
 });
 
-const deviceKind = computed<'windows' | 'linux' | 'harmony'>(() => {
+const deviceKind = computed<'harmony' | 'linux' | 'windows'>(() => {
   if (isHarmonyDevice.value) return 'harmony';
   if (isLinuxDevice.value) return 'linux';
   return 'windows';
@@ -314,26 +362,42 @@ function hasHarmonyMetric(key: string): boolean {
 const allMetrics = computed(() => {
   const baseMetrics = [
     { key: 'cpu' as MetricKey, label: 'CPU使用率' },
-    ...((isLinuxDevice.value || (isHarmonyDevice.value && !hasHarmonyMetric('Harmony GPU Load')))
+    ...(isLinuxDevice.value ||
+    (isHarmonyDevice.value && !hasHarmonyMetric('Harmony GPU Load'))
       ? []
-      : [{ key: 'gpu' as MetricKey, label: isHarmonyDevice.value ? 'GPU 负载' : 'GPU使用率' }]),
+      : [
+          {
+            key: 'gpu' as MetricKey,
+            label: isHarmonyDevice.value ? 'GPU 负载' : 'GPU使用率',
+          },
+        ]),
     {
       key: 'memory' as MetricKey,
-      label: isHarmonyDevice.value ? '系统内存（Used）' : isLinuxDevice.value ? '内存使用量' : '进程内存',
+      label: isHarmonyDevice.value
+        ? '系统内存（Used）'
+        : isLinuxDevice.value
+          ? '内存使用量'
+          : '进程内存',
     },
-    ...((isLinuxDevice.value || isHarmonyDevice.value) ? [] : [{ key: 'commitMemory' as MetricKey, label: '提交内存' }]),
-    ...((isLinuxDevice.value || isHarmonyDevice.value) ? [] : [{ key: 'handles' as MetricKey, label: '进程句柄' }]),
+    ...(isLinuxDevice.value || isHarmonyDevice.value
+      ? []
+      : [{ key: 'commitMemory' as MetricKey, label: '提交内存' }]),
+    ...(isLinuxDevice.value || isHarmonyDevice.value
+      ? []
+      : [{ key: 'handles' as MetricKey, label: '进程句柄' }]),
   ];
 
   // 如果选择了 HWiNFO 指标，添加到列表
   if (hwinfoMetricKey.value) {
-    const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const englishName =
+      hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
     const chineseName = getMetricLabel(hwinfoMetricKey.value);
 
     // 如果有中文翻译，显示 "中文（英文）" 格式
-    const label = chineseName !== hwinfoMetricKey.value
-      ? `${chineseName}（${englishName}）`
-      : englishName;
+    const label =
+      chineseName === hwinfoMetricKey.value
+        ? englishName
+        : `${chineseName}（${englishName}）`;
 
     baseMetrics.push({
       key: 'hwinfo' as MetricKey,
@@ -378,15 +442,18 @@ const currentChartSeries = computed<ChartSeries[]>(() => {
 // 当前图表标题（HWiNFO 指标显示中文+单位）
 const currentChartTitle = computed(() => {
   if (currentMetric.value === 'hwinfo') {
-    const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const englishName =
+      hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
     const chineseName = getMetricLabel(hwinfoMetricKey.value);
     // 后端映射缺失时（如鸿蒙逐核主频）回退到前端配置表单位。
-    const unit = hwinfoMetricInfo.value.unit || getMetricUnit(hwinfoMetricKey.value) || '';
+    const unit =
+      hwinfoMetricInfo.value.unit || getMetricUnit(hwinfoMetricKey.value) || '';
 
     // 有中文翻译时显示 "中文（英文）"，否则显示英文
-    let name = chineseName !== hwinfoMetricKey.value
-      ? `${chineseName}（${englishName}）`
-      : englishName;
+    let name =
+      chineseName === hwinfoMetricKey.value
+        ? englishName
+        : `${chineseName}（${englishName}）`;
 
     // 有单位时添加单位
     if (unit) {
@@ -404,24 +471,34 @@ const currentChartTitle = computed(() => {
     }
   }
   if (isHarmonyDevice.value) {
-    if (currentMetric.value === 'cpu') return '系统 CPU 使用率（Harmony CPU Usage） (%)';
-    if (currentMetric.value === 'gpu') return 'GPU 负载（Harmony GPU Load） (%)';
-    if (currentMetric.value === 'memory') return '系统内存使用（Harmony Mem Used） (GB)';
+    if (currentMetric.value === 'cpu')
+      return '系统 CPU 使用率（Harmony CPU Usage） (%)';
+    if (currentMetric.value === 'gpu')
+      return 'GPU 负载（Harmony GPU Load） (%)';
+    if (currentMetric.value === 'memory')
+      return '系统内存使用（Harmony Mem Used） (GB)';
   }
 
   // CPU/GPU/内存/提交内存/句柄加单位
-  const metric = allMetrics.value.find(m => m.key === currentMetric.value);
+  const metric = allMetrics.value.find((m) => m.key === currentMetric.value);
   const baseLabel = metric?.label || currentMetric.value;
 
   // 添加单位
-  if (currentMetric.value === 'cpu' || currentMetric.value === 'gpu') {
-    return `${baseLabel} (%)`;
-  } else if (currentMetric.value === 'memory') {
-    return `${baseLabel} (MB)`;
-  } else if (currentMetric.value === 'commitMemory') {
-    return `${baseLabel} (MB)`;
-  } else if (currentMetric.value === 'handles') {
-    return `${baseLabel} (个)`;
+  switch (currentMetric.value) {
+    case 'commitMemory': {
+      return `${baseLabel} (MB)`;
+    }
+    case 'cpu':
+    case 'gpu': {
+      return `${baseLabel} (%)`;
+    }
+    case 'handles': {
+      return `${baseLabel} (个)`;
+    }
+    case 'memory': {
+      return `${baseLabel} (MB)`;
+    }
+    // No default
   }
 
   return baseLabel;
@@ -433,10 +510,10 @@ const currentChartType = computed(() => currentMetric.value);
 // TOP10 面板显示条件（仅 Windows 的 CPU/GPU 显示）
 // 鸿蒙 0.2.x（SP_daemon 单应用模型）与 Linux 不产出 top10_cpu/top10_gpu，
 // 面板会恒空，故按设备类型门控，避免显示空的"系统TOP10应用"面板。
-const TOP10_METRICS: MetricKey[] = ['cpu', 'gpu'];
+const TOP10_METRICS = new Set<MetricKey>(['cpu', 'gpu']);
 const showTop10Panel = computed(
   () =>
-    TOP10_METRICS.includes(currentMetric.value) &&
+    TOP10_METRICS.has(currentMetric.value) &&
     !isHarmonyDevice.value &&
     !isLinuxDevice.value,
 );
@@ -444,7 +521,7 @@ const showTop10Panel = computed(
 // 曲线图数据
 const cpuChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
-  if (!data.length) return [];
+  if (data.length === 0) return [];
   const systemData = data.map((d) => ({
     time: timeSeconds(d),
     value: d.system_metrics?.cpu_percent ?? d.cpu_usage ?? null,
@@ -454,7 +531,9 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
   if (isLinuxDevice.value || isHarmonyDevice.value) {
     const series: ChartSeries[] = [
       {
-        name: isHarmonyDevice.value ? '系统 CPU' : 'CPU 总使用率（Linux CPU Usage）',
+        name: isHarmonyDevice.value
+          ? '系统 CPU'
+          : 'CPU 总使用率（Linux CPU Usage）',
         data: systemData,
         color: '#409eff',
         unit: '%',
@@ -467,7 +546,12 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
           d.target_processes?.reduce((sum, p) => sum + p.total_cpu, 0) || 0;
         return { time: timeSeconds(d), value: totalCpu };
       });
-      series.push({ name: '进程 CPU', data: processData, color: '#67c23a', unit: '%' });
+      series.push({
+        name: '进程 CPU',
+        data: processData,
+        color: '#67c23a',
+        unit: '%',
+      });
     }
     return series;
   }
@@ -486,7 +570,7 @@ const cpuChartSeries = computed<ChartSeries[]>(() => {
 
 const gpuChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
-  if (!data.length) return [];
+  if (data.length === 0) return [];
   const systemData = data.map((d) => ({
     time: timeSeconds(d),
     value: d.system_metrics?.gpu_percent ?? d.gpu_usage ?? null,
@@ -513,11 +597,14 @@ const gpuChartSeries = computed<ChartSeries[]>(() => {
 // 提交内存图表 - 显示进程提交内存总和（MB）
 const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
-  if (!data.length) return [];
+  if (data.length === 0) return [];
   // 进程提交内存总和（MB）
   const processData = data.map((d) => {
     const totalCommittedMB =
-      d.target_processes?.reduce((sum, p) => sum + (p.total_committed_memory || 0), 0) || 0;
+      d.target_processes?.reduce(
+        (sum, p) => sum + (p.total_committed_memory || 0),
+        0,
+      ) || 0;
     return { time: timeSeconds(d), value: totalCommittedMB };
   });
   return [
@@ -527,18 +614,22 @@ const commitMemoryChartSeries = computed<ChartSeries[]>(() => {
 
 const memoryChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
-  if (!data.length) return [];
+  if (data.length === 0) return [];
 
   // Linux 设备显示系统内存使用量（MB单位，与更多指标统一）；鸿蒙按用户要求显示 GB。
   // memory_usage 字段存储的是 GB
   if (isLinuxDevice.value || isHarmonyDevice.value) {
     const memoryData = data.map((d) => ({
       time: timeSeconds(d),
-      value: isHarmonyDevice.value ? (d.memory_usage || 0) : (d.memory_usage || 0) * 1024,
+      value: isHarmonyDevice.value
+        ? d.memory_usage || 0
+        : (d.memory_usage || 0) * 1024,
     }));
     const series: ChartSeries[] = [
       {
-        name: isHarmonyDevice.value ? '系统内存（总内存−可用内存）' : '内存使用量（Linux Memory Usage）',
+        name: isHarmonyDevice.value
+          ? '系统内存（总内存−可用内存）'
+          : '内存使用量（Linux Memory Usage）',
         data: memoryData,
         color: '#409eff',
         unit: isHarmonyDevice.value ? 'GB' : 'MB',
@@ -551,7 +642,12 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
           d.target_processes?.reduce((sum, p) => sum + p.total_memory, 0) || 0;
         return { time: timeSeconds(d), value: totalMemMB / 1024 };
       });
-      series.push({ name: '进程内存', data: processData, color: '#67c23a', unit: 'GB' });
+      series.push({
+        name: '进程内存',
+        data: processData,
+        color: '#67c23a',
+        unit: 'GB',
+      });
     }
     return series;
   }
@@ -570,19 +666,18 @@ const memoryChartSeries = computed<ChartSeries[]>(() => {
 // 进程句柄图表 - 显示进程句柄总和
 const handlesChartSeries = computed<ChartSeries[]>(() => {
   const data = filteredPerformanceData.value;
-  if (!data.length) return [];
+  if (data.length === 0) return [];
   // 显示进程句柄总和
   const processData = data.map((d) => {
     const totalHandles =
-      d.target_processes?.reduce((sum, p) => sum + (p.total_handles || 0), 0) || 0;
+      d.target_processes?.reduce((sum, p) => sum + (p.total_handles || 0), 0) ||
+      0;
     return { time: timeSeconds(d), value: totalHandles };
   });
   return [
     { name: '进程句柄', data: processData, color: '#409eff', unit: '个' },
   ];
 });
-
-
 
 // 当前采集记录的start_time（用于HWiNFO计算绝对时间）
 const currentCollectStartTime = computed(() => {
@@ -592,19 +687,22 @@ const currentCollectStartTime = computed(() => {
   }
   // 否则从collectHistory中查找
   if (!currentCollectId.value) return null;
-  const collect = collectHistory.value.find(c => c.id === currentCollectId.value);
+  const collect = collectHistory.value.find(
+    (c) => c.id === currentCollectId.value,
+  );
   return collect?.start_time || null;
 });
 
 // HWiNFO 指标的 rawData（构造符合 PerformanceData 结构的数据）
 // HWiNFO 查询结果仍以秒为接口单位，统一转换成页面采样结构。
 const hwinfoRawData = computed(() => {
-  if (!hwinfoMetricData.value.length || !currentCollectStartTime.value) return [];
+  if (hwinfoMetricData.value.length === 0 || !currentCollectStartTime.value)
+    return [];
 
   const startTime = new Date(currentCollectStartTime.value).getTime();
 
   // 根据relative_time计算出绝对时间timestamp
-  return hwinfoMetricData.value.map(d => ({
+  return hwinfoMetricData.value.map((d) => ({
     relative_time: d.relative_time,
     elapsed_ms: d.relative_time * 1000,
     timestamp: new Date(startTime + d.relative_time * 1000).toISOString(),
@@ -613,25 +711,34 @@ const hwinfoRawData = computed(() => {
 
 // HWiNFO 指标图表数据
 const hwinfoChartSeries = computed<ChartSeries[]>(() => {
-  if (!hwinfoMetricData.value.length) return [];
+  if (hwinfoMetricData.value.length === 0) return [];
 
   // 转换数据格式：relative_time -> time（鸿蒙内存 0.2.0 起后端直接上报 GB，无需前端换算）
-  const data = hwinfoMetricData.value.map(d => ({
+  const data = hwinfoMetricData.value.map((d) => ({
     time: timeSeconds(d),
     value: d.value,
   }));
 
   // 后端映射缺失时（如鸿蒙逐核主频）回退到前端配置表单位。
-  const unit = hwinfoMetricInfo.value.unit || getMetricUnit(hwinfoMetricKey.value) || '';
-  const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+  const unit =
+    hwinfoMetricInfo.value.unit || getMetricUnit(hwinfoMetricKey.value) || '';
+  const englishName =
+    hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
   const chineseName = getMetricLabel(hwinfoMetricKey.value);
 
   // Tooltip 显示简洁名称：优先中文，没有则英文
-  const tooltipName = chineseName !== hwinfoMetricKey.value ? chineseName : englishName;
+  const tooltipName =
+    chineseName === hwinfoMetricKey.value ? englishName : chineseName;
 
   // 根据 unit 决定 Y 轴单位显示
   let chartUnit = unit;
-  if (unit === 'W' || unit === '°C' || unit === 'MHz' || unit === 'V' || unit === 'A') {
+  if (
+    unit === 'W' ||
+    unit === '°C' ||
+    unit === 'MHz' ||
+    unit === 'V' ||
+    unit === 'A'
+  ) {
     chartUnit = unit; // 保持原单位
   } else if (unit === 'MB/s' || unit === 'GB/s') {
     chartUnit = unit;
@@ -639,9 +746,7 @@ const hwinfoChartSeries = computed<ChartSeries[]>(() => {
     chartUnit = ''; // 无单位
   }
 
-  return [
-    { name: tooltipName, data, color: '#409eff', unit: chartUnit },
-  ];
+  return [{ name: tooltipName, data, color: '#409eff', unit: chartUnit }];
 });
 
 // 获取在线设备列表
@@ -678,7 +783,7 @@ async function fetchOnlineDevices() {
     const sortedDevices = onlineDevs.sort((a, b) => {
       const countA = deviceCollectCount.get(a.id) || 0;
       const countB = deviceCollectCount.get(b.id) || 0;
-      return countB - countA;  // 有记录的排在前面
+      return countB - countA; // 有记录的排在前面
     });
 
     // 默认选择第一个设备（优先选择有采集记录的）
@@ -799,17 +904,20 @@ async function loadCollectData(collectId: string) {
       historyData.value = result.items.slice(-50);
 
       // 记录已加载的时间范围
-      const loadedStartTime = result.items[0] ? timeSeconds(result.items[0]) : startTime;
-      const loadedEndTime = result.items[result.items.length - 1] ? timeSeconds(result.items[result.items.length - 1]) : endTime;
+      const loadedStartTime = result.items[0]
+        ? timeSeconds(result.items[0])
+        : startTime;
+      const loadedEndTime = result.items[result.items.length - 1]
+        ? timeSeconds(result.items[result.items.length - 1])
+        : endTime;
       loadedTimeRange.value = { min: loadedStartTime, max: loadedEndTime };
 
       // 默认显示最近15分钟（前端过滤）
       const defaultDisplayDuration = 15 * 60;
-      if (totalDuration.value > defaultDisplayDuration) {
-        selectedRelativeTimeRange.value = [totalDuration.value - defaultDisplayDuration, totalDuration.value];
-      } else {
-        selectedRelativeTimeRange.value = null;
-      }
+      selectedRelativeTimeRange.value =
+        totalDuration.value > defaultDisplayDuration
+          ? [totalDuration.value - defaultDisplayDuration, totalDuration.value]
+          : null;
 
       // 加载标记
       await loadMarkers();
@@ -864,8 +972,8 @@ async function loadLatestData(collectId: string) {
     if (!isMounted) return; // 异步操作完成后再次检查
     if (result?.items?.length) {
       // 合并数据，避免重复
-      const existingIds = new Set(performanceData.value.map(d => d.id));
-      const newData = result.items.filter(d => !existingIds.has(d.id));
+      const existingIds = new Set(performanceData.value.map((d) => d.id));
+      const newData = result.items.filter((d) => !existingIds.has(d.id));
 
       if (performanceData.value.length === 0) {
         // 如果之前没有数据，直接设置返回的数据
@@ -955,10 +1063,11 @@ async function handleDeviceChange() {
 
   // Linux/Harmony 不使用 Windows 的 GPU/提交内存/进程句柄语义，切换设备时回到 CPU。
   // HWiNFO 指标也需要清空
-  if (isLinuxDevice.value || isHarmonyDevice.value) {
-    if (['gpu', 'commitMemory', 'handles', 'hwinfo'].includes(currentMetric.value)) {
-      currentMetric.value = 'cpu';
-    }
+  if (
+    (isLinuxDevice.value || isHarmonyDevice.value) &&
+    ['commitMemory', 'gpu', 'handles', 'hwinfo'].includes(currentMetric.value)
+  ) {
+    currentMetric.value = 'cpu';
   }
 
   await refreshStatus();
@@ -988,7 +1097,7 @@ async function handleCreateVersion() {
   // 计算所选采集记录的总时长
   let totalDurationSeconds = 0;
   for (const collectId of versionForm.value.selectedCollects) {
-    const collect = collectHistory.value.find(c => c.id === collectId);
+    const collect = collectHistory.value.find((c) => c.id === collectId);
     if (collect?.start_time && collect?.end_time) {
       const startTime = new Date(collect.start_time).getTime();
       const endTime = new Date(collect.end_time).getTime();
@@ -1005,7 +1114,9 @@ async function handleCreateVersion() {
   if (totalDurationSeconds > maxDurationSeconds) {
     const hours = Math.floor(totalDurationSeconds / 3600);
     const minutes = Math.floor((totalDurationSeconds % 3600) / 60);
-    ElMessage.warning(`所选采集记录总时长 ${hours}小时${minutes}分钟，超过最大限制12小时`);
+    ElMessage.warning(
+      `所选采集记录总时长 ${hours}小时${minutes}分钟，超过最大限制12小时`,
+    );
     return;
   }
 
@@ -1055,7 +1166,7 @@ async function confirmDeleteCollect(collect: PerformanceCollect) {
         cancelButtonText: '取消',
         type: 'warning',
         customClass: 'delete-confirm-dialog',
-      }
+      },
     );
     // 用户确认后执行删除
     await handleDeleteCollect(collect.id);
@@ -1102,12 +1213,14 @@ async function handleToggleProtected(collect: PerformanceCollect) {
 
 // 可删除的筛选记录（排除running和protected）
 const deletableFilteredCollects = computed(() => {
-  return filteredCollectHistory.value.filter(c => c.status !== 'running' && !c.is_protected);
+  return filteredCollectHistory.value.filter(
+    (c) => c.status !== 'running' && !c.is_protected,
+  );
 });
 
 // 全选可删除记录
 function handleSelectAllDeletable() {
-  const ids = deletableFilteredCollects.value.map(c => c.id);
+  const ids = deletableFilteredCollects.value.map((c) => c.id);
   selectedCollectIds.value = new Set(ids);
 }
 
@@ -1129,7 +1242,7 @@ function handleToggleSelect(collectId: string) {
 
 // 批量删除选中记录
 async function handleBatchDelete() {
-  const ids = Array.from(selectedCollectIds.value);
+  const ids = [...selectedCollectIds.value];
   if (ids.length === 0) {
     ElMessage.warning('请先选择要删除的记录');
     return;
@@ -1143,7 +1256,7 @@ async function handleBatchDelete() {
         confirmButtonText: '确认删除',
         cancelButtonText: '取消',
         type: 'warning',
-      }
+      },
     );
 
     batchDeleting.value = true;
@@ -1197,12 +1310,15 @@ function formatDuration(startTime: string, endTime?: string): string {
 }
 
 // 处理图表点击事件（更新 clickedTime 用于 TOP10 切换）
-function handlePointClick(data: { time: number; collectId: string }) {
+function handlePointClick(data: { collectId: string; time: number }) {
   clickedTime.value = data.time;
 }
 
 // 小 Tooltip 显示事件处理
-function handleMiniTooltipShow(data: Omit<MiniTooltipState, 'chartKey'>, chartKey: string) {
+function handleMiniTooltipShow(
+  data: Omit<MiniTooltipState, 'chartKey'>,
+  chartKey: string,
+) {
   miniTooltipState.value = {
     ...data,
     chartKey,
@@ -1215,15 +1331,21 @@ function handleMiniTooltipHide() {
 }
 
 // 大面板点击事件处理
-function handleDetailClick(data: Omit<DetailPanelState, 'data'> & { data?: PerformanceData }, chartKey: string) {
+function handleDetailClick(
+  data: Omit<DetailPanelState, 'data'> & { data?: PerformanceData },
+  chartKey: string,
+) {
   // 更新 clickedTime 用于底部面板联动
   const detailData = data.data;
   if (!detailData) return;
   clickedTime.value = timeSeconds(detailData);
 
-  if (detailPanelState.value?.data && data.data
-      && timeSeconds(detailPanelState.value.data) === timeSeconds(data.data)
-      && activeChartKey.value === chartKey) {
+  if (
+    detailPanelState.value?.data &&
+    data.data &&
+    timeSeconds(detailPanelState.value.data) === timeSeconds(data.data) &&
+    activeChartKey.value === chartKey
+  ) {
     detailPanelState.value = null;
     activeChartKey.value = null;
   } else {
@@ -1269,23 +1391,29 @@ async function loadMoreData(start_time: number, end_time: number) {
   try {
     const result = await getCollectDataByRange(currentCollectId.value, {
       start_time: Math.max(0, start_time),
-      end_time: end_time,
+      end_time,
     });
 
     if (result?.items?.length) {
       // 合并数据：新数据插入到开头，保持时间顺序
-      const existingIds = new Set(performanceData.value.map(d => d.id));
-      const newData = result.items.filter(d => !existingIds.has(d.id));
+      const existingIds = new Set(performanceData.value.map((d) => d.id));
+      const newData = result.items.filter((d) => !existingIds.has(d.id));
 
       if (newData.length > 0) {
         // 按时间顺序合并
         performanceData.value = [...newData, ...performanceData.value].sort(
-          (a, b) => timeMs(a) - timeMs(b)
+          (a, b) => timeMs(a) - timeMs(b),
         );
 
         // 更新已加载的时间范围
-        const newMinTime = Math.min(loadedTimeRange.value?.min || 0, timeSeconds(newData[0]));
-        loadedTimeRange.value = { min: newMinTime, max: loadedTimeRange.value?.max || 0 };
+        const newMinTime = Math.min(
+          loadedTimeRange.value?.min || 0,
+          timeSeconds(newData[0]),
+        );
+        loadedTimeRange.value = {
+          min: newMinTime,
+          max: loadedTimeRange.value?.max || 0,
+        };
       }
     }
   } catch (error) {
@@ -1305,7 +1433,7 @@ async function loadMoreData(start_time: number, end_time: number) {
         <span class="device-label-tag">设备选择</span>
 
         <!-- 设备下拉选择框（加大宽度，支持搜索） -->
-        <el-select
+        <ElSelect
           v-if="!loadingDevices"
           v-model="deviceId"
           placeholder="选择设备"
@@ -1314,23 +1442,31 @@ async function loadMoreData(start_time: number, end_time: number) {
           clearable
           @change="handleDeviceChange"
         >
-          <el-option
+          <ElOption
             v-for="device in onlineDevices"
             :key="device.id"
             :label="deviceLabel(device)"
             :value="device.id"
           >
             <span>{{ device.device_type }}</span>
-            <span style="margin-left: 10px; color: #409eff">{{ device.ip }}</span>
-            <span v-if="device.device_sn" style="margin-left: 10px; color: #909399">
+            <span style="margin-left: 10px; color: #409eff">{{
+              device.ip
+            }}</span>
+            <span
+              v-if="device.device_sn"
+              style="margin-left: 10px; color: #909399"
+            >
               SN {{ device.device_sn }}
             </span>
-          </el-option>
-        </el-select>
+          </ElOption>
+        </ElSelect>
         <span v-else class="loading-text">加载中...</span>
 
         <!-- 设备状态卡片（仅未采集时显示） -->
-        <div v-if="!collectStatus.is_collecting && currentDeviceInfo" class="device-status-card">
+        <div
+          v-if="!collectStatus.is_collecting && currentDeviceInfo"
+          class="device-status-card"
+        >
           <span class="device-ip">{{ currentDeviceInfo.ip }}</span>
           <span
             v-if="currentDeviceInfo.device_sn"
@@ -1339,7 +1475,14 @@ async function loadMoreData(start_time: number, end_time: number) {
           >
             SN {{ currentDeviceInfo.device_sn }}
           </span>
-          <span class="online-badge" v-if="currentDeviceInfo.status === 'online' || currentDeviceInfo.status === 'using'">● 在线</span>
+          <span
+            class="online-badge"
+            v-if="
+              currentDeviceInfo.status === 'online' ||
+              currentDeviceInfo.status === 'using'
+            "
+            >● 在线</span
+          >
         </div>
 
         <!-- 采集状态卡片（采集时显示） -->
@@ -1350,25 +1493,54 @@ async function loadMoreData(start_time: number, end_time: number) {
             v-if="collectStatus.match_mode"
             class="collect-mode-badge"
             :style="{
-              background: collectStatus.match_mode === 'exact' ? 'rgba(230,162,60,0.12)' : 'rgba(103,194,126,0.12)',
-              color: collectStatus.match_mode === 'exact' ? '#e6a23c' : '#67c23a',
+              background:
+                collectStatus.match_mode === 'exact'
+                  ? 'rgba(230,162,60,0.12)'
+                  : 'rgba(103,194,126,0.12)',
+              color:
+                collectStatus.match_mode === 'exact' ? '#e6a23c' : '#67c23a',
             }"
           >
-            {{ collectStatus.match_mode === 'exact' ? 'PID 精准采集' : 'PKG 模糊采集' }}
+            {{
+              collectStatus.match_mode === 'exact'
+                ? 'PID 精准采集'
+                : 'PKG 模糊采集'
+            }}
           </span>
-          <span class="collect-duration">已采集: {{ formatCollectedDuration(performanceData.length > 0 ? timeSeconds(performanceData[performanceData.length - 1]) : 0) }}</span>
+          <span class="collect-duration"
+            >已采集:
+            {{
+              formatCollectedDuration(
+                performanceData.length > 0
+                  ? timeSeconds(performanceData[performanceData.length - 1])
+                  : 0,
+              )
+            }}</span
+          >
         </div>
 
         <!-- 操作按钮（放到左边） -->
-        <button class="start-btn" :disabled="collectStatus.is_collecting" @click="handleStartClick">开始采集</button>
-        <button class="stop-btn" :disabled="!collectStatus.is_collecting || isStopping" @click="handleStopClick">
+        <button
+          class="start-btn"
+          :disabled="collectStatus.is_collecting"
+          @click="handleStartClick"
+        >
+          开始采集
+        </button>
+        <button
+          class="stop-btn"
+          :disabled="!collectStatus.is_collecting || isStopping"
+          @click="handleStopClick"
+        >
           {{ isStopping ? '停止中...' : '停止采集' }}
         </button>
-        <button class="history-btn" @click="handleHistoryClick">查看历史</button>
+        <button class="history-btn" @click="handleHistoryClick">
+          查看历史
+        </button>
       </div>
     </div>
 
-        <!-- 指标选择器 -->
+    <!-- 指标选择器 -->
     <div v-if="performanceData.length > 0" class="metric-selector-area">
       <div class="metric-selector-wrapper">
         <MetricSelector
@@ -1411,28 +1583,39 @@ async function loadMoreData(start_time: number, end_time: number) {
             :title="currentChartTitle"
             :series="currentChartSeries"
             :height="500"
-            :raw-data="currentMetric === 'hwinfo' ? hwinfoRawData : filteredPerformanceData"
+            :raw-data="
+              currentMetric === 'hwinfo'
+                ? hwinfoRawData
+                : filteredPerformanceData
+            "
             :markers="markers"
             :chart-type="currentChartType"
             @point-click="handlePointClick"
-            @mini-tooltip-show="(data) => handleMiniTooltipShow(data, currentMetric)"
+            @mini-tooltip-show="
+              (data) => handleMiniTooltipShow(data, currentMetric)
+            "
             @mini-tooltip-hide="handleMiniTooltipHide"
             @detail-click="(data) => handleDetailClick(data, currentMetric)"
           />
           <MiniTooltip
-            v-if="miniTooltipState && miniTooltipState.chartKey === currentMetric"
+            v-if="
+              miniTooltipState && miniTooltipState.chartKey === currentMetric
+            "
             :visible="miniTooltipState !== null"
             :position="miniTooltipState.position"
-            :containerRect="miniTooltipState.containerRect"
+            :container-rect="miniTooltipState.containerRect"
             :data="miniTooltipState.data"
-            :seriesData="miniTooltipState.seriesData"
-            :chartType="miniTooltipState.chartType"
+            :series-data="miniTooltipState.seriesData"
+            :chart-type="miniTooltipState.chartType"
           />
         </div>
       </div>
 
       <!-- 底部面板区域 - 双面板布局（HWiNFO 指标和 Linux 设备不显示进程面板） -->
-      <div v-if="currentMetric !== 'hwinfo' && deviceKind !== 'linux'" class="bottom-panels">
+      <div
+        v-if="currentMetric !== 'hwinfo' && deviceKind !== 'linux'"
+        class="bottom-panels"
+      >
         <!-- 目标进程明细面板 -->
         <div class="panel-wrapper target-process-wrapper">
           <TargetProcessPanel
@@ -1447,7 +1630,11 @@ async function loadMoreData(start_time: number, end_time: number) {
           <Top10Panel
             :data="filteredPerformanceData"
             :clicked-time="clickedTime"
-            :metric-type="currentMetric === 'cpu' || currentMetric === 'gpu' ? currentMetric : 'cpu'"
+            :metric-type="
+              currentMetric === 'cpu' || currentMetric === 'gpu'
+                ? currentMetric
+                : 'cpu'
+            "
           />
         </div>
       </div>
@@ -1462,42 +1649,53 @@ async function loadMoreData(start_time: number, end_time: number) {
     />
 
     <!-- 版本标记弹窗 -->
-    <el-dialog v-model="showVersionDialog" title="标记版本" width="500px">
-      <el-form label-width="80px">
-        <el-form-item label="版本名称">
-          <el-input
+    <ElDialog v-model="showVersionDialog" title="标记版本" width="500px">
+      <ElForm label-width="80px">
+        <ElFormItem label="版本名称">
+          <ElInput
             v-model="versionForm.name"
             placeholder="如：v1.0.0、基准版本"
           />
-        </el-form-item>
-        <el-form-item label="采集记录">
-          <el-select
+        </ElFormItem>
+        <ElFormItem label="采集记录">
+          <ElSelect
             v-model="versionForm.selectedCollects"
             multiple
             placeholder="选择采集记录"
             style="width: 100%"
           >
-            <el-option
+            <ElOption
               v-for="c in collectHistory"
               :key="c.id"
-              :label="(c.name || `${new Date(c.start_time).toLocaleString('zh-CN')} (${c.interval}s)`) + collectDeviceSuffix(c)"
+              :label="
+                (c.name ||
+                  `${new Date(c.start_time).toLocaleString('zh-CN')} (${c.interval}s)`) +
+                collectDeviceSuffix(c)
+              "
               :value="c.id"
             />
-          </el-select>
-        </el-form-item>
-      </el-form>
+          </ElSelect>
+        </ElFormItem>
+      </ElForm>
       <template #footer>
-        <el-button @click="showVersionDialog = false">取消</el-button>
-        <el-button type="success" @click="handleCreateVersion">确认标记</el-button>
+        <ElButton @click="showVersionDialog = false">取消</ElButton>
+        <ElButton type="success" @click="handleCreateVersion">
+          确认标记
+        </ElButton>
       </template>
-    </el-dialog>
+    </ElDialog>
 
     <!-- 历史采集弹窗 -->
-    <el-dialog v-model="showHistoryDialog" title="历史采集记录" width="700px" class="history-dialog">
+    <ElDialog
+      v-model="showHistoryDialog"
+      title="历史采集记录"
+      width="700px"
+      class="history-dialog"
+    >
       <!-- 搜索过滤区域 -->
       <div class="history-search-bar">
         <div class="search-row">
-          <el-date-picker
+          <ElDatePicker
             v-model="historySearchDate"
             type="daterange"
             range-separator="至"
@@ -1507,11 +1705,27 @@ async function loadMoreData(start_time: number, end_time: number) {
             value-format="YYYY-MM-DD"
             style="width: 280px"
             :shortcuts="[
-              { text: '最近一周', value: () => { const end = new Date(); const start = new Date(); start.setTime(start.getTime() - 7 * 24 * 3600 * 1000); return [start, end]; } },
-              { text: '最近一个月', value: () => { const end = new Date(); const start = new Date(); start.setTime(start.getTime() - 30 * 24 * 3600 * 1000); return [start, end]; } },
+              {
+                text: '最近一周',
+                value: () => {
+                  const end = new Date();
+                  const start = new Date();
+                  start.setTime(start.getTime() - 7 * 24 * 3600 * 1000);
+                  return [start, end];
+                },
+              },
+              {
+                text: '最近一个月',
+                value: () => {
+                  const end = new Date();
+                  const start = new Date();
+                  start.setTime(start.getTime() - 30 * 24 * 3600 * 1000);
+                  return [start, end];
+                },
+              },
             ]"
           />
-          <el-input
+          <ElInput
             v-model="historySearchProcess"
             placeholder="搜索进程名..."
             clearable
@@ -1520,12 +1734,22 @@ async function loadMoreData(start_time: number, end_time: number) {
             <template #prefix>
               <span style="color: #999">🔍</span>
             </template>
-          </el-input>
-          <el-button @click="historySearchDate = null; historySearchProcess = ''">清空筛选</el-button>
+          </ElInput>
+          <ElButton
+            @click="
+              historySearchDate = null;
+              historySearchProcess = '';
+            "
+          >
+            清空筛选
+          </ElButton>
         </div>
         <div class="search-result-count">
           共 {{ filteredCollectHistory.length }} 条记录
-          <span v-if="filteredCollectHistory.length !== collectHistory.length" style="color: #409eff">
+          <span
+            v-if="filteredCollectHistory.length !== collectHistory.length"
+            style="color: #409eff"
+          >
             (筛选出 {{ filteredCollectHistory.length }} 条)
           </span>
         </div>
@@ -1534,21 +1758,31 @@ async function loadMoreData(start_time: number, end_time: number) {
         <div class="batch-actions">
           <span class="selected-count">
             已选 {{ selectedCollectIds.size }} 条
-            <span v-if="deletableFilteredCollects.length > 0" style="color: #999">
+            <span
+              v-if="deletableFilteredCollects.length > 0"
+              style="color: #999"
+            >
               (可删除 {{ deletableFilteredCollects.length }} 条)
             </span>
           </span>
-          <el-button size="small" @click="handleSelectAllDeletable">全选可删除</el-button>
-          <el-button size="small" @click="handleClearSelection">取消全选</el-button>
-          <el-button
+          <ElButton size="small" @click="handleSelectAllDeletable">
+            全选可删除
+          </ElButton>
+          <ElButton size="small" @click="handleClearSelection">
+            取消全选
+          </ElButton>
+          <ElButton
             size="small"
             type="danger"
             :disabled="selectedCollectIds.size === 0"
             :loading="batchDeleting"
             @click="handleBatchDelete"
           >
-            批量删除 {{ selectedCollectIds.size > 0 ? `(${selectedCollectIds.size})` : '' }}
-          </el-button>
+            批量删除
+            {{
+              selectedCollectIds.size > 0 ? `(${selectedCollectIds.size})` : ''
+            }}
+          </ElButton>
         </div>
       </div>
 
@@ -1557,7 +1791,13 @@ async function loadMoreData(start_time: number, end_time: number) {
         <div
           v-for="c in filteredCollectHistory"
           :key="c.id"
-          :class="['history-card', currentCollectId === c.id ? 'active' : '', c.is_protected ? 'protected' : '', c.status === 'running' ? 'running' : '', selectedCollectIds.has(c.id) ? 'selected' : '']"
+          class="history-card"
+          :class="[
+            currentCollectId === c.id ? 'active' : '',
+            c.is_protected ? 'protected' : '',
+            c.status === 'running' ? 'running' : '',
+            selectedCollectIds.has(c.id) ? 'selected' : '',
+          ]"
         >
           <!-- 卡片头部 -->
           <div class="card-header">
@@ -1575,7 +1815,12 @@ async function loadMoreData(start_time: number, end_time: number) {
                 <span class="running-dot"></span> 采集中
               </span>
               <span v-else class="status-stopped">已完成</span>
-              <span v-if="c.is_protected" class="protected-badge" title="永久保留">🔒</span>
+              <span
+                v-if="c.is_protected"
+                class="protected-badge"
+                title="永久保留"
+                >🔒</span
+              >
             </div>
             <div class="card-actions">
               <button
@@ -1588,7 +1833,11 @@ async function loadMoreData(start_time: number, end_time: number) {
               </button>
               <button
                 class="action-btn delete-btn"
-                :disabled="c.status === 'running' || c.is_protected || historyDeleting === c.id"
+                :disabled="
+                  c.status === 'running' ||
+                  c.is_protected ||
+                  historyDeleting === c.id
+                "
                 @click.stop="confirmDeleteCollect(c)"
               >
                 <span v-if="historyDeleting === c.id">删除中...</span>
@@ -1602,28 +1851,48 @@ async function loadMoreData(start_time: number, end_time: number) {
             <div class="card-info-row">
               <div class="info-item">
                 <span class="info-label">采集时间</span>
-                <span class="info-value">{{ new Date(c.start_time).toLocaleString('zh-CN') }}</span>
+                <span class="info-value">{{
+                  new Date(c.start_time).toLocaleString('zh-CN')
+                }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">采集时长</span>
-                <span class="info-value">{{ formatDuration(c.start_time, c.end_time) }}</span>
+                <span class="info-value">{{
+                  formatDuration(c.start_time, c.end_time)
+                }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">采集频率</span>
                 <span class="info-value">{{ c.interval }}秒/次</span>
               </div>
-              <div class="info-item" v-if="c.device_type || c.device_ip || c.device_sn">
+              <div
+                class="info-item"
+                v-if="c.device_type || c.device_ip || c.device_sn"
+              >
                 <span class="info-label">采集设备</span>
                 <span class="info-value">
-                  {{ [c.device_type, c.device_ip, c.device_sn ? `SN ${shortSn(c.device_sn)}` : ''].filter(Boolean).join(' · ') }}
+                  {{
+                    [
+                      c.device_type,
+                      c.device_ip,
+                      c.device_sn ? `SN ${shortSn(c.device_sn)}` : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  }}
                 </span>
               </div>
               <div class="info-item" v-if="c.match_mode">
                 <span class="info-label">匹配模式</span>
-                <span class="info-value">{{ c.match_mode === 'exact' ? 'PID 精准' : 'PKG 模糊' }}</span>
+                <span class="info-value">{{
+                  c.match_mode === 'exact' ? 'PID 精准' : 'PKG 模糊'
+                }}</span>
               </div>
             </div>
-            <div class="card-processes" v-if="(c.target_processes ?? []).length > 0">
+            <div
+              class="card-processes"
+              v-if="(c.target_processes ?? []).length > 0"
+            >
               <span class="processes-label">目标进程：</span>
               <div class="processes-tags">
                 <span
@@ -1633,7 +1902,10 @@ async function loadMoreData(start_time: number, end_time: number) {
                 >
                   {{ p.name.replace('.exe', '').replace('.EXE', '') }}
                 </span>
-                <span v-if="(c.target_processes ?? []).length > 4" class="process-more">
+                <span
+                  v-if="(c.target_processes ?? []).length > 4"
+                  class="process-more"
+                >
                   +{{ (c.target_processes ?? []).length - 4 }}
                 </span>
               </div>
@@ -1645,19 +1917,30 @@ async function loadMoreData(start_time: number, end_time: number) {
         <div v-if="filteredCollectHistory.length === 0" class="history-empty">
           <div class="empty-icon">📋</div>
           <div class="empty-text">
-            {{ collectHistory.length === 0 ? '暂无采集记录' : '没有匹配的记录' }}
+            {{
+              collectHistory.length === 0 ? '暂无采集记录' : '没有匹配的记录'
+            }}
           </div>
           <div v-if="collectHistory.length > 0" class="empty-hint">
             尝试调整筛选条件
           </div>
         </div>
       </div>
-    </el-dialog>
+    </ElDialog>
   </div>
 </template>
 
 <style scoped>
-/* 图表容器 - 单独占据整行 */
+@media (max-width: 900px) {
+  .left-controls {
+    flex-wrap: wrap;
+  }
+
+  .bottom-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chart-wrapper {
   position: relative;
   margin-bottom: 16px;
@@ -1670,139 +1953,160 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 /* 面板激活时增加底部空间 */
 .chart-wrapper.has-panel {
-  margin-bottom: 200px;  /* 为面板留出空间 */
+  margin-bottom: 200px; /* 为面板留出空间 */
 }
 
 .performance-monitor {
+  min-height: 100vh;
   padding: 12px;
   background: #f5f5f5;
-  min-height: 100vh;
 }
+
 .control-bar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: #fff;
-  border-radius: 6px;
+  justify-content: space-between;
+  min-width: 0;
   padding: 12px;
   margin-bottom: 12px;
-  min-width: 0;
+  background: #fff;
+  border-radius: 6px;
 }
+
 .left-controls {
   display: flex;
+  flex-wrap: nowrap;
   gap: 12px;
   align-items: center;
-  flex-wrap: nowrap;
 }
+
 /* 设备选择标签 - 蓝色背景 */
 .device-label-tag {
   display: inline-block;
   padding: 8px 20px;
-  background: #409eff;
-  color: white;
-  border-radius: 4px;
-  font-weight: bold;
   font-size: 13px;
+  font-weight: bold;
+  color: white;
+  background: #409eff;
+  border-radius: 4px;
 }
+
 /* 设备下拉选择框（加大宽度） */
 .device-select-large {
   width: 260px;
 }
+
 .loading-text {
-  color: #999;
   font-size: 12px;
+  color: #999;
 }
+
 /* 开始采集按钮 - 绿色 */
 .start-btn {
   padding: 8px 20px;
-  background: #67c23a;
+  font-size: 12px;
   color: #fff;
+  cursor: pointer;
+  background: #67c23a;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
 }
+
 .start-btn:hover:not(:disabled) {
   background: #5cb85c;
 }
+
 .start-btn:disabled {
-  background: #c8e6c9;
   color: #fff;
   cursor: not-allowed;
+  background: #c8e6c9;
   opacity: 0.6;
 }
+
 /* 停止采集按钮 - 红色 */
 .stop-btn {
   padding: 8px 20px;
-  background: #f56c6c;
+  font-size: 12px;
   color: #fff;
+  cursor: pointer;
+  background: #f56c6c;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
 }
+
 .stop-btn:disabled {
-  background: #f5f5f5;
   color: #999;
-  border: 1px solid #ddd;
   cursor: not-allowed;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
   opacity: 0.6;
 }
+
 .stop-btn:not(:disabled):hover {
   background: #f78989;
 }
+
 /* 查看历史按钮 - 橙色 */
 .history-btn {
   padding: 8px 20px;
-  background: #e6a23c;
+  font-size: 12px;
   color: #fff;
+  cursor: pointer;
+  background: #e6a23c;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
 }
+
 .history-btn:hover {
   background: #ebb563;
 }
+
 /* 设备状态卡片 */
 .device-status-card {
   padding: 8px 15px;
   background: white;
-  border-radius: 4px;
   border: 1px solid #ddd;
+  border-radius: 4px;
 }
+
 .device-ip {
-  font-weight: bold;
   font-size: 13px;
+  font-weight: bold;
   color: #333;
 }
+
 .online-badge {
   margin-left: 10px;
-  color: #67c23a;
   font-size: 12px;
+  color: #67c23a;
 }
+
 /* 采集状态卡片 */
 .collect-status-card {
   padding: 8px 15px;
-  background: white;
-  border-radius: 4px;
-  border: 1px solid #ddd;
   font-size: 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
 }
+
 .collect-label {
   color: #666;
 }
+
 .collect-running {
-  color: #67c23a;
   font-weight: bold;
+  color: #67c23a;
 }
+
 .collect-duration {
   margin-left: 10px;
   color: #999;
 }
+
 /* 图表区 - 单列布局 */
 .charts-area {
   display: flex;
@@ -1817,9 +2121,9 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .metric-selector-wrapper {
   position: relative;
+  padding: 12px;
   background: #fff;
   border-radius: 8px;
-  padding: 12px;
 }
 
 /* 底部面板区域 - 双面板布局 */
@@ -1847,9 +2151,9 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .target-process-wrapper,
 .top10-panel-wrapper {
+  overflow: hidden;
   background: #fff;
   border-radius: 6px;
-  overflow: hidden;
 }
 
 /* 历史采集弹窗样式 - 重新设计 */
@@ -1859,16 +2163,16 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .history-search-bar {
   padding: 16px;
+  margin-bottom: 16px;
   background: #f8f9fa;
   border-radius: 8px;
-  margin-bottom: 16px;
 }
 
 .search-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .search-result-count {
@@ -1880,44 +2184,44 @@ async function loadMoreData(start_time: number, end_time: number) {
 /* 批量操作区域 */
 .batch-actions {
   display: flex;
-  align-items: center;
   gap: 12px;
-  margin-top: 12px;
+  align-items: center;
   padding: 10px 12px;
+  margin-top: 12px;
   background: #f0f5ff;
-  border-radius: 6px;
   border: 1px solid #d6e4ff;
+  border-radius: 6px;
 }
 
 .selected-count {
   font-size: 13px;
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
 }
 
 .history-list {
   max-height: 450px;
-  overflow-y: auto;
   padding-right: 4px;
+  overflow-y: auto;
 }
 
 .history-card {
+  margin-bottom: 12px;
+  overflow: hidden;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
-  margin-bottom: 12px;
   transition: all 0.2s ease;
-  overflow: hidden;
 }
 
 .history-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border-color: #d0d0d0;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
 }
 
 .history-card.active {
   border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  box-shadow: 0 0 0 2px rgb(64 158 255 / 20%);
 }
 
 .history-card.protected {
@@ -1925,19 +2229,19 @@ async function loadMoreData(start_time: number, end_time: number) {
 }
 
 .history-card.running {
-  border-left: 3px solid #e6a23c;
   background: #fdf6ec;
+  border-left: 3px solid #e6a23c;
 }
 
 .history-card.selected {
-  border-color: #409eff;
   background: #f0f5ff;
+  border-color: #409eff;
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
   background: #fafafa;
   border-bottom: 1px solid #eee;
@@ -1945,39 +2249,39 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .card-left {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .card-checkbox {
   margin-right: 8px;
 }
 
-.card-checkbox input[type="checkbox"] {
+.card-checkbox input[type='checkbox'] {
   width: 18px;
   height: 18px;
-  cursor: pointer;
   accent-color: #409eff;
+  cursor: pointer;
 }
 
-.card-checkbox input[type="checkbox"]:disabled {
+.card-checkbox input[type='checkbox']:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
 .card-status {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .status-running {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   font-size: 12px;
-  color: #e6a23c;
   font-weight: 500;
+  color: #e6a23c;
 }
 
 .running-dot {
@@ -2005,12 +2309,12 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .action-btn {
   padding: 4px 10px;
-  border-radius: 4px;
   font-size: 11px;
-  cursor: pointer;
-  border: 1px solid #ddd;
-  background: #f5f5f5;
   color: #666;
+  cursor: pointer;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   transition: all 0.15s ease;
 }
 
@@ -2019,14 +2323,14 @@ async function loadMoreData(start_time: number, end_time: number) {
 }
 
 .action-btn:disabled {
-  opacity: 0.5;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .protect-btn.is-protected {
+  color: #67c23a;
   background: #f0f9eb;
   border-color: #67c23a;
-  color: #67c23a;
 }
 
 .protect-btn:not(.is-protected):hover {
@@ -2035,9 +2339,9 @@ async function loadMoreData(start_time: number, end_time: number) {
 }
 
 .delete-btn:hover:not(:disabled) {
+  color: #f56c6c;
   background: #fef0f0;
   border-color: #fbc4c4;
-  color: #f56c6c;
 }
 
 .card-body {
@@ -2064,14 +2368,14 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .info-value {
   font-size: 13px;
-  color: #333;
   font-weight: 500;
+  color: #333;
 }
 
 .card-processes {
   display: flex;
-  align-items: flex-start;
   gap: 8px;
+  align-items: flex-start;
 }
 
 .processes-label {
@@ -2088,19 +2392,19 @@ async function loadMoreData(start_time: number, end_time: number) {
 
 .process-tag {
   padding: 2px 8px;
-  background: #e6f7ff;
-  color: #409eff;
-  border-radius: 3px;
   font-size: 11px;
+  color: #409eff;
+  background: #e6f7ff;
   border: 1px solid #91d5ff;
+  border-radius: 3px;
 }
 
 .process-more {
   padding: 2px 6px;
-  background: #f5f5f5;
-  color: #999;
-  border-radius: 3px;
   font-size: 10px;
+  color: #999;
+  background: #f5f5f5;
+  border-radius: 3px;
 }
 
 .history-empty {
@@ -2112,9 +2416,9 @@ async function loadMoreData(start_time: number, end_time: number) {
 }
 
 .empty-icon {
+  margin-bottom: 16px;
   font-size: 48px;
   color: #ccc;
-  margin-bottom: 16px;
 }
 
 .empty-text {
@@ -2123,17 +2427,10 @@ async function loadMoreData(start_time: number, end_time: number) {
 }
 
 .empty-hint {
+  margin-top: 8px;
   font-size: 12px;
   color: #ccc;
-  margin-top: 8px;
 }
-@media (max-width: 900px) {
-  .left-controls {
-    flex-wrap: wrap;
-  }
 
-  .bottom-panels {
-    grid-template-columns: 1fr;
-  }
-}
+/* 图表容器 - 单独占据整行 */
 </style>

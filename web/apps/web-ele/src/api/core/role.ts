@@ -31,7 +31,7 @@ export interface RoleCreateInput {
   group?: string[];
 }
 
-export interface RoleUpdateInput extends Partial<RoleCreateInput> {}
+export type RoleUpdateInput = Partial<RoleCreateInput>;
 
 export interface RoleBatchDeleteInput {
   ids: string[];

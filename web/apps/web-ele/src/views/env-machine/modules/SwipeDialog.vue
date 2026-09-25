@@ -12,7 +12,16 @@ interface Props {
 
 interface Emits {
   (e: 'update:visible', value: boolean): void;
-  (e: 'swipe', params: { from_x: number; from_y: number; to_x: number; to_y: number; duration: number }): void;
+  (
+    e: 'swipe',
+    params: {
+      duration: number;
+      from_x: number;
+      from_y: number;
+      to_x: number;
+      to_y: number;
+    },
+  ): void;
 }
 
 const props = defineProps<Props>();
@@ -38,7 +47,7 @@ watch(
       toY.value = Math.floor(height * 0.2);
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 关闭弹窗
@@ -138,9 +147,7 @@ defineExpose({ setFromPoint, setToPoint });
         controls-position="right"
         class="duration-input"
       />
-      <div class="swipe-tip">
-        💡 可在截图上拖拽选择起点终点
-      </div>
+      <div class="swipe-tip">💡 可在截图上拖拽选择起点终点</div>
     </div>
 
     <template #footer>
@@ -160,9 +167,9 @@ defineExpose({ setFromPoint, setToPoint });
 }
 
 .form-group-label {
+  margin-bottom: 6px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 6px;
 }
 
 .form-group-row {
@@ -175,10 +182,10 @@ defineExpose({ setFromPoint, setToPoint });
 }
 
 .form-label {
-  font-size: 11px;
-  color: #999;
   display: block;
   margin-bottom: 2px;
+  font-size: 11px;
+  color: #999;
 }
 
 .form-field :deep(.el-input-number) {
@@ -190,10 +197,10 @@ defineExpose({ setFromPoint, setToPoint });
 }
 
 .swipe-tip {
-  background: #f5f5f5;
   padding: 8px;
-  border-radius: 4px;
   font-size: 12px;
   color: #666;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 </style>

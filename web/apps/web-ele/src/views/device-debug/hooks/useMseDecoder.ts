@@ -1,6 +1,8 @@
-import JMuxer from 'jmuxer';
-import { onUnmounted } from 'vue';
 import type { Ref } from 'vue';
+
+import { onUnmounted } from 'vue';
+
+import JMuxer from 'jmuxer';
 
 /**
  * MSE H264 解码器 Hook（基于 jmuxer）
@@ -61,24 +63,24 @@ export function useMseDecoder(options: MseDecoderOptions) {
   let feedCount = 0;
   let fedBytes = 0;
   let feedPacketCounts = { config: 0, idr: 0, p: 0, other: 0 };
-  let firstFeedAtMs: number | null = null;
-  let lastFeedAtMs: number | null = null;
+  let firstFeedAtMs: null | number = null;
+  let lastFeedAtMs: null | number = null;
   let presentedFrameCount = 0;
-  let firstPresentedAtMs: number | null = null;
-  let lastPresentedAtMs: number | null = null;
-  let lastPresentedMediaTime: number | null = null;
+  let firstPresentedAtMs: null | number = null;
+  let lastPresentedAtMs: null | number = null;
+  let lastPresentedMediaTime: null | number = null;
   let missingVideoFrameCount = 0;
   let videoFrameDiagnosticsStarted = false;
-  let sourceBufferNode: SourceBuffer | null = null;
+  let sourceBufferNode: null | SourceBuffer = null;
   let sourceBufferEventHandlers: Array<[string, EventListener]> = [];
   let sourceBufferUpdateStartCount = 0;
   let sourceBufferUpdateEndCount = 0;
   let sourceBufferErrorCount = 0;
   let sourceBufferAbortCount = 0;
-  let lastSourceBufferUpdateEndAtMs: number | null = null;
-  let lastVideoReceivedAtMs: number | null = null;
-  let lastHarmonyFrameDurationMs: number | null = null;
-  let harmonyFrameDurationMs: number | null = null;
+  let lastSourceBufferUpdateEndAtMs: null | number = null;
+  let lastVideoReceivedAtMs: null | number = null;
+  let lastHarmonyFrameDurationMs: null | number = null;
+  let harmonyFrameDurationMs: null | number = null;
   let harmonyFrameDurationSamples: number[] = [];
   let harmonyMediaTimeSeconds = 0;
   let harmonyKeyframePositions: number[] = [];
@@ -86,7 +88,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
 
   // Windows 使用额外的 buffer 清理定时器。鸿蒙使用自己的保守清理，避免
   // JMuxer 在没有设备时间戳时把当前可播放区间误判为旧数据。
-  let bufferCleanupTimer: ReturnType<typeof setInterval> | null = null;
+  let bufferCleanupTimer: null | ReturnType<typeof setInterval> = null;
   // buffer 最大保留时长（秒）：超过此长度的已播放数据将被回收
   const MAX_BUFFER_SECONDS = 8;
   // 鸿蒙官方流没有媒体时间戳，按 WebSocket 消息到达间隔估算媒体时长。
@@ -106,7 +108,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
   const LIVE_EDGE_MAX_PLAYBACK_RATE = 1.35;
   const LIVE_EDGE_SYNC_INTERVAL_MS = 100;
   const LIVE_EDGE_SEEK_INTERVAL_MS = 500;
-  let liveEdgeTimer: ReturnType<typeof setInterval> | null = null;
+  let liveEdgeTimer: null | ReturnType<typeof setInterval> = null;
   let liveEdgeInitialized = false;
   let lastLiveEdgeSeekAt = 0;
 
@@ -173,7 +175,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
    */
   function init(): void {
     if (fallback) return;
-    if (typeof _MediaSource === 'undefined') {
+    if (_MediaSource === undefined) {
       fallback = true;
       options.onFallback?.();
       return;
@@ -263,6 +265,8 @@ export function useMseDecoder(options: MseDecoderOptions) {
         pendingFrames.shift();
       }
       pendingFrames.push({
+        // ArrayBuffer 不可迭代，不能用展开替代 slice 复制
+        // eslint-disable-next-line unicorn/prefer-spread
         data: data.slice(0),
         receivedAtMs,
       });
@@ -270,10 +274,11 @@ export function useMseDecoder(options: MseDecoderOptions) {
     }
 
     const bytes = new Uint8Array(data);
+    const firstByte = bytes[0] ?? 0;
     const hasFramePrefix =
       bytes.length >= 5 &&
-      bytes[0]! >= 0x01 &&
-      bytes[0]! <= 0x03 &&
+      firstByte >= 0x01 &&
+      firstByte <= 0x03 &&
       ((bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 1) ||
         (bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0 && bytes[4] === 1));
 
@@ -333,9 +338,9 @@ export function useMseDecoder(options: MseDecoderOptions) {
               const sortedSamples = [...harmonyFrameDurationSamples].sort(
                 (left, right) => left - right,
               );
-              harmonyFrameDurationMs = Math.round(
-                sortedSamples[Math.floor(sortedSamples.length / 2)]!,
-              );
+              const median =
+                sortedSamples[Math.floor(sortedSamples.length / 2)];
+              harmonyFrameDurationMs = Math.round(median ?? Number.NaN);
             }
           }
           if (Number.isFinite(interval) && interval > 0) {
@@ -359,14 +364,25 @@ export function useMseDecoder(options: MseDecoderOptions) {
     const feedNow = performance.now();
     firstFeedAtMs ??= feedNow;
     lastFeedAtMs = feedNow;
-    if (packetType === 0x01) {
-      feedPacketCounts.config += 1;
-    } else if (packetType === 0x02) {
-      feedPacketCounts.idr += 1;
-    } else if (packetType === 0x03) {
-      feedPacketCounts.p += 1;
-    } else {
-      feedPacketCounts.other += 1;
+    switch (packetType) {
+      case 0x01: {
+        feedPacketCounts.config += 1;
+
+        break;
+      }
+      case 0x02: {
+        feedPacketCounts.idr += 1;
+
+        break;
+      }
+      case 0x03: {
+        feedPacketCounts.p += 1;
+
+        break;
+      }
+      default: {
+        feedPacketCounts.other += 1;
+      }
     }
     if (playbackProfile === 'harmony' && packetType === 0x02) {
       // 旧数据只能清理到 IDR 起点，保留下来的首个视频样本才能独立解码。
@@ -400,7 +416,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
    *
    * 注意：dispose() 后 jmuxer 为 null，此时返回 null 避免访问空对象报错。
    */
-  function getSourceBuffer(): SourceBuffer | null {
+  function getSourceBuffer(): null | SourceBuffer {
     if (!jmuxer) return null;
     try {
       const anyJmuxer = jmuxer as unknown as {
@@ -416,29 +432,29 @@ export function useMseDecoder(options: MseDecoderOptions) {
   function getDiagnostics() {
     const el = options.videoEl.value;
     const sb = getSourceBuffer();
-    const anyJmuxer = jmuxer as unknown as {
+    const anyJmuxer = jmuxer as unknown as null | {
+      bufferControllers?: Record<
+        string,
+        {
+          cleaning?: boolean;
+          queue?: Uint8Array;
+        }
+      >;
       remuxController?: {
         tracks?: Record<
           string,
           {
-            pendingUnits?: { units?: unknown[] };
             dts?: number;
-            nextDts?: number;
             mp4track?: { fps?: number };
+            nextDts?: number;
+            pendingUnits?: { units?: unknown[] };
           }
         >;
       };
-      bufferControllers?: Record<
-        string,
-        {
-          queue?: Uint8Array;
-          cleaning?: boolean;
-        }
-      >;
-    } | null;
+    };
     const videoTrack = anyJmuxer?.remuxController?.tracks?.video;
     const videoBufferController = anyJmuxer?.bufferControllers?.video;
-    const ranges: Array<{ start: number; end: number }> = [];
+    const ranges: Array<{ end: number; start: number }> = [];
     if (sb) {
       for (let index = 0; index < sb.buffered.length; index++) {
         ranges.push({
@@ -447,8 +463,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
         });
       }
     }
-    const bufferedEnd =
-      ranges.length > 0 ? ranges[ranges.length - 1]!.end : null;
+    const bufferedEnd = ranges[ranges.length - 1]?.end ?? null;
     const now = performance.now();
     return {
       initialized: Boolean(jmuxer),
@@ -457,7 +472,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
       feedPacketCounts: { ...feedPacketCounts },
       firstFeedAtMs,
       lastFeedAtMs,
-      feedAgeMs: lastFeedAtMs !== null ? now - lastFeedAtMs : null,
+      feedAgeMs: lastFeedAtMs === null ? null : now - lastFeedAtMs,
       presentedFrameCount,
       firstPresentedAtMs,
       firstPresentedDelayMs:
@@ -466,7 +481,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
           : null,
       lastPresentedAtMs,
       presentedAgeMs:
-        lastPresentedAtMs !== null ? now - lastPresentedAtMs : null,
+        lastPresentedAtMs === null ? null : now - lastPresentedAtMs,
       lastPresentedMediaTime,
       missingVideoFrameCount,
       jmuxerInternal: {
@@ -486,9 +501,9 @@ export function useMseDecoder(options: MseDecoderOptions) {
         sourceBufferErrorCount,
         sourceBufferAbortCount,
         sourceBufferUpdateEndAgeMs:
-          lastSourceBufferUpdateEndAtMs !== null
-            ? now - lastSourceBufferUpdateEndAtMs
-            : null,
+          lastSourceBufferUpdateEndAtMs === null
+            ? null
+            : now - lastSourceBufferUpdateEndAtMs,
       },
       videoFrameCallbackSupported: Boolean(
         el && 'requestVideoFrameCallback' in el,
@@ -538,7 +553,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
     };
     el.requestVideoFrameCallback(callback);
   }
-  function getBufferedEnd(): number | null {
+  function getBufferedEnd(): null | number {
     const sourceBuffer = getSourceBuffer();
     if (!sourceBuffer || sourceBuffer.buffered.length === 0) return null;
     return sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
@@ -649,7 +664,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
     if (harmonyCleanupPending) return;
 
     const videoBufferController = (
-      jmuxer as unknown as {
+      jmuxer as unknown as null | {
         bufferControllers?: Record<
           string,
           {
@@ -657,7 +672,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
             queue?: Uint8Array;
           }
         >;
-      } | null
+      }
     )?.bufferControllers?.video;
     if (
       videoBufferController?.cleaning ||
@@ -681,7 +696,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
       (keyframePosition) => keyframePosition >= firstStart,
     );
 
-    let safeEnd: number | null = null;
+    let safeEnd: null | number = null;
     for (const keyframePosition of harmonyKeyframePositions) {
       if (keyframePosition > cutoff) break;
       if (keyframePosition > firstStart) {

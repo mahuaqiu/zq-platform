@@ -54,9 +54,12 @@ export interface DashboardStatsResponse {
 
 // API 接口
 export function getDashboardStatsApi(namespace?: string) {
-  return requestClient.get<DashboardStatsResponse>('/api/core/env/dashboard/stats', {
-    params: { namespace },
-  });
+  return requestClient.get<DashboardStatsResponse>(
+    '/api/core/env/dashboard/stats',
+    {
+      params: { namespace },
+    },
+  );
 }
 
 export function getNamespacesApi() {

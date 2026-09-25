@@ -5,7 +5,7 @@
 """
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.database import get_db, AsyncSessionLocal
+from app.database import get_db
 from core.performance_monitor.model import PerformanceCollect, PerformanceVersion, ExportTask
 from core.env_machine.model import EnvMachine
 from core.performance_monitor.worker_client import (
@@ -26,12 +26,8 @@ from core.performance_monitor.schema import (
     TagCreateRequest, TagUpdateRequest,
     VersionCreateRequest,
     # Response Schema（用于正确序列化 datetime）
-    CollectResponse, DataResponse, PaginatedResponse,
-    # v0.3.1
-    WorkerReportRequestV3, WorkerTerminalEvent, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
-    MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, AdvancedMetricsResponse,
-    # 导出任务 Schema
-    ExportTaskCreate, ExportTaskStatus, ExportTaskCreateResponse,
+    CollectResponse, DataResponse, WorkerReportRequestV3, WorkerTerminalEvent, MetricMappingCreate, MetricMappingUpdate, MetricMappingResponse,
+    MarkerCreate, MarkerUpdate, MarkerResponse, AdvancedMetricsQuery, ExportTaskCreate, ExportTaskStatus, ExportTaskCreateResponse,
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate, CompareTagResponse
 from core.performance_monitor.service import (
@@ -46,7 +42,6 @@ from core.performance_monitor.service import (
 )
 from utils.excel import TEMP_EXPORTS_DIR
 from core.performance_monitor.linux_collector import (
-    LinuxDataCollector,
     start_linux_collect_task,
     stop_linux_collect_task,
 )
@@ -90,7 +85,7 @@ async def get_processes(
 ):
     """获取设备进程列表（代理 worker API）"""
     # 从数据库获取设备信息
-    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted == False)
+    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted.is_(False))
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
 
@@ -127,7 +122,7 @@ async def start_collect(
     快速返回：先落库 starting，再后台通知 Worker / 启动 Linux 任务。
     前端可立刻刷新状态并轮询首样本。
     """
-    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
+    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted.is_(False))
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
 
@@ -195,7 +190,7 @@ async def stop_collect(
     db: AsyncSession = Depends(get_db),
 ):
     """停止采集。先更新平台 stopping，再后台通知 Worker。"""
-    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted == False)
+    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted.is_(False))
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
     if not device:
@@ -241,7 +236,7 @@ async def get_collect_status(
     db: AsyncSession = Depends(get_db),
 ):
     """获取采集状态，并校验请求身份与 EnvMachine 一致。"""
-    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted == False)
+    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted.is_(False))
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
     if not device:

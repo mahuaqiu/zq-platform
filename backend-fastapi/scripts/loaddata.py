@@ -7,10 +7,6 @@
 @File: loaddata.py
 @Desc: 数据导入脚本 - 类似 Django 的 loaddata - 使用方法: python scripts/loaddata.py data.json
 """
-"""
-数据导入脚本 - 类似 Django 的 loaddata
-使用方法: python scripts/loaddata.py data.json
-"""
 import asyncio
 import json
 import sys
@@ -21,7 +17,6 @@ from typing import Dict, Any
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from sqlalchemy.types import DateTime, Date
 from app.database import AsyncSessionLocal, Base
@@ -160,7 +155,7 @@ async def load_data(file_path: str, clean_mode: bool = False):
             success_count = 0
             await session.rollback()
     
-    print(f"\n导入完成:")
+    print("\n导入完成:")
     print(f"  成功: {success_count} 条")
     print(f"  失败: {error_count} 条")
 

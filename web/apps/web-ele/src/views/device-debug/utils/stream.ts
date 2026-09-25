@@ -1,10 +1,10 @@
 // 帧类型检测工具
 
 export enum FrameType {
-  Unknown = 'unknown',
+  H264 = 'h264',
   JPEG = 'jpeg',
   MJPEG = 'mjpeg',
-  H264 = 'h264',
+  Unknown = 'unknown',
 }
 
 /**
@@ -26,13 +26,13 @@ export function detectFrameType(data: ArrayBuffer): FrameType {
 
   // 检测 JPEG/MJPEG 魔数: FFD8
   const magic = ((bytes[0] ?? 0) << 8) | (bytes[1] ?? 0);
-  if (magic === 0xFFD8) {
+  if (magic === 0xff_d8) {
     // 检测是否为 MJPEG：需要检测到多个连续的 FFD8
     // JPEG: FFD8 FF... (只有一个 FFD8)
     // MJPEG: FFD8 FF... FFD8 FF... (多个 FFD8)
     let jpegCount = 0;
     for (let i = 0; i < data.byteLength - 1; i += 2) {
-      if ((((bytes[i] ?? 0) << 8) | (bytes[i + 1] ?? 0)) === 0xFFD8) {
+      if ((((bytes[i] ?? 0) << 8) | (bytes[i + 1] ?? 0)) === 0xff_d8) {
         jpegCount++;
         if (jpegCount >= 2) {
           return FrameType.MJPEG;
@@ -64,7 +64,9 @@ export function detectFrameType(data: ArrayBuffer): FrameType {
 /**
  * 从 H.264 数据中提取 NAL 单元
  */
-export function extractNalUnit(data: ArrayBuffer): { type: number; data: Uint8Array } | null {
+export function extractNalUnit(
+  data: ArrayBuffer,
+): null | { data: Uint8Array; type: number } {
   const view = new DataView(data);
   if (data.byteLength < 5) return null;
 
@@ -83,7 +85,7 @@ export function buildScreenWsUrl(
   platform: string,
   deviceId: string,
   monitor: number = 1,
-  codec: string = 'jpeg'
+  codec: string = 'jpeg',
 ): string {
   const isDesktop = platform === 'windows' || platform === 'mac';
   const path = isDesktop

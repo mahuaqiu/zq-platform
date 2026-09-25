@@ -8,15 +8,12 @@
 @Desc: 执行机定时任务管理器 - 离线检测、超时释放检测、重启后状态重载
 """
 import asyncio
-import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 
 import httpx
-from apscheduler import JobLookupError, AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from core.env_machine.model import EnvMachine
@@ -204,7 +201,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             EnvMachine.sync_time < threshold,
             EnvMachine.status.in_(["online", "using"]),
             EnvMachine.is_deleted == False,  # noqa: E712
-            EnvMachine.is_virtual == False,
+            EnvMachine.is_virtual.is_(False),
             EnvMachine.device_type != 'linux',  # 排除 Linux 设备
         )
         result = await db.execute(stmt)
@@ -216,7 +213,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             EnvMachine.sync_time < upgrade_threshold,
             EnvMachine.status == "upgrading",
             EnvMachine.is_deleted == False,  # noqa: E712
-            EnvMachine.is_virtual == False,
+            EnvMachine.is_virtual.is_(False),
             EnvMachine.device_type != 'linux',  # 排除 Linux 设备
         )
         upgrade_result = await db.execute(upgrade_stmt)
@@ -411,8 +408,6 @@ async def reset_using_machines() -> int:
         int: 重置的机器数量
     """
     from app.database import AsyncSessionLocal
-    from sqlalchemy import update
-
     async with AsyncSessionLocal() as db:
         # 批量更新 using -> online
         stmt = (
@@ -502,7 +497,7 @@ async def reload_machine_status_after_restart() -> Dict:
         # Linux 设备没有 worker，不支持重载操作
         stmt = select(EnvMachine).where(
             EnvMachine.is_deleted == False,  # noqa: E712
-            EnvMachine.is_virtual == False,
+            EnvMachine.is_virtual.is_(False),
             EnvMachine.device_type != 'linux',  # 排除 Linux 设备
         )
         result = await db.execute(stmt)

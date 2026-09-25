@@ -1,4 +1,3 @@
-
 # 头像生成工具
 
 ## 📍 位置
@@ -12,23 +11,27 @@
 ### 特性
 
 **智能文本生成**
+
 - 汉字：显示第一个字
 - 字母：显示前两个字母
 - 其他：显示第一个字符
 
 **美观的渐变背景**
+
 - 20种精美渐变色
 - 基于名字哈希的稳定性（相同名字始终使用同一渐变）
 - 135度斜向渐变，视觉效果优雅
 - 兼容深色/浅色主题
 
 **优化的视觉设计**
+
 - 文字大小 28px，加粗（font-weight: 700）
 - 白色文字，带文字阴影
 - 圆形头像，8px 阴影
 - 悬停时动画效果（向上浮起 2px）
 
 **完全集成**
+
 - 在 user-card 组件中自动使用
 - 不需要手动调用
 
@@ -39,9 +42,10 @@
 从名字生成头像显示文本
 
 **示例**
+
 ```typescript
-generateAvatarText('李明')      // 返回 '李'
-generateAvatarText('John Doe')  // 返回 'JO'
+generateAvatarText('李明'); // 返回 '李'
+generateAvatarText('John Doe'); // 返回 'JO'
 ```
 
 ### 2. `generateAvatarGradient(name: string): string`
@@ -49,11 +53,13 @@ generateAvatarText('John Doe')  // 返回 'JO'
 根据名字生成漂亮的渐变背景色
 
 **返回值格式**
+
 ```
 linear-gradient(135deg, #667eea 0%, #764ba2 100%)
 ```
 
 **特点**
+
 - 返回完整的 CSS 渐变值
 - 相同名字始终返回相同渐变
 - 20种预设渐变色
@@ -63,12 +69,13 @@ linear-gradient(135deg, #667eea 0%, #764ba2 100%)
 生成完整的头像配置对象
 
 **返回值**
+
 ```typescript
 interface AvatarConfig {
-  text: string;              // 显示的文本
-  backgroundColor: string;   // 背景色 (十六进制，兼容用)
-  gradient: string;         // 渐变背景 CSS
-  color?: string;           // 文字颜色 (总是 #ffffff)
+  text: string; // 显示的文本
+  backgroundColor: string; // 背景色 (十六进制，兼容用)
+  gradient: string; // 渐变背景 CSS
+  color?: string; // 文字颜色 (总是 #ffffff)
 }
 ```
 
@@ -112,18 +119,21 @@ interface AvatarConfig {
 ## ✨ 视觉优化
 
 ### 文字样式
+
 - **字号**: 28px
 - **粗度**: font-weight 700（加粗）
 - **颜色**: 白色 (#ffffff)
 - **阴影**: 0 1px 2px rgba(0, 0, 0, 0.2)
 
 ### 头像样式
+
 - **尺寸**: 56px × 56px
 - **圆角**: 50% (完全圆形)
 - **阴影**: 0 2px 8px rgba(0, 0, 0, 0.15)
 - **渐变**: 135度斜向渐变
 
 ### 交互效果
+
 - **悬停**: 向上浮起 2px，阴影加深
 - **选中**: 边框变为主题色，背景变浅
 
@@ -138,7 +148,7 @@ interface AvatarConfig {
 3. 以优雅的样式显示
 
 ```vue
-<div 
+<div
   v-if="!user.avatar"
   class="avatar-gradient"
   :style="{ background: avatarGradient }"
@@ -155,20 +165,19 @@ import { generateAvatarConfig } from '#/utils/avatar';
 const avatarConfig = generateAvatarConfig('李明');
 
 // 使用配置
-console.log(avatarConfig.text);             // '李'
-console.log(avatarConfig.gradient);         // 'linear-gradient(...)'
-console.log(avatarConfig.color);            // '#ffffff'
+console.log(avatarConfig.text); // '李'
+console.log(avatarConfig.gradient); // 'linear-gradient(...)'
+console.log(avatarConfig.color); // '#ffffff'
 ```
 
 ## 🌙 深色模式
 
 头像在深色/浅色模式下都清晰可见：
+
 - 渐变自动适配主题
 - 文字始终白色
 - 阴影自动调整
 
 ---
 
-**更新时间**: 2025-11-04
-**版本**: 2.0.0 - 渐变优化版本
-**状态**: 生产就绪
+**更新时间**: 2025-11-04 **版本**: 2.0.0 - 渐变优化版本 **状态**: 生产就绪

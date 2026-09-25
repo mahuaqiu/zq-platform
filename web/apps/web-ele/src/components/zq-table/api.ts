@@ -109,7 +109,6 @@ export class ZqTableApi<T extends Record<string, any> = any> {
 
   // 核心数据加载逻辑
   async reload(params: Record<string, any> = {}) {
-    console.log('[ZqTable] reload called, state:', this.state?.gridOptions);
     const { proxyConfig } = this.state?.gridOptions || {};
     if (!proxyConfig?.ajax?.query) {
       console.warn(
@@ -120,7 +119,6 @@ export class ZqTableApi<T extends Record<string, any> = any> {
       return;
     }
 
-    console.log('[ZqTable] Starting data load...');
     const seq = ++this.querySeq;
     this.setLoading(true);
     try {
@@ -155,7 +153,7 @@ export class ZqTableApi<T extends Record<string, any> = any> {
       };
 
       // 3. 调用用户传入的 ajax 方法
-      const queryFn = proxyConfig.ajax!.query as (params: any) => Promise<any>;
+      const queryFn = proxyConfig.ajax?.query as (params: any) => Promise<any>;
       const result = await queryFn(queryParams);
 
       // 已有更新的请求发起，丢弃过期响应，避免旧数据覆盖新数据

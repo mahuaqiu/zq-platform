@@ -63,15 +63,7 @@ function handleTypeChange() {
   // 类型改变时的处理
 }
 
-const {
-  type,
-  valueRange,
-  valueList,
-  specifyRange,
-  typeRangeAttrs,
-  typeSpecifyAttrs,
-  beforeRadioAttrs,
-} = setup;
+const { type, valueRange, valueList, typeRangeAttrs, typeSpecifyAttrs } = setup;
 </script>
 
 <template>

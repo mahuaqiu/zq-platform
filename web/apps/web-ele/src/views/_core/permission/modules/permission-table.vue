@@ -67,7 +67,6 @@ watch(
   },
 );
 
-
 /**
  * 编辑权限
  */
@@ -321,5 +320,8 @@ defineExpose({
   </Grid>
 
   <!-- 自动生成权限 Modal -->
-  <AutoGenerateModal ref="autoGenerateModalRef" @success="onAutoGenerateSuccess" />
+  <AutoGenerateModal
+    ref="autoGenerateModalRef"
+    @success="onAutoGenerateSuccess"
+  />
 </template>

@@ -4,10 +4,10 @@
 测试报告服务 - Test Report Service
 """
 from typing import List, Optional, Tuple, List as TypingList
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import Counter
 
-from sqlalchemy import select, func, desc, and_, not_, exists
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
@@ -96,7 +96,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
     ) -> Tuple[List[TestReportSummary], int]:
         """获取列表（支持任务名称筛选）"""
         query = select(TestReportSummary).where(
-            TestReportSummary.is_deleted == False
+            TestReportSummary.is_deleted.is_(False)
         )
 
         if task_name and task_name.strip():
@@ -124,7 +124,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         result = await db.execute(
             select(TestReportSummary).where(
                 TestReportSummary.task_project_id == task_id,
-                TestReportSummary.is_deleted == False
+                TestReportSummary.is_deleted.is_(False)
             )
         )
         return result.scalar_one_or_none()
@@ -150,7 +150,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
             result = await db.execute(
                 select(TestReportSummary).where(
                     TestReportSummary.task_project_id.in_(sub_task_ids),
-                    TestReportSummary.is_deleted == False
+                    TestReportSummary.is_deleted.is_(False)
                 )
             )
             summaries = list(result.scalars().all())
@@ -170,7 +170,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
             result = await db.execute(
                 select(TestReportSummary).where(
                     TestReportSummary.task_project_id.in_(aggregation_map[name]),
-                    TestReportSummary.is_deleted == False
+                    TestReportSummary.is_deleted.is_(False)
                 )
             )
             summaries = list(result.scalars().all())
@@ -192,7 +192,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         result = await db.execute(
             select(TestReportDetail).where(
                 TestReportDetail.task_project_id == task_id,
-                TestReportDetail.is_deleted == False
+                TestReportDetail.is_deleted.is_(False)
             ).order_by(TestReportDetail.round)
         )
         details = list(result.scalars().all())
@@ -208,7 +208,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
             select(func.count()).select_from(TestReportUploadLog).where(
                 TestReportUploadLog.task_project_id == task_id,
                 TestReportUploadLog.round == 1,
-                TestReportUploadLog.is_deleted == False
+                TestReportUploadLog.is_deleted.is_(False)
             )
         )
         total_cases = total_result.scalar() or 0
@@ -216,7 +216,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
         execute_result = await db.execute(
             select(func.count()).select_from(TestReportUploadLog).where(
                 TestReportUploadLog.task_project_id == task_id,
-                TestReportUploadLog.is_deleted == False
+                TestReportUploadLog.is_deleted.is_(False)
             )
         )
         execute_total = execute_result.scalar() or 0
@@ -271,7 +271,7 @@ class TestReportSummaryService(BaseService[TestReportSummary, FailReportCreate, 
             select(TestReportSummary).where(
                 TestReportSummary.task_base_name == task_base_name,
                 TestReportSummary.execute_time < execute_time,
-                TestReportSummary.is_deleted == False
+                TestReportSummary.is_deleted.is_(False)
             ).order_by(desc(TestReportSummary.execute_time)).limit(1)
         )
         last_record = last_summary.scalar_one_or_none()
@@ -350,7 +350,7 @@ class TestReportDetailQueryService:
         result = await db.execute(
             select(TestReportDetail).where(
                 TestReportDetail.task_project_id.in_(task_project_ids),
-                TestReportDetail.is_deleted == False
+                TestReportDetail.is_deleted.is_(False)
             ).order_by(TestReportDetail.round)
         )
         all_details = list(result.scalars().all())

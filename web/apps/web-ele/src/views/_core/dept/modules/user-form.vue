@@ -4,10 +4,10 @@ import type { DeptUser } from '#/api/core/dept';
 
 import { computed, ref } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
 import { $t } from '@vben/locales';
 
 import { useVbenForm } from '#/adapter/form';
+import { ZqDialog } from '#/components/zq-dialog';
 
 const emit = defineEmits<{ success: [] }>();
 const userData = ref<DeptUser>();
@@ -66,11 +66,7 @@ defineExpose({
 </script>
 
 <template>
-  <ZqDialog
-    v-model="visible"
-    :title="getModalTitle"
-    @confirm="onConfirm"
-  >
+  <ZqDialog v-model="visible" :title="getModalTitle" @confirm="onConfirm">
     <Form class="mx-4" />
   </ZqDialog>
 </template>

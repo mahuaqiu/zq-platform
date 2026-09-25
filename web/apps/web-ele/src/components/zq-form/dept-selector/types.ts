@@ -22,6 +22,8 @@ export interface DeptSelectorProps extends Partial<
 }
 
 export interface DeptSelectorEmits {
-  (e: 'update:modelValue', value: string | string[] | undefined): void;
-  (e: 'change', value: string | string[] | undefined): void;
+  (
+    e: 'change' | 'update:modelValue',
+    value: string | string[] | undefined,
+  ): void;
 }

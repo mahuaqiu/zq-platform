@@ -8,7 +8,6 @@
 @Desc: 执行机管理 API - 注册、申请、保持使用、释放、CRUD 接口
 """
 import asyncio
-import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 
@@ -26,7 +25,6 @@ from core.env_machine.schema import (
     EnvMachineIdItem,
     EnvSuccessResponse,
     EnvFailResponse,
-    EnvMachineListRequest,
     EnvMachineCreateRequest,
     EnvMachineUpdateRequest,
     EnvMachineResponse,
@@ -35,7 +33,6 @@ from core.env_machine.schema import (
     EnvMachineBatchDeleteRequest,
     EnvMachineBatchImportResponse,
     EnvMachineBatchCommandRequest,
-    CommandResultItem,
     EnvMachineBatchCommandResponse,
     BatchEnableRequest,
     BatchEnableResponse,
@@ -50,9 +47,9 @@ from core.env_machine.service import (
 )
 from core.env_machine.pool_manager import EnvPoolManager
 from core.env_machine.auth import verify_env_apply_auth
-from core.env_machine.lock_manager import EnvLockManager
 from core.env_machine.debug_service import DebugActionService
 from core.env_machine.log_service import EnvMachineLogService
+from core.env_machine.upgrade_api import router as upgrade_router
 from core.env_machine.worker_client import (
     delete_worker_file,
     download_worker_file,
@@ -67,6 +64,11 @@ from utils.logging_config import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/env", tags=["执行机管理"])
+
+# 注册升级管理路由
+router.include_router(upgrade_router)
+
+
 
 @router.post("/register", response_model=EnvSuccessResponse, summary="执行机注册")
 async def register_env_machine(
@@ -532,9 +534,6 @@ async def delete_env_machine(
     return {"status": "success", "message": "删除成功"}
 
 
-# 注册升级管理路由
-from core.env_machine.upgrade_api import router as upgrade_router
-router.include_router(upgrade_router)
 
 
 @router.get("/machine/{machine_id}/logs", summary="获取设备日志")

@@ -16,7 +16,7 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from sqlalchemy import select, delete, text
+from sqlalchemy import text
 from app.database import AsyncSessionLocal
 from core.menu.model import Menu
 

@@ -1,37 +1,37 @@
 <script lang="ts" setup>
 import {
+  computed,
+  nextTick,
   onMounted,
   onUnmounted,
   ref,
-  computed,
   useTemplateRef,
   watch,
-  nextTick,
 } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { ElMessage } from 'element-plus';
 import { useTabs } from '@vben/hooks';
+
+import { ElMessage } from 'element-plus';
 
 import { getEnvMachineDetailApi } from '#/api/core/env-machine';
 
+import InputTextDialog from './components/InputTextDialog.vue';
+import KeyPressDialog from './components/KeyPressDialog.vue';
+import MobilePanel from './components/MobilePanel.vue';
+import ScreenDisplay from './components/ScreenDisplay.vue';
+import TopNavbar from './components/TopNavbar.vue';
+import UnlockDialog from './components/UnlockDialog.vue';
+import { useDeviceAction } from './hooks/useDeviceAction';
+import { useScreenInteraction } from './hooks/useScreenInteraction';
+import { useWebSocket } from './hooks/useWebSocket';
 import {
   calculateContainRenderArea,
   convertToDeviceCoords,
+  formatDeviceDebugTitle,
   isDesktopDevice,
   isMobileDevice,
-  formatDeviceDebugTitle,
 } from './utils';
-import { useWebSocket } from './hooks/useWebSocket';
-import { useScreenInteraction } from './hooks/useScreenInteraction';
-import { useDeviceAction } from './hooks/useDeviceAction';
-
-import TopNavbar from './components/TopNavbar.vue';
-import ScreenDisplay from './components/ScreenDisplay.vue';
-import MobilePanel from './components/MobilePanel.vue';
-import KeyPressDialog from './components/KeyPressDialog.vue';
-import InputTextDialog from './components/InputTextDialog.vue';
-import UnlockDialog from './components/UnlockDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -49,7 +49,7 @@ const navbarFixed = ref(false);
 // 当前使用的编码格式（Windows、鸿蒙移动和鸿蒙 PC 走 H.264；H.264 失败后内部自动降级为 JPEG）
 const currentCodec = computed(() => {
   if (
-    ['windows', 'harmony_mobile', 'harmony_pc'].includes(
+    ['harmony_mobile', 'harmony_pc', 'windows'].includes(
       deviceDetail.value?.device_type ?? '',
     )
   ) {
@@ -121,7 +121,9 @@ const {
   sendInput,
   realtimeInput,
   isPcDevice: computed(() =>
-    ['windows', 'mac', 'harmony_pc'].includes(deviceDetail.value?.device_type ?? ''),
+    ['harmony_pc', 'mac', 'windows'].includes(
+      deviceDetail.value?.device_type ?? '',
+    ),
   ),
 });
 
@@ -230,17 +232,22 @@ const deviceModel = computed(() => {
   // 根据设备类型生成默认名称
   const deviceType = deviceDetail.value.device_type;
   switch (deviceType) {
-    case 'windows':
-      return 'Windows';
-    case 'mac':
-      return 'Mac';
-    case 'ios':
-      return 'iPhone';
-    case 'android':
+    case 'android': {
       return 'Android';
-    default:
+    }
+    case 'ios': {
+      return 'iPhone';
+    }
+    case 'mac': {
+      return 'Mac';
+    }
+    case 'windows': {
+      return 'Windows';
+    }
+    default: {
       // 降级显示资产编号或IP
       return deviceDetail.value.asset_number || deviceDetail.value.ip || '';
+    }
   }
 });
 
@@ -274,7 +281,7 @@ async function loadDeviceDetail() {
 
     // 连接 Worker 实时推流（鸿蒙优先 H.264，Worker 失败时自动降级 JPEG）。
     const workerHost = result.ip;
-    const workerPort = parseInt(result.port, 10);
+    const workerPort = Number.parseInt(result.port, 10);
     const udid = result.device_sn; // 移动设备 udid = device_sn
     const deviceType = result.device_type;
 
@@ -291,7 +298,7 @@ async function loadDeviceDetail() {
       ElMessage.error('设备缺少 Worker 连接信息');
     }
   } catch (error: any) {
-    ElMessage.error('获取设备详情失败: ' + error.message);
+    ElMessage.error(`获取设备详情失败: ${error.message}`);
   } finally {
     loading.value = false;
   }
@@ -328,7 +335,7 @@ function handleReconnect() {
     deviceDetail.value?.device_type
   ) {
     const workerHost = deviceDetail.value.ip;
-    const workerPort = parseInt(deviceDetail.value.port, 10);
+    const workerPort = Number.parseInt(deviceDetail.value.port, 10);
     const udid = deviceDetail.value.device_sn || '';
     const deviceType = deviceDetail.value.device_type;
     reconnect(
@@ -353,7 +360,7 @@ function handleScreenChange(screenIndex: number) {
   ) {
     reconnect(
       deviceDetail.value.ip,
-      parseInt(deviceDetail.value.port, 10),
+      Number.parseInt(deviceDetail.value.port, 10),
       deviceDetail.value.device_sn || '',
       deviceDetail.value.device_type,
       screenIndex,
@@ -416,11 +423,11 @@ async function handleScreenPointerUp(event: PointerEvent) {
       }
     } else if (result.type === 'swipe') {
       const swipeParams = result.params as {
+        duration: number;
         from_x: number;
         from_y: number;
         to_x: number;
         to_y: number;
-        duration: number;
       };
       const success = await swipe(
         swipeParams.from_x,
@@ -573,15 +580,15 @@ async function refreshHarmonyScreenshot() {
   if (!screenshotData) return;
   harmonyScreenshotUrl.value = `data:image/jpeg;base64,${screenshotData}`;
   const image = new Image();
-  image.onload = () => {
+  image.addEventListener('load', () => {
     screenSize.value = { width: image.width, height: image.height };
-  };
+  });
   image.src = harmonyScreenshotUrl.value;
 }
 
 // 从 H.264 视频元素的当前解码帧生成可下载的图片。
 // H.264 推流不会更新 screenshotBase64，保存按钮不能只检查图片流变量。
-function captureVideoFrame(video: HTMLVideoElement | null): string | null {
+function captureVideoFrame(video: HTMLVideoElement | null): null | string {
   if (
     !video ||
     video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
@@ -780,22 +787,22 @@ onUnmounted(() => {
 
 <style scoped>
 .device-debug-page {
-  background: #f0f2f5;
-  height: 100vh;
   display: flex;
   flex-direction: column;
+  height: 100vh;
   overflow-y: auto;
+  background: #f0f2f5;
 }
 
 .debug-content {
-  flex: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  background: #f0f2f5;
-  overflow: visible;
   min-height: 0;
+  padding: 0;
+  overflow: visible;
+  background: #f0f2f5;
 }
 
 .debug-content.content-padded {
@@ -813,22 +820,22 @@ onUnmounted(() => {
 /* 移动端布局 - 屏幕+面板靠上对齐 */
 .mobile-layout {
   display: flex;
+  gap: 24px;
   align-items: flex-start;
   justify-content: center;
-  gap: 24px;
-  height: 100%;
   width: 100%;
+  height: 100%;
   min-height: 0;
   padding-top: 16px;
 }
 
 .mobile-screen {
+  position: relative;
+  flex-shrink: 0;
   width: 380px;
   height: 100%;
   max-height: 720px;
-  flex-shrink: 0;
   overflow: hidden;
-  position: relative;
 }
 
 /* 移动端屏幕内部样式覆盖 - 直角无边框 */
@@ -851,13 +858,10 @@ onUnmounted(() => {
 }
 
 .mobile-screen :deep(.coord-display) {
-  top: 12px;
-  left: 12px;
-  right: auto;
-  bottom: auto;
-  font-size: 11px;
+  inset: 12px auto auto 12px;
   padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.6);
+  font-size: 11px;
+  background: rgb(0 0 0 / 60%);
 }
 
 .mobile-right {

@@ -1,20 +1,29 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import type { ChartSeries, CompareTag } from '../types';
+
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
 import * as echarts from 'echarts';
-import type { ChartSeries } from '../types';
-import type { CompareTag } from '../types';
 
 const props = defineProps<{
-  title?: string; // 图表标题
+  chartGroup?: string; // 图表分组（用于联动）
+  currentMetric?: string; // 当前指标类型
+  dataZoomEnd?: number; // dataZoom 结束位置
+  dataZoomStart?: number; // dataZoom 起始位置
+  dataZoomType?: 'inside' | 'none' | 'slider'; // dataZoom 类型
+  hwinfoUnit?: string; // HWiNFO 指标单位
+  loading?: boolean;
   series: ChartSeries[];
   tags: CompareTag[];
-  loading?: boolean;
-  currentMetric?: string; // 当前指标类型
-  hwinfoUnit?: string; // HWiNFO 指标单位
-  dataZoomType?: 'slider' | 'inside' | 'none'; // dataZoom 类型
-  chartGroup?: string; // 图表分组（用于联动）
-  dataZoomStart?: number; // dataZoom 起始位置
-  dataZoomEnd?: number; // dataZoom 结束位置
+  title?: string; // 图表标题
+}>();
+
+const emit = defineEmits<{
+  (
+    e: 'hoverChange',
+    data: { time: number; values: Record<string, number> },
+  ): void;
+  (e: 'datazoomChange', data: { end: number; start: number }): void;
 }>();
 
 // 判断是否是内存类指标
@@ -33,11 +42,6 @@ const unit = computed(() => {
   if (isMemoryMetric.value) return 'GB';
   return '%';
 });
-
-const emit = defineEmits<{
-  (e: 'hover-change', data: { time: number; values: Record<string, number> }): void;
-  (e: 'datazoom-change', data: { start: number; end: number }): void;
-}>();
 
 const chartRef = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
@@ -104,22 +108,26 @@ const initChart = () => {
 
   // Build markArea data from tags (using relative seconds directly)
   const peakAreas = props.tags
-    .filter(t => t.type === 'peak')
-    .map(t => {
-      return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: number }>;
+    .filter((t) => t.type === 'peak')
+    .map((t) => {
+      return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{
+        xAxis: number;
+      }>;
     });
 
   const stableAreas = props.tags
-    .filter(t => t.type === 'stable')
-    .map(t => {
-      return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{ xAxis: number }>;
+    .filter((t) => t.type === 'stable')
+    .map((t) => {
+      return [{ xAxis: t.start_time }, { xAxis: t.end_time }] as Array<{
+        xAxis: number;
+      }>;
     });
 
   const seriesData = props.series.map((s, index) => {
     return {
       name: s.name,
       type: 'line',
-      data: s.data.map(d => [d.time, d.value]),
+      data: s.data.map((d) => [d.time, d.value]),
       lineStyle: {
         color: s.color,
         width: 2,
@@ -135,26 +143,31 @@ const initChart = () => {
       progressiveThreshold: 3000,
       progressiveChunkMode: 'mod',
       // 只给第一条线添加 markArea（标签区域）
-      markArea: index === 0 ? {
-        silent: true,
-        itemStyle: {
-          color: 'rgba(230, 162, 60, 0.1)', // 冲高区域橙色
-        },
-        data: peakAreas,
-      } : undefined,
+      markArea:
+        index === 0
+          ? {
+              silent: true,
+              itemStyle: {
+                color: 'rgba(230, 162, 60, 0.1)', // 冲高区域橙色
+              },
+              data: peakAreas,
+            }
+          : undefined,
       // 均值线（当开启时显示）
-      markLine: showMeanLine.value ? {
-        silent: true,
-        symbol: 'none',
-        label: { show: false }, // 不显示均值数值
-        lineStyle: {
-          color: s.color,
-          type: 'dashed',
-          width: 2,
-          opacity: 0.8,
-        },
-        data: [{ type: 'average' }],
-      } : undefined,
+      markLine: showMeanLine.value
+        ? {
+            silent: true,
+            symbol: 'none',
+            label: { show: false }, // 不显示均值数值
+            lineStyle: {
+              color: s.color,
+              type: 'dashed',
+              width: 2,
+              opacity: 0.8,
+            },
+            data: [{ type: 'average' }],
+          }
+        : undefined,
     };
   }) as echarts.SeriesOption[];
 
@@ -213,7 +226,7 @@ const initChart = () => {
         color: '#666',
         fontSize: 12,
       },
-      data: props.series.map(s => s.name),
+      data: props.series.map((s) => s.name),
     },
     tooltip: {
       trigger: 'axis',
@@ -276,7 +289,7 @@ const initChart = () => {
 
   // DataZoom 事件
   chart.on('datazoom', (params: any) => {
-    emit('datazoom-change', {
+    emit('datazoomChange', {
       start: params.start || 0,
       end: params.end || 100,
     });
@@ -287,27 +300,33 @@ const initChart = () => {
     const p = params as { dataTime?: number };
     if (p.dataTime) {
       const values: Record<string, number> = {};
-      props.series.forEach(s => {
-        const point = s.data.find(d => d.time === p.dataTime);
+      props.series.forEach((s) => {
+        const point = s.data.find((d) => d.time === p.dataTime);
         if (point?.value != null) values[s.name] = point.value;
       });
-      emit('hover-change', { time: p.dataTime, values });
+      emit('hoverChange', { time: p.dataTime, values });
     }
   });
 };
 
-watch([() => props.series, () => props.tags], () => {
-  if (chart) initChart();
-}, { deep: true });
+watch(
+  [() => props.series, () => props.tags],
+  () => {
+    if (chart) initChart();
+  },
+  { deep: true },
+);
+
+const handleWindowResize = () => chart?.resize();
 
 onMounted(() => {
   initChart();
-  window.addEventListener('resize', () => chart?.resize());
+  window.addEventListener('resize', handleWindowResize);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('resize', handleWindowResize);
   chart?.dispose();
-  window.removeEventListener('resize', () => chart?.resize());
 });
 </script>
 
@@ -315,22 +334,26 @@ onUnmounted(() => {
   <div class="compare-chart-panel" v-loading="loading">
     <!-- 所有类型：标题统一放在左上角 -->
     <div v-if="title" class="chart-title">{{ title }}</div>
-    <div ref="chartRef" class="chart-container" :class="{ 'has-datazoom': dataZoomType === 'slider' }"></div>
+    <div
+      ref="chartRef"
+      class="chart-container"
+      :class="{ 'has-datazoom': dataZoomType === 'slider' }"
+    ></div>
   </div>
 </template>
 
 <style scoped>
 .compare-chart-panel {
+  padding: 16px;
   background: #fff;
   border-radius: 8px;
-  padding: 16px;
 }
 
 .chart-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 12px;
 }
 
 .chart-container {

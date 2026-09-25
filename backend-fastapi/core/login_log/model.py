@@ -7,10 +7,6 @@
 @File: model.py
 @Desc: 登录日志模型 - Login Log Model - 记录用户的所有登录操作，包括成功和失败的尝试
 """
-"""
-登录日志模型 - Login Log Model
-记录用户的所有登录操作，包括成功和失败的尝试
-"""
 from sqlalchemy import Column, String, Text, Integer, Index
 
 from app.base_model import BaseModel

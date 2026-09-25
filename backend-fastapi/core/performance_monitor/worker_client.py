@@ -83,16 +83,12 @@ async def notify_worker_start(
             if resp.status_code in (200, 201):
                 return
             failure_message = resp.text[:500]
-            status_code = resp.status_code
     except httpx.ConnectError:
         failure_message = f"无法连接到 Worker: {device_ip}:{device_port}"
-        status_code = 503
     except httpx.TimeoutException:
         failure_message = "Worker 响应超时"
-        status_code = 504
     except Exception as e:
         failure_message = f"通知 Worker 异常: {e}"
-        status_code = 500
 
     async with AsyncSessionLocal() as db:
         collect = await db.get(PerformanceCollect, collect_id)

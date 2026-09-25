@@ -11,7 +11,7 @@ export interface ZqDrawerProps extends Partial<DrawerProps> {
   size?: number | string;
 
   /** 方向，默认 'rtl' */
-  direction?: 'ltr' | 'rtl' | 'ttb' | 'btt';
+  direction?: 'btt' | 'ltr' | 'rtl' | 'ttb';
 
   /** 内容区固定高度 */
   contentHeight?: number | string;
@@ -70,12 +70,7 @@ export interface ZqDrawerProps extends Partial<DrawerProps> {
 
 export interface ZqDrawerEmits {
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'confirm'): void;
-  (e: 'cancel'): void;
-  (e: 'open'): void;
-  (e: 'opened'): void;
-  (e: 'close'): void;
-  (e: 'closed'): void;
+  (e: 'cancel' | 'close' | 'closed' | 'confirm' | 'open' | 'opened'): void;
 }
 
 export interface ZqDrawerExpose {

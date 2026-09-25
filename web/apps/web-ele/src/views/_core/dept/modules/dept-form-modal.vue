@@ -4,13 +4,13 @@ import type { Dept } from '#/api/core/dept';
 
 import { computed, ref } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
 import { $t } from '@vben/locales';
 
 import { ElButton } from 'element-plus';
 
 import { useVbenForm, z } from '#/adapter/form';
 import { createDeptApi, updateDeptApi } from '#/api/core/dept';
+import { ZqDialog } from '#/components/zq-dialog';
 
 const emit = defineEmits(['success']);
 const formData = ref<Dept>();

@@ -86,7 +86,9 @@ export async function vue(): Promise<Linter.Config[]> {
         'vue/dot-location': ['error', 'property'],
         'vue/dot-notation': ['error', { allowKeywords: true }],
         'vue/eqeqeq': ['error', 'smart'],
-        'vue/html-closing-bracket-newline': 'error',
+        // 与 prettier 冲突：prettier 对空白敏感的内联元素会把 `>` 折到上一行
+        // （leading-angle 风格），该规则无法表达这种风格，格式以 prettier 为准
+        'vue/html-closing-bracket-newline': 'off',
         'vue/html-indent': 'off',
         // 'vue/html-indent': ['error', 2],
         'vue/html-quotes': ['error', 'double'],

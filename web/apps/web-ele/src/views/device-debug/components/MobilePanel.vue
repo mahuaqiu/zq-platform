@@ -63,9 +63,15 @@ function handleScreenshot() {
     <div class="panel-section">
       <div class="section-title">快捷按键</div>
       <div class="quick-buttons">
-        <button class="quick-btn" @click="handleQuickPress('HOME')">HOME</button>
-        <button class="quick-btn" @click="handleQuickPress('BACK')">BACK</button>
-        <button class="quick-btn" @click="handleQuickPress('POWER')">电源</button>
+        <button class="quick-btn" @click="handleQuickPress('HOME')">
+          HOME
+        </button>
+        <button class="quick-btn" @click="handleQuickPress('BACK')">
+          BACK
+        </button>
+        <button class="quick-btn" @click="handleQuickPress('POWER')">
+          电源
+        </button>
       </div>
     </div>
 
@@ -79,7 +85,11 @@ function handleScreenshot() {
           class="text-input"
           placeholder="输入文本..."
         />
-        <button class="send-btn" :disabled="!textInputValue.trim()" @click="handleTextInput">
+        <button
+          class="send-btn"
+          :disabled="!textInputValue.trim()"
+          @click="handleTextInput"
+        >
           发送
         </button>
       </div>
@@ -106,7 +116,9 @@ function handleScreenshot() {
           </span>
           <span class="history-time">{{ record.time }}</span>
           <span class="history-params">{{ record.params }}</span>
-          <span v-if="record.error" class="history-error-inline">{{ record.error }}</span>
+          <span v-if="record.error" class="history-error-inline">{{
+            record.error
+          }}</span>
         </div>
         <div v-if="operationHistory.length === 0" class="history-empty">
           暂无操作记录
@@ -117,7 +129,9 @@ function handleScreenshot() {
     <!-- 功能按钮 -->
     <div class="panel-section bottom-section">
       <button class="func-btn light" @click="handleUnlock">🔒 解锁屏幕</button>
-      <button class="func-btn light" @click="handleScreenshot">📷 截图保存</button>
+      <button class="func-btn light" @click="handleScreenshot">
+        📷 截图保存
+      </button>
     </div>
 
     <!-- 解锁弹窗 -->
@@ -133,8 +147,15 @@ function handleScreenshot() {
         />
         <div class="dialog-note">如果设备无密码锁，可直接解锁</div>
         <div class="dialog-actions">
-          <button class="dialog-btn cancel" @click="unlockDialogVisible = false">取消</button>
-          <button class="dialog-btn confirm" @click="handleUnlockConfirm">确认解锁</button>
+          <button
+            class="dialog-btn cancel"
+            @click="unlockDialogVisible = false"
+          >
+            取消
+          </button>
+          <button class="dialog-btn confirm" @click="handleUnlockConfirm">
+            确认解锁
+          </button>
         </div>
       </div>
     </div>
@@ -143,14 +164,14 @@ function handleScreenshot() {
 
 <style scoped>
 .mobile-panel {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  padding: 24px;
-  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .device-info-row {
@@ -159,20 +180,20 @@ function handleScreenshot() {
 }
 
 .info-label {
-  color: #111;
   font-weight: 500;
+  color: #111;
 }
 
 .panel-section {
-  border-top: 1px solid #e8e8e8;
   padding-top: 16px;
+  border-top: 1px solid #e8e8e8;
 }
 
 .section-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
   color: #111;
-  margin-bottom: 12px;
 }
 
 .quick-buttons {
@@ -182,13 +203,13 @@ function handleScreenshot() {
 
 .quick-btn {
   flex: 1;
+  padding: 12px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
   background: #f5f5f5;
   border: 1px solid #e8e8e8;
-  color: #333;
-  padding: 12px;
   border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
@@ -203,12 +224,12 @@ function handleScreenshot() {
 
 .text-input {
   flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #333;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
-  padding: 10px 12px;
   border-radius: 6px;
-  font-size: 14px;
 }
 
 .text-input:focus {
@@ -217,14 +238,14 @@ function handleScreenshot() {
 }
 
 .send-btn {
-  background: #3b82f6;
-  color: #fff;
   padding: 10px 16px;
-  border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
-  border: none;
+  color: #fff;
   cursor: pointer;
+  background: #3b82f6;
+  border: none;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
@@ -233,31 +254,31 @@ function handleScreenshot() {
 }
 
 .send-btn:disabled {
-  opacity: 0.5;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .history-section {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   border-top: 1px solid #e8e8e8;
-  min-height: 0;
 }
 
 .history-list {
-  background: #f5f5f5;
+  height: 100%;
   padding: 12px;
-  border-radius: 8px;
+  overflow: auto;
   font-size: 12px;
   color: #666;
-  overflow: auto;
-  height: 100%;
+  background: #f5f5f5;
+  border-radius: 8px;
 }
 
 .history-item {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 4px 8px;
   border-radius: 4px;
 }
@@ -281,8 +302,8 @@ function handleScreenshot() {
 }
 
 .history-time {
-  color: #999;
   flex-shrink: 0;
+  color: #999;
 }
 
 .history-params {
@@ -290,9 +311,9 @@ function handleScreenshot() {
 }
 
 .history-error-inline {
-  color: #ef4444;
-  font-size: 11px;
   flex: 1;
+  font-size: 11px;
+  color: #ef4444;
 }
 
 .history-failed {
@@ -300,31 +321,31 @@ function handleScreenshot() {
 }
 
 .history-empty {
-  text-align: center;
-  color: #999;
   padding: 20px;
+  color: #999;
+  text-align: center;
 }
 
 .bottom-section {
   display: flex;
   gap: 8px;
-  border-top: 1px solid #e8e8e8;
   padding-top: 16px;
+  border-top: 1px solid #e8e8e8;
 }
 
 .func-btn {
   flex: 1;
   padding: 12px;
-  border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
 .func-btn.light {
+  color: #333;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
 }
 
 .func-btn.light:hover {
@@ -335,45 +356,45 @@ function handleScreenshot() {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  width: 100vw;
+  height: 100vh;
+  background: rgb(0 0 0 / 30%);
 }
 
 .unlock-dialog {
   width: 360px;
+  padding: 24px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 24px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .dialog-title {
+  margin-bottom: 20px;
   font-size: 16px;
   font-weight: 600;
   color: #111;
-  margin-bottom: 20px;
 }
 
 .dialog-tip {
+  margin-bottom: 8px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 8px;
 }
 
 .dialog-input {
+  box-sizing: border-box;
   width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #333;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
-  padding: 10px 12px;
   border-radius: 6px;
-  font-size: 14px;
-  box-sizing: border-box;
 }
 
 .dialog-input:focus {
@@ -382,9 +403,9 @@ function handleScreenshot() {
 }
 
 .dialog-note {
+  margin-top: 8px;
   font-size: 12px;
   color: #999;
-  margin-top: 8px;
 }
 
 .dialog-actions {
@@ -396,16 +417,16 @@ function handleScreenshot() {
 .dialog-btn {
   flex: 1;
   padding: 10px;
-  border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
 .dialog-btn.cancel {
+  color: #333;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
 }
 
 .dialog-btn.cancel:hover {
@@ -413,10 +434,10 @@ function handleScreenshot() {
 }
 
 .dialog-btn.confirm {
-  background: #22c55e;
-  color: #fff;
-  border: none;
   font-weight: 500;
+  color: #fff;
+  background: #22c55e;
+  border: none;
 }
 
 .dialog-btn.confirm:hover {

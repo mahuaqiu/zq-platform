@@ -4,11 +4,11 @@
 
 ## 特性
 
-*   🚀 **高性能**：基于虚拟滚动，轻松支撑万级数据渲染。
-*   🛠 **高度集成**：内置搜索表单 (`vben-form`)、工具栏、分页器。
-*   ✨ **API 统一**：与 `useVbenVxeGrid` API 保持一致，降低迁移成本。
-*   📏 **高度自适应**：自动计算表格高度，适应容器大小。
-*   🎨 **Element Plus 风格**：完全契合 Element Plus 设计规范。
+- 🚀 **高性能**：基于虚拟滚动，轻松支撑万级数据渲染。
+- 🛠 **高度集成**：内置搜索表单 (`vben-form`)、工具栏、分页器。
+- ✨ **API 统一**：与 `useVbenVxeGrid` API 保持一致，降低迁移成本。
+- 📏 **高度自适应**：自动计算表格高度，适应容器大小。
+- 🎨 **Element Plus 风格**：完全契合 Element Plus 设计规范。
 
 ## 基础用法
 
@@ -58,7 +58,7 @@ const [Table] = useZqTable({
 <template>
   <!-- 重要：父容器必须有高度，否则表格高度为 0 -->
   <div class="h-[500px]">
-     <Table />
+    <Table />
   </div>
 </template>
 ```
@@ -72,7 +72,7 @@ const [Table] = useZqTable({
 #### 配置项 (`ZqTableProps`)
 
 | 属性 | 类型 | 说明 | 默认值 |
-| :--- | :--- | :--- | :--- |
+| :-- | :-- | :-- | :-- |
 | `gridOptions.columns` | `Column[]` | 列配置，详见 Element Plus Table V2 文档 | `[]` |
 | `gridOptions.data` | `any[]` | 静态数据（不使用 proxyConfig 时） | `[]` |
 | `gridOptions.proxyConfig` | `ZqProxyConfig` | 数据代理配置，用于自动加载数据 | - |
@@ -103,7 +103,7 @@ interface ZqProxyConfig {
 `useZqTable` 返回的第二个参数，用于操作表格。
 
 | 方法 | 说明 |
-| :--- | :--- |
+| :-- | :-- |
 | `reload(params?: any)` | 重新加载数据，可传入额外的查询参数（合并到 form 中） |
 | `query(params?: any)` | 别名 reload |
 | `setLoading(loading: boolean)` | 手动设置加载状态 |
@@ -112,13 +112,13 @@ interface ZqProxyConfig {
 
 ## 插槽 (Slots)
 
-| 插槽名 | 说明 |
-| :--- | :--- |
-| `table-title` | 自定义标题区域 |
-| `toolbar-actions` | 工具栏左侧操作区（标题右侧） |
-| `toolbar-tools` | 工具栏右侧工具区（刷新按钮左侧） |
-| `form-[field]` | 自定义表单字段插槽 |
-| `empty` | 自定义空状态 |
+| 插槽名            | 说明                             |
+| :---------------- | :------------------------------- |
+| `table-title`     | 自定义标题区域                   |
+| `toolbar-actions` | 工具栏左侧操作区（标题右侧）     |
+| `toolbar-tools`   | 工具栏右侧工具区（刷新按钮左侧） |
+| `form-[field]`    | 自定义表单字段插槽               |
+| `empty`           | 自定义空状态                     |
 
 ## 注意事项
 

@@ -1,15 +1,24 @@
 <script setup lang="ts">
+import type {
+  PerformanceData,
+  ProcessData,
+} from '#/api/core/performance-monitor';
+
 import { computed } from 'vue';
-import type { PerformanceData, ProcessData } from '#/api/core/performance-monitor';
 
 // Props 定义
 interface Props {
-  visible: boolean;
+  visible?: boolean;
   position: { x: number; y: number };
   containerRect: DOMRect | null;
   data: PerformanceData | undefined;
-  seriesData: { name: string; value: number | null; color: string; unit: string }[];
-  chartType: 'cpu' | 'gpu' | 'memory' | 'commitMemory' | 'handles' | 'hwinfo';
+  seriesData: {
+    color: string;
+    name: string;
+    unit: string;
+    value: null | number;
+  }[];
+  chartType: 'commitMemory' | 'cpu' | 'gpu' | 'handles' | 'hwinfo' | 'memory';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -48,16 +57,21 @@ function formatPercent(value: number): string {
 // 应用在当前图表指标下的汇总数值（多实例求和后的值）
 function processValueText(p: ProcessData): string {
   switch (props.chartType) {
-    case 'gpu':
-      return `${formatPercent(p.total_gpu || 0)}%`;
-    case 'memory':
-      return `${Math.round(p.total_memory || 0)} MB`;
-    case 'commitMemory':
+    case 'commitMemory': {
       return `${Math.round(p.total_committed_memory || 0)} MB`;
-    case 'handles':
+    }
+    case 'gpu': {
+      return `${formatPercent(p.total_gpu || 0)}%`;
+    }
+    case 'handles': {
       return `${Math.round(p.total_handles || 0)} 个`;
-    default:
+    }
+    case 'memory': {
+      return `${Math.round(p.total_memory || 0)} MB`;
+    }
+    default: {
       return `${formatPercent(p.total_cpu || 0)}%`;
+    }
   }
 }
 
@@ -68,7 +82,7 @@ const processSummary = computed(() => {
     return props.data.target_processes.map((p) => ({
       name: p.name,
       instanceCount: p.instances?.length || 0,
-      valueText: processValueText(p)
+      valueText: processValueText(p),
     }));
   }
   return [];
@@ -94,8 +108,8 @@ function formatDateTime(timestamp: string): string {
     v-if="visible && data"
     class="mini-tooltip"
     :style="{
-      left: tooltipPosition.left + 'px',
-      top: tooltipPosition.top + 'px',
+      left: `${tooltipPosition.left}px`,
+      top: `${tooltipPosition.top}px`,
     }"
   >
     <!-- 时间 -->
@@ -105,29 +119,31 @@ function formatDateTime(timestamp: string): string {
 
     <!-- 主曲线数据 -->
     <div class="tooltip-series">
-      <div
-        v-for="s in seriesData"
-        :key="s.name"
-        class="series-row"
-      >
+      <div v-for="s in seriesData" :key="s.name" class="series-row">
         <div class="series-name">
           <span class="color-dot" :style="{ background: s.color }"></span>
           <span>{{ s.name }}</span>
         </div>
         <span class="series-value" :style="{ color: s.color }">
-          {{ s.value == null ? '-' : (s.unit === '个' ? Math.round(s.value) : (s.unit === '%' ? formatPercent(s.value) : s.value.toFixed(1))) }}{{ s.value == null ? '' : s.unit }}
+          {{
+            s.value == null
+              ? '-'
+              : s.unit === '个'
+                ? Math.round(s.value)
+                : s.unit === '%'
+                  ? formatPercent(s.value)
+                  : s.value.toFixed(1)
+          }}{{ s.value == null ? '' : s.unit }}
         </span>
       </div>
     </div>
 
     <!-- 进程摘要 -->
     <div v-if="processSummary.length > 0" class="tooltip-processes">
-      <div
-        v-for="p in processSummary"
-        :key="p.name"
-        class="process-row"
-      >
-        <span class="process-name">{{ p.name }} ({{ p.instanceCount }}实例)</span>
+      <div v-for="p in processSummary" :key="p.name" class="process-row">
+        <span class="process-name"
+          >{{ p.name }} ({{ p.instanceCount }}实例)</span
+        >
         <span class="process-value">{{ p.valueText }}</span>
       </div>
     </div>
@@ -136,25 +152,25 @@ function formatDateTime(timestamp: string): string {
 
 <style scoped>
 .mini-tooltip {
-  position: fixed;  /* 相对于视窗定位 */
+  position: fixed; /* 相对于视窗定位 */
+  z-index: 1000;
+  min-width: 200px;
+  max-width: 280px; /* 增加宽度避免换行 */
+  max-height: 320px;
+  padding: 12px;
+  overflow-y: auto;
+  font-size: 13px;
+  pointer-events: none; /* 点击穿透 */
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
-  padding: 12px;
-  z-index: 1000;
-  font-size: 13px;
-  min-width: 200px;
-  max-width: 280px;  /* 增加宽度避免换行 */
-  max-height: 320px;
-  overflow-y: auto;
-  pointer-events: none;  /* 点击穿透 */
+  box-shadow: 0 4px 14px rgb(0 0 0 / 20%);
 }
 
 .tooltip-time {
+  margin-bottom: 8px;
   font-size: 13px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 8px;
 }
 
 .tooltip-series {
@@ -170,8 +186,8 @@ function formatDateTime(timestamp: string): string {
 
 .series-name {
   display: flex;
-  align-items: center;
   gap: 5px;
+  align-items: center;
   font-size: 13px;
   color: #666;
 }
@@ -188,20 +204,20 @@ function formatDateTime(timestamp: string): string {
 }
 
 .tooltip-processes {
-  border-top: 1px dashed #eee;
   padding-top: 8px;
   margin-bottom: 8px;
+  border-top: 1px dashed #eee;
 }
 
 .process-row {
   display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: #409eff;
-  font-weight: 500;
   margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #409eff;
 }
 
 .process-name {

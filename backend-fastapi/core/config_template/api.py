@@ -326,7 +326,7 @@ async def update_machine_selection_template(
     try:
         updated = await MachineSelectionTemplateService.update_with_version(db, template_id, data)
         return MachineSelectionTemplateResponse.model_validate(updated)
-    except Exception as e:
+    except Exception:
         await db.rollback()
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
@@ -344,7 +344,7 @@ async def delete_machine_selection_template(
     try:
         await MachineSelectionTemplateService.delete(db, template_id)
         return {"status": "success", "message": "删除成功"}
-    except Exception as e:
+    except Exception:
         await db.rollback()
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
@@ -426,6 +426,6 @@ async def delete_command_task(
     try:
         await CommandTaskService.delete(db, task_id)
         return {"status": "success", "message": "删除成功"}
-    except Exception as e:
+    except Exception:
         await db.rollback()
         raise HTTPException(status_code=500, detail="内部服务器错误")

@@ -28,14 +28,14 @@ export interface EnvMachine {
   is_deleted: boolean;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
-  is_virtual: boolean;  // 是否为虚拟设备
+  is_virtual: boolean; // 是否为虚拟设备
 }
 
 /**
  * 查询参数
  */
 export interface EnvMachineQueryParams {
-  namespace?: string;  // 改为可选，空表示查询全部
+  namespace?: string; // 改为可选，空表示查询全部
   device_type?: string;
   ip?: string;
   asset_number?: string;
@@ -57,7 +57,7 @@ export interface EnvMachineCreateParams {
   ip?: string;
   device_sn?: string;
   note?: string;
-  is_virtual?: boolean;  // 是否为虚拟设备（页面新增时默认为虚拟设备）
+  is_virtual?: boolean; // 是否为虚拟设备（页面新增时默认为虚拟设备）
 }
 
 /**
@@ -156,16 +156,16 @@ export interface MachineLogResponse {
  */
 export async function getMachineLogsApi(
   machineId: string,
-  params: MachineLogQueryParams | number = { lines: 400 },
+  params?: MachineLogQueryParams | number,
   options?: { signal?: AbortSignal },
 ) {
   // 支持旧调用方式：直接传 lines 数值
   const queryParams: MachineLogQueryParams =
-    typeof params === 'number' ? { lines: params } : params;
+    typeof params === 'number' ? { lines: params } : (params ?? { lines: 400 });
 
   return requestClient.get<MachineLogResponse>(
     `/api/core/env/machine/${machineId}/logs`,
-    { params: queryParams, timeout: 40000, ...options },
+    { params: queryParams, timeout: 40_000, ...options },
   );
 }
 
@@ -192,8 +192,8 @@ export interface DebugActionParams {
 export interface DebugActionResult {
   success: boolean;
   result?: {
-    screenshot_base64?: string;
     error?: string;
+    screenshot_base64?: string;
   };
 }
 
@@ -231,7 +231,9 @@ export interface BatchDeleteResponse {
  * 批量删除执行机
  */
 export async function batchDeleteEnvMachineApi(ids: string[]) {
-  return requestClient.post<BatchDeleteResponse>('/api/core/env/batch-delete', { ids });
+  return requestClient.post<BatchDeleteResponse>('/api/core/env/batch-delete', {
+    ids,
+  });
 }
 
 /**
@@ -240,8 +242,8 @@ export async function batchDeleteEnvMachineApi(ids: string[]) {
 export interface BatchImportResponse {
   success_count: number;
   failed_items: Array<{
-    row: number;
     reason: string;
+    row: number;
   }>;
 }
 
@@ -310,7 +312,7 @@ export async function batchExecuteCommandApi(data: BatchCommandRequest) {
   return requestClient.post<BatchCommandResponse>(
     '/api/core/env/batch-execute-command',
     data,
-    { timeout: 600000 }  // 整体超时 10 分钟（支持大批量执行）
+    { timeout: 600_000 }, // 整体超时 10 分钟（支持大批量执行）
   );
 }
 
@@ -353,14 +355,19 @@ export interface BatchDisableResponse {
  * 批量启用设备
  */
 export async function batchEnableEnvMachineApi(ids: string[]) {
-  return requestClient.post<BatchEnableResponse>('/api/core/env/batch-enable', { ids });
+  return requestClient.post<BatchEnableResponse>('/api/core/env/batch-enable', {
+    ids,
+  });
 }
 
 /**
  * 批量停用设备
  */
 export async function batchDisableEnvMachineApi(ids: string[]) {
-  return requestClient.post<BatchDisableResponse>('/api/core/env/batch-disable', { ids });
+  return requestClient.post<BatchDisableResponse>(
+    '/api/core/env/batch-disable',
+    { ids },
+  );
 }
 
 /**

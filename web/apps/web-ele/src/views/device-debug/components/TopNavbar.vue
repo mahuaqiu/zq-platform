@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import type { WebSocketStatus } from '../types';
-import { isDesktopDevice } from '../utils';
 
 import { computed } from 'vue';
 
-import { ElButton, ElTag, ElSelect, ElOption } from 'element-plus';
+import { ElButton, ElOption, ElSelect, ElTag } from 'element-plus';
+
+import { isDesktopDevice } from '../utils';
 
 interface Props {
   deviceType: string;
@@ -15,7 +16,7 @@ interface Props {
   fps: number;
   screenCount?: number; // 新增：屏幕数量
   currentScreen?: number; // 新增：当前选中屏幕
-  mouseCoord?: { x: number; y: number } | null; // 新增：鼠标坐标
+  mouseCoord?: null | { x: number; y: number }; // 新增：鼠标坐标
   navbarFixed?: boolean; // 新增：导航栏是否固定
   deviceModel?: string; // 设备型号（如 iPhone 15 Pro）
   osVersion?: string; // 系统版本（如 iOS 17.2、Windows 11 Pro）
@@ -54,16 +55,21 @@ const selectedScreen = computed({
 
 const wsStatusDisplay = computed(() => {
   switch (props.wsStatus) {
-    case 'connecting':
-      return { text: '连接中', type: 'warning' as const };
-    case 'connected':
+    case 'connected': {
       return { text: 'WebSocket 已连接', type: 'success' as const };
-    case 'disconnected':
+    }
+    case 'connecting': {
+      return { text: '连接中', type: 'warning' as const };
+    }
+    case 'disconnected': {
       return { text: '已断开', type: 'info' as const };
-    case 'error':
+    }
+    case 'error': {
       return { text: '连接错误', type: 'danger' as const };
-    default:
+    }
+    default: {
       return { text: '未知', type: 'info' as const };
+    }
   }
 });
 
@@ -204,36 +210,36 @@ function handleScreenshot() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 56px;
+  min-height: 56px;
   padding: 0 24px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
-  height: 56px;
-  min-height: 56px;
 }
 
 .top-navbar.navbar-fixed {
   position: fixed;
   top: 0;
-  left: 0;
   right: 0;
+  left: 0;
   z-index: 1000;
 }
 
 .navbar-left {
-  display: flex;
-  align-items: center;
-  gap: 24px;
   position: relative;
+  display: flex;
+  gap: 24px;
+  align-items: center;
 }
 
 .back-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
-  padding: 8px 16px;
   border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
@@ -262,23 +268,23 @@ function handleScreenshot() {
 }
 
 .online-tag {
-  background: #dcfce7;
   color: #166534;
+  background: #dcfce7;
   border-color: #dcfce7;
 }
 
 .navbar-right {
   display: flex;
-  align-items: center;
   gap: 24px;
+  align-items: center;
 }
 
 .ws-status {
   display: flex;
-  align-items: center;
   gap: 4px;
-  color: #666;
+  align-items: center;
   font-size: 14px;
+  color: #666;
 }
 
 .ws-dot.connected {
@@ -294,25 +300,25 @@ function handleScreenshot() {
 }
 
 .fps-display {
+  padding: 8px 16px;
   font-size: 13px;
   color: #333;
-  padding: 8px 16px;
   background: #f5f5f5;
   border-radius: 6px;
 }
 
 .screen-select {
-  font-size: 13px;
   width: 100px;
+  font-size: 13px;
 }
 
 .screen-select :deep(.el-input__wrapper) {
+  min-height: 34px;
+  padding: 0 12px;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
   border-radius: 6px;
   box-shadow: none;
-  padding: 0 12px;
-  min-height: 34px;
 }
 
 .screen-select :deep(.el-input__wrapper:hover),
@@ -323,8 +329,8 @@ function handleScreenshot() {
 }
 
 .screen-select :deep(.el-input__inner) {
-  color: #333;
   font-size: 13px;
+  color: #333;
 }
 
 .screen-select :deep(.el-select__caret) {
@@ -332,13 +338,13 @@ function handleScreenshot() {
 }
 
 .disconnect-btn {
-  background: #fee2e2;
-  color: #b91c1c;
   padding: 8px 20px;
-  border-radius: 6px;
-  border: 1px solid #fecaca;
   font-size: 14px;
+  color: #b91c1c;
   cursor: pointer;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
@@ -348,25 +354,25 @@ function handleScreenshot() {
 
 .navbar-center {
   display: flex;
-  align-items: center;
-  gap: 12px;
   flex: 1;
+  gap: 12px;
+  align-items: center;
   justify-content: center;
 }
 
 .toolbar-btn {
   padding: 8px 16px;
-  border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
 .toolbar-btn.orange {
-  background: #f59e0b;
   color: #fff;
+  background: #f59e0b;
 }
 
 .toolbar-btn.orange:hover {
@@ -374,8 +380,8 @@ function handleScreenshot() {
 }
 
 .toolbar-btn.gray {
-  background: #6b7280;
   color: #fff;
+  background: #6b7280;
 }
 
 .toolbar-btn.gray:hover {
@@ -383,9 +389,9 @@ function handleScreenshot() {
 }
 
 .toolbar-btn.light {
+  color: #333;
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
-  color: #333;
 }
 
 .toolbar-btn.light:hover {
@@ -395,16 +401,16 @@ function handleScreenshot() {
 .coord-display {
   position: absolute;
   right: -100px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
   padding: 6px 14px;
   font-size: 12px;
+  color: #fff;
+  background: rgb(0 0 0 / 80%);
   border-radius: 4px;
 }
 
 .coord-value {
-  color: #3b82f6;
   font-weight: 600;
+  color: #3b82f6;
 }
 </style>
 
@@ -415,13 +421,13 @@ function handleScreenshot() {
 }
 
 .screen-dropdown .el-select-dropdown__item {
-  font-size: 13px;
-  color: #333;
-  padding: 0 16px;
-  height: 34px;
-  line-height: 34px;
   display: flex;
   align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 13px;
+  line-height: 34px;
+  color: #333;
 }
 
 .screen-dropdown .el-select-dropdown__item:hover {
@@ -429,7 +435,7 @@ function handleScreenshot() {
 }
 
 .screen-dropdown .el-select-dropdown__item.selected {
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
 }
 </style>

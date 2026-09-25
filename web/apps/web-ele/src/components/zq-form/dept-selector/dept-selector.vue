@@ -4,7 +4,6 @@ import type { DeptSelectorEmits, DeptSelectorProps } from './types';
 import { computed, onMounted, ref, useAttrs, watch } from 'vue';
 
 import { IconifyIcon, Loader, Search } from '@vben/icons';
-import { ZqDialog } from '#/components/zq-dialog';
 import { $t } from '@vben/locales';
 
 import {
@@ -24,6 +23,7 @@ import {
   getDeptsByIds,
   searchDeptApi,
 } from '#/api/core/dept';
+import { ZqDialog } from '#/components/zq-dialog';
 
 defineOptions({
   name: 'DeptSelector',
@@ -50,9 +50,9 @@ const selectedDepts = ref<Set<string>>(
   new Set(
     Array.isArray(props.modelValue)
       ? props.modelValue
-      : (props.modelValue
+      : props.modelValue
         ? [props.modelValue]
-        : []),
+        : [],
   ),
 );
 // 临时选择（用于 modal 中的选择，未确认前）
@@ -400,9 +400,9 @@ const handleConfirm = () => {
 
   const value = props.multiple
     ? [...selectedDepts.value]
-    : (selectedDepts.value.size > 0
+    : selectedDepts.value.size > 0
       ? [...selectedDepts.value][0]
-      : '');
+      : '';
 
   emit('update:modelValue', value);
   emit('change', value);
@@ -709,7 +709,6 @@ defineExpose({
       }
     }
   }
-
 
   &-content {
     display: flex;

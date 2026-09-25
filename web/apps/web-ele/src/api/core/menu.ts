@@ -77,7 +77,7 @@ export interface MenuCreateInput {
   badgeVariants?: string;
 }
 
-export interface MenuUpdateInput extends Partial<MenuCreateInput> {}
+export type MenuUpdateInput = Partial<MenuCreateInput>;
 
 export interface MenuMoveInput {
   target_parent_id?: string;
@@ -163,10 +163,9 @@ export async function deleteMenuApi(menuId: string) {
 /**
  * 根据父菜单ID获取子菜单
  */
-export async function getMenuByParentApi(parentId?: string) {
+export async function getMenuByParentApi(parentId = 'null') {
   // 后端使用 "null" 字符串表示根菜单
-  const id = parentId || 'null';
-  return requestClient.get<Menu[]>(`/api/core/menu/by/parent/${id}`);
+  return requestClient.get<Menu[]>(`/api/core/menu/by/parent/${parentId}`);
 }
 
 /**

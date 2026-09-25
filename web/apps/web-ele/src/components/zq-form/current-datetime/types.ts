@@ -11,6 +11,5 @@ export interface CurrentDatetimeProps {
 }
 
 export interface CurrentDatetimeEmits {
-  (e: 'update:modelValue', value: string): void;
-  (e: 'change', value: string): void;
+  (e: 'change' | 'update:modelValue', value: string): void;
 }

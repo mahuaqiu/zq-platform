@@ -7,9 +7,6 @@
 @File: schema.py
 @Desc: Dept Schema - 部门数据验证模式
 """
-"""
-Dept Schema - 部门数据验证模式
-"""
 from datetime import datetime
 from typing import Optional, List, Dict
 

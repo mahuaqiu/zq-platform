@@ -3,17 +3,12 @@ import type { SchedulerLog } from '#/api/core/scheduler';
 
 import { ref, watch } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
-
-import { ElTag, ElDescriptions, ElDescriptionsItem, ElMessage } from 'element-plus';
+import { ElMessage, ElTag } from 'element-plus';
 
 import { getSchedulerLogDetailApi } from '#/api/core/scheduler';
-import {
-  formatDateTime,
-  formatDuration,
-  getLogStatusLabel,
-  getLogStatusClass,
-} from '../data';
+import { ZqDialog } from '#/components/zq-dialog';
+
+import { formatDateTime, formatDuration, getLogStatusLabel } from '../data';
 
 // Props
 interface Props {
@@ -29,7 +24,7 @@ const emit = defineEmits<{
 }>();
 
 // 数据
-const logDetail = ref<SchedulerLog | null>(null);
+const logDetail = ref<null | SchedulerLog>(null);
 const loading = ref(false);
 
 // 获取日志详情
@@ -71,19 +66,26 @@ function handleUpdateVisible(val: boolean) {
 }
 
 // 获取状态标签类型
-function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info' {
+function getStatusType(
+  status: string,
+): 'danger' | 'info' | 'success' | 'warning' {
   switch (status) {
-    case 'success':
-      return 'success';
-    case 'failed':
+    case 'failed': {
       return 'danger';
-    case 'timeout':
-      return 'warning';
-    case 'running':
+    }
     case 'pending':
+    case 'running': {
       return 'info';
-    default:
+    }
+    case 'success': {
+      return 'success';
+    }
+    case 'timeout': {
+      return 'warning';
+    }
+    default: {
       return 'info';
+    }
   }
 }
 </script>
@@ -125,15 +127,21 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
           </div>
           <div class="info-item">
             <label class="info-label">开始时间</label>
-            <div class="info-value">{{ formatDateTime(logDetail.start_time) }}</div>
+            <div class="info-value">
+              {{ formatDateTime(logDetail.start_time) }}
+            </div>
           </div>
           <div class="info-item">
             <label class="info-label">结束时间</label>
-            <div class="info-value">{{ formatDateTime(logDetail.end_time) }}</div>
+            <div class="info-value">
+              {{ formatDateTime(logDetail.end_time) }}
+            </div>
           </div>
           <div class="info-item">
             <label class="info-label">执行耗时</label>
-            <div class="info-value">{{ formatDuration(logDetail.duration) }}</div>
+            <div class="info-value">
+              {{ formatDuration(logDetail.duration) }}
+            </div>
           </div>
         </div>
       </div>
@@ -167,15 +175,25 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
           </div>
 
           <!-- 异常堆栈 -->
-          <div v-if="logDetail.exception || logDetail.traceback" class="error-wrapper">
+          <div
+            v-if="logDetail.exception || logDetail.traceback"
+            class="error-wrapper"
+          >
             <label class="info-label error-label">异常信息</label>
             <div v-if="logDetail.exception" class="error-content">
               <div class="error-message">{{ logDetail.exception }}</div>
             </div>
-            <pre v-if="logDetail.traceback" class="error-traceback">{{ logDetail.traceback }}</pre>
+            <pre v-if="logDetail.traceback" class="error-traceback">{{
+              logDetail.traceback
+            }}</pre>
           </div>
 
-          <div v-if="!logDetail.result && !logDetail.exception && !logDetail.traceback" class="empty-result">
+          <div
+            v-if="
+              !logDetail.result && !logDetail.exception && !logDetail.traceback
+            "
+            class="empty-result"
+          >
             暂无执行结果
           </div>
         </div>
@@ -189,8 +207,6 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
 </template>
 
 <style scoped>
-
-
 /* 响应式：小屏幕下改为2列 */
 @media (max-width: 768px) {
   .info-grid {

@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { ElIcon } from 'element-plus';
+import type { AvailableMetric } from '#/api/core/performance-monitor';
+
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
 import { Close } from '@element-plus/icons-vue';
-import { getAvailableMetrics, type AvailableMetric } from '#/api/core/performance-monitor';
+import { ElIcon } from 'element-plus';
+
+import { getAvailableMetrics } from '#/api/core/performance-monitor';
+
 import { getMetricLabel } from '../hwinfo-metrics-config';
 
 interface Props {
   visible: boolean;
   collectId?: string;
-  isLinuxDevice?: boolean;  // 是否为 Linux 设备，用于过滤重复指标和隔离搜索记录
+  isLinuxDevice?: boolean; // 是否为 Linux 设备，用于过滤重复指标和隔离搜索记录
   isHarmonyDevice?: boolean;
 }
 
@@ -19,13 +24,17 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  'update:visible': [value: boolean];
   select: [metric: string];
+  'update:visible': [value: boolean];
 }>();
 
 // 按设备类型隔离最近搜索记录
 const getRecentSearchKey = () => {
-  const deviceType = props.isHarmonyDevice ? 'harmony' : props.isLinuxDevice ? 'linux' : 'windows';
+  const deviceType = props.isHarmonyDevice
+    ? 'harmony'
+    : props.isLinuxDevice
+      ? 'linux'
+      : 'windows';
   return `performance-monitor-recent-metrics-${deviceType}`;
 };
 const MAX_RECENT = 5;
@@ -39,9 +48,8 @@ const loading = ref(false);
 function loadRecentSearches(): string[] {
   try {
     const key = getRecentSearchKey();
-    const stored = typeof localStorage !== 'undefined'
-      ? localStorage.getItem(key)
-      : null;
+    const stored =
+      typeof localStorage === 'undefined' ? null : localStorage.getItem(key);
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
@@ -64,9 +72,12 @@ function saveRecentSearches(searches: string[]) {
 recentSearches.value = loadRecentSearches();
 
 // 监听设备类型变化，重新加载对应的最近搜索记录
-watch(() => [props.isLinuxDevice, props.isHarmonyDevice], () => {
-  recentSearches.value = loadRecentSearches();
-});
+watch(
+  () => [props.isLinuxDevice, props.isHarmonyDevice],
+  () => {
+    recentSearches.value = loadRecentSearches();
+  },
+);
 
 // 加载指标列表
 async function loadMetrics() {
@@ -89,25 +100,26 @@ function getDisplayLabel(metric: AvailableMetric): string {
   }
   // Harmony/Linux/HWiNFO 指标优先用配置表中文翻译，后端 label 可能回落英文 key
   const translated = getMetricLabel(metric.key);
-  return translated !== metric.key ? translated : metric.label;
+  return translated === metric.key ? metric.label : translated;
 }
 
 // 最近搜索标签同样优先显示中文
 function getRecentLabel(metricKey: string): string {
-  const metric = metrics.value.find(m => m.key === metricKey);
+  const metric = metrics.value.find((m) => m.key === metricKey);
   if (metric) return getDisplayLabel(metric);
   const translated = getMetricLabel(metricKey);
-  return translated !== metricKey ? translated : metricKey;
+  return translated === metricKey ? metricKey : translated;
 }
 
 // 过滤后的结果
 const filteredMetrics = computed(() => {
   if (!searchKeyword.value.trim()) return metrics.value;
   const keyword = searchKeyword.value.trim().toLowerCase();
-  return metrics.value.filter(m =>
-    m.key.toLowerCase().includes(keyword) ||
-    m.label.toLowerCase().includes(keyword) ||
-    getDisplayLabel(m).toLowerCase().includes(keyword)
+  return metrics.value.filter(
+    (m) =>
+      m.key.toLowerCase().includes(keyword) ||
+      m.label.toLowerCase().includes(keyword) ||
+      getDisplayLabel(m).toLowerCase().includes(keyword),
   );
 });
 
@@ -118,20 +130,19 @@ const linuxMetricsFiltered = computed<AvailableMetric[]>(() => []);
 
 // 分组显示：进程指标、Linux 系统指标、HWiNFO 指标
 const systemMetrics = computed(() =>
-  filteredMetrics.value.filter(m => m.source === 'system')
+  filteredMetrics.value.filter((m) => m.source === 'system'),
 );
 const linuxMetrics = computed(() => linuxMetricsFiltered.value);
 // 与主卡片重复的 Harmony 指标（CPU Usage）不再出现在更多指标里；
 // 0.2.0 起 CPU 空闲、逐核主频均为 SP_daemon 白名单真实指标，正常展示。
 const HARMONY_HIDDEN_KEYS = new Set(['Harmony CPU Usage']);
 const harmonyMetrics = computed(() =>
-  filteredMetrics.value.filter(m =>
-    m.source === 'harmony' &&
-    !HARMONY_HIDDEN_KEYS.has(m.key)
-  )
+  filteredMetrics.value.filter(
+    (m) => m.source === 'harmony' && !HARMONY_HIDDEN_KEYS.has(m.key),
+  ),
 );
 const hwinfoMetrics = computed(() =>
-  filteredMetrics.value.filter(m => m.source === 'hwinfo')
+  filteredMetrics.value.filter((m) => m.source === 'hwinfo'),
 );
 
 function handleClose() {
@@ -139,7 +150,7 @@ function handleClose() {
 }
 
 function handleSelect(metricKey: string) {
-  const recent = recentSearches.value.filter(m => m !== metricKey);
+  const recent = recentSearches.value.filter((m) => m !== metricKey);
   recentSearches.value = [metricKey, ...recent].slice(0, MAX_RECENT);
   saveRecentSearches(recentSearches.value);
 
@@ -152,13 +163,16 @@ function handleRecentClick(metricKey: string) {
 }
 
 // 弹窗打开时加载指标列表
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    loadMetrics();
-  } else {
-    searchKeyword.value = '';
-  }
-});
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) {
+      loadMetrics();
+    } else {
+      searchKeyword.value = '';
+    }
+  },
+);
 
 // 键盘交互支持
 function handleKeyDown(e: KeyboardEvent) {
@@ -183,9 +197,9 @@ onUnmounted(() => {
   <div v-if="visible" class="metric-search-popup">
     <div class="popup-header">
       <span class="popup-title">性能指标搜索</span>
-      <el-icon class="close-icon" @click="handleClose">
+      <ElIcon class="close-icon" @click="handleClose">
         <Close />
-      </el-icon>
+      </ElIcon>
     </div>
 
     <div class="popup-search">
@@ -235,7 +249,9 @@ onUnmounted(() => {
 
         <!-- Linux 系统指标 -->
         <div v-if="linuxMetrics.length > 0" class="metric-group">
-          <span class="group-label">Linux 系统指标 ({{ linuxMetrics.length }})</span>
+          <span class="group-label"
+            >Linux 系统指标 ({{ linuxMetrics.length }})</span
+          >
           <div class="results-list">
             <div
               v-for="metric in linuxMetrics"
@@ -251,7 +267,9 @@ onUnmounted(() => {
 
         <!-- HWiNFO 指标 -->
         <div v-if="harmonyMetrics.length > 0" class="metric-group">
-          <span class="group-label">Harmony 指标 ({{ harmonyMetrics.length }})</span>
+          <span class="group-label"
+            >Harmony 指标 ({{ harmonyMetrics.length }})</span
+          >
           <div class="results-list">
             <div
               v-for="metric in harmonyMetrics"
@@ -267,7 +285,9 @@ onUnmounted(() => {
 
         <!-- HWiNFO 指标 -->
         <div v-if="hwinfoMetrics.length > 0" class="metric-group">
-          <span class="group-label">HWiNFO 传感器 ({{ hwinfoMetrics.length }})</span>
+          <span class="group-label"
+            >HWiNFO 传感器 ({{ hwinfoMetrics.length }})</span
+          >
           <div class="results-list hwinfo-list">
             <div
               v-for="metric in hwinfoMetrics"
@@ -281,7 +301,12 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="filteredMetrics.length === 0 && searchKeyword.trim() && !loading" class="no-results">
+        <div
+          v-if="
+            filteredMetrics.length === 0 && searchKeyword.trim() && !loading
+          "
+          class="no-results"
+        >
           暂无匹配结果
         </div>
 
@@ -296,10 +321,7 @@ onUnmounted(() => {
 <style scoped>
 .popup-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 99;
   background: rgb(0 0 0 / 40%);
   backdrop-filter: blur(2px);
@@ -309,23 +331,23 @@ onUnmounted(() => {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
   z-index: 100;
   width: 420px;
   max-height: 80vh;
   padding: 20px;
   background: white;
+  border: 1px solid #e8e8e8;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgb(0 0 0 / 20%);
-  border: 1px solid #e8e8e8;
+  transform: translate(-50%, -50%);
 }
 
 .popup-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
   padding-bottom: 12px;
+  margin-bottom: 16px;
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -336,12 +358,12 @@ onUnmounted(() => {
 }
 
 .close-icon {
+  padding: 4px;
   font-size: 20px;
   color: #999;
   cursor: pointer;
-  transition: all 0.3s;
-  padding: 4px;
   border-radius: 4px;
+  transition: all 0.3s;
 }
 
 .close-icon:hover {
@@ -358,15 +380,15 @@ onUnmounted(() => {
   padding: 10px 14px;
   font-size: 14px;
   outline: none;
+  background: #fafafa;
   border: 1px solid #d9d9d9;
   border-radius: 8px;
   transition: all 0.3s;
-  background: #fafafa;
 }
 
 .search-input:focus {
-  border-color: #409eff;
   background: white;
+  border-color: #409eff;
   box-shadow: 0 0 0 2px rgb(64 158 255 / 20%);
 }
 
@@ -375,8 +397,8 @@ onUnmounted(() => {
 }
 
 .popup-recent {
-  margin-bottom: 16px;
   padding: 12px;
+  margin-bottom: 16px;
   background: #f8f9fa;
   border-radius: 8px;
 }
@@ -385,8 +407,8 @@ onUnmounted(() => {
   display: block;
   margin-bottom: 8px;
   font-size: 12px;
-  color: #8c8c8c;
   font-weight: 500;
+  color: #8c8c8c;
 }
 
 .recent-tags {
@@ -398,10 +420,10 @@ onUnmounted(() => {
 .recent-tag {
   padding: 6px 12px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.3s;
-  font-weight: 500;
 }
 
 .recent-tag-1 {
@@ -435,9 +457,9 @@ onUnmounted(() => {
 }
 
 .recent-tag:hover {
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
   opacity: 0.85;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .popup-results {
@@ -452,15 +474,15 @@ onUnmounted(() => {
   display: block;
   margin-bottom: 10px;
   font-size: 12px;
-  color: #8c8c8c;
   font-weight: 500;
+  color: #8c8c8c;
 }
 
 .results-list {
   max-height: 200px;
   overflow-y: auto;
-  scrollbar-width: thin;
   scrollbar-color: #d9d9d9 transparent;
+  scrollbar-width: thin;
 }
 
 .results-list::-webkit-scrollbar {
@@ -485,11 +507,11 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
+  margin-bottom: 4px;
   font-size: 14px;
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.3s;
-  margin-bottom: 4px;
 }
 
 .result-item:hover {
@@ -533,33 +555,33 @@ onUnmounted(() => {
 
 .result-label {
   flex: 1;
-  color: #1a1a1a;
-  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
+  color: #1a1a1a;
   white-space: nowrap;
 }
 
 .result-source {
+  padding: 2px 8px;
   margin-left: 12px;
   font-size: 11px;
   color: #1890ff;
   background: #e6f7ff;
-  padding: 2px 8px;
   border-radius: 4px;
 }
 
 .result-key {
-  margin-left: 12px;
-  font-size: 11px;
-  color: #bfbfbf;
-  background: #f5f5f5;
-  padding: 2px 6px;
-  border-radius: 4px;
   max-width: 150px;
+  padding: 2px 6px;
+  margin-left: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 11px;
+  color: #bfbfbf;
   white-space: nowrap;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
 .loading-state {
@@ -568,8 +590,8 @@ onUnmounted(() => {
 }
 
 .loading-text {
-  color: #409eff;
   font-size: 14px;
+  color: #409eff;
 }
 
 .no-results {

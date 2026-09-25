@@ -3,13 +3,13 @@ import type { Role } from '#/api/core/role';
 
 import { computed, ref } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
 import { $t } from '@vben/locales';
 
 import { ElButton } from 'element-plus';
 
 import { useVbenForm } from '#/adapter/form';
 import { createRoleApi, updateRoleApi } from '#/api/core/role';
+import { ZqDialog } from '#/components/zq-dialog';
 
 import { useFormSchema } from '../data';
 

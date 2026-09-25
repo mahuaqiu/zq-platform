@@ -1,20 +1,36 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { ElMessage, ElDialog, ElInput, ElCheckbox, ElSelect, ElOption, ElRadioGroup, ElRadioButton } from 'element-plus';
-import { startCollect, getProcesses } from '#/api/core/performance-monitor';
-import type { TargetProcessConfig, ProcessInfo } from '#/api/core/performance-monitor';
+import type {
+  ProcessInfo,
+  TargetProcessConfig,
+} from '#/api/core/performance-monitor';
+
+import { computed, ref, watch } from 'vue';
+
+import {
+  ElCheckbox,
+  ElDialog,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElRadioButton,
+  ElRadioGroup,
+  ElSelect,
+} from 'element-plus';
+
+import { getProcesses, startCollect } from '#/api/core/performance-monitor';
 import { copyToClipboard } from '#/utils/clipboard';
+
 import { getDisplayProcesses, saveProcessesToHistory } from '../config';
 
 const props = defineProps<{
-  visible: boolean;
   deviceId: string;
   deviceInfo?: {
+    device_sn?: string;
+    device_type?: string;
     ip: string;
     status: string;
-    device_type?: string;
-    device_sn?: string;
   };
+  visible: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -30,14 +46,18 @@ const isLinuxDevice = computed(() => {
 // 鸿蒙 0.2.0：SP_daemon -PKG 一次仅支持一个应用（含主进程+子进程），
 // 不支持按 PID 筛选；可不选应用，仅采集系统级指标。
 const isHarmonyDevice = computed(() => {
-  return ['harmony_pc', 'harmony_mobile'].includes(props.deviceInfo?.device_type || '');
+  return ['harmony_mobile', 'harmony_pc'].includes(
+    props.deviceInfo?.device_type || '',
+  );
 });
 
 // 设备显示信息（带 SN 设备必须可区分，鸿蒙同 IP 多台仅靠 SN）
 const deviceDisplay = computed(() => {
   if (props.deviceInfo) {
     const deviceType = props.deviceInfo.device_type || 'windows';
-    const sn = props.deviceInfo.device_sn ? ` (SN ${props.deviceInfo.device_sn})` : '';
+    const sn = props.deviceInfo.device_sn
+      ? ` (SN ${props.deviceInfo.device_sn})`
+      : '';
     return `${deviceType}-${props.deviceInfo.ip}${sn}`;
   }
   return '未选择设备';
@@ -51,21 +71,21 @@ const dialogTitle = computed(() => {
   return '开始性能采集';
 });
 const interval = ref(5);
-const intervalOptions = [1, 3, 5, 10, 30, 300, 900, 1800];  // 秒：1秒-30分钟
+const intervalOptions = [1, 3, 5, 10, 30, 300, 900, 1800]; // 秒：1秒-30分钟
 
 // 采集时间（小时）
 const collectTimeout = ref(12);
 const timeoutOptions = [12, 24]; // 后端上限 24 小时（86400s），与 Worker 侧约束一致
 
 // 采集模式：'pid' 按PID采集，'name' 按进程名采集（采集该进程名下所有实例）
-const collectMode = ref<'pid' | 'name'>('pid');
+const collectMode = ref<'name' | 'pid'>('pid');
 
 // 鸿蒙匹配模式：fuzzy=设备端 -PKG 按包名采集（含子进程）；
 // exact=worker 通过 ps -ef 精准定位 PID 后 -PID 采集，应用未启动自动探测跟随
-const harmonyMatchMode = ref<'fuzzy' | 'exact'>('fuzzy');
+const harmonyMatchMode = ref<'exact' | 'fuzzy'>('fuzzy');
 
 // 进程列表
-const processList = ref<Array<{ name: string; pid: number; cpu: number }>>([]);
+const processList = ref<Array<{ cpu: number; name: string; pid: number }>>([]);
 const searchQuery = ref('');
 // 进程名模式下：存储选中的进程名列表；PID模式下：存储 TargetProcessConfig
 const selectedProcessNames = ref<string[]>([]);
@@ -109,7 +129,7 @@ const uniqueProcessNames = computed(() => {
   }
 
   // 当前运行的进程（带实例数统计）
-  const runningProcesses = Array.from(nameCountMap.entries()).map(([name, count]) => ({
+  const runningProcesses = [...nameCountMap.entries()].map(([name, count]) => ({
     name,
     instanceCount: count,
   }));
@@ -150,7 +170,7 @@ async function fetchProcesses() {
       pid: p.pid,
       cpu: p.cpu_usage,
     }));
-  } catch (error) {
+  } catch {
     ElMessage.error('获取进程列表失败');
     processList.value = [];
   } finally {
@@ -180,7 +200,7 @@ function toggleProcessPid(name: string, pid: number) {
 // 进程名模式：选中/取消选中进程名；鸿蒙 SP_daemon 单应用限制，选新的直接替换旧选择
 function toggleProcessName(name: string) {
   const idx = selectedProcessNames.value.indexOf(name);
-  if (idx >= 0) {
+  if (idx !== -1) {
     selectedProcessNames.value.splice(idx, 1);
     return;
   }
@@ -211,7 +231,7 @@ function validateProcessName(name: string): boolean {
   // Harmony 进程通常是带点号的应用包名，例如 com.example.app；Windows
   // 仍保持原有的 exe/无扩展名校验规则。
   if (isHarmonyDevice.value) {
-    return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(trimmed);
+    return /^[A-Z0-9][\w.-]*$/i.test(trimmed);
   }
   // 允许无扩展名或 .exe 后缀
   const hasNoExtension = !trimmed.includes('.');
@@ -231,13 +251,18 @@ function handleManualAdd() {
   if (!input) return;
 
   // 按逗号或分号分隔
-  const names = input.split(/[;,]/).map((n) => n.trim()).filter((n) => n);
+  const names = input
+    .split(/[;,]/)
+    .map((n) => n.trim())
+    .filter(Boolean);
   if (names.length === 0) return;
 
   // 验证格式
   const invalidNames = names.filter((n) => !validateProcessName(n));
   if (invalidNames.length > 0) {
-    ElMessage.warning(`格式无效: ${invalidNames.join(', ')}，请使用 .exe 或无扩展名`);
+    ElMessage.warning(
+      `格式无效: ${invalidNames.join(', ')}，请使用 .exe 或无扩展名`,
+    );
     return;
   }
 
@@ -271,8 +296,8 @@ async function handleStart() {
       const result = await startCollect({
         device_id: props.deviceId,
         interval: interval.value,
-        timeout: collectTimeout.value * 3600,  // 小时转秒
-        target_processes: [],  // Linux 设备不传进程列表，采集系统级数据
+        timeout: collectTimeout.value * 3600, // 小时转秒
+        target_processes: [], // Linux 设备不传进程列表，采集系统级数据
         device_type: props.deviceInfo?.device_type,
         device_sn: props.deviceInfo?.device_sn,
       });
@@ -304,23 +329,24 @@ async function handleStart() {
     const result = await startCollect({
       device_id: props.deviceId,
       interval: interval.value,
-      timeout: collectTimeout.value * 3600,  // 小时转秒
+      timeout: collectTimeout.value * 3600, // 小时转秒
       target_processes: finalTargetProcesses.value,
       device_type: props.deviceInfo?.device_type,
       device_sn: props.deviceInfo?.device_sn,
       match_mode: isHarmonyDevice.value ? harmonyMatchMode.value : undefined,
     });
     // 保存到历史记录，下次优先显示
-    const names = collectMode.value === 'name'
-      ? selectedProcessNames.value
-      : selectedProcesses.value.map((p) => p.name);
+    const names =
+      collectMode.value === 'name'
+        ? selectedProcessNames.value
+        : selectedProcesses.value.map((p) => p.name);
     saveProcessesToHistory(names);
     // 更新推荐列表
     presetProcesses.value = getDisplayProcesses();
     ElMessage.success('采集已开始');
     emit('started', result.collect_id);
     emit('update:visible', false);
-  } catch (error) {
+  } catch {
     ElMessage.error('开始采集失败');
   } finally {
     loading.value = false;
@@ -333,7 +359,9 @@ function selectAll() {
   // 全选时使用过滤后的列表（搜索结果），而不是完整列表
   if (collectMode.value === 'name') {
     // 进程名模式：选中过滤后的所有唯一进程名
-    selectedProcessNames.value = uniqueProcessNames.value.map((item) => item.name);
+    selectedProcessNames.value = uniqueProcessNames.value.map(
+      (item) => item.name,
+    );
   } else {
     // PID模式：选中过滤后的所有进程的具体PID
     selectedProcesses.value = filteredProcesses.value.map((p) => ({
@@ -351,8 +379,8 @@ function clearAll() {
 // FastAPI 校验错误(422)的 detail 可能是字符串或数组，统一转成可读文本
 function extractApiError(error: unknown): string {
   const anyError = error as {
-    response?: { data?: { detail?: unknown } };
     message?: string;
+    response?: { data?: { detail?: unknown } };
   };
   const detail = anyError?.response?.data?.detail ?? anyError?.message;
   if (detail == null) return '';
@@ -498,28 +526,31 @@ watch(collectMode, () => {
   selectedProcesses.value = [];
 });
 
-watch(() => props.visible, (v) => {
-  if (v) {
-    // 鸿蒙只支持按应用包名采集（SP_daemon -PKG），强制进程名模式
-    if (isHarmonyDevice.value) {
-      collectMode.value = 'name';
+watch(
+  () => props.visible,
+  (v) => {
+    if (v) {
+      // 鸿蒙只支持按应用包名采集（SP_daemon -PKG），强制进程名模式
+      if (isHarmonyDevice.value) {
+        collectMode.value = 'name';
+      }
+      // 重置上次会话残留的搜索词与手动输入：搜索词残留会导致切换设备后
+      // 列表为空，且客户端过滤实时生效，无需跨会话保留。
+      searchQuery.value = '';
+      manualInput.value = '';
+      // Linux 设备不获取进程列表（采集系统级数据，无需选择进程）
+      if (!isLinuxDevice.value) {
+        fetchProcesses();
+      }
+      selectedProcessNames.value = [];
+      selectedProcesses.value = [];
     }
-    // 重置上次会话残留的搜索词与手动输入：搜索词残留会导致切换设备后
-    // 列表为空，且客户端过滤实时生效，无需跨会话保留。
-    searchQuery.value = '';
-    manualInput.value = '';
-    // Linux 设备不获取进程列表（采集系统级数据，无需选择进程）
-    if (!isLinuxDevice.value) {
-      fetchProcesses();
-    }
-    selectedProcessNames.value = [];
-    selectedProcesses.value = [];
-  }
-});
+  },
+);
 </script>
 
 <template>
-  <el-dialog
+  <ElDialog
     :model-value="props.visible"
     @update:model-value="(v: boolean) => emit('update:visible', v)"
     width="600px"
@@ -550,7 +581,9 @@ watch(() => props.visible, (v) => {
     <div v-if="!isLinuxDevice" class="process-section">
       <div class="section-title">
         {{ isHarmonyDevice ? '目标应用' : '目标进程' }}
-        <span class="subtitle">{{ isHarmonyDevice ? '（最多选 1 个，可不选）' : '（可多选）' }}</span>
+        <span class="subtitle">{{
+          isHarmonyDevice ? '（最多选 1 个，可不选）' : '（可多选）'
+        }}</span>
         <span
           v-if="isHarmonyDevice"
           class="mode-badge"
@@ -559,7 +592,10 @@ watch(() => props.visible, (v) => {
             padding: '1px 8px',
             borderRadius: '10px',
             fontSize: '12px',
-            background: harmonyMatchMode === 'exact' ? 'rgba(230,162,60,0.12)' : 'rgba(103,194,126,0.12)',
+            background:
+              harmonyMatchMode === 'exact'
+                ? 'rgba(230,162,60,0.12)'
+                : 'rgba(103,194,126,0.12)',
             color: harmonyMatchMode === 'exact' ? '#e6a23c' : '#67c23a',
           }"
         >
@@ -569,31 +605,37 @@ watch(() => props.visible, (v) => {
 
       <!-- 采集模式选择（鸿蒙仅支持按应用包名采集，不显示切换） -->
       <div v-if="!isHarmonyDevice" class="mode-selector">
-        <el-radio-group v-model="collectMode" size="small">
-          <el-radio-button value="pid">按PID采集</el-radio-button>
-          <el-radio-button value="name">按进程名采集</el-radio-button>
-        </el-radio-group>
+        <ElRadioGroup v-model="collectMode" size="small">
+          <ElRadioButton value="pid">按PID采集</ElRadioButton>
+          <ElRadioButton value="name">按进程名采集</ElRadioButton>
+        </ElRadioGroup>
         <div class="mode-tip">
-          {{ collectMode === 'pid' ? '采集指定PID的进程' : '采集该进程名下所有实例（含未来启动的新实例）' }}
+          {{
+            collectMode === 'pid'
+              ? '采集指定PID的进程'
+              : '采集该进程名下所有实例（含未来启动的新实例）'
+          }}
         </div>
       </div>
 
       <!-- 鸿蒙匹配模式：PKG 模糊匹配 / PID 精准匹配 -->
       <div v-if="isHarmonyDevice" class="mode-selector">
-        <el-radio-group v-model="harmonyMatchMode" size="small">
-          <el-radio-button value="fuzzy">PKG 模糊匹配</el-radio-button>
-          <el-radio-button value="exact">PID 精准匹配</el-radio-button>
-        </el-radio-group>
+        <ElRadioGroup v-model="harmonyMatchMode" size="small">
+          <ElRadioButton value="fuzzy">PKG 模糊匹配</ElRadioButton>
+          <ElRadioButton value="exact">PID 精准匹配</ElRadioButton>
+        </ElRadioGroup>
         <div class="mode-tip">
-          {{ harmonyMatchMode === 'exact'
-            ? '同样只需选择/输入包名：系统自动通过 ps -ef 定位该应用的 PID，只采集主进程，不受同前缀包名干扰；应用未启动时每 30 秒自动探测，应用重启后自动跟随新 PID。'
-            : '按包名交给设备端 SP_daemon 采集，自动包含主进程与全部子进程；存在同前缀包名时可能误匹配。' }}
+          {{
+            harmonyMatchMode === 'exact'
+              ? '同样只需选择/输入包名：系统自动通过 ps -ef 定位该应用的 PID，只采集主进程，不受同前缀包名干扰；应用未启动时每 30 秒自动探测，应用重启后自动跟随新 PID。'
+              : '按包名交给设备端 SP_daemon 采集，自动包含主进程与全部子进程；存在同前缀包名时可能误匹配。'
+          }}
         </div>
       </div>
 
       <!-- 搜索框 -->
       <div class="search-wrapper">
-        <el-input
+        <ElInput
           v-model="searchQuery"
           placeholder="搜索进程名称..."
           size="small"
@@ -615,9 +657,13 @@ watch(() => props.visible, (v) => {
 
       <!-- 手动输入进程名（仅进程名模式） -->
       <div v-if="collectMode === 'name'" class="manual-input-wrapper">
-        <el-input
+        <ElInput
           v-model="manualInput"
-          :placeholder="isHarmonyDevice ? '输入应用包名，如 com.example.app' : '输入进程名(逗号或分号分隔)'"
+          :placeholder="
+            isHarmonyDevice
+              ? '输入应用包名，如 com.example.app'
+              : '输入进程名(逗号或分号分隔)'
+          "
           size="small"
           clearable
           style="flex: 1"
@@ -632,9 +678,10 @@ watch(() => props.visible, (v) => {
           <div
             v-for="proc in filteredProcesses"
             :key="`${proc.name}-${proc.pid}`"
-            :class="['process-item', isProcessSelected(proc.name, proc.pid) ? 'selected' : '']"
+            class="process-item"
+            :class="[isProcessSelected(proc.name, proc.pid) ? 'selected' : '']"
           >
-            <el-checkbox
+            <ElCheckbox
               :model-value="isProcessSelected(proc.name, proc.pid)"
               @change="toggleProcessPid(proc.name, proc.pid)"
             />
@@ -647,9 +694,14 @@ watch(() => props.visible, (v) => {
           <div
             v-for="item in uniqueProcessNames"
             :key="item.name"
-            :class="['process-item', selectedProcessNames.includes(item.name) ? 'selected' : 'name-mode']"
+            class="process-item"
+            :class="[
+              selectedProcessNames.includes(item.name)
+                ? 'selected'
+                : 'name-mode',
+            ]"
           >
-            <el-checkbox
+            <ElCheckbox
               :model-value="selectedProcessNames.includes(item.name)"
               @change="toggleProcessName(item.name)"
             />
@@ -663,10 +715,18 @@ watch(() => props.visible, (v) => {
 
       <!-- 快捷操作 -->
       <div class="quick-actions">
-        <button v-if="!isHarmonyDevice" class="quick-btn" @click="selectAll">全选</button>
+        <button v-if="!isHarmonyDevice" class="quick-btn" @click="selectAll">
+          全选
+        </button>
         <button class="quick-btn" @click="clearAll">清空</button>
         <span class="selected-count">
-          已选 {{ selectedCount }} 个{{ isHarmonyDevice ? '应用' : collectMode === 'name' ? '进程名' : '进程' }}
+          已选 {{ selectedCount }} 个{{
+            isHarmonyDevice
+              ? '应用'
+              : collectMode === 'name'
+                ? '进程名'
+                : '进程'
+          }}
         </span>
       </div>
     </div>
@@ -677,33 +737,35 @@ watch(() => props.visible, (v) => {
       <div class="config-row">
         <div class="config-item-half">
           <div class="config-label">采集间隔</div>
-          <el-select v-model="interval" size="small">
-            <el-option
+          <ElSelect v-model="interval" size="small">
+            <ElOption
               v-for="opt in intervalOptions"
               :key="opt"
               :label="opt >= 60 ? `${opt / 60}分钟` : `${opt}秒`"
               :value="opt"
             />
-          </el-select>
+          </ElSelect>
         </div>
         <div class="config-item-half">
           <div class="config-label">采集时间</div>
-          <el-select v-model="collectTimeout" size="small">
-            <el-option
+          <ElSelect v-model="collectTimeout" size="small">
+            <ElOption
               v-for="opt in timeoutOptions"
               :key="opt"
               :label="`${opt}小时`"
               :value="opt"
             />
-          </el-select>
+          </ElSelect>
         </div>
       </div>
       <div class="config-tip">
         <template v-if="isLinuxDevice">
-          <b>说明：</b>Linux 设备采集系统级 CPU/内存性能数据。采集间隔越小，数据越精细。达到采集时间后自动停止。
+          <b>说明：</b>Linux 设备采集系统级
+          CPU/内存性能数据。采集间隔越小，数据越精细。达到采集时间后自动停止。
         </template>
         <template v-else-if="isHarmonyDevice">
-          <b>说明：</b>鸿蒙设备由 SP_daemon 每秒采集一拍，采集间隔控制上报降采样频率。达到采集时间后自动停止。
+          <b>说明：</b>鸿蒙设备由 SP_daemon
+          每秒采集一拍，采集间隔控制上报降采样频率。达到采集时间后自动停止。
         </template>
         <template v-else>
           <b>说明：</b>采集间隔越小，数据越精细。达到采集时间后自动停止。
@@ -716,13 +778,15 @@ watch(() => props.visible, (v) => {
         <button class="copy-script-btn" @click="copyCollectScript">
           📋 复制 Python 脚本
         </button>
-        <button class="cancel-btn" @click="emit('update:visible', false)">取消</button>
+        <button class="cancel-btn" @click="emit('update:visible', false)">
+          取消
+        </button>
         <button class="start-btn" :disabled="loading" @click="handleStart">
           {{ loading ? '加载中...' : '开始采集' }}
         </button>
       </div>
     </template>
-  </el-dialog>
+  </ElDialog>
 </template>
 
 <style scoped>
@@ -731,231 +795,276 @@ watch(() => props.visible, (v) => {
   font-weight: 600;
   color: #333;
 }
+
 .device-info {
-  margin-bottom: 16px;
   padding: 12px 16px;
+  margin-bottom: 16px;
   background: #f0f9eb;
   border-radius: 4px;
 }
+
 .device-label {
+  margin-bottom: 6px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 6px;
 }
+
 .device-name {
   font-size: 14px;
   font-weight: 600;
   color: #67c23a;
 }
+
 .device-tip {
+  padding-top: 8px;
+  margin-top: 8px;
   font-size: 13px;
   color: #e6a23c;
-  margin-top: 8px;
-  padding-top: 8px;
   border-top: 1px dashed #d4e6c9;
 }
+
 .process-section {
   margin-bottom: 14px;
 }
+
 .section-title {
+  margin-bottom: 10px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 10px;
 }
+
 .subtitle {
-  color: #999;
   font-weight: normal;
+  color: #999;
 }
+
 .search-wrapper {
   margin-bottom: 8px;
 }
+
 .mode-selector {
   margin-bottom: 12px;
 }
+
 .mode-tip {
+  margin-top: 6px;
   font-size: 12px;
   color: #999;
-  margin-top: 6px;
 }
+
 .preset-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
+
 .preset-tag {
-  padding: 4px 10px;
-  background: #e6f7ff;
-  color: #409eff;
-  border-radius: 3px;
-  font-size: 12px;
-  cursor: pointer;
-  border: 1px solid #91d5ff;
+  box-sizing: border-box;
+
   /* 长包名（如鸿蒙子进程名）单标签也不能撑破弹窗，超宽省略号截断 */
   max-width: 100%;
+  padding: 4px 10px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  color: #409eff;
   white-space: nowrap;
-  box-sizing: border-box;
+  cursor: pointer;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 3px;
 }
+
 .preset-tag:hover {
   background: #bae7ff;
 }
+
 .process-list {
+  max-height: 280px;
+  padding: 6px;
+  overflow-y: auto;
   border: 1px solid #eee;
   border-radius: 4px;
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 6px;
 }
+
 .process-item {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 6px 8px;
-  border-radius: 3px;
   margin-bottom: 3px;
+  border-radius: 3px;
 }
+
 .process-item:last-child {
   margin-bottom: 0;
 }
+
 .process-item.selected {
   background: #f0f9eb;
 }
+
 .process-name {
   flex: 1;
-  font-size: 13px;
+
   /* 鸿蒙子进程名可达 40+ 字符，超长省略号显示，完整名称靠 title 悬浮提示。 */
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
   white-space: nowrap;
 }
+
 .process-pid {
   font-size: 12px;
   color: #999;
 }
+
 .process-badge {
+  padding: 3px 8px;
   font-size: 12px;
   color: #409eff;
   background: #e6f7ff;
-  padding: 3px 8px;
   border-radius: 2px;
 }
+
 .process-item.name-mode.selected {
   background: #e6f7ff;
 }
+
 .quick-actions {
   display: flex;
   gap: 10px;
-  margin-top: 10px;
   align-items: center;
+  margin-top: 10px;
 }
+
 .quick-btn {
   padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
   background: #f5f5f5;
   border: 1px solid #ddd;
   border-radius: 3px;
-  font-size: 12px;
-  cursor: pointer;
 }
+
 .quick-btn:hover {
   background: #eee;
 }
+
 .selected-count {
+  margin-left: auto;
   font-size: 12px;
   color: #999;
-  margin-left: auto;
 }
+
 .config-section {
   margin-bottom: 16px;
 }
+
 .config-row {
   display: flex;
   gap: 16px;
 }
+
 .config-item {
   margin-bottom: 10px;
 }
+
 .config-item-half {
   flex: 1;
 }
+
 .config-item-half .el-select {
   width: 100%;
 }
+
 .config-label {
+  margin-bottom: 6px;
   font-size: 13px;
   color: #666;
-  margin-bottom: 6px;
 }
+
 .config-tip {
+  padding: 8px 12px;
   font-size: 12px;
   color: #999;
-  padding: 8px 12px;
   background: #f8f9fa;
   border-radius: 4px;
 }
+
 .dialog-footer {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
+
 .copy-script-btn {
-  margin-right: auto;
   padding: 10px 24px;
-  background: #ecf5ff;
+  margin-right: auto;
+  font-size: 14px;
   color: #409eff;
+  cursor: pointer;
+  background: #ecf5ff;
   border: 1px solid #b3d8ff;
   border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
 }
+
 .copy-script-btn:hover {
   background: #d9ecff;
 }
+
 .cancel-btn {
   padding: 10px 24px;
+  font-size: 14px;
+  cursor: pointer;
   background: #f5f5f5;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
 }
+
 .cancel-btn:hover {
   background: #eee;
 }
+
 .start-btn {
   padding: 10px 24px;
-  background: #67c23a;
+  font-size: 14px;
   color: #fff;
+  cursor: pointer;
+  background: #67c23a;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
 }
+
 .start-btn:hover {
   background: #5cb85c;
 }
+
 .start-btn:disabled {
-  opacity: 0.6;
   cursor: not-allowed;
+  opacity: 0.6;
 }
+
 .manual-input-wrapper {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
 }
+
 .add-btn {
+  height: 28px;
   padding: 0 14px;
-  background: #409eff;
+  font-size: 13px;
+  line-height: 28px;
   color: #fff;
+  cursor: pointer;
+  background: #409eff;
   border: none;
   border-radius: 3px;
-  font-size: 13px;
-  cursor: pointer;
-  height: 28px;
-  line-height: 28px;
 }
+
 .add-btn:hover {
   background: #66b1ff;
 }

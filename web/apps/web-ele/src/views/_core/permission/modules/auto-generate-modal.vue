@@ -3,14 +3,13 @@ import { ref } from 'vue';
 
 import { $t } from '@vben/locales';
 
-import { ZqDialog } from '#/components/zq-dialog';
-
 import { ElMessage } from 'element-plus';
 
 import {
   batchCreatePermissionsFromRoutesApi,
   getAllRoutesApi,
 } from '#/api/core/permission';
+import { ZqDialog } from '#/components/zq-dialog';
 
 import RouteSelector from './route-selector.vue';
 
@@ -89,7 +88,10 @@ async function onSubmit() {
     ElMessage.success(
       $t('permission.createSuccess', {
         created: result.created,
-        skipped: result.skipped > 0 ? $t('permission.skipped', { count: result.skipped }) : '',
+        skipped:
+          result.skipped > 0
+            ? $t('permission.skipped', { count: result.skipped })
+            : '',
       }),
     );
 

@@ -4,7 +4,7 @@
 性能监控 Schema - 请求和响应数据验证模式
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -426,7 +426,6 @@ class PaginatedResponse(BaseModel):
 
 # ===== 导出任务 Schema =====
 
-from typing import Literal
 
 
 class ExportTaskCreate(BaseModel):

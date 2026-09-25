@@ -3,8 +3,6 @@ import type { ConfigCenterItem, KeyValuePair } from '#/api/core/config-center';
 
 import { computed, ref } from 'vue';
 
-import { ZqDrawer } from '#/components/zq-drawer';
-
 import {
   ElAlert,
   ElButton,
@@ -22,6 +20,7 @@ import {
   createConfigItemApi,
   updateConfigItemApi,
 } from '#/api/core/config-center';
+import { ZqDrawer } from '#/components/zq-drawer';
 
 const emit = defineEmits<{
   success: [];
@@ -111,7 +110,9 @@ function parsePasteLines(text: string): KeyValuePair[] {
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
-    const matched = line.match(/^(.+?)(?:=|,|，|\t|→|->)(.+)$/);
+    // 输入为本地粘贴的单行配置，长度有界，回退风险可接受
+    // eslint-disable-next-line regexp/no-super-linear-backtracking
+    const matched = line.match(/^(.+?)(?:[=,，\t→]|->)(.+)$/);
     if (!matched) continue;
     const k = matched[1]?.trim() ?? '';
     const v = matched[2]?.trim() ?? '';
@@ -150,7 +151,7 @@ function validateForm(): string {
     keyError.value = '请输入配置键';
     return keyError.value;
   }
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(key)) {
+  if (!/^[\w-]{1,64}$/.test(key)) {
     keyError.value = '配置键只能是字母、数字、下划线、中划线，且不超过 64 字符';
     return keyError.value;
   }
@@ -182,11 +183,9 @@ async function onSubmit() {
     remark: formData.value.remark || undefined,
   };
   try {
-    if (isEdit.value && formData.value.id) {
-      await updateConfigItemApi(formData.value.id, payload);
-    } else {
-      await createConfigItemApi({ key: formData.value.key.trim(), ...payload });
-    }
+    await (isEdit.value && formData.value.id
+      ? updateConfigItemApi(formData.value.id, payload)
+      : createConfigItemApi({ key: formData.value.key.trim(), ...payload }));
     visible.value = false;
     emit('success');
   } catch {
@@ -215,7 +214,9 @@ async function onSubmit() {
             maxlength="64"
             @blur="onKeyBlur"
           />
-          <div v-if="keyError" class="text-xs text-[#f56c6c]">{{ keyError }}</div>
+          <div v-if="keyError" class="text-xs text-[#f56c6c]">
+            {{ keyError }}
+          </div>
         </ElFormItem>
         <ElFormItem label="备注" class="flex-1">
           <ElInput
@@ -235,7 +236,12 @@ async function onSubmit() {
             </span>
           </div>
           <div class="flex gap-2">
-            <ElButton size="small" plain type="primary" @click="openPasteDialog">
+            <ElButton
+              size="small"
+              plain
+              type="primary"
+              @click="openPasteDialog"
+            >
               批量粘贴导入
             </ElButton>
             <ElButton size="small" plain type="primary" @click="addPair">
@@ -290,7 +296,8 @@ async function onSubmit() {
       append-to-body
     >
       <ElAlert type="info" :closable="false" class="mb-2">
-        每行一条「键=值」，分隔符支持 = , ， Tab → ->；与现有键重复的行会被跳过。
+        每行一条「键=值」，分隔符支持 = , ， Tab →
+        ->；与现有键重复的行会被跳过。
       </ElAlert>
       <ElInput
         v-model="pasteText"

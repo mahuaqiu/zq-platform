@@ -7,7 +7,6 @@
 @File: base_model.py
 @Desc: 生成21位的NanoId - return generate(size=21)
 """
-from datetime import datetime
 
 from nanoid import generate
 from sqlalchemy import Column, String, DateTime, Boolean, Integer

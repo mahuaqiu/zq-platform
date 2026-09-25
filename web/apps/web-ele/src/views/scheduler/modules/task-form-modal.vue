@@ -3,18 +3,18 @@ import type { SchedulerJob } from '#/api/core/scheduler';
 
 import { computed, ref, watch } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
 import { $t } from '@vben/locales';
 
 import { ElButton, ElMessage } from 'element-plus';
 
-import { useVbenForm } from '#/adapter/form';
-import { z } from '#/adapter/form';
+import { useVbenForm, z } from '#/adapter/form';
 import {
   createSchedulerJobApi,
   getSchedulerJobDetailApi,
   updateSchedulerJobApi,
 } from '#/api/core/scheduler';
+import { ZqDialog } from '#/components/zq-dialog';
+
 import { JOB_STATUS_OPTIONS, TRIGGER_TYPE_OPTIONS } from '../data';
 
 const emit = defineEmits(['success']);
@@ -56,7 +56,7 @@ const [Form, formApi] = useVbenForm({
         .string()
         .min(1, '请输入任务编码')
         .max(50, '任务编码最多50个字符')
-        .regex(/^[a-zA-Z0-9_-]+$/, '任务编码只能包含字母、数字、下划线和短横线'),
+        .regex(/^[\w-]+$/, '任务编码只能包含字母、数字、下划线和短横线'),
       componentProps: {
         placeholder: '请输入任务编码（唯一标识）',
       },
@@ -148,18 +148,21 @@ const [Form, formApi] = useVbenForm({
         placeholder: '{"days": 30}',
         rows: 3,
       },
-      rules: z.string().optional().refine(
-        (val) => {
-          if (!val || val.trim() === '') return true;
-          try {
-            JSON.parse(val);
-            return true;
-          } catch {
-            return false;
-          }
-        },
-        { message: '任务参数必须是有效的JSON格式' },
-      ),
+      rules: z
+        .string()
+        .optional()
+        .refine(
+          (val) => {
+            if (!val || val.trim() === '') return true;
+            try {
+              JSON.parse(val);
+              return true;
+            } catch {
+              return false;
+            }
+          },
+          { message: '任务参数必须是有效的JSON格式' },
+        ),
     },
     {
       component: 'Input',
@@ -225,15 +228,26 @@ async function onSubmit() {
 
       // 处理触发配置：根据触发类型清理不需要的字段
       const submitData = { ...values };
-      if (submitData.trigger_type === 'cron') {
-        submitData.interval_seconds = undefined;
-        submitData.run_date = undefined;
-      } else if (submitData.trigger_type === 'interval') {
-        submitData.cron_expression = undefined;
-        submitData.run_date = undefined;
-      } else if (submitData.trigger_type === 'date') {
-        submitData.cron_expression = undefined;
-        submitData.interval_seconds = undefined;
+      switch (submitData.trigger_type) {
+        case 'cron': {
+          submitData.interval_seconds = undefined;
+          submitData.run_date = undefined;
+
+          break;
+        }
+        case 'date': {
+          submitData.cron_expression = undefined;
+          submitData.interval_seconds = undefined;
+
+          break;
+        }
+        case 'interval': {
+          submitData.cron_expression = undefined;
+          submitData.run_date = undefined;
+
+          break;
+        }
+        // No default
       }
 
       if (formData.value?.id) {

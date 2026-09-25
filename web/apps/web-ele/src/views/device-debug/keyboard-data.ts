@@ -1,19 +1,19 @@
 /**
  * 按键类型
  */
-export type KeyType = 'normal' | 'modifier' | 'shortcut';
+export type KeyType = 'modifier' | 'normal' | 'shortcut';
 
 /**
  * 按键定义
  */
 export interface KeyDefinition {
-  value: string;        // 发送的按键代码
-  label: string;        // 显示文本
-  type: KeyType;        // 按键类型
-  width?: number;       // 按键宽度（可选，默认 38）
-  height?: number;      // 按键高度倍数（可选，用于数字小键盘）
-  platforms?: ('windows' | 'mac')[];  // 支持的平台（可选）
-  color?: string;       // 按键颜色（可选）
+  value: string; // 发送的按键代码
+  label: string; // 显示文本
+  type: KeyType; // 按键类型
+  width?: number; // 按键宽度（可选，默认 38）
+  height?: number; // 按键高度倍数（可选，用于数字小键盘）
+  platforms?: ('mac' | 'windows')[]; // 支持的平台（可选）
+  color?: string; // 按键颜色（可选）
 }
 
 /**
@@ -23,10 +23,34 @@ export const MODIFIER_KEYS: KeyDefinition[] = [
   { value: 'ctrl', label: 'Ctrl', type: 'modifier', color: '#e6a23c' },
   { value: 'alt', label: 'Alt', type: 'modifier', color: '#e6a23c' },
   { value: 'shift', label: 'Shift', type: 'modifier', color: '#e6a23c' },
-  { value: 'win', label: 'Win', type: 'modifier', platforms: ['windows'], color: '#e6a23c' },
-  { value: 'cmd', label: '⌘ Cmd', type: 'modifier', platforms: ['mac'], color: '#e6a23c' },
-  { value: 'opt', label: '⌥ Opt', type: 'modifier', platforms: ['mac'], color: '#e6a23c' },
-  { value: 'fn', label: 'Fn', type: 'modifier', platforms: ['mac'], color: '#e6a23c' },
+  {
+    value: 'win',
+    label: 'Win',
+    type: 'modifier',
+    platforms: ['windows'],
+    color: '#e6a23c',
+  },
+  {
+    value: 'cmd',
+    label: '⌘ Cmd',
+    type: 'modifier',
+    platforms: ['mac'],
+    color: '#e6a23c',
+  },
+  {
+    value: 'opt',
+    label: '⌥ Opt',
+    type: 'modifier',
+    platforms: ['mac'],
+    color: '#e6a23c',
+  },
+  {
+    value: 'fn',
+    label: 'Fn',
+    type: 'modifier',
+    platforms: ['mac'],
+    color: '#e6a23c',
+  },
 ];
 
 /**
@@ -39,8 +63,18 @@ export const WINDOWS_SHORTCUTS: KeyDefinition[] = [
   { value: 'ctrl+s', label: 'Ctrl+S', type: 'shortcut', color: '#409eff' },
   { value: 'ctrl+a', label: 'Ctrl+A', type: 'shortcut', color: '#e6a23c' },
   { value: 'alt+tab', label: 'Alt+Tab', type: 'shortcut', color: '#67c23a' },
-  { value: 'ctrl+alt+delete', label: 'Ctrl+Alt+Del', type: 'shortcut', color: '#f56c6c' },
-  { value: 'shift+delete', label: 'Shift+Del', type: 'shortcut', color: '#909399' },
+  {
+    value: 'ctrl+alt+delete',
+    label: 'Ctrl+Alt+Del',
+    type: 'shortcut',
+    color: '#f56c6c',
+  },
+  {
+    value: 'shift+delete',
+    label: 'Shift+Del',
+    type: 'shortcut',
+    color: '#909399',
+  },
   { value: 'win+e', label: 'Win+E', type: 'shortcut', color: '#67c23a' },
   { value: 'win+d', label: 'Win+D', type: 'shortcut', color: '#67c23a' },
 ];
@@ -99,7 +133,13 @@ export const NUMBER_ROW: KeyDefinition[] = [
   { value: '0', label: '0', type: 'normal' },
   { value: '-', label: '-', type: 'normal' },
   { value: '=', label: '=', type: 'normal' },
-  { value: 'backspace', label: 'Back', type: 'normal', width: 54, color: '#f56c6c' },
+  {
+    value: 'backspace',
+    label: 'Back',
+    type: 'normal',
+    width: 54,
+    color: '#f56c6c',
+  },
 ];
 
 /**
@@ -138,14 +178,26 @@ export const CAPS_ROW: KeyDefinition[] = [
   { value: 'l', label: 'L', type: 'normal' },
   { value: ';', label: ';', type: 'normal' },
   { value: "'", label: "'", type: 'normal' },
-  { value: 'enter', label: 'Enter', type: 'normal', width: 74, color: '#67c23a' },
+  {
+    value: 'enter',
+    label: 'Enter',
+    type: 'normal',
+    width: 74,
+    color: '#67c23a',
+  },
 ];
 
 /**
  * Shift 行
  */
 export const SHIFT_ROW: KeyDefinition[] = [
-  { value: 'shift', label: 'Shift', type: 'modifier', width: 86, color: '#e6a23c' },
+  {
+    value: 'shift',
+    label: 'Shift',
+    type: 'modifier',
+    width: 86,
+    color: '#e6a23c',
+  },
   { value: 'z', label: 'Z', type: 'normal' },
   { value: 'x', label: 'X', type: 'normal' },
   { value: 'c', label: 'C', type: 'normal' },
@@ -156,33 +208,81 @@ export const SHIFT_ROW: KeyDefinition[] = [
   { value: ',', label: ',', type: 'normal' },
   { value: '.', label: '.', type: 'normal' },
   { value: '/', label: '/', type: 'normal' },
-  { value: 'shift', label: 'Shift', type: 'modifier', width: 86, color: '#e6a23c' },
+  {
+    value: 'shift',
+    label: 'Shift',
+    type: 'modifier',
+    width: 86,
+    color: '#e6a23c',
+  },
 ];
 
 /**
  * Windows 底行修饰键
  */
 export const WINDOWS_BOTTOM_ROW: KeyDefinition[] = [
-  { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
+  {
+    value: 'ctrl',
+    label: 'Ctrl',
+    type: 'modifier',
+    width: 56,
+    color: '#e6a23c',
+  },
   { value: 'win', label: 'Win', type: 'modifier', width: 44, color: '#e6a23c' },
   { value: 'alt', label: 'Alt', type: 'modifier', width: 44, color: '#e6a23c' },
   { value: 'space', label: 'Space', type: 'normal', width: 200 },
   { value: 'alt', label: 'Alt', type: 'modifier', width: 44, color: '#e6a23c' },
   { value: 'win', label: 'Win', type: 'modifier', width: 44, color: '#e6a23c' },
   { value: 'menu', label: 'Menu', type: 'normal', width: 44 },
-  { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
+  {
+    value: 'ctrl',
+    label: 'Ctrl',
+    type: 'modifier',
+    width: 56,
+    color: '#e6a23c',
+  },
 ];
 
 /**
  * MAC 底行修饰键
  */
 export const MAC_BOTTOM_ROW: KeyDefinition[] = [
-  { value: 'ctrl', label: 'Ctrl', type: 'modifier', width: 56, color: '#e6a23c' },
-  { value: 'opt', label: '⌥ Opt', type: 'modifier', width: 44, color: '#e6a23c' },
-  { value: 'cmd', label: '⌘ Cmd', type: 'modifier', width: 56, color: '#e6a23c' },
+  {
+    value: 'ctrl',
+    label: 'Ctrl',
+    type: 'modifier',
+    width: 56,
+    color: '#e6a23c',
+  },
+  {
+    value: 'opt',
+    label: '⌥ Opt',
+    type: 'modifier',
+    width: 44,
+    color: '#e6a23c',
+  },
+  {
+    value: 'cmd',
+    label: '⌘ Cmd',
+    type: 'modifier',
+    width: 56,
+    color: '#e6a23c',
+  },
   { value: 'space', label: 'Space', type: 'normal', width: 200 },
-  { value: 'cmd', label: '⌘ Cmd', type: 'modifier', width: 56, color: '#e6a23c' },
-  { value: 'opt', label: '⌥ Opt', type: 'modifier', width: 44, color: '#e6a23c' },
+  {
+    value: 'cmd',
+    label: '⌘ Cmd',
+    type: 'modifier',
+    width: 56,
+    color: '#e6a23c',
+  },
+  {
+    value: 'opt',
+    label: '⌥ Opt',
+    type: 'modifier',
+    width: 44,
+    color: '#e6a23c',
+  },
   { value: 'fn', label: 'Fn', type: 'modifier', width: 44, color: '#e6a23c' },
 ];
 
@@ -233,7 +333,14 @@ export const NUMPAD_KEYS: KeyDefinition[][] = [
     { value: 'numpad1', label: '1', type: 'normal', width: 40 },
     { value: 'numpad2', label: '2', type: 'normal', width: 40 },
     { value: 'numpad3', label: '3', type: 'normal', width: 40 },
-    { value: 'numpadenter', label: 'Enter', type: 'normal', width: 40, height: 2, color: '#67c23a' },
+    {
+      value: 'numpadenter',
+      label: 'Enter',
+      type: 'normal',
+      width: 40,
+      height: 2,
+      color: '#67c23a',
+    },
   ],
   [
     { value: 'numpad0', label: '0', type: 'normal', width: 84 },
@@ -244,12 +351,15 @@ export const NUMPAD_KEYS: KeyDefinition[][] = [
 /**
  * 获取平台对应的修饰键名称
  */
-export function getModifierDisplayValue(key: string, platform: 'windows' | 'mac'): string {
+export function getModifierDisplayValue(
+  key: string,
+  platform: 'mac' | 'windows',
+): string {
   if (platform === 'mac') {
     const macMap: Record<string, string> = {
-      'ctrl': 'ctrl',
-      'alt': 'opt',
-      'win': 'cmd',
+      ctrl: 'ctrl',
+      alt: 'opt',
+      win: 'cmd',
     };
     return macMap[key] || key;
   }

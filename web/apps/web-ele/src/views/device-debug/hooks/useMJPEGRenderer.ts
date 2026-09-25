@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue';
+import { onUnmounted, ref } from 'vue';
 
 export function useMJPEGRenderer() {
   const ctx = ref<CanvasRenderingContext2D | null>(null);
@@ -20,26 +20,31 @@ export function useMJPEGRenderer() {
 
       // 加载图片并绘制到 canvas
       const img = new Image();
-      img.onload = () => {
+      img.addEventListener('load', () => {
         if (ctx.value) {
           ctx.value.drawImage(img, 0, 0);
         }
         // 释放资源
         URL.revokeObjectURL(url);
         img.remove();
-      };
-      img.onerror = () => {
+      });
+      img.addEventListener('error', () => {
         URL.revokeObjectURL(url);
-      };
+      });
       img.src = url;
-    } catch (e) {
-      console.error('MJPEG render error:', e);
+    } catch (error) {
+      console.error('MJPEG render error:', error);
     }
   };
 
   const clear = () => {
     if (ctx.value) {
-      ctx.value.clearRect(0, 0, ctx.value.canvas.width, ctx.value.canvas.height);
+      ctx.value.clearRect(
+        0,
+        0,
+        ctx.value.canvas.width,
+        ctx.value.canvas.height,
+      );
     }
   };
 

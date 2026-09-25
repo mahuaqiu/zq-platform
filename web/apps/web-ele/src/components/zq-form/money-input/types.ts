@@ -13,6 +13,5 @@ export interface MoneyInputProps {
 }
 
 export interface MoneyInputEmits {
-  (e: 'update:modelValue', value: number | string): void;
-  (e: 'change', value: number | string): void;
+  (e: 'change' | 'update:modelValue', value: number | string): void;
 }

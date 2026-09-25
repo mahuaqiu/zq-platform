@@ -7,9 +7,9 @@
 @Desc: 执行机申请日志服务
 """
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-from sqlalchemy import select, func, and_, or_, delete
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.env_machine.log_model import EnvMachineLog

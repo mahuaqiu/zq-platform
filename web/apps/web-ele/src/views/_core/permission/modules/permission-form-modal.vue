@@ -3,7 +3,6 @@ import type { Permission, PermissionCreateInput } from '#/api/core/permission';
 
 import { computed, ref } from 'vue';
 
-import { ZqDialog } from '#/components/zq-dialog';
 import { $t } from '@vben/locales';
 
 import { ElButton } from 'element-plus';
@@ -13,6 +12,7 @@ import {
   createPermissionApi,
   updatePermissionApi,
 } from '#/api/core/permission';
+import { ZqDialog } from '#/components/zq-dialog';
 
 import { getFormSchema } from '../data';
 
@@ -80,7 +80,7 @@ defineExpose({
     v-model="visible"
     :title="getTitle"
     :confirm-loading="confirmLoading"
-    contentHeight="600px"
+    content-height="600px"
     @confirm="onSubmit"
   >
     <Form class="mx-4" />

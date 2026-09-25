@@ -50,10 +50,7 @@ export function useFormSchema(): VbenFormSchema[] {
       rules: z
         .string()
         .min(2, $t('ui.formRules.minLength', [$t('role.roleName'), 2]))
-        .max(
-          64,
-          $t('ui.formRules.maxLength', [$t('role.roleName'), 64]),
-        ),
+        .max(64, $t('ui.formRules.maxLength', [$t('role.roleName'), 64])),
     },
     {
       component: 'Input',

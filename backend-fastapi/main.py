@@ -7,7 +7,6 @@
 @File: main.py
 @Desc: 应用生命周期管理 - # 启动时
 """
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta

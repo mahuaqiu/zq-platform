@@ -23,15 +23,15 @@ import {
   getVersions,
   queryAdvancedMetrics,
 } from '#/api/core/performance-monitor';
-import { getMetricLabel } from './hwinfo-metrics-config';
 
 import AddTagDialog from './components/AddTagDialog.vue';
 import CompareChartPanel from './components/CompareChartPanel.vue';
 import CompareSummaryTable from './components/CompareSummaryTable.vue';
 import ExportProgressDialog from './components/ExportProgressDialog.vue';
-import MetricSelector from './components/MetricSelector.vue';
 import MetricSearchPopup from './components/MetricSearchPopup.vue';
+import MetricSelector from './components/MetricSelector.vue';
 import VersionSelector from './components/VersionSelector.vue';
+import { getMetricLabel } from './hwinfo-metrics-config';
 import { VERSION_COLORS } from './types';
 
 const route = useRoute();
@@ -70,7 +70,10 @@ const showMorePopup = ref(false);
 
 // HWiNFO 指标状态
 const hwinfoMetricKey = ref<string>('');
-const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({ displayName: '', unit: '' });
+const hwinfoMetricInfo = ref<{ displayName: string; unit: string }>({
+  displayName: '',
+  unit: '',
+});
 const hwinfoChartData = ref<ChartSeries[]>([]);
 const loadingHwinfoMetric = ref(false);
 
@@ -79,19 +82,33 @@ const compareTags = ref<CompareTag[]>([]);
 const loadingTags = ref(false);
 const showAddTagDialog = ref(false);
 
-const compareDeviceTypes = computed(() => new Set(
-  compareData.value.versions
-    .map((item) => item.version.device_type)
-    .filter((value): value is string => Boolean(value)),
-));
-const selectedDeviceTypes = computed(() => new Set(
-  selectedVersionIds.value
-    .map((id) => versions.value.find((version) => version.id === id)?.device_type)
-    .filter((value): value is string => Boolean(value)),
-));
+const compareDeviceTypes = computed(
+  () =>
+    new Set(
+      compareData.value.versions
+        .map((item) => item.version.device_type)
+        .filter(Boolean),
+    ),
+);
+const selectedDeviceTypes = computed(
+  () =>
+    new Set(
+      selectedVersionIds.value
+        .map(
+          (id) =>
+            versions.value.find((version) => version.id === id)?.device_type,
+        )
+        .filter(Boolean),
+    ),
+);
 const isHarmonyCompare = computed(() => {
   const types = compareDeviceTypes.value;
-  return types.size > 0 && [...types].every((type) => type === 'harmony_pc' || type === 'harmony_mobile');
+  return (
+    types.size > 0 &&
+    [...types].every(
+      (type) => type === 'harmony_pc' || type === 'harmony_mobile',
+    )
+  );
 });
 const isLinuxCompare = computed(() => compareDeviceTypes.value.has('linux'));
 
@@ -102,14 +119,19 @@ function getVersionColor(index: number): string {
 
 // 判断是否是 CPU/GPU 指标（需要显示两个图表）
 const isCpuOrGpuMetric = computed(() => {
-  return currentMetric.value === 'cpu_usage' || currentMetric.value === 'gpu_usage';
+  return (
+    currentMetric.value === 'cpu_usage' || currentMetric.value === 'gpu_usage'
+  );
 });
 
 function sampleTimeSeconds(data: PerformanceData): number {
   return (data.elapsed_ms ?? data.relative_time * 1000) / 1000;
 }
 
-function systemMetricValue(data: PerformanceData, metric: 'cpu_usage' | 'gpu_usage'): number | null {
+function systemMetricValue(
+  data: PerformanceData,
+  metric: 'cpu_usage' | 'gpu_usage',
+): null | number {
   if (metric === 'cpu_usage') {
     return data.system_metrics?.cpu_percent ?? data.cpu_usage ?? null;
   }
@@ -122,14 +144,17 @@ const systemChartSeries = computed<ChartSeries[]>(() => {
   const metricField = currentMetric.value as keyof PerformanceData;
 
   compareData.value.versions.forEach((v, i) => {
-    const systemData: Array<{ time: number; value: number | null }> = [];
+    const systemData: Array<{ time: number; value: null | number }> = [];
 
     v.collects.forEach((c) => {
       c.data.forEach((d) => {
         systemData.push({
           time: sampleTimeSeconds(d),
           value: isCpuOrGpuMetric.value
-            ? systemMetricValue(d, currentMetric.value as 'cpu_usage' | 'gpu_usage')
+            ? systemMetricValue(
+                d,
+                currentMetric.value as 'cpu_usage' | 'gpu_usage',
+              )
             : (d[metricField] as number) || 0,
         });
       });
@@ -138,7 +163,7 @@ const systemChartSeries = computed<ChartSeries[]>(() => {
     systemData.sort((a, b) => a.time - b.time);
     const startTime = systemData.at(0)?.time ?? 0;
 
-    const normalizedData = systemData.map(d => ({
+    const normalizedData = systemData.map((d) => ({
       time: d.time - startTime,
       value: d.value,
     }));
@@ -164,13 +189,19 @@ const processChartSeries = computed<ChartSeries[]>(() => {
 
     v.collects.forEach((c) => {
       c.data.forEach((d) => {
-        const values = d.target_processes?.map((p) =>
-          currentMetric.value === 'cpu_usage' ? (p.total_cpu || 0) : (p.total_gpu || 0),
-        ) || [];
+        const values =
+          d.target_processes?.map((p) =>
+            currentMetric.value === 'cpu_usage'
+              ? p.total_cpu || 0
+              : p.total_gpu || 0,
+          ) || [];
         // CPU 多进程可加总；GPU 接近任务管理器，用 max，避免高于系统
-        const processValue = values.length
-          ? (currentMetric.value === 'cpu_usage' ? values.reduce((s, v) => s + v, 0) : Math.max(...values, 0))
-          : 0;
+        const processValue =
+          values.length > 0
+            ? currentMetric.value === 'cpu_usage'
+              ? values.reduce((s, v) => s + v, 0)
+              : Math.max(...values, 0)
+            : 0;
         processData.push({
           time: sampleTimeSeconds(d),
           value: processValue,
@@ -181,7 +212,7 @@ const processChartSeries = computed<ChartSeries[]>(() => {
     processData.sort((a, b) => a.time - b.time);
     const startTime = processData.at(0)?.time ?? 0;
 
-    const normalizedData = processData.map(d => ({
+    const normalizedData = processData.map((d) => ({
       time: d.time - startTime,
       value: d.value,
     }));
@@ -200,19 +231,21 @@ const processChartSeries = computed<ChartSeries[]>(() => {
 const systemChartTitle = computed(() => {
   // HWiNFO 指标
   if (currentMetric.value === 'hwinfo') {
-    const englishName = hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
+    const englishName =
+      hwinfoMetricInfo.value.displayName || hwinfoMetricKey.value;
     const chineseName = getMetricLabel(hwinfoMetricKey.value);
     const unit = hwinfoMetricInfo.value.unit;
-    let name = chineseName !== hwinfoMetricKey.value
-      ? `${chineseName}（${englishName}）`
-      : englishName;
+    let name =
+      chineseName === hwinfoMetricKey.value
+        ? englishName
+        : `${chineseName}（${englishName}）`;
     if (unit) {
       name = `${name} (${unit})`;
     }
     return name;
   }
 
-  const metric = metricOptions.find(m => m.key === currentMetric.value);
+  const metric = metricOptions.find((m) => m.key === currentMetric.value);
   const label = metric?.label || currentMetric.value;
   if (isCpuOrGpuMetric.value) {
     return `${label} - 系统使用率 (%)`;
@@ -224,7 +257,7 @@ const systemChartTitle = computed(() => {
 });
 
 const processChartTitle = computed(() => {
-  const metric = metricOptions.find(m => m.key === currentMetric.value);
+  const metric = metricOptions.find((m) => m.key === currentMetric.value);
   const label = metric?.label || currentMetric.value;
   return `${label} - 进程使用率 (%)`;
 });
@@ -255,8 +288,10 @@ async function handleHwinfoMetricSelect(metricKey: string) {
 
     for (const [index, v] of compareData.value.versions.entries()) {
       // 获取该版本的时间范围（从 compareData 中获取，用于筛选 HWiNFO 数据）
-      const versionDataPoints = v.collects.flatMap(c => c.data);
-      versionDataPoints.sort((a, b) => sampleTimeSeconds(a) - sampleTimeSeconds(b));
+      const versionDataPoints = v.collects.flatMap((c) => c.data);
+      versionDataPoints.sort(
+        (a, b) => sampleTimeSeconds(a) - sampleTimeSeconds(b),
+      );
 
       if (versionDataPoints.length === 0) continue;
 
@@ -290,8 +325,11 @@ async function handleHwinfoMetricSelect(metricKey: string) {
           }
 
           // 根据该版本的时间范围筛选 HWiNFO 数据
-          metricData.data.forEach(d => {
-            if (d.relative_time >= versionStartTime && d.relative_time <= versionEndTime) {
+          metricData.data.forEach((d) => {
+            if (
+              d.relative_time >= versionStartTime &&
+              d.relative_time <= versionEndTime
+            ) {
               allData.push({ time: d.relative_time, value: d.value });
             }
           });
@@ -300,7 +338,7 @@ async function handleHwinfoMetricSelect(metricKey: string) {
 
       // 按时间排序并归一化（从该版本的起始时间开始）
       allData.sort((a, b) => a.time - b.time);
-      const normalizedData = allData.map(d => ({
+      const normalizedData = allData.map((d) => ({
         time: d.time - versionStartTime,
         value: d.value,
       }));
@@ -321,7 +359,9 @@ async function handleHwinfoMetricSelect(metricKey: string) {
     if (seriesList.length === 0) {
       ElMessage.warning('未获取到指标数据');
     } else {
-      ElMessage.success(`已加载指标: ${hwinfoMetricInfo.value.displayName || metricKey}`);
+      ElMessage.success(
+        `已加载指标: ${hwinfoMetricInfo.value.displayName || metricKey}`,
+      );
     }
   } catch (error) {
     console.error('获取 HWiNFO 指标数据失败:', error);
@@ -340,26 +380,38 @@ const firstCollectId = computed(() => {
 // 数据摘要（根据标签区间计算）
 const summaryData = computed<SummaryRow[]>(() => {
   // 获取冲高和稳态标签
-  const peakTag = compareTags.value.find(t => t.type === 'peak');
-  const stableTag = compareTags.value.find(t => t.type === 'stable');
+  const peakTag = compareTags.value.find((t) => t.type === 'peak');
+  const stableTag = compareTags.value.find((t) => t.type === 'stable');
 
   // HWiNFO 指标特殊处理
   if (currentMetric.value === 'hwinfo' && hwinfoChartData.value.length > 0) {
     return hwinfoChartData.value.map((series) => {
       // HWiNFO 数据已经是归一化的，可以直接用标签时间过滤
       const peakData = peakTag
-        ? series.data.filter(d => d.time >= peakTag.start_time && d.time <= peakTag.end_time)
+        ? series.data.filter(
+            (d) => d.time >= peakTag.start_time && d.time <= peakTag.end_time,
+          )
         : [];
       const stableData = stableTag
-        ? series.data.filter(d => d.time >= stableTag.start_time && d.time <= stableTag.end_time)
+        ? series.data.filter(
+            (d) =>
+              d.time >= stableTag.start_time && d.time <= stableTag.end_time,
+          )
         : [];
 
-      const peakValues = peakData.map(d => d.value).filter((value): value is number => value !== null);
-      const meanValues = stableData.map(d => d.value).filter((value): value is number => value !== null);
-      const peakValue = peakValues.length > 0 ? Math.max(...peakValues) : undefined;
-      const meanValue = meanValues.length > 0
-        ? meanValues.reduce((sum, value) => sum + value, 0) / meanValues.length
-        : undefined;
+      const peakValues = peakData
+        .map((d) => d.value)
+        .filter((value): value is number => value !== null);
+      const meanValues = stableData
+        .map((d) => d.value)
+        .filter((value): value is number => value !== null);
+      const peakValue =
+        peakValues.length > 0 ? Math.max(...peakValues) : undefined;
+      const meanValue =
+        meanValues.length > 0
+          ? meanValues.reduce((sum, value) => sum + value, 0) /
+            meanValues.length
+          : undefined;
 
       return {
         version_name: series.name,
@@ -380,70 +432,118 @@ const summaryData = computed<SummaryRow[]>(() => {
     const versionStartTime = allData.at(0)?.relative_time ?? 0;
 
     // 辅助函数：获取区间内的数据（标签时间是归一化的，需要转换为原始时间）
-    const getIntervalData = (normalizedStart: number, normalizedEnd: number) => {
+    const getIntervalData = (
+      normalizedStart: number,
+      normalizedEnd: number,
+    ) => {
       // 将归一化时间转换为原始时间
       const originalStart = normalizedStart + versionStartTime;
       const originalEnd = normalizedEnd + versionStartTime;
-      return allData.filter(d => d.relative_time >= originalStart && d.relative_time <= originalEnd);
+      return allData.filter(
+        (d) =>
+          d.relative_time >= originalStart && d.relative_time <= originalEnd,
+      );
     };
 
     // 辅助函数：计算区间内系统指标的最大值
-    const getIntervalPeak = (data: PerformanceData[], field: keyof PerformanceData) => {
+    const getIntervalPeak = (
+      data: PerformanceData[],
+      field: keyof PerformanceData,
+    ) => {
       if (data.length === 0) return 0;
-      return Math.max(...data.map(d => (d[field] as number) || 0));
+      return Math.max(...data.map((d) => (d[field] as number) || 0));
     };
 
     // 辅助函数：计算区间内进程指标的最大值
-    const getIntervalProcessPeak = (data: PerformanceData[], field: 'total_cpu' | 'total_gpu') => {
+    const getIntervalProcessPeak = (
+      data: PerformanceData[],
+      field: 'total_cpu' | 'total_gpu',
+    ) => {
       if (data.length === 0) return 0;
-      return Math.max(...data.map((d) => {
-        const values = d.target_processes?.map((p) => p[field] || 0) || [];
-        if (!values.length) return 0;
-        // GPU 用 max；CPU 仍可加总后取区间峰值
-        return field === 'total_gpu' ? Math.max(...values, 0) : values.reduce((s, v) => s + v, 0);
-      }));
+      return Math.max(
+        ...data.map((d) => {
+          const values = d.target_processes?.map((p) => p[field] || 0) || [];
+          if (values.length === 0) return 0;
+          // GPU 用 max；CPU 仍可加总后取区间峰值
+          return field === 'total_gpu'
+            ? Math.max(...values, 0)
+            : values.reduce((s, v) => s + v, 0);
+        }),
+      );
     };
 
     // 辅助函数：计算区间内系统指标的平均值
-    const getIntervalMean = (data: PerformanceData[], field: keyof PerformanceData) => {
+    const getIntervalMean = (
+      data: PerformanceData[],
+      field: keyof PerformanceData,
+    ) => {
       if (data.length === 0) return 0;
-      const values = data.map(d => (d[field] as number) || 0);
+      const values = data.map((d) => (d[field] as number) || 0);
       return values.reduce((a, b) => a + b, 0) / values.length;
     };
 
     // 辅助函数：计算区间内进程指标的平均值
-    const getIntervalProcessMean = (data: PerformanceData[], field: 'total_cpu' | 'total_gpu') => {
+    const getIntervalProcessMean = (
+      data: PerformanceData[],
+      field: 'total_cpu' | 'total_gpu',
+    ) => {
       if (data.length === 0) return 0;
       const values = data.map((d) => {
         const list = d.target_processes?.map((p) => p[field] || 0) || [];
-        if (!list.length) return 0;
-        return field === 'total_gpu' ? Math.max(...list, 0) : list.reduce((s, v) => s + v, 0);
+        if (list.length === 0) return 0;
+        return field === 'total_gpu'
+          ? Math.max(...list, 0)
+          : list.reduce((s, v) => s + v, 0);
       });
       return values.reduce((a, b) => a + b, 0) / values.length;
     };
 
     // 冲高区间数据（标签时间是归一化的）
-    const peakData = peakTag ? getIntervalData(peakTag.start_time, peakTag.end_time) : [];
+    const peakData = peakTag
+      ? getIntervalData(peakTag.start_time, peakTag.end_time)
+      : [];
     // 稳态区间数据
-    const stableData = stableTag ? getIntervalData(stableTag.start_time, stableTag.end_time) : [];
+    const stableData = stableTag
+      ? getIntervalData(stableTag.start_time, stableTag.end_time)
+      : [];
 
     return {
       version_name: v.version.name,
       color: getVersionColor(i),
       // 冲高区间最高值
       peak_cpu: peakTag ? getIntervalPeak(peakData, 'cpu_usage') : undefined,
-      peak_process_cpu: peakTag ? getIntervalProcessPeak(peakData, 'total_cpu') : undefined,
+      peak_process_cpu: peakTag
+        ? getIntervalProcessPeak(peakData, 'total_cpu')
+        : undefined,
       peak_gpu: peakTag ? getIntervalPeak(peakData, 'gpu_usage') : undefined,
-      peak_process_gpu: peakTag ? getIntervalProcessPeak(peakData, 'total_gpu') : undefined,
-      peak_memory_usage: peakTag ? getIntervalPeak(peakData, 'memory_usage') : undefined,
-      peak_commit_memory: peakTag ? getIntervalPeak(peakData, 'commit_memory') : undefined,
+      peak_process_gpu: peakTag
+        ? getIntervalProcessPeak(peakData, 'total_gpu')
+        : undefined,
+      peak_memory_usage: peakTag
+        ? getIntervalPeak(peakData, 'memory_usage')
+        : undefined,
+      peak_commit_memory: peakTag
+        ? getIntervalPeak(peakData, 'commit_memory')
+        : undefined,
       // 稳态区间平均值
-      mean_cpu: stableTag ? getIntervalMean(stableData, 'cpu_usage') : undefined,
-      mean_process_cpu: stableTag ? getIntervalProcessMean(stableData, 'total_cpu') : undefined,
-      mean_gpu: stableTag ? getIntervalMean(stableData, 'gpu_usage') : undefined,
-      mean_process_gpu: stableTag ? getIntervalProcessMean(stableData, 'total_gpu') : undefined,
-      mean_memory_usage: stableTag ? getIntervalMean(stableData, 'memory_usage') : undefined,
-      mean_commit_memory: stableTag ? getIntervalMean(stableData, 'commit_memory') : undefined,
+      mean_cpu: stableTag
+        ? getIntervalMean(stableData, 'cpu_usage')
+        : undefined,
+      mean_process_cpu: stableTag
+        ? getIntervalProcessMean(stableData, 'total_cpu')
+        : undefined,
+      mean_gpu: stableTag
+        ? getIntervalMean(stableData, 'gpu_usage')
+        : undefined,
+      mean_process_gpu: stableTag
+        ? getIntervalProcessMean(stableData, 'total_gpu')
+        : undefined,
+      mean_memory_usage: stableTag
+        ? getIntervalMean(stableData, 'memory_usage')
+        : undefined,
+      mean_commit_memory: stableTag
+        ? getIntervalMean(stableData, 'commit_memory')
+        : undefined,
     };
   });
 });
@@ -460,7 +560,9 @@ function initDataZoomSlider() {
   dataZoomSliderChart = echarts.init(dataZoomSliderRef.value);
 
   // 获取时间范围
-  const allTimes = systemChartSeries.value.flatMap(s => s.data.map(d => d.time));
+  const allTimes = systemChartSeries.value.flatMap((s) =>
+    s.data.map((d) => d.time),
+  );
   const minTime = allTimes.length > 0 ? Math.min(...allTimes) : 0;
   const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 100;
 
@@ -537,7 +639,9 @@ function initSingleMetricSlider() {
   singleMetricSliderChart = echarts.init(singleMetricSliderRef.value);
 
   // 获取时间范围
-  const allTimes = finalSystemChartSeries.value.flatMap(s => s.data.map(d => d.time));
+  const allTimes = finalSystemChartSeries.value.flatMap((s) =>
+    s.data.map((d) => d.time),
+  );
   const minTime = allTimes.length > 0 ? Math.min(...allTimes) : 0;
   const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 100;
 
@@ -603,18 +707,22 @@ function initSingleMetricSlider() {
 }
 
 // 监听数据变化，重新初始化 slider
-watch([systemChartSeries, isCpuOrGpuMetric, finalSystemChartSeries], () => {
-  if (compareData.value.versions.length > 0) {
-    // 延迟初始化，确保 DOM 已渲染
-    setTimeout(() => {
-      if (isCpuOrGpuMetric.value) {
-        initDataZoomSlider();
-      } else {
-        initSingleMetricSlider();
-      }
-    }, 100);
-  }
-}, { immediate: true });
+watch(
+  [systemChartSeries, isCpuOrGpuMetric, finalSystemChartSeries],
+  () => {
+    if (compareData.value.versions.length > 0) {
+      // 延迟初始化，确保 DOM 已渲染
+      setTimeout(() => {
+        if (isCpuOrGpuMetric.value) {
+          initDataZoomSlider();
+        } else {
+          initSingleMetricSlider();
+        }
+      }, 100);
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(async () => {
   await fetchVersions();
@@ -659,7 +767,9 @@ async function handleCompare() {
     return;
   }
   if (selectedDeviceTypes.value.size > 1) {
-    ElMessage.warning('请选择相同设备类型的版本进行对比，Windows、Linux 和鸿蒙指标语义不同');
+    ElMessage.warning(
+      '请选择相同设备类型的版本进行对比，Windows、Linux 和鸿蒙指标语义不同',
+    );
     return;
   }
 
@@ -669,7 +779,10 @@ async function handleCompare() {
     compareData.value = result;
 
     // 保存对比状态到 sessionStorage，用于页面切换恢复
-    sessionStorage.setItem('compare_version_ids', selectedVersionIds.value.join(','));
+    sessionStorage.setItem(
+      'compare_version_ids',
+      selectedVersionIds.value.join(','),
+    );
 
     // 加载对比标签
     await fetchCompareTags();
@@ -726,7 +839,9 @@ function handleAddTag(data: {
 
 // 计算图表数据的最大时间（用于限制标签输入范围）
 const maxChartTime = computed(() => {
-  const allTimes = systemChartSeries.value.flatMap(s => s.data.map(d => d.time));
+  const allTimes = systemChartSeries.value.flatMap((s) =>
+    s.data.map((d) => d.time),
+  );
   return allTimes.length > 0 ? Math.max(...allTimes) : 0;
 });
 
@@ -752,8 +867,14 @@ async function handleExport() {
   try {
     const params: ExportTaskCreate = {
       version_ids: selectedVersionIds.value.join(','),
-      metric: currentMetric.value as 'cpu_usage' | 'gpu_usage' | 'memory_usage' | 'commit_memory' | 'hwinfo',
-      hwinfo_key: currentMetric.value === 'hwinfo' ? hwinfoMetricKey.value : undefined,
+      metric: currentMetric.value as
+        | 'commit_memory'
+        | 'cpu_usage'
+        | 'gpu_usage'
+        | 'hwinfo'
+        | 'memory_usage',
+      hwinfo_key:
+        currentMetric.value === 'hwinfo' ? hwinfoMetricKey.value : undefined,
     };
 
     const result = await createExportTask(params);
@@ -804,7 +925,7 @@ async function handleExport() {
     />
 
     <!-- 指标选择器和标签区域 -->
-  <div class="metric-bar" v-if="compareData.versions.length > 0">
+    <div class="metric-bar" v-if="compareData.versions.length > 0">
       <MetricSelector
         :current-metric="currentMetric"
         :is-linux-device="isLinuxCompare"
@@ -830,9 +951,15 @@ async function handleExport() {
           closable
           @close="handleRemoveTag(tag.id)"
         >
-          {{ tag.name }}（{{ tag.type === 'peak' ? '冲高' : '稳态' }}: {{ tag.start_time }}s-{{ tag.end_time }}s）
+          {{ tag.name }}（{{ tag.type === 'peak' ? '冲高' : '稳态' }}:
+          {{ tag.start_time }}s-{{ tag.end_time }}s）
         </ElTag>
-        <ElButton size="small" type="primary" plain @click="showAddTagDialog = true">
+        <ElButton
+          size="small"
+          type="primary"
+          plain
+          @click="showAddTagDialog = true"
+        >
           +标签
         </ElButton>
       </div>
@@ -902,7 +1029,11 @@ async function handleExport() {
 
     <!-- 底部面板 -->
     <div class="bottom-panel" v-if="compareData.versions.length > 0">
-      <CompareSummaryTable :summary-data="summaryData" :current-metric="currentMetric" :hwinfo-unit="hwinfoMetricInfo.unit" />
+      <CompareSummaryTable
+        :summary-data="summaryData"
+        :current-metric="currentMetric"
+        :hwinfo-unit="hwinfoMetricInfo.unit"
+      />
     </div>
 
     <!-- 无数据提示 -->
@@ -915,19 +1046,19 @@ async function handleExport() {
 
 <style scoped>
 .version-compare {
+  min-height: 100vh;
   padding: 16px;
   background: #f5f5f5;
-  min-height: 100vh;
 }
 
 .control-bar {
-  background: #fff;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 12px;
   display: flex;
   gap: 12px;
   align-items: center;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 6px;
 }
 
 .control-bar h3 {
@@ -943,13 +1074,13 @@ async function handleExport() {
 }
 
 .metric-bar {
-  background: #fff;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 12px;
   display: flex;
   gap: 12px;
   align-items: center;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 6px;
 }
 
 .tag-area {
@@ -980,15 +1111,15 @@ async function handleExport() {
 }
 
 .datazoom-slider-container {
+  padding: 12px 16px;
   background: #fff;
   border-radius: 8px;
-  padding: 12px 16px;
 }
 
 .slider-label {
+  margin-bottom: 4px;
   font-size: 12px;
   color: #666;
-  margin-bottom: 4px;
 }
 
 .slider-chart {

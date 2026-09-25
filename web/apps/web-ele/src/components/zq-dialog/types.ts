@@ -70,12 +70,7 @@ export interface ZqDialogProps extends Partial<DialogProps> {
 
 export interface ZqDialogEmits {
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'confirm'): void;
-  (e: 'cancel'): void;
-  (e: 'open'): void;
-  (e: 'opened'): void;
-  (e: 'close'): void;
-  (e: 'closed'): void;
+  (e: 'cancel' | 'close' | 'closed' | 'confirm' | 'open' | 'opened'): void;
 }
 
 export interface ZqDialogExpose {

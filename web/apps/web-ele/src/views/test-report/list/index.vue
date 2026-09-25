@@ -91,7 +91,7 @@ async function handleDelete(row: TestReportListItem) {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning',
-      }
+      },
     );
 
     await deleteReportApi(row.id);
@@ -106,14 +106,14 @@ async function handleDelete(row: TestReportListItem) {
 }
 
 // 格式化执行时间
-function formatExecuteTime(time: string | null) {
+function formatExecuteTime(time: null | string) {
   if (!time) return '--';
   const date = new Date(time);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 // 格式化同比变化
-function formatCompareChange(change: number | null) {
+function formatCompareChange(change: null | number) {
   if (change === null) return '--';
   if (change > 0) return `↑${change}`;
   if (change < 0) return `↓${Math.abs(change)}`;
@@ -121,7 +121,7 @@ function formatCompareChange(change: number | null) {
 }
 
 // 获取同比变化样式类
-function getCompareClass(change: number | null) {
+function getCompareClass(change: null | number) {
   if (change === null) return 'tr-compare-gray';
   if (change > 0) return 'tr-compare-red';
   if (change < 0) return 'tr-compare-green';
@@ -159,32 +159,68 @@ onMounted(() => {
       <!-- 表格区域 -->
       <div class="tr-table-wrapper">
         <ElTable :data="tableData" v-loading="loading" class="tr-table" border>
-          <ElTableColumn prop="taskName" label="任务名称" min-width="200" show-overflow-tooltip />
+          <ElTableColumn
+            prop="taskName"
+            label="任务名称"
+            min-width="200"
+            show-overflow-tooltip
+          />
           <ElTableColumn prop="executeTime" label="执行时间" min-width="140">
             <template #default="{ row }">
               {{ formatExecuteTime(row.executeTime) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="totalCases" label="用例总数" min-width="100" align="center" />
-          <ElTableColumn prop="failTotal" label="失败总数" min-width="100" align="center">
+          <ElTableColumn
+            prop="totalCases"
+            label="用例总数"
+            min-width="100"
+            align="center"
+          />
+          <ElTableColumn
+            prop="failTotal"
+            label="失败总数"
+            min-width="100"
+            align="center"
+          >
             <template #default="{ row }">
-              <span :class="row.failTotal > 0 ? 'tr-fail' : 'tr-pass'">{{ row.failTotal }}</span>
+              <span :class="row.failTotal > 0 ? 'tr-fail' : 'tr-pass'">{{
+                row.failTotal
+              }}</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="passRate" label="通过率" min-width="100" align="center">
+          <ElTableColumn
+            prop="passRate"
+            label="通过率"
+            min-width="100"
+            align="center"
+          >
             <template #default="{ row }">
-              <span :class="parseFloat(row.passRate) >= 80 ? 'tr-pass' : 'tr-warning'">{{ row.passRate }}</span>
+              <span
+                :class="
+                  parseFloat(row.passRate) >= 80 ? 'tr-pass' : 'tr-warning'
+                "
+                >{{ row.passRate }}</span
+              >
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="compareChange" label="同比变化" min-width="100" align="center">
+          <ElTableColumn
+            prop="compareChange"
+            label="同比变化"
+            min-width="100"
+            align="center"
+          >
             <template #default="{ row }">
-              <span :class="getCompareClass(row.compareChange)">{{ formatCompareChange(row.compareChange) }}</span>
+              <span :class="getCompareClass(row.compareChange)">{{
+                formatCompareChange(row.compareChange)
+              }}</span>
             </template>
           </ElTableColumn>
           <ElTableColumn label="操作" min-width="140" align="center">
             <template #default="{ row }">
               <a class="tr-link" @click="handleViewDetail(row)">查看详情</a>
-              <a class="tr-link tr-link-danger" @click="handleDelete(row)">删除</a>
+              <a class="tr-link tr-link-danger" @click="handleDelete(row)"
+                >删除</a
+              >
             </template>
           </ElTableColumn>
         </ElTable>

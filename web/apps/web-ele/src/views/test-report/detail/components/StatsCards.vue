@@ -6,8 +6,8 @@ import { computed } from 'vue';
 import { ElCard } from 'element-plus';
 
 const props = defineProps<{
-  summary: TestReportSummary | null;
   loading?: boolean;
+  summary: null | TestReportSummary;
 }>();
 
 // 格式化同比变化
@@ -15,8 +15,12 @@ const compareDisplay = computed(() => {
   if (!props.summary) return { text: '--', sub: '', cls: 'stat-gray' };
   const change = props.summary.compareChange;
   if (change === null) return { text: '--', sub: '首次执行', cls: 'stat-gray' };
-  const text = change > 0 ? `↑${change}` : change < 0 ? `↓${Math.abs(change)}` : '→0';
-  const sub = props.summary.lastFailTotal !== null ? `上次失败${props.summary.lastFailTotal}个` : '';
+  const text =
+    change > 0 ? `↑${change}` : change < 0 ? `↓${Math.abs(change)}` : '→0';
+  const sub =
+    props.summary.lastFailTotal === null
+      ? ''
+      : `上次失败${props.summary.lastFailTotal}个`;
   const cls = change > 0 ? 'stat-red' : change < 0 ? 'stat-green' : 'stat-gray';
   return { text, sub, cls };
 });
@@ -30,7 +34,9 @@ const compareDisplay = computed(() => {
     </ElCard>
     <ElCard class="stats-card">
       <div class="stats-label">执行总数</div>
-      <div class="stats-value stat-blue">{{ summary?.executeTotal ?? '--' }}</div>
+      <div class="stats-value stat-blue">
+        {{ summary?.executeTotal ?? '--' }}
+      </div>
     </ElCard>
     <ElCard class="stats-card">
       <div class="stats-label">通过率</div>
@@ -42,17 +48,25 @@ const compareDisplay = computed(() => {
     </ElCard>
     <ElCard class="stats-card">
       <div class="stats-label">同比上次执行</div>
-      <div class="stats-value" :class="compareDisplay.cls">{{ compareDisplay.text }}</div>
-      <div class="stats-sub" v-if="compareDisplay.sub">{{ compareDisplay.sub }}</div>
+      <div class="stats-value" :class="compareDisplay.cls">
+        {{ compareDisplay.text }}
+      </div>
+      <div class="stats-sub" v-if="compareDisplay.sub">
+        {{ compareDisplay.sub }}
+      </div>
     </ElCard>
     <ElCard class="stats-card">
       <div class="stats-label">每轮都失败</div>
-      <div class="stats-value stat-orange">{{ summary?.failAlways ?? '--' }}</div>
+      <div class="stats-value stat-orange">
+        {{ summary?.failAlways ?? '--' }}
+      </div>
       <div class="stats-sub">重点关注</div>
     </ElCard>
     <ElCard class="stats-card">
       <div class="stats-label">不稳定用例</div>
-      <div class="stats-value stat-blue">{{ summary?.failUnstable ?? '--' }}</div>
+      <div class="stats-value stat-blue">
+        {{ summary?.failUnstable ?? '--' }}
+      </div>
       <div class="stats-sub">重试后通过</div>
     </ElCard>
   </div>
@@ -70,9 +84,9 @@ const compareDisplay = computed(() => {
   flex: 1;
   text-align: center;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .stats-card :deep(.el-card__body) {

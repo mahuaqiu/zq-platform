@@ -55,7 +55,7 @@ const getValue = () => {
     case 'username': {
       return userInfo.value.username || '';
     }
-    case 'id':
+    // 'id' 与默认分支一致
     default: {
       return userInfo.value.userId || '';
     }

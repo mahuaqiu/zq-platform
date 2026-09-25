@@ -7,9 +7,6 @@
 @File: schema.py
 @Desc: Role Schema - 角色数据验证模式
 """
-"""
-Role Schema - 角色数据验证模式
-"""
 from datetime import datetime
 from typing import Optional, List
 

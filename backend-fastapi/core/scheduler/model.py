@@ -7,10 +7,6 @@
 @File: model.py
 @Desc: Scheduler Model - 定时任务模型 - 用于管理定时任务和执行记录
 """
-"""
-Scheduler Model - 定时任务模型
-用于管理定时任务和执行记录
-"""
 from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, Float, Index, text
 
 from app.base_model import BaseModel

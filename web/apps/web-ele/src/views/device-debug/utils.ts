@@ -10,10 +10,15 @@ export function convertToDeviceCoords(
   displayWidth: number,
   displayHeight: number,
   deviceWidth: number,
-  deviceHeight: number
+  deviceHeight: number,
 ): { x: number; y: number } {
   // 边界保护：确保 displayWidth/displayHeight 有效
-  if (displayWidth <= 0 || displayHeight <= 0 || deviceWidth <= 0 || deviceHeight <= 0) {
+  if (
+    displayWidth <= 0 ||
+    displayHeight <= 0 ||
+    deviceWidth <= 0 ||
+    deviceHeight <= 0
+  ) {
     return { x: 0, y: 0 };
   }
 
@@ -26,7 +31,7 @@ export function convertToDeviceCoords(
 
   return {
     x: clamp(rawX, 0, deviceWidth - 1),
-    y: clamp(rawY, 0, deviceHeight - 1)
+    y: clamp(rawY, 0, deviceHeight - 1),
   };
 }
 
@@ -52,18 +57,23 @@ export function calculateContainRenderArea(
   imageNaturalWidth: number,
   imageNaturalHeight: number,
   mouseX: number,
-  mouseY: number
+  mouseY: number,
 ): {
-  renderedWidth: number;
-  renderedHeight: number;
-  offsetX: number;
-  offsetY: number;
-  isValidClick: boolean;
   adjustedX: number;
   adjustedY: number;
+  isValidClick: boolean;
+  offsetX: number;
+  offsetY: number;
+  renderedHeight: number;
+  renderedWidth: number;
 } {
   // 边界保护
-  if (elementWidth <= 0 || elementHeight <= 0 || imageNaturalWidth <= 0 || imageNaturalHeight <= 0) {
+  if (
+    elementWidth <= 0 ||
+    elementHeight <= 0 ||
+    imageNaturalWidth <= 0 ||
+    imageNaturalHeight <= 0
+  ) {
     return {
       renderedWidth: elementWidth,
       renderedHeight: elementHeight,
@@ -71,7 +81,7 @@ export function calculateContainRenderArea(
       offsetY: 0,
       isValidClick: false,
       adjustedX: 0,
-      adjustedY: 0
+      adjustedY: 0,
     };
   }
 
@@ -106,7 +116,7 @@ export function calculateContainRenderArea(
     offsetY,
     isValidClick,
     adjustedX,
-    adjustedY
+    adjustedY,
   };
 }
 
@@ -114,14 +124,14 @@ export function calculateContainRenderArea(
  * 判断是否为移动端设备
  */
 export function isMobileDevice(deviceType: string): boolean {
-  return ['ios', 'android', 'harmony_mobile'].includes(deviceType);
+  return ['android', 'harmony_mobile', 'ios'].includes(deviceType);
 }
 
 /**
  * 判断是否为桌面端设备
  */
 export function isDesktopDevice(deviceType: string): boolean {
-  return ['windows', 'mac', 'harmony_pc'].includes(deviceType);
+  return ['harmony_pc', 'mac', 'windows'].includes(deviceType);
 }
 
 /**
@@ -135,23 +145,33 @@ export function formatTime(): string {
 /**
  * 格式化操作历史显示文本
  */
-export function formatHistoryDisplay(type: string, params: Record<string, any>): string {
+export function formatHistoryDisplay(
+  type: string,
+  params: Record<string, any>,
+): string {
   switch (type) {
-    case 'screenshot':
-      return ''; // 截图操作不显示在历史中
-    case 'click':
+    case 'click': {
       return `点击(${params.x}, ${params.y})`;
-    case 'swipe':
-      return '滑动';
-    case 'input':
+    }
+    case 'input': {
       const text = params.text || '';
-      return `输入"${text.length > 10 ? text.slice(0, 10) + '...' : text}"`;
-    case 'press':
+      return `输入"${text.length > 10 ? `${text.slice(0, 10)}...` : text}"`;
+    }
+    case 'press': {
       return `${params.key}`;
-    case 'unlock_screen':
+    }
+    case 'screenshot': {
+      return '';
+    } // 截图操作不显示在历史中
+    case 'swipe': {
+      return '滑动';
+    }
+    case 'unlock_screen': {
       return `解锁屏幕`;
-    default:
+    }
+    default: {
       return type;
+    }
   }
 }
 
@@ -160,7 +180,11 @@ export function formatHistoryDisplay(type: string, params: Record<string, any>):
  * - Windows/Mac: 显示完整 IP（如 192.168.0.102）
  * - iOS/Android: 显示 IP 后两位 + SN 后 4 位（如 0.102-5554）
  */
-export function formatDeviceDebugTitle(ip: string, deviceSn: string, deviceType: string): string {
+export function formatDeviceDebugTitle(
+  ip: string,
+  deviceSn: string,
+  deviceType: string,
+): string {
   if (!ip) return '设备调试';
 
   if (isDesktopDevice(deviceType)) {
@@ -170,9 +194,10 @@ export function formatDeviceDebugTitle(ip: string, deviceSn: string, deviceType:
 
   // iOS/Android: IP 后两位 + SN 后 4 位
   const ipParts = ip.split('.');
-  const ipSuffix = ipParts.length >= 2
-    ? `${ipParts[ipParts.length - 2]}.${ipParts[ipParts.length - 1]}`
-    : ip;
+  const ipSuffix =
+    ipParts.length >= 2
+      ? `${ipParts[ipParts.length - 2]}.${ipParts[ipParts.length - 1]}`
+      : ip;
   const snSuffix = deviceSn ? deviceSn.slice(-4) : '----';
   return `${ipSuffix}-${snSuffix}`;
 }
@@ -192,13 +217,13 @@ export function buildWebSocketUrl(
   udid: string,
   deviceType: string,
   screenIndex?: number,
-  codec: string = 'jpeg'
+  codec: string = 'jpeg',
 ): string {
   const platform = deviceType.toLowerCase();
 
   // 桌面端传递 monitor 参数和 codec
   if (platform === 'windows' || platform === 'mac') {
-    const monitor = screenIndex !== undefined ? screenIndex + 1 : 1;
+    const monitor = screenIndex === undefined ? 1 : screenIndex + 1;
     return `ws://${host}:${port}/ws/screen/${platform}/${platform}_screen?monitor=${monitor}&codec=${codec}`;
   }
 
