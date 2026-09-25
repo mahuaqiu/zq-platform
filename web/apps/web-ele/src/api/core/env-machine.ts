@@ -382,16 +382,23 @@ export interface WorkerFileList {
 
 /** 列出 worker 产物目录内容(path 相对根目录,缺省为根) */
 export function listWorkerFilesApi(machineId: string, path?: string) {
-  return requestClient.get<WorkerFileList>(`/api/core/env/machine/${machineId}/files`, {
-    params: path ? { path } : {},
-  });
+  return requestClient.get<WorkerFileList>(
+    `/api/core/env/machine/${machineId}/files`,
+    {
+      params: path ? { path } : {},
+    },
+  );
 }
 
 /**
  * 浏览器原生下载 URL(?token= 走后端 QUERY_TOKEN_ALLOWED_PATTERNS 白名单)
  * window.open 打开后由浏览器下载条接管,页内不显示进度
  */
-export function getWorkerFileDownloadUrl(machineId: string, path: string, token: string): string {
+export function getWorkerFileDownloadUrl(
+  machineId: string,
+  path: string,
+  token: string,
+): string {
   const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
   const params = new URLSearchParams({ path, token });
   return `${apiURL}/api/core/env/machine/${machineId}/files/download?${params.toString()}`;
@@ -407,11 +414,11 @@ export interface UploadProgressEvent {
 export function uploadWorkerFileApi(
   machineId: string,
   options: {
-    path?: string;
-    name: string;
     file: File;
-    overwrite?: boolean;
+    name: string;
     onUploadProgress?: (event: UploadProgressEvent) => void;
+    overwrite?: boolean;
+    path?: string;
     signal?: AbortSignal;
   },
 ) {
@@ -420,17 +427,23 @@ export function uploadWorkerFileApi(
     overwrite: String(options.overwrite ?? false),
   };
   if (options.path) params.path = options.path;
-  return requestClient.post(`/api/core/env/machine/${machineId}/files/upload`, options.file, {
-    headers: { 'Content-Type': 'application/octet-stream' },
-    onUploadProgress: options.onUploadProgress,
-    params,
-    // 1GB / 1MB/s 可达 17 分钟,不设超时
-    timeout: 0,
-    signal: options.signal,
-  } as any);
+  return requestClient.post(
+    `/api/core/env/machine/${machineId}/files/upload`,
+    options.file,
+    {
+      headers: { 'Content-Type': 'application/octet-stream' },
+      onUploadProgress: options.onUploadProgress,
+      params,
+      // 1GB / 1MB/s 可达 17 分钟,不设超时
+      timeout: 0,
+      signal: options.signal,
+    } as any,
+  );
 }
 
 /** 删除 worker 产物文件或空目录 */
 export function deleteWorkerFileApi(machineId: string, path: string) {
-  return requestClient.delete(`/api/core/env/machine/${machineId}/files`, { params: { path } });
+  return requestClient.delete(`/api/core/env/machine/${machineId}/files`, {
+    params: { path },
+  });
 }

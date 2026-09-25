@@ -49,6 +49,7 @@ import {
 } from './modules/common';
 import { useNamespaceStore } from './store';
 import { DEVICE_TYPE_OPTIONS, supportsWorkerLog } from './types';
+import FileManageDialog from './FileManageDialog.vue';
 import LogDialogV2 from './LogDialogV2.vue';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
@@ -125,6 +126,15 @@ function handleViewLogs(row: EnvMachine) {
   logMachineIp.value = row.ip || row.id;
   logMachinePort.value = row.port || '';
   logDialogVisible.value = true;
+}
+
+// 文件管理弹窗
+const filesDialogVisible = ref(false);
+const filesMachine = ref<EnvMachine | null>(null);
+
+function handleFiles(row: EnvMachine) {
+  filesMachine.value = row;
+  filesDialogVisible.value = true;
 }
 
 // 打开调试页面
@@ -795,6 +805,17 @@ onMounted(async () => {
                   日志
                 </a>
                 <a
+                  v-if="
+                    !row.is_virtual &&
+                    supportsWorkerLog(row.device_type) &&
+                    row.status !== 'offline'
+                  "
+                  class="env-link"
+                  @click="handleFiles(row)"
+                >
+                  文件
+                </a>
+                <a
                   v-if="!row.is_virtual && (row.status === 'online' || row.status === 'using') && row.device_type !== 'linux'"
                   class="env-link"
                   @click="handleDebug(row)"
@@ -895,6 +916,14 @@ onMounted(async () => {
       :machine-id="logMachineId"
       :machine-ip="logMachineIp"
       :machine-port="logMachinePort"
+    />
+
+    <FileManageDialog
+      v-model:visible="filesDialogVisible"
+      :machine-id="filesMachine?.id || ''"
+      :machine-name="filesMachine?.asset_number || filesMachine?.ip || ''"
+      :ip="filesMachine?.ip || ''"
+      :port="filesMachine?.port || ''"
     />
 
     <!-- 批量导入弹窗 -->
