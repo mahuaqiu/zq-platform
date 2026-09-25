@@ -53,7 +53,14 @@ from core.env_machine.auth import verify_env_apply_auth
 from core.env_machine.lock_manager import EnvLockManager
 from core.env_machine.debug_service import DebugActionService
 from core.env_machine.log_service import EnvMachineLogService
-from core.env_machine.worker_client import execute_single_machine, fetch_worker_logs
+from core.env_machine.worker_client import (
+    delete_worker_file,
+    download_worker_file,
+    execute_single_machine,
+    fetch_worker_logs,
+    list_worker_files,
+    upload_worker_file,
+)
 from utils.client_info import get_client_ip
 from utils.logging_config import get_logger
 
@@ -617,6 +624,74 @@ async def get_machine_logs(
         start_time=start_time if has_time_range else None,
         end_time=end_time if has_time_range else None,
     )
+
+
+# ============ 产物文件管理 ============
+
+_WORKER_FILE_HOST_TYPES = ("windows", "mac")
+
+
+async def _get_file_machine(machine_id: str, db: AsyncSession) -> EnvMachine:
+    """文件管理前置校验:存在、宿主机类型(windows/mac)、在线、IP/端口已配置。"""
+    machine = await EnvMachineService.get_by_id(db, machine_id)
+    if not machine:
+        raise HTTPException(status_code=404, detail="执行机不存在")
+    if machine.device_type not in _WORKER_FILE_HOST_TYPES:
+        raise HTTPException(status_code=400, detail="该设备类型不支持文件管理")
+    if machine.status != "online":
+        raise HTTPException(status_code=400, detail=f"设备状态为 {machine.status},无法操作文件")
+    if not machine.ip or not machine.port:
+        raise HTTPException(status_code=400, detail="设备未配置 IP 或端口")
+    return machine
+
+
+@router.get("/machine/{machine_id}/files", summary="列出执行机产物文件")
+async def list_machine_files(
+    machine_id: str,
+    path: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    machine = await _get_file_machine(machine_id, db)
+    return await list_worker_files(machine, path)
+
+
+@router.get("/machine/{machine_id}/files/download", summary="下载执行机产物文件(浏览器原生下载)")
+async def download_machine_file(
+    machine_id: str,
+    path: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    machine = await _get_file_machine(machine_id, db)
+    return await download_worker_file(machine, path)
+
+
+@router.post("/machine/{machine_id}/files/upload", summary="上传文件到执行机产物目录")
+async def upload_machine_file(
+    machine_id: str,
+    request: Request,
+    name: str = Query(...),
+    path: Optional[str] = Query(default=None),
+    overwrite: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+):
+    machine = await _get_file_machine(machine_id, db)
+    return await upload_worker_file(
+        machine,
+        path=path,
+        name=name,
+        overwrite=overwrite,
+        content_stream=request.stream(),
+    )
+
+
+@router.delete("/machine/{machine_id}/files", summary="删除执行机产物文件")
+async def delete_machine_file(
+    machine_id: str,
+    path: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    machine = await _get_file_machine(machine_id, db)
+    return await delete_worker_file(machine, path)
 
 
 @router.post("/{machine_id}/debug-action", response_model=DebugActionResponse, summary="设备调试操作")
