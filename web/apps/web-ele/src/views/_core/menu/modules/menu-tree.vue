@@ -377,11 +377,10 @@ function updateNodeInTree(
   menuId: string,
   updatedData: Menu,
 ): boolean {
-  for (let i = 0; i < nodes.length; i++) {
-    if (nodes[i].id === menuId) {
+  for (const [i, node] of nodes.entries()) {
+    if (node.id === menuId) {
       // 保留 children 和 hasChild，更新其他属性
-      const children = nodes[i].children;
-      const hasChild = nodes[i].hasChild;
+      const { children, hasChild } = node;
 
       // 将扁平化的 Menu 数据转换为带 meta 的结构
       nodes[i] = {
@@ -414,9 +413,9 @@ function updateNodeInTree(
       return true;
     }
     if (
-      nodes[i].children &&
-      nodes[i].children!.length > 0 &&
-      updateNodeInTree(nodes[i].children!, menuId, updatedData)
+      node.children &&
+      node.children.length > 0 &&
+      updateNodeInTree(node.children, menuId, updatedData)
     ) {
       return true;
     }

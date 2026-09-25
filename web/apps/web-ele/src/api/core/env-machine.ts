@@ -224,6 +224,7 @@ export async function getEnvMachineDetailApi(id: string) {
  */
 export interface BatchDeleteResponse {
   success_count: number;
+  failed_count?: number;
   failed_ids: string[];
 }
 

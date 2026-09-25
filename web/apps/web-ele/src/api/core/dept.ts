@@ -141,7 +141,8 @@ export async function batchDeleteDeptApi(data: DeptBatchDeleteInput) {
 /**
  * 根据父部门ID获取子部门
  */
-export async function getDeptByParentApi(parentId?: string) {
+// parentId 传 null 表示查询根部门（URL 中固定为 /parent/null）
+export async function getDeptByParentApi(parentId?: null | string) {
   const url = parentId
     ? `/api/core/dept/by/parent/${parentId}`
     : '/api/core/dept/by/parent/null';

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Role } from '#/api/core/role';
+import type { Role, RoleCreateInput } from '#/api/core/role';
 
 import { computed, ref } from 'vue';
 
@@ -42,7 +42,7 @@ async function onSubmit() {
     try {
       await (formData.value?.id
         ? updateRoleApi(formData.value.id, data)
-        : createRoleApi(data));
+        : createRoleApi(data as RoleCreateInput));
       visible.value = false;
       emit('success');
     } finally {

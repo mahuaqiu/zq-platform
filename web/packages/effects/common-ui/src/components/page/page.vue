@@ -38,7 +38,9 @@ async function calcContentHeight() {
   }
   await nextTick();
   headerHeight.value = headerRef.value?.offsetHeight || 0;
-  footerHeight.value = footerRef.value?.offsetHeight + 24 || 0;
+  footerHeight.value = footerRef.value
+    ? footerRef.value.offsetHeight + 24 || 0
+    : 0;
   setTimeout(() => {
     shouldAutoHeight.value = true;
   }, 30);

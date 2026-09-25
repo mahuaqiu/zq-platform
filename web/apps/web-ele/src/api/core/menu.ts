@@ -44,6 +44,8 @@ export interface Menu {
 
 export interface MenuTreeNode extends Menu {
   children?: MenuTreeNode[];
+  /** 是否有子节点，由前端 transformMenuTreeData 计算填充 */
+  hasChild?: boolean;
 }
 
 export interface MenuCreateInput {

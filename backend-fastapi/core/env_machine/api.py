@@ -790,6 +790,7 @@ async def batch_delete_env_machines(
 
     return {
         "success_count": success_count,
+        "failed_count": len(failed_ids),
         "failed_ids": failed_ids
     }
 

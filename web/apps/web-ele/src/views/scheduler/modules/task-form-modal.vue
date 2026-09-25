@@ -1,5 +1,8 @@
 <script lang="ts" setup>
-import type { SchedulerJob } from '#/api/core/scheduler';
+import type {
+  SchedulerJob,
+  SchedulerJobCreateParams,
+} from '#/api/core/scheduler';
 
 import { computed, ref, watch } from 'vue';
 
@@ -224,7 +227,7 @@ async function onSubmit() {
   if (valid) {
     confirmLoading.value = true;
     try {
-      const values = await formApi.getValues();
+      const values = await formApi.getValues<SchedulerJobCreateParams>();
 
       // 处理触发配置：根据触发类型清理不需要的字段
       const submitData = { ...values };

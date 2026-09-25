@@ -302,11 +302,7 @@ function handleBatchDelete() {
         if (res.success_count > 0) {
           ElMessage.success(`成功删除 ${res.success_count} 台设备`);
         }
-        if (
-          res.failed_count > 0 &&
-          res.failed_ids &&
-          res.failed_ids.length > 0
-        ) {
+        if (res.failed_count && res.failed_ids && res.failed_ids.length > 0) {
           ElMessage.warning(`${res.failed_count} 台设备删除失败`);
         }
         // 清空选中状态
@@ -470,8 +466,9 @@ function handleOpenImport() {
 // 文件选择变化
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    importFile.value = target.files[0];
+  const file = target.files?.[0];
+  if (file) {
+    importFile.value = file;
     importResult.value = null;
   }
 }

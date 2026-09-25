@@ -1,3 +1,5 @@
+import type { ComputedRef } from 'vue';
+
 import { computed, reactive } from 'vue';
 
 export class Store<T extends Record<string, any>> {
@@ -22,8 +24,9 @@ export class Store<T extends Record<string, any>> {
 export function useStore<T extends Record<string, any>, U = T>(
   store: Store<T>,
   selector?: (state: T) => U,
-) {
+): ComputedRef<U> {
+  // 无 selector 时 U 默认等于 T，断言只是收窄三元两个分支的联合类型
   return computed(() => {
     return selector ? selector(store.state) : store.state;
-  });
+  }) as ComputedRef<U>;
 }

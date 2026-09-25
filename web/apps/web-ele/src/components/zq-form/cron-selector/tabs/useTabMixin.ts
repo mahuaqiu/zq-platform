@@ -1,6 +1,8 @@
 /**
  * 主要用于日和星期的互斥使用
  */
+import type { MaybeRef } from 'vue';
+
 import { computed, inject, reactive, ref, unref, watch } from 'vue';
 
 export enum TypeEnum {
@@ -22,7 +24,7 @@ export interface UseTabOptions {
   valueLoop: { interval: number; start: number };
   valueWeek?: Record<string, any>;
   valueWork?: number;
-  disabled?: (() => boolean) | boolean;
+  disabled?: (() => boolean) | MaybeRef<boolean>;
 }
 
 export interface UseTabProps {
@@ -45,7 +47,6 @@ export function useTabProps(options?: Partial<UseTabOptions>) {
       type: Boolean,
       default: false,
     },
-    ...options?.defaultValue,
   };
 }
 
@@ -153,23 +154,23 @@ export function useTabSetup(props: any, context: any, options: UseTabOptions) {
         type.value = TypeEnum.unset;
       } else if (value.includes('-')) {
         type.value = TypeEnum.range;
-        const values = value.split('-');
-        if (values.length >= 2) {
-          valueRange.start = Number.parseInt(values[0]);
-          valueRange.end = Number.parseInt(values[1]);
+        const [start, end] = value.split('-');
+        if (start !== undefined && end !== undefined) {
+          valueRange.start = Number.parseInt(start);
+          valueRange.end = Number.parseInt(end);
         }
       } else if (value.includes('/')) {
         type.value = TypeEnum.loop;
-        const values = value.split('/');
-        if (values.length >= 2) {
-          valueLoop.start = value[0] === '*' ? 0 : Number.parseInt(values[0]);
-          valueLoop.interval = Number.parseInt(values[1]);
+        const [start, interval] = value.split('/');
+        if (start !== undefined && interval !== undefined) {
+          valueLoop.start = value[0] === '*' ? 0 : Number.parseInt(start);
+          valueLoop.interval = Number.parseInt(interval);
         }
       } else if (value.includes('W')) {
         type.value = TypeEnum.work;
-        const values = value.split('W');
-        if (!values[0] && !Number.isNaN(Number.parseInt(values[0]))) {
-          valueWork.value = Number.parseInt(values[0]);
+        const workPart = value.split('W')[0] ?? '';
+        if (!workPart && !Number.isNaN(Number.parseInt(workPart))) {
+          valueWork.value = Number.parseInt(workPart);
         }
       } else if (value.includes('L')) {
         type.value = TypeEnum.last;

@@ -221,7 +221,8 @@ export class ZqTableApi<T extends Record<string, any> = any> {
 
   private syncStateToRefs() {
     if (this.state?.gridOptions?.data) {
-      this.tableData.value = this.state.gridOptions.data;
+      // gridOptions 在类型上声明为 DeepPartial，实际由调用方传入完整行数据
+      this.tableData.value = this.state.gridOptions.data as T[];
     }
     if (this.state?.gridOptions?.pagerConfig) {
       const { currentPage, pageSize, total } =

@@ -15,6 +15,8 @@ export interface Role {
   menu_count?: number;
   permission_count?: number;
   can_delete?: boolean;
+  /** 数据权限范围，见角色列表 getDataRangeText */
+  data_scope?: number;
   sys_create_datetime?: string;
   sys_update_datetime?: string;
 }

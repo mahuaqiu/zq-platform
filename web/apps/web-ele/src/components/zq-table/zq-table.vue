@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { VbenFormProps } from '@vben/common-ui';
+
 import type { ExtendedZqTableApi, ZqTableProps } from './types';
 
 import {
@@ -231,6 +233,12 @@ const total = props.api.total;
 const loading = props.api.loading;
 const pagination = props.api.pagination;
 
+// DeepPartial 会让 pageSizes 的元素类型带上 undefined，实际配置始终是完整数字
+const pageSizes = computed<number[]>(() => {
+  const sizes = gridOptions.value?.pagerConfig?.pageSizes;
+  return (sizes && sizes.length > 0 ? sizes : [10, 20, 50, 100]) as number[];
+});
+
 function onPageChange(currentPage: number) {
   props.api.handlePageChange(currentPage, pagination.pageSize);
 }
@@ -250,12 +258,8 @@ function onRefreshBtnClick() {
 // Init logic
 async function init() {
   await nextTick();
-  const defaultGridOptions = mergeWithArrayOverride(
-    {},
-    toRaw(gridOptions.value),
-  );
-
-  const autoLoad = defaultGridOptions.proxyConfig?.autoLoad;
+  // defu({}, source) 等价于对 source 的浅拷贝，直接读取即可
+  const autoLoad = gridOptions.value?.proxyConfig?.autoLoad;
   if (autoLoad) {
     props.api.reload();
   }
@@ -301,7 +305,7 @@ watch(
         {},
         formOptions.value,
         prev,
-      );
+      ) as Partial<VbenFormProps>;
       return {
         ...finalFormOptions,
         // 自动检测是否需要折叠按钮
@@ -733,7 +737,7 @@ function handleSortChange(data: any) {
         v-model:current-page="pagination.currentPage"
         v-model:page-size="pagination.pageSize"
         :total="total"
-        :page-sizes="gridOptions?.pagerConfig?.pageSizes || [10, 20, 50, 100]"
+        :page-sizes="pageSizes"
         :layout="
           gridOptions?.pagerConfig?.layout ||
           'total, sizes, prev, pager, next, jumper'

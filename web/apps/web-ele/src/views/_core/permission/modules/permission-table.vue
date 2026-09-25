@@ -270,10 +270,10 @@ defineExpose({
     <template #cell-permission_type="{ row }">
       <ElTag
         v-if="permissionTypeMap[row.permission_type]"
-        :type="permissionTypeMap[row.permission_type].type as any"
+        :type="permissionTypeMap[row.permission_type]?.type as any"
         size="small"
       >
-        {{ permissionTypeMap[row.permission_type].label }}
+        {{ permissionTypeMap[row.permission_type]?.label }}
       </ElTag>
       <span v-else>{{ $t('permission.typeLabels.unknown') }}</span>
     </template>
@@ -283,10 +283,10 @@ defineExpose({
       <template v-if="row.permission_type === 1">
         <ElTag
           v-if="httpMethodMap[row.http_method]"
-          :type="httpMethodMap[row.http_method].type as any"
+          :type="httpMethodMap[row.http_method]?.type as any"
           size="small"
         >
-          {{ httpMethodMap[row.http_method].label }}
+          {{ httpMethodMap[row.http_method]?.label }}
         </ElTag>
         <span v-else>UNKNOWN</span>
       </template>
@@ -298,10 +298,10 @@ defineExpose({
       <template v-if="row.permission_type === 1">
         <ElTag
           v-if="dataScopeMap[row.data_scope]"
-          :type="dataScopeMap[row.data_scope].type as any"
+          :type="dataScopeMap[row.data_scope]?.type as any"
           size="small"
         >
-          {{ dataScopeMap[row.data_scope].label }}
+          {{ dataScopeMap[row.data_scope]?.label }}
         </ElTag>
         <span v-else>-</span>
       </template>

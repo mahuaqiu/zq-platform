@@ -1,5 +1,7 @@
 import type { UserInfo } from '@vben/types';
 
+import type { PaginatedResponse } from './dept';
+
 import { requestClient } from '#/api/request';
 
 /**
@@ -22,6 +24,7 @@ export interface User {
   dept_name?: string;
   role_id?: string; // UUID string
   role_name?: string;
+  core_roles?: string[];
   manager_id?: string; // UUID string
   manager_name?: string;
   user_status_display?: string;
@@ -97,12 +100,8 @@ export interface UserListParams {
   last_login_type?: string;
 }
 
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+// 与 dept.ts 的定义完全一致；复用同一符号，避免 index.ts 处两个 export * 的重名冲突
+export type { PaginatedResponse };
 
 /**
  * 获取用户信息

@@ -83,7 +83,15 @@ const cronValueNoYear = computed(() => {
   let vs = v.split(' ');
   if (vs.length >= 5) {
     // 转成 Quartz 的规则
-    vs = ['0', vs[0], vs[1], vs[2], vs[3], convertWeekToQuartz(vs[4]), '*'];
+    vs = [
+      '0',
+      vs[0] ?? '*',
+      vs[1] ?? '*',
+      vs[2] ?? '*',
+      vs[3] ?? '*',
+      convertWeekToQuartz(vs[4] ?? '*'),
+      '*',
+    ];
   }
   return vs.slice(0, -1).join(' ');
 });
@@ -128,13 +136,14 @@ function formatValue() {
   const values = props.modelValue.split(' ').filter((item) => !!item);
   if (!values || values.length <= 0) return;
   let i = 0;
-  if (!props.hideSecond) second.value = values[i++];
-  if (values.length > i) minute.value = values[i++];
-  if (values.length > i) hour.value = values[i++];
-  if (values.length > i) day.value = values[i++];
-  if (values.length > i) month.value = values[i++];
-  if (values.length > i) week.value = values[i++];
-  if (values.length > i) year.value = values[i];
+  const take = () => values[i++] ?? '';
+  if (!props.hideSecond) second.value = take();
+  if (values.length > i) minute.value = take();
+  if (values.length > i) hour.value = take();
+  if (values.length > i) day.value = take();
+  if (values.length > i) month.value = take();
+  if (values.length > i) week.value = take();
+  if (values.length > i) year.value = values[i] ?? '';
   assignInput();
 }
 
