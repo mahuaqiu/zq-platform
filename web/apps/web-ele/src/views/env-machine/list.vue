@@ -867,7 +867,7 @@ onMounted(async () => {
                   v-if="
                     !row.is_virtual &&
                     supportsWorkerLog(row.device_type) &&
-                    row.status !== 'offline'
+                    row.status === 'online'
                   "
                   class="env-link"
                   @click="handleFiles(row)"

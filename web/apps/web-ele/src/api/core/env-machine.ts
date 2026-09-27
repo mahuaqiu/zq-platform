@@ -386,6 +386,8 @@ export interface WorkerFileEntry {
 export interface WorkerFileList {
   path: string;
   entries: WorkerFileEntry[];
+  /** 目录条目超过 worker 端上限(2000)时为 true,列表被截断 */
+  truncated?: boolean;
 }
 
 /** 列出 worker 产物目录内容(path 相对根目录,缺省为根) */

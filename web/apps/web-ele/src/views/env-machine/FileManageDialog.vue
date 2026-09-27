@@ -43,6 +43,10 @@ const dialogVisible = computed({
 
 const loading = ref(false);
 const entries = ref<WorkerFileEntry[]>([]);
+/** worker 端目录条目超过上限被截断 */
+const truncated = ref(false);
+/** 列表加载失败(区别于空目录,给重试入口) */
+const loadFailed = ref(false);
 /** 相对根目录的路径分段 */
 const crumbs = ref<string[]>([]);
 
@@ -51,6 +55,10 @@ const uploadProgress = ref(0);
 const uploadLabel = ref('');
 let uploadAbort: AbortController | null = null;
 const fileInputRef = ref<HTMLInputElement>();
+
+/** 与 worker files.max_upload_size_mb(1GB)对齐,超限直接本地拒绝,
+ *  避免大文件全量上传后才被 413 */
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 
 const currentPath = computed(() => crumbs.value.join('/'));
 
@@ -63,8 +71,12 @@ async function loadList() {
       currentPath.value || undefined,
     );
     entries.value = res.entries;
+    truncated.value = res.truncated === true;
+    loadFailed.value = false;
   } catch {
+    // 全局拦截器已 toast 错误;这里标记失败态,空态给重试入口
     entries.value = [];
+    loadFailed.value = true;
   } finally {
     loading.value = false;
   }
@@ -123,6 +135,11 @@ async function handleFileChosen(event: Event) {
   const file = input.files?.[0];
   input.value = '';
   if (!file || !props.machineId) return;
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    ElMessage.error(`文件超过大小限制(最大 1GB),当前 ${formatSize(file.size)}`);
+    return;
+  }
 
   // 同名预检:存在则确认覆盖(worker 端 409 兜底)
   let overwrite = false;
@@ -255,12 +272,20 @@ watch(
           <a class="env-link-danger" @click="handleDelete(row)">删除</a>
         </template>
       </ElTableColumn>
-      <template #empty>空目录</template>
+      <template #empty>
+        <span v-if="loadFailed">
+          加载失败
+          <a class="env-link" @click="loadList">重试</a>
+        </span>
+        <span v-else>空目录</span>
+      </template>
     </ElTable>
 
     <div class="fm-footer">
-      共 {{ entries.length }} 项 · 下载/上传经平台流式代理,限速 1 MB/s(worker
-      端可配)
+      共 {{ entries.length }} 项<template v-if="truncated">
+        (目录过大,仅显示前 2000 项)
+      </template>
+      · 下载/上传经平台流式代理,限速 1 MB/s(worker 端可配)
     </div>
   </ElDialog>
 </template>

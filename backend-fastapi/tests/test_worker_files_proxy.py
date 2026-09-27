@@ -160,6 +160,110 @@ async def test_upload_worker_file_409_passthrough():
     assert exc.value.status_code == 409
 
 
+async def test_error_detail_passthrough_from_worker_json():
+    """worker 的中文 detail 应透传给前端,不再被状态码硬编码覆盖。"""
+
+    async def gen():
+        yield b"x"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"detail": "目录非空,无法删除"})
+
+    with _patch_client(handler):
+        with pytest.raises(HTTPException) as exc:
+            await delete_worker_file(_machine(), "d")
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "目录非空,无法删除"
+
+
+async def test_error_409_file_exists_translated():
+    """worker 的机器码 file_exists 翻译成中文,不再原样弹给用户。"""
+
+    async def gen():
+        yield b"x"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(409, json={"detail": "file_exists"})
+
+    with _patch_client(handler):
+        with pytest.raises(HTTPException) as exc:
+            await upload_worker_file(
+                _machine(), path=None, name="x", overwrite=False, content_stream=gen()
+            )
+
+    assert exc.value.detail == "同名文件已存在"
+
+
+async def test_error_non_json_body_falls_back_to_status_map():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text="<html>bad gateway</html>")
+
+    with _patch_client(handler):
+        with pytest.raises(HTTPException) as exc:
+            await list_worker_files(_machine(), "d")
+
+    assert exc.value.detail == "非法路径或文件名"
+
+
+async def test_upload_over_platform_cap_413_before_worker(monkeypatch):
+    """平台侧在转发流中先行判定 413:超限时不再依赖 worker 断流,
+    避免 httpx 把 worker 提前返回误报成 502。"""
+    from core.env_machine import worker_client
+
+    monkeypatch.setattr(worker_client, "_PLATFORM_MAX_UPLOAD_BYTES", 10)
+    seen = []
+
+    async def gen():
+        seen.append(b"12345678")
+        yield b"12345678"
+        seen.append(b"12345678")
+        yield b"12345678"
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        return httpx.Response(200, json={"name": "x", "size": 0})
+
+    with _patch_client(handler):
+        with pytest.raises(HTTPException) as exc:
+            await upload_worker_file(
+                _machine(), path=None, name="x", overwrite=False, content_stream=gen()
+            )
+
+    assert exc.value.status_code == 413
+    assert b"".join(seen) == b"12345678" * 2  # 第二块发出前即被拒绝
+
+
+async def test_download_forwards_content_encoding_identity():
+    """转发 worker 的 Content-Encoding: identity,将来平台启用 gzip
+    中间件时不会复发压缩丢 Content-Length 问题。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=b"data",
+            headers={"Content-Encoding": "identity"},
+        )
+
+    with _patch_client(handler):
+        resp = await download_worker_file(_machine(), "a.log")
+
+    assert resp.headers.get("content-encoding") == "identity"
+
+
+async def test_download_error_detail_passthrough_after_aread():
+    """下载错误路径先读完错误体再释放连接,detail 才能透传。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": "文件不存在"})
+
+    with _patch_client(handler):
+        with pytest.raises(HTTPException) as exc:
+            await download_worker_file(_machine(), "nope")
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "文件不存在"
+
+
 async def test_delete_worker_file():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "DELETE"

@@ -218,23 +218,41 @@ async def fetch_worker_logs(
 
 _WORKER_FILES_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=None, pool=None)
 
+# 平台侧上传大小上限,与 worker 默认 max_upload_size_mb(1000MB)对齐。
+# 平台在转发流中先行判定 413:worker 端 413 时已停止读 body,若只依赖
+# worker 判定,httpx 发送端常以 RemoteProtocolError 中断并被映射成
+# 502"无法连接到设备",真实语义丢失。
+_PLATFORM_MAX_UPLOAD_BYTES = 1000 * 1024 * 1024
+
 
 def _worker_files_url(machine: EnvMachine, endpoint: str) -> str:
     return f"http://{machine.ip}:{machine.port}/files/{endpoint}"
 
 
 def _raise_files_error(resp: httpx.Response) -> None:
-    """非 200 时按 worker 语义抛 HTTPException。"""
-    detail_map = {
+    """非 200 时按 worker 语义抛 HTTPException。
+
+    优先透传 worker 的 detail(worker 返回的已是面向用户的中文消息);
+    仅 file_exists 这类机器码翻译成中文。detail 读不到时退回状态码映射。
+    """
+    fallback = {
         400: "非法路径或文件名",
         404: "路径不存在",
-        409: "file_exists",
+        409: "同名文件已存在",
         413: "文件超过大小限制",
         503: "Worker 未初始化",
+        507: "磁盘空间不足",
     }
-    if resp.status_code in detail_map:
-        raise HTTPException(status_code=resp.status_code, detail=detail_map[resp.status_code])
-    raise HTTPException(status_code=502, detail=f"设备返回异常: {resp.status_code}")
+    if resp.status_code not in fallback:
+        raise HTTPException(status_code=502, detail=f"设备返回异常: {resp.status_code}")
+    detail = fallback[resp.status_code]
+    try:
+        worker_detail = resp.json().get("detail")
+    except Exception:  # 响应体不是 JSON(如网关 HTML 错误页)
+        worker_detail = None
+    if isinstance(worker_detail, str) and worker_detail.strip():
+        detail = "同名文件已存在" if worker_detail == "file_exists" else worker_detail
+    raise HTTPException(status_code=resp.status_code, detail=detail)
 
 
 def _connect_error(exc: Exception) -> HTTPException:
@@ -272,6 +290,9 @@ async def download_worker_file(machine: EnvMachine, path: str) -> StreamingRespo
     except httpx.HTTPError as e:
         raise _connect_error(e)
     if resp.status_code != 200:
+        # 先读完错误响应体(小)再释放连接,否则 _raise_files_error 里
+        # 读不出 worker 的 detail,只能退回状态码映射
+        await resp.aread()
         await resp.aclose()
         await client.aclose()
         _raise_files_error(resp)
@@ -281,6 +302,10 @@ async def download_worker_file(machine: EnvMachine, path: str) -> StreamingRespo
         headers["Content-Length"] = resp.headers["content-length"]
     if "content-disposition" in resp.headers:
         headers["Content-Disposition"] = resp.headers["content-disposition"]
+    # identity 原样转发:将来平台侧若启用 gzip 中间件,已带 Content-Encoding
+    # 的响应会被跳过,不复发 worker 端 d0bb085 修过的"压缩丢 Content-Length"
+    if "content-encoding" in resp.headers:
+        headers["Content-Encoding"] = resp.headers["content-encoding"]
 
     async def relay():
         try:
@@ -295,6 +320,16 @@ async def download_worker_file(machine: EnvMachine, path: str) -> StreamingRespo
         media_type=resp.headers.get("content-type", "application/octet-stream"),
         headers=headers,
     )
+
+
+async def _capped_stream(content_stream, max_bytes: int):
+    """包一层字节计数,超平台侧上限时确定性抛 413(不再依赖 worker 端断流)。"""
+    written = 0
+    async for chunk in content_stream:
+        written += len(chunk)
+        if written > max_bytes:
+            raise HTTPException(status_code=413, detail="文件超过大小限制(1GB)")
+        yield chunk
 
 
 async def upload_worker_file(
@@ -316,7 +351,7 @@ async def upload_worker_file(
             resp = await client.post(
                 _worker_files_url(machine, "upload"),
                 params=params,
-                content=content_stream,
+                content=_capped_stream(content_stream, _PLATFORM_MAX_UPLOAD_BYTES),
                 headers={"Content-Type": "application/octet-stream"},
             )
     except httpx.HTTPError as e:
