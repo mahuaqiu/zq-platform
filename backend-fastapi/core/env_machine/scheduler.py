@@ -181,7 +181,8 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
     离线检测任务
 
     检查 sync_time 超过 10 分钟的机器，标记为 offline
-    同时检查 upgrading 状态超时 30 分钟的机器，标记为 offline
+    同时回收 upgrading 状态超时 30 分钟的机器：Worker 不可达时标记为 offline，
+    Worker 可达时恢复为 online，避免升级失败后状态一直停留在 upgrading
 
     Args:
         job_code: 任务编码（由调度器自动传入）
@@ -223,8 +224,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             logger.debug("未检测到离线机器")
             return 0
 
-        offline_count = len(machines) + len(upgrading_machines)
-        machine_ids = []
+        offline_count = len(machines)
 
         from core.env_machine.state_service import MachineStateService
 
@@ -234,12 +234,10 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             await MachineStateService.transition(
                 db, machine, "offline", source="offline_check"
             )
-            machine_ids.append(str(machine.id))
             logger.info(f"机器 {machine.id} 已标记为离线")
 
         # 处理 upgrading 状态超时的机器：先探测 Worker 是否存活再定状态。
-        # 升级完成后 Worker 恢复服务但注册可能尚未送达，探测可达且版本已
-        # 到位则回置 online；不可达才置 offline。
+        # Worker 不可达时置 offline；可达时结束超时升级状态并恢复 online。
         from core.env_machine.upgrade_service import WorkerUpgradeConfigService
 
         for machine in upgrading_machines:
@@ -248,7 +246,7 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
                 await MachineStateService.transition(
                     db, machine, "offline", source="offline_check_upgrade_timeout"
                 )
-                machine_ids.append(str(machine.id))
+                offline_count += 1
                 logger.warning(
                     f"升级超时且 Worker 不可达，置为离线: machine_id={machine.id}, ip={machine.ip}"
                 )
@@ -258,21 +256,21 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
                 db, machine.device_type
             )
             if config and reported_version and compare_versions(reported_version, config.version) < 0:
-                # Worker 仍运行旧版本，升级（下载/安装）可能仍在进行，保持升级中
-                logger.info(
-                    f"升级超时但 Worker 存活且版本未到位，保持升级中: machine_id={machine.id}, ip={machine.ip}"
+                # 已超过升级超时仍未达到目标版本，按升级失败收敛状态，允许后续重试。
+                logger.warning(
+                    f"升级超时且 Worker 仍可达但版本未到位，恢复在线: machine_id={machine.id}, "
+                    f"ip={machine.ip}, reported_version={reported_version}, target_version={config.version}"
                 )
-                continue
+            else:
+                logger.info(
+                    f"升级超时且 Worker 仍可达，恢复在线: machine_id={machine.id}, ip={machine.ip}"
+                )
 
-            await MachineStateService.transition(
-                db, machine, "online", source="offline_check_upgrade_alive"
-            )
             machine.sync_time = datetime.now()
             if reported_version:
                 machine.version = reported_version
-            machine_ids.append(str(machine.id))
-            logger.info(
-                f"升级超时但 Worker 存活，回置在线: machine_id={machine.id}, ip={machine.ip}"
+            await MachineStateService.transition(
+                db, machine, "online", source="upgrade_timeout_recovery"
             )
 
         await db.commit()

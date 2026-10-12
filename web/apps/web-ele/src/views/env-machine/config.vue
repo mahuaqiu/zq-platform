@@ -719,6 +719,7 @@ function getStatusText(status: string): string {
     online: '在线',
     offline: '离线',
     using: '使用中',
+    upgrading: '升级中',
     config_updating: '配置更新中',
   };
   return textMap[status] || status;
@@ -730,6 +731,7 @@ function getStatusColor(status: string): string {
     online: '#52c41a',
     offline: '#ff4d4f',
     using: '#faad14',
+    upgrading: '#1890ff',
     config_updating: '#722ed1',
   };
   return colorMap[status] || '#666';
