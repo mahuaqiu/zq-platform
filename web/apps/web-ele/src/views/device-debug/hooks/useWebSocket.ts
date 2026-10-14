@@ -281,6 +281,7 @@ export function useWebSocket() {
     const socket = new WebSocket(url);
     ws = socket;
     socket.binaryType = 'arraybuffer';
+    let connectionRejected = false;
 
     socket.addEventListener('open', () => {
       if (generation !== websocketGeneration) return;
@@ -361,6 +362,12 @@ export function useWebSocket() {
       if (typeof event.data === 'string') {
         try {
           const meta = JSON.parse(event.data);
+          if (meta && meta.type === 'connection_rejected') {
+            connectionRejected = true;
+            errorMessage.value = meta.message || 'WebSocket 连接被 Worker 拒绝';
+            ElMessage.error(errorMessage.value);
+            return;
+          }
           if (meta && meta.type === 'codec_fallback' && meta.codec === 'jpeg') {
             fallbackToJpeg(meta.reason || 'Worker H264 链路不可用');
             return;
@@ -440,6 +447,11 @@ export function useWebSocket() {
       console.log(
         `[WebSocket] Connection closed: code=${event.code}, reason=${event.reason}, retryCount=${retryCount}`,
       );
+      if (connectionRejected) {
+        status.value = 'error';
+        errorMessage.value ||= 'WebSocket 连接被 Worker 拒绝';
+        return;
+      }
       // 非正常关闭时尝试重连
       if (event.code !== 1000 && retryCount < MAX_RETRIES) {
         retryCount++;
@@ -472,7 +484,7 @@ export function useWebSocket() {
     });
 
     socket.addEventListener('error', (event) => {
-      if (generation !== websocketGeneration) return;
+      if (generation !== websocketGeneration || connectionRejected) return;
       status.value = 'error';
       errorMessage.value = 'WebSocket 连接失败';
       console.error(`[WebSocket] Error:`, event);
