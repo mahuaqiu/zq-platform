@@ -123,3 +123,22 @@ async def cleanup_login_log_task(job_code: str = None, days: int = 30, **kwargs)
     except Exception as e:
         logger.error(f"[{job_code}] 登录日志清理任务执行失败: {str(e)}")
         raise
+
+
+async def cleanup_performance_data_task(job_code: str = None, days: int = 90, **kwargs):
+    """清理超过保留天数且未受保护的性能采集历史。"""
+    logger.info(f"[{job_code}] 性能监控历史清理开始，保留最近 {days} 天数据")
+
+    try:
+        from core.performance_monitor.service import PerformanceCollectService
+
+        async with AsyncSessionLocal() as db:
+            count = await PerformanceCollectService.cleanup_expired_collects(
+                db, retention_days=days
+            )
+
+        logger.info(f"[{job_code}] 性能监控历史清理完成，删除了 {count} 条采集记录")
+        return f"清理了 {count} 条性能采集历史，保留最近 {days} 天"
+    except Exception as e:
+        logger.error(f"[{job_code}] 性能监控历史清理失败: {str(e)}")
+        raise

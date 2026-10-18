@@ -231,7 +231,12 @@ const filteredCollectHistory = computed(() => {
 
 // 定时轮询
 let pollingTimer: null | number = null;
+let statusPollingTimer: null | number = null;
+let pollingCollectId = '';
+let isRefreshingStatus = false;
 let isMounted = false; // 组件挂载状态
+const PAGE_REFRESH_INTERVAL_MS = 5000;
+const STATUS_REFRESH_INTERVAL_MS = 5000;
 
 // 用户选择的时间窗口范围（相对时间，秒）- 由 TimeNavigator 控制
 const selectedRelativeTimeRange = ref<[number, number] | null>(null);
@@ -804,6 +809,9 @@ onMounted(async () => {
   isMounted = true;
   await fetchOnlineDevices();
 
+  statusPollingTimer = window.setInterval(() => {
+    void refreshStatus();
+  }, STATUS_REFRESH_INTERVAL_MS);
   await refreshStatus();
   await fetchCollectHistory();
 
@@ -812,15 +820,8 @@ onMounted(async () => {
 
   await fetchVersions();
 
-  // 根据采集状态加载数据
-  if (collectStatus.value.is_collecting && collectStatus.value.collect_id) {
-    // 正在采集：加载已采集的数据并启动轮询
-    currentCollectId.value = collectStatus.value.collect_id!;
-    // 先加载已采集的历史数据
-    await loadCollectData(collectStatus.value.collect_id!);
-    // 然后启动轮询
-    startPolling(collectStatus.value.collect_id!);
-  } else if (collectHistory.value.length > 0) {
+  // 没有活跃采集时，加载最近一条历史数据。
+  if (!collectStatus.value.is_collecting && collectHistory.value.length > 0) {
     // 未采集：加载最近的采集数据
     const latestCollect = collectHistory.value[0];
     if (latestCollect?.id) {
@@ -833,26 +834,49 @@ onMounted(async () => {
 onUnmounted(() => {
   isMounted = false;
   stopPolling();
+  if (statusPollingTimer) {
+    clearInterval(statusPollingTimer);
+    statusPollingTimer = null;
+  }
 
   // 移除全局点击事件监听
   document.removeEventListener('click', handleGlobalClick);
 });
 
 async function refreshStatus() {
-  if (!isMounted || !deviceId.value) return;
+  const requestedDeviceId = deviceId.value;
+  if (!isMounted || !requestedDeviceId || isRefreshingStatus) return;
+  isRefreshingStatus = true;
   try {
-    const status = await getCollectStatus(deviceId.value, {
+    const status = await getCollectStatus(requestedDeviceId, {
       device_type: currentDeviceInfo.value?.device_type,
       device_sn: currentDeviceInfo.value?.device_sn,
     });
-    if (!isMounted) return; // 异步操作完成后再次检查
+    if (!isMounted || deviceId.value !== requestedDeviceId) return;
+    const wasCollecting = collectStatus.value.is_collecting;
     collectStatus.value = status;
     if (status.is_collecting && status.collect_id) {
-      currentCollectId.value = status.collect_id;
+      if (currentCollectId.value !== status.collect_id) {
+        stopPolling();
+        performanceData.value = [];
+        historyData.value = [];
+        selectedRelativeTimeRange.value = null;
+        loadedTimeRange.value = null;
+        totalDuration.value = 0;
+        currentCollectId.value = status.collect_id;
+        await loadCollectData(status.collect_id);
+        if (!isMounted || deviceId.value !== requestedDeviceId) return;
+        void fetchCollectHistory();
+      }
       startPolling(status.collect_id);
+    } else {
+      stopPolling();
+      if (wasCollecting) void fetchCollectHistory();
     }
   } catch (error) {
     console.error('获取采集状态失败', error);
+  } finally {
+    isRefreshingStatus = false;
   }
 }
 
@@ -950,13 +974,13 @@ async function fetchVersions() {
 
 // 页面固定 5 秒刷新一次：采集间隔只决定数据入库节奏，页面刷新不跟随，
 // 避免 1 秒采集时前端请求与图表重绘过于频繁。
-const PAGE_REFRESH_INTERVAL_MS = 5000;
-
 function startPolling(collectId: string) {
-  if (pollingTimer) clearInterval(pollingTimer);
+  if (pollingTimer && pollingCollectId === collectId) return;
+  stopPolling();
+  pollingCollectId = collectId;
 
   // 立即获取最新数据显示
-  loadLatestData(collectId);
+  void loadLatestData(collectId);
 
   // 定时轮询获取最新数据（固定 5s，与采集间隔解耦）
   pollingTimer = window.setInterval(async () => {
@@ -996,6 +1020,7 @@ function stopPolling() {
     clearInterval(pollingTimer);
     pollingTimer = null;
   }
+  pollingCollectId = '';
 }
 
 function handleStartClick() {
@@ -1053,6 +1078,8 @@ async function handleStopClick() {
 // 设备切换
 async function handleDeviceChange() {
   stopPolling();
+  currentCollectId.value = '';
+  collectStatus.value = { is_collecting: false };
   performanceData.value = [];
   historyData.value = [];
 
@@ -1488,7 +1515,7 @@ async function loadMoreData(start_time: number, end_time: number) {
         <!-- 采集状态卡片（采集时显示） -->
         <div v-if="collectStatus.is_collecting" class="collect-status-card">
           <span class="collect-label">采集状态：</span>
-          <span class="collect-running">运行中</span>
+          <span class="collect-running">采集中</span>
           <span
             v-if="collectStatus.match_mode"
             class="collect-mode-badge"

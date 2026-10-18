@@ -397,20 +397,19 @@ function buildCollectScript(): string {
   const pyLiteral = (value: unknown) =>
     value === null || value === undefined ? 'None' : JSON.stringify(value);
   const targetProcesses = JSON.stringify(finalTargetProcesses.value);
-  const deviceType = pyLiteral(props.deviceInfo?.device_type);
-  const deviceSn = pyLiteral(props.deviceInfo?.device_sn);
   const matchMode = pyLiteral(
     isHarmonyDevice.value ? harmonyMatchMode.value : null,
   );
   return `# -*- coding: utf-8 -*-
-"""平台性能采集 API 调用脚本（由平台性能采集页面自动生成）
+"""平台性能采集 API 调用脚本（由平台性能采集页面自动生成）。
 
-采集/停止/数据查询接口均免鉴权，直接调用即可。
+采集和停止接口免鉴权，直接调用即可。
 
 使用步骤：
 1. pip install requests
-2. 开始采集：python perf_collect.py
-3. 停止采集：把开始时打印的 collect_id 填到 COLLECT_ID，再运行 python perf_collect.py stop
+2. 将 DEVICE_IP 改成目标设备的 IP；同一 IP 有多台设备时填写 DEVICE_SN，不同类型可用 DEVICE_TYPE 区分
+3. 开始采集：python perf_collect.py
+4. 停止采集：将开始时打印的 collect_id 填到 COLLECT_ID，再运行 python perf_collect.py stop
 """
 import sys
 
@@ -418,19 +417,19 @@ import requests
 
 BASE_URL = "${apiBase}"          # 平台地址（含 /basic-api 反代前缀）
 
-DEVICE_ID = ${JSON.stringify(props.deviceId)}        # 设备ID
-NAME = None                     # 采集名称（可选）
-INTERVAL = ${interval.value}                # 采集频率（秒）
+DEVICE_IP = ""                  # 必填：目标设备 IP
+DEVICE_SN = None                # 可选：同一 IP 多台设备时用于区分；鸿蒙设备建议填写
+DEVICE_TYPE = None              # 可选：windows / linux / harmony_pc / harmony_mobile
+NAME = None                     # 可选：采集名称
+INTERVAL = ${interval.value}                # 采集间隔（秒）
 TIMEOUT = ${collectTimeout.value * 3600}             # 最大采集时长（秒）
 TARGET_PROCESSES = ${targetProcesses}  # 目标进程；空列表表示采集系统级指标
-DEVICE_TYPE = ${deviceType}     # windows / linux / harmony_pc / harmony_mobile
-DEVICE_SN = ${deviceSn}             # 设备SN（鸿蒙为 HDC UDID）
 MATCH_MODE = ${matchMode}          # 鸿蒙匹配模式：fuzzy / exact
-COLLECT_ID = ""                 # 停止采集时填写
+COLLECT_ID = ""                 # 停止指定采集时填写
 
 
 def ensure_ok(resp: requests.Response) -> None:
-    """非 2xx 时先打印响应体再抛错，便于排障。"""
+    """非 2xx 时打印响应体后抛出错误，便于排障。"""
     if not resp.ok:
         print(f"HTTP {resp.status_code}: {resp.text[:500]}")
         resp.raise_for_status()
@@ -438,13 +437,13 @@ def ensure_ok(resp: requests.Response) -> None:
 
 def start_collect() -> dict:
     payload = {
-        "device_id": DEVICE_ID,
+        "device_ip": DEVICE_IP,
+        "device_sn": DEVICE_SN,
+        "device_type": DEVICE_TYPE,
         "name": NAME,
         "interval": INTERVAL,
         "timeout": TIMEOUT,
         "target_processes": TARGET_PROCESSES,
-        "device_type": DEVICE_TYPE,
-        "device_sn": DEVICE_SN,
         "match_mode": MATCH_MODE,
     }
     resp = requests.post(
@@ -457,20 +456,21 @@ def start_collect() -> dict:
 
 
 def stop_collect() -> dict:
+    if not DEVICE_IP:
+        raise ValueError("请先填写 DEVICE_IP")
     if not COLLECT_ID:
         print(
-            "警告: COLLECT_ID 为空时，平台将停止该设备上的【全部】采集任务"
-            "（可能包含其他人启动的采集）。"
+            "警告：COLLECT_ID 为空时，平台将停止该设备上的全部采集任务。"
         )
-        confirm = input("确认继续? (y/N): ").strip().lower()
+        confirm = input("确认继续？(y/N): ").strip().lower()
         if confirm != "y":
             print("已取消。")
             sys.exit(0)
     payload = {
-        "device_id": DEVICE_ID,
-        "collect_id": COLLECT_ID or None,
-        "device_type": DEVICE_TYPE,
+        "device_ip": DEVICE_IP,
         "device_sn": DEVICE_SN,
+        "device_type": DEVICE_TYPE,
+        "collect_id": COLLECT_ID or None,
     }
     resp = requests.post(
         BASE_URL + "/api/core/performance-monitor/collect/stop",
@@ -485,6 +485,8 @@ def main():
     if "stop" in sys.argv:
         print("停止结果:", stop_collect())
         return
+    if not DEVICE_IP:
+        raise ValueError("请先填写 DEVICE_IP")
     result = start_collect()
     print("采集已开始:", result)
     print(

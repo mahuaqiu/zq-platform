@@ -6,7 +6,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 
 # ===== 请求 Schema =====
@@ -14,7 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 class CollectStartRequest(BaseModel):
     """开始采集请求 Schema"""
-    device_id: str = Field(..., description="设备ID")
+    device_id: Optional[str] = Field(None, description="设备ID；也可直接传设备IP")
+    device_ip: Optional[str] = Field(None, description="设备IP；与设备ID二选一")
     name: Optional[str] = Field(None, max_length=100, description="采集名称")
     interval: int = Field(default=5, ge=1, le=1800, description="采集频率（秒），最大30分钟")
     timeout: int = Field(default=43200, ge=3600, le=86400, description="最大采集时间（秒），默认12小时，最大24小时（与 Worker 侧约束一致）")
@@ -25,13 +26,32 @@ class CollectStartRequest(BaseModel):
         None, description="鸿蒙匹配模式：fuzzy=设备端-PKG包名匹配；exact=定位PID后-PID精准采集"
     )
 
+    @model_validator(mode="after")
+    def validate_device_identity(self):
+        """开始采集时必须提供设备ID或设备IP。"""
+        if not (self.device_id and self.device_id.strip()) and not (
+            self.device_ip and self.device_ip.strip()
+        ):
+            raise ValueError("device_id 或 device_ip 必须提供")
+        return self
+
 
 class CollectStopRequest(BaseModel):
     """停止采集请求 Schema"""
     collect_id: Optional[str] = Field(None, description="采集记录ID（可选，不传则停止该设备所有采集）")
-    device_id: str = Field(..., description="设备ID")
+    device_id: Optional[str] = Field(None, description="设备ID；也可直接传设备IP")
+    device_ip: Optional[str] = Field(None, description="设备IP；与设备ID二选一")
     device_type: Optional[str] = Field(None, description="设备类型，由 EnvMachine 解析并透传给 Worker")
     device_sn: Optional[str] = Field(None, description="设备物理标识，鸿蒙为 HDC UDID")
+
+    @model_validator(mode="after")
+    def validate_device_identity(self):
+        """停止采集时必须提供设备ID或设备IP。"""
+        if not (self.device_id and self.device_id.strip()) and not (
+            self.device_ip and self.device_ip.strip()
+        ):
+            raise ValueError("device_id 或 device_ip 必须提供")
+        return self
 
 
 class CollectListRequest(BaseModel):

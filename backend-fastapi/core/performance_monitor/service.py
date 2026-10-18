@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 
 from fastapi import HTTPException
-from sqlalchemy import select, and_, desc, func, or_, update, String
+from sqlalchemy import delete, select, and_, desc, func, or_, update, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.base_service import BaseService
@@ -119,14 +119,17 @@ class PerformanceCollectService(BaseService):
         cls, db: AsyncSession, request: CollectStartRequest, device: Optional[EnvMachine] = None
     ) -> str:
         """开始采集"""
+        device_id = request.device_id
+        if not device_id:
+            raise ValueError("开始采集必须提供已解析的设备ID")
         # Worker 重启后可能残留 starting/stopping，先对账再创建
-        await cls.reconcile_stale_collects(db, request.device_id)
+        await cls.reconcile_stale_collects(db, device_id)
 
         # stopping 不再阻塞新采集：用户已点停止，允许立刻重开；旧任务标记 interrupted
         stopping = await db.execute(
             select(PerformanceCollect).where(
                 and_(
-                    PerformanceCollect.device_id == request.device_id,
+                    PerformanceCollect.device_id == device_id,
                     PerformanceCollect.status == "stopping",
                 )
             )
@@ -142,7 +145,7 @@ class PerformanceCollectService(BaseService):
         active = await db.execute(
             select(PerformanceCollect).where(
                 and_(
-                    PerformanceCollect.device_id == request.device_id,
+                    PerformanceCollect.device_id == device_id,
                     PerformanceCollect.status.in_(list(cls.COLLECTING_STATUSES)),
                 )
             ).order_by(desc(PerformanceCollect.start_time)).limit(1)
@@ -156,7 +159,7 @@ class PerformanceCollectService(BaseService):
         # 使用 timezone-aware UTC 时间
         start_time_utc = datetime.now(timezone.utc)
         collect = PerformanceCollect(
-            device_id=request.device_id,
+            device_id=device_id,
             start_time=start_time_utc.replace(tzinfo=None),  # 存储为 naive datetime（UTC）
             interval=request.interval,
             target_processes=request.target_processes,
@@ -350,6 +353,83 @@ class PerformanceCollectService(BaseService):
         collect.is_protected = is_protected
         await db.commit()
         return True
+
+    @classmethod
+    async def cleanup_expired_collects(
+        cls, db: AsyncSession, retention_days: int = 90, batch_size: int = 500
+    ) -> int:
+        """清理超过保留期的采集记录及关联数据，返回清理的采集记录数。"""
+        cutoff_time = datetime.utcnow() - timedelta(days=retention_days)
+        protected_version_result = await db.execute(
+            select(PerformanceVersion.collect_ids).where(
+                PerformanceVersion.is_protected.is_(True),
+                PerformanceVersion.is_deleted.is_(False),
+            )
+        )
+        protected_collect_ids = {
+            collect_id
+            for collect_ids in protected_version_result.scalars().all()
+            if isinstance(collect_ids, list)
+            for collect_id in collect_ids
+        }
+        deleted_count = 0
+
+        while True:
+            conditions = [
+                PerformanceCollect.start_time < cutoff_time,
+                PerformanceCollect.is_protected.is_(False),
+                PerformanceCollect.is_deleted.is_(False),
+                PerformanceCollect.status.notin_(list(cls.ACTIVE_STATUSES)),
+            ]
+            if protected_collect_ids:
+                conditions.append(PerformanceCollect.id.notin_(protected_collect_ids))
+
+            result = await db.execute(
+                select(PerformanceCollect.id)
+                .where(and_(*conditions))
+                .order_by(PerformanceCollect.start_time)
+                .limit(batch_size)
+            )
+            collect_ids = list(result.scalars().all())
+            if not collect_ids:
+                break
+
+            versions_result = await db.execute(
+                select(PerformanceVersion).where(
+                    PerformanceVersion.is_protected.is_(False),
+                    PerformanceVersion.is_deleted.is_(False),
+                )
+            )
+            for version in versions_result.scalars().all():
+                existing_ids = version.collect_ids if isinstance(version.collect_ids, list) else []
+                remaining_ids = [item for item in existing_ids if item not in collect_ids]
+                if len(remaining_ids) == len(existing_ids):
+                    continue
+                if remaining_ids:
+                    version.collect_ids = remaining_ids
+                    time_ranges = version.time_ranges if isinstance(version.time_ranges, dict) else {}
+                    version.time_ranges = {
+                        key: value
+                        for key, value in time_ranges.items()
+                        if key in remaining_ids
+                    }
+                else:
+                    await db.delete(version)
+
+            await db.execute(delete(PerformanceData).where(PerformanceData.collect_id.in_(collect_ids)))
+            await db.execute(delete(PerformanceTag).where(PerformanceTag.collect_id.in_(collect_ids)))
+            await db.execute(delete(PerformanceMarker).where(PerformanceMarker.collect_id.in_(collect_ids)))
+            await db.execute(delete(PerformanceCollect).where(PerformanceCollect.id.in_(collect_ids)))
+            await db.commit()
+            deleted_count += len(collect_ids)
+
+        if deleted_count:
+            logger.info(
+                "已清理超过 %s 天的性能采集历史，共 %s 条",
+                retention_days,
+                deleted_count,
+            )
+        return deleted_count
 
 
 class PerformanceDataService(BaseService):

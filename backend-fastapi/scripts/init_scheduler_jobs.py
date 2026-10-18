@@ -147,6 +147,19 @@ async def init_scheduler_jobs():
             'priority': 1,
             'remark': '清理30天前的登录日志',
         },
+        {
+            'name': '性能监控历史清理',
+            'code': 'performance_data_cleanup',
+            'description': '清理90天以前未受保护的性能采集记录及关联数据',
+            'group': 'performance_monitor',
+            'trigger_type': 'cron',
+            'cron_expression': '0 22 * * *',  # 每天22:00
+            'task_func': 'core.scheduler.tasks.cleanup_performance_data_task',
+            'task_kwargs': '{"days": 90}',
+            'status': 1,  # 启用
+            'priority': 1,
+            'remark': '受保护的采集记录和版本引用数据不会清理',
+        },
     ]
 
     async with AsyncSessionLocal() as db:

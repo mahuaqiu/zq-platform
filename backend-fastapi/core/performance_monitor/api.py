@@ -11,7 +11,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.database import get_db
 from core.performance_monitor.model import PerformanceCollect, PerformanceVersion, ExportTask
@@ -75,6 +75,53 @@ def _validate_optional_identity(
         raise HTTPException(status_code=400, detail="请求 device_sn 与 EnvMachine 不一致")
 
 
+async def _resolve_perf_device(
+    db: AsyncSession,
+    device_id: str | None,
+    device_ip: str | None = None,
+    device_sn: str | None = None,
+    device_type: str | None = None,
+) -> EnvMachine:
+    """兼容按设备ID或设备IP查找性能采集设备。"""
+    if device_id:
+        stmt = select(EnvMachine).where(
+            EnvMachine.id == device_id.strip(), EnvMachine.is_deleted.is_(False)
+        )
+        result = await db.execute(stmt)
+        device = result.scalar_one_or_none()
+        if device:
+            if device_ip and device_ip.strip() != device.ip:
+                raise HTTPException(status_code=400, detail="请求 device_ip 与设备记录不一致")
+            _validate_optional_identity(
+                device_type, device_sn,
+                (device.device_type or "").strip().lower(),
+                device.device_sn.strip() if device.device_sn else None,
+            )
+            return device
+
+    # 旧调用方可以直接把 IP 放在 device_id 字段；新调用方使用 device_ip。
+    ip = (device_ip or device_id or "").strip()
+    if not ip:
+        raise HTTPException(status_code=422, detail="device_id 或 device_ip 必须提供")
+
+    conditions = [EnvMachine.ip == ip, EnvMachine.is_deleted.is_(False)]
+    if device_sn and device_sn.strip():
+        conditions.append(EnvMachine.device_sn == device_sn.strip())
+    if device_type and device_type.strip():
+        conditions.append(func.lower(EnvMachine.device_type) == device_type.strip().lower())
+
+    result = await db.execute(select(EnvMachine).where(*conditions))
+    devices = result.scalars().all()
+    if not devices:
+        raise HTTPException(status_code=404, detail="未找到匹配的性能采集设备")
+    if len(devices) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail="设备IP匹配到多台设备，请补充 device_sn 或 device_type",
+        )
+    return devices[0]
+
+
 # ===== 进程列表 =====
 
 @router.get("/processes")
@@ -122,15 +169,15 @@ async def start_collect(
     快速返回：先落库 starting，再后台通知 Worker / 启动 Linux 任务。
     前端可立刻刷新状态并轮询首样本。
     """
-    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted.is_(False))
-    result = await db.execute(stmt)
-    device = result.scalar_one_or_none()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="设备不存在")
+    device = await _resolve_perf_device(
+        db, request.device_id, request.device_ip, request.device_sn, request.device_type
+    )
 
     device_type, device_sn = _validate_perf_device(device)
     _validate_optional_identity(request.device_type, request.device_sn, device_type, device_sn)
+    # 服务层和 Worker 仍使用平台内部稳定设备ID。
+    resolved_device_id = str(device.id)
+    request.device_id = resolved_device_id
 
     try:
         collect_id = await PerformanceCollectService.start_collect(db, request, device=device)
@@ -140,13 +187,13 @@ async def start_collect(
     if device_type == "linux":
         # Linux 启动依赖 SSH 校验，仍同步完成；真正采集循环已在后台线程。
         if not device.extra_message:
-            await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+            await PerformanceCollectService.stop_collect(db, collect_id, resolved_device_id)
             raise HTTPException(status_code=400, detail="Linux 设备缺少 SSH 认证信息（extra_message）")
 
         try:
             ssh_auth = await PerformanceCollectService.probe_ssh_connection(db, device, collect_id)
             started = start_linux_collect_task(
-                device_id=request.device_id,
+                device_id=resolved_device_id,
                 collect_id=collect_id,
                 interval=request.interval,
                 db_session_factory=None,
@@ -154,12 +201,12 @@ async def start_collect(
                 timeout=request.timeout,
             )
             if not started:
-                await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+                await PerformanceCollectService.stop_collect(db, collect_id, resolved_device_id)
                 raise HTTPException(status_code=400, detail="设备已有采集任务运行")
         except HTTPException:
             raise
         except Exception as e:
-            await PerformanceCollectService.stop_collect(db, collect_id, request.device_id)
+            await PerformanceCollectService.stop_collect(db, collect_id, resolved_device_id)
             if "validation error" in str(e).lower():
                 raise HTTPException(status_code=400, detail=f"SSH 认证信息格式错误: {e}")
             raise HTTPException(status_code=500, detail=f"启动 Linux 采集失败: {e}")
@@ -167,7 +214,7 @@ async def start_collect(
         # Windows/Harmony：异步通知 Worker，前端不再等待 Worker 创建 Monitor。
         background_tasks.add_task(
             notify_worker_start,
-            device_id=request.device_id,
+            device_id=resolved_device_id,
             collect_id=collect_id,
             interval=request.interval,
             timeout=request.timeout,
@@ -190,25 +237,25 @@ async def stop_collect(
     db: AsyncSession = Depends(get_db),
 ):
     """停止采集。先更新平台 stopping，再后台通知 Worker。"""
-    stmt = select(EnvMachine).where(EnvMachine.id == request.device_id, EnvMachine.is_deleted.is_(False))
-    result = await db.execute(stmt)
-    device = result.scalar_one_or_none()
-    if not device:
-        raise HTTPException(status_code=404, detail="设备不存在")
+    device = await _resolve_perf_device(
+        db, request.device_id, request.device_ip, request.device_sn, request.device_type
+    )
     device_type, device_sn = _validate_perf_device(device)
     _validate_optional_identity(request.device_type, request.device_sn, device_type, device_sn)
+    resolved_device_id = str(device.id)
+    request.device_id = resolved_device_id
 
-    success = await PerformanceCollectService.stop_collect(db, request.collect_id, request.device_id)
+    success = await PerformanceCollectService.stop_collect(db, request.collect_id, resolved_device_id)
     if request.collect_id and not success:
         raise HTTPException(status_code=404, detail="采集记录不存在或不属于指定设备")
 
     if device:
         if device_type == "linux":
-            stop_linux_collect_task(request.device_id)
+            stop_linux_collect_task(resolved_device_id)
         else:
             background_tasks.add_task(
                 notify_worker_stop,
-                device_id=request.device_id,
+                device_id=resolved_device_id,
                 collect_id=request.collect_id,
                 device_ip=device.ip,
                 device_port=device.port,
@@ -230,21 +277,17 @@ async def worker_event(request: WorkerTerminalEvent, db: AsyncSession = Depends(
 
 @router.get("/collect/status")
 async def get_collect_status(
-    device_id: str,
+    device_id: Optional[str] = Query(None, description="设备ID；也可直接传设备IP"),
+    device_ip: Optional[str] = Query(None, description="设备IP"),
     device_type: Optional[str] = Query(None, description="设备类型，由 EnvMachine 解析并透传给 Worker"),
     device_sn: Optional[str] = Query(None, description="设备物理标识，鸿蒙为 HDC UDID"),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取采集状态，并校验请求身份与 EnvMachine 一致。"""
-    stmt = select(EnvMachine).where(EnvMachine.id == device_id, EnvMachine.is_deleted.is_(False))
-    result = await db.execute(stmt)
-    device = result.scalar_one_or_none()
-    if not device:
-        raise HTTPException(status_code=404, detail="设备不存在")
-
+    """按设备ID或IP获取采集状态，并校验请求身份。"""
+    device = await _resolve_perf_device(db, device_id, device_ip, device_sn, device_type)
     registered_type, registered_sn = _validate_perf_device(device)
     _validate_optional_identity(device_type, device_sn, registered_type, registered_sn)
-    status = await PerformanceCollectService.get_collect_status(db, device_id)
+    status = await PerformanceCollectService.get_collect_status(db, str(device.id))
     return status
 
 
