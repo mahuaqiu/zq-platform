@@ -25,6 +25,8 @@ export function useWebSocket() {
   const fps = ref(0);
   const closeInfo = ref<null | WebSocketCloseInfo>(null);
   const errorMessage = ref('');
+  const waitingUnlock = ref(false);
+  const hasReceivedFrame = ref(false);
 
   // 是否为用户主动点击"断开"。主动断开的语义是完全断开：画面清空、
   // 操作禁用、通知 Worker 停止常驻会话；而推流失败导致的断开仍保留
@@ -118,6 +120,14 @@ export function useWebSocket() {
 
   function fallbackToJpeg(reason: string): void {
     if (fallbackRequestInProgress || savedCodec === 'jpeg') return;
+    if (
+      savedDeviceType === 'harmony_pc' &&
+      /锁屏|解锁后|locked/i.test(reason)
+    ) {
+      waitingUnlock.value = true;
+      console.info('[WebSocket] 鸿蒙 PC 仍处于锁屏等待阶段，解锁后将重新连接 H.264');
+      return;
+    }
     fallbackRequestInProgress = true;
     console.warn(`[WebSocket] H264 fallback to JPEG: ${reason}`);
     videoMode.value = false;
@@ -236,6 +246,8 @@ export function useWebSocket() {
     // 新连接重置坐标基准来源：未收到 meta 前回退用推流尺寸（兼容非鸿蒙平台）。
     hasMeta = false;
     realtimeInput.value = false;
+    waitingUnlock.value = false;
+    hasReceivedFrame.value = false;
 
     // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
     console.log(
@@ -314,6 +326,8 @@ export function useWebSocket() {
       }
 
       const frameType = detectFrameType(arrayBuffer);
+      hasReceivedFrame.value = true;
+      waitingUnlock.value = false;
       switch (frameType) {
         case FrameType.H264: {
           mseDecoder.feedFrame(arrayBuffer, receivedAt);
@@ -373,9 +387,11 @@ export function useWebSocket() {
             return;
           }
           if (meta && meta.type === 'waiting_unlock') {
-            // 鸿蒙设备锁屏时 worker 会等待解锁（最长 300s）后才推流，
-            // 必须显式提示，否则页面表现为无任何反馈的静默黑屏。
-            ElMessage.warning(meta.message || '设备已锁屏，解锁后自动开始推流');
+            // 鸿蒙设备锁屏时 Worker 会等待解锁后再推流，持续显示锁屏说明。
+            waitingUnlock.value = true;
+            if (deviceType !== 'harmony_pc') {
+              ElMessage.warning(meta.message || '设备已锁屏，解锁后自动开始推流');
+            }
             return;
           }
           if (
@@ -539,6 +555,8 @@ export function useWebSocket() {
     videoEl.value = null;
 
     status.value = 'disconnected';
+    waitingUnlock.value = false;
+    hasReceivedFrame.value = false;
   }
 
   /**
@@ -601,6 +619,8 @@ export function useWebSocket() {
     fps,
     closeInfo,
     errorMessage,
+    waitingUnlock,
+    hasReceivedFrame,
     videoMode,
     realtimeInput,
     connect,

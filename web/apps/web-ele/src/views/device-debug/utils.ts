@@ -153,7 +153,8 @@ export function formatHistoryDisplay(
     case 'click': {
       return `点击(${params.x}, ${params.y})`;
     }
-    case 'input': {
+    case 'input':
+    case 'paste': {
       const text = params.text || '';
       return `输入"${text.length > 10 ? `${text.slice(0, 10)}...` : text}"`;
     }
@@ -177,7 +178,7 @@ export function formatHistoryDisplay(
 
 /**
  * 格式化设备调试页 Tab 标题
- * - Windows/Mac: 显示完整 IP（如 192.168.0.102）
+ * - Windows/Mac: 显示完整 IP 和 SN，区分多个远程窗口
  * - iOS/Android: 显示 IP 后两位 + SN 后 4 位（如 0.102-5554）
  */
 export function formatDeviceDebugTitle(
@@ -188,8 +189,8 @@ export function formatDeviceDebugTitle(
   if (!ip) return '设备调试';
 
   if (isDesktopDevice(deviceType)) {
-    // Windows/Mac 显示完整 IP
-    return ip;
+    // 桌面设备标题同时显示完整 IP 和 SN，方便区分多个窗口。
+    return deviceSn ? `${ip} - ${deviceSn}` : ip;
   }
 
   // iOS/Android: IP 后两位 + SN 后 4 位

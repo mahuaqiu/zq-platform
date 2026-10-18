@@ -259,6 +259,11 @@ export function useDeviceAction(deviceId: string) {
     return executeOperation('input', { x: 0, y: 0, text });
   }
 
+  /** 在当前焦点位置粘贴文本，不附带坐标点击。 */
+  async function pasteText(text: string): Promise<boolean> {
+    return executeOperation('paste', { text });
+  }
+
   /**
    * 按键操作
    */
@@ -323,6 +328,7 @@ export function useDeviceAction(deviceId: string) {
     rightClick,
     swipe,
     inputText,
+    pasteText,
     pressKey,
     unlockScreen,
     screenshot,

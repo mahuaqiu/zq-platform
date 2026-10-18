@@ -17,6 +17,9 @@ interface Props {
   dragEnd: null | { x: number; y: number };
   /** 渲染模式：H264(MSE) 时为 true，渲染 <video>；JPEG/MJPEG 时为 false，渲染 <img> */
   videoMode?: boolean;
+  streamHint?: string;
+  streamBusy?: boolean;
+  keyboardHint?: string;
 }
 
 interface Emits {
@@ -175,9 +178,31 @@ onUnmounted(() => {
           @wheel="handleWheel"
           @contextmenu="handleContextMenu"
         />
-        <div v-else class="screen-placeholder">
+        <div
+          v-else
+          class="screen-placeholder"
+          :class="{ 'screen-placeholder--status': props.streamHint }"
+        >
+          <span v-if="props.streamBusy" class="stream-spinner"></span>
           <div class="placeholder-icon">🖥</div>
-          <div class="placeholder-text">实时屏幕推流画面</div>
+          <div class="placeholder-text">
+            {{ props.streamHint || '实时屏幕推流画面' }}
+          </div>
+        </div>
+
+        <div
+          v-if="props.videoMode && props.streamHint"
+          class="stream-hint-overlay"
+        >
+          <div class="stream-hint-card">
+            <span v-if="props.streamBusy" class="stream-spinner"></span>
+            <div class="placeholder-icon">🖥</div>
+            <div class="placeholder-text">{{ props.streamHint }}</div>
+          </div>
+        </div>
+
+        <div v-if="props.keyboardHint" class="keyboard-hint">
+          ⌨ {{ props.keyboardHint }}
         </div>
 
         <!-- 点击指示器 -->
@@ -279,6 +304,71 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: #e8e8e8;
+}
+
+.screen-placeholder--status {
+  width: 100%;
+  height: 100%;
+  padding: 32px;
+  color: #f3f4f6;
+  text-align: center;
+  background: #101318;
+}
+
+.stream-hint-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgb(10 13 18 / 58%);
+}
+
+.stream-hint-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  max-width: min(640px, 80%);
+  padding: 28px 36px;
+  color: #f3f4f6;
+  text-align: center;
+  background: rgb(20 24 31 / 94%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 35%);
+}
+
+.stream-spinner {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgb(255 255 255 / 24%);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: stream-spin 0.8s linear infinite;
+}
+
+.keyboard-hint {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #f9fafb;
+  pointer-events: none;
+  background: rgb(17 24 39 / 82%);
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+}
+
+@keyframes stream-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .placeholder-icon {

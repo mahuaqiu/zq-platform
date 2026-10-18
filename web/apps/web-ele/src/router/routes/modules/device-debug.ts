@@ -10,6 +10,17 @@ const routes: RouteRecordRaw[] = [
       hideInMenu: true,
     },
   },
+  {
+    path: '/device-debug-window/:deviceId',
+    name: 'DeviceDebugWindow',
+    component: () => import('#/views/device-debug/index.vue'),
+    meta: {
+      title: '设备远程操作',
+      hideInMenu: true,
+      hideInTab: true,
+      noBasicLayout: true,
+    },
+  },
 ];
 
 export default routes;

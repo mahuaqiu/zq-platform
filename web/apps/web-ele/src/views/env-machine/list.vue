@@ -56,7 +56,6 @@ import { DEVICE_TYPE_OPTIONS, supportsWorkerLog } from './types';
 
 defineOptions({ name: 'EnvMachineList' });
 
-// 路由
 const router = useRouter();
 
 // 命名空间 Store
@@ -138,9 +137,23 @@ function handleFiles(row: EnvMachine) {
   filesDialogVisible.value = true;
 }
 
-// 打开调试页面
+// 为每台设备打开独立浏览器弹窗，设备列表页面保持原样。
 function handleDebug(row: EnvMachine) {
-  router.push(`/device-debug/${row.id}`);
+  const url = router.resolve({
+    name: 'DeviceDebugWindow',
+    params: { deviceId: row.id },
+    query: { remotePopup: '1' },
+  }).href;
+  const popup = window.open(
+    url,
+    `remote-device-${row.id}`,
+    'popup=yes,width=1600,height=1000,resizable=yes,scrollbars=yes',
+  );
+  if (!popup) {
+    ElMessage.error('远程窗口被浏览器拦截，请允许本站弹出窗口后重试');
+    return;
+  }
+  popup.focus();
 }
 
 // 验证 JSON 格式（解析与空格清理统一走 modules/common）

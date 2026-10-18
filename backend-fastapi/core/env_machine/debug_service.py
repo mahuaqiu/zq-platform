@@ -74,7 +74,7 @@ class DebugActionService:
         - click: 点击坐标
         - double_click: 双击坐标
         - swipe: 滑动操作
-        - input: 文本输入
+        - input/paste: 文本输入和当前焦点粘贴
         - press: 按键操作
 
         流程：
@@ -156,6 +156,8 @@ class DebugActionService:
             if monitor:
                 action["monitor"] = monitor
             actions.append(action)
+        elif action_type == "paste":
+            actions.append({"action_type": "paste", "text": params.get("text")})
         elif action_type == "press":
             actions.append({"action_type": "press", "key": params.get("key")})
         elif action_type == "unlock_screen":

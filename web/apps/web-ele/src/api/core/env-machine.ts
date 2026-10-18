@@ -177,6 +177,7 @@ export interface DebugActionParams {
     | 'click'
     | 'double_click'
     | 'input'
+    | 'paste'
     | 'press'
     | 'release_session'
     | 'right_click'

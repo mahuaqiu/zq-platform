@@ -10,6 +10,7 @@ import { isDesktopDevice } from '../utils';
 interface Props {
   deviceType: string;
   assetNumber: string;
+  deviceIp?: string;
   deviceSn?: string;
   resolution?: string;
   wsStatus: WebSocketStatus;
@@ -20,6 +21,8 @@ interface Props {
   navbarFixed?: boolean; // 新增：导航栏是否固定
   deviceModel?: string; // 设备型号（如 iPhone 15 Pro）
   osVersion?: string; // 系统版本（如 iOS 17.2、Windows 11 Pro）
+  showKeypress?: boolean;
+  showInput?: boolean;
 }
 
 interface Emits {
@@ -33,7 +36,10 @@ interface Emits {
   (e: 'screenChange', screenIndex: number): void; // 新增：屏幕切换
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showKeypress: true,
+  showInput: true,
+});
 const emit = defineEmits<Emits>();
 
 const isDesktop = computed(() => isDesktopDevice(props.deviceType));
@@ -83,16 +89,25 @@ const deviceDisplayName = computed(() => {
   return props.assetNumber;
 });
 
-// 设备详情显示：系统版本 + 分辨率
+// 同时显示资产编号、序列号、IP 和屏幕信息，方便区分多个远程设备。
 const deviceDetailDisplay = computed(() => {
   const parts: string[] = [];
+  if (props.assetNumber) {
+    parts.push(`资产 ${props.assetNumber}`);
+  }
+  if (props.deviceSn) {
+    parts.push(`SN ${props.deviceSn}`);
+  }
+  if (props.deviceIp) {
+    parts.push(`IP ${props.deviceIp}`);
+  }
   if (props.osVersion) {
     parts.push(props.osVersion);
   }
   if (props.resolution) {
     parts.push(props.resolution);
   }
-  return parts.join(' | ') || props.deviceSn || '未知设备';
+  return parts.join(' | ') || '未知设备';
 });
 
 function handleBack() {
@@ -132,7 +147,9 @@ function handleScreenshot() {
       <span class="device-icon">{{ isDesktop ? '💻' : '📱' }}</span>
       <div class="device-info">
         <div class="device-name">{{ deviceDisplayName }}</div>
-        <div class="device-meta">{{ deviceDetailDisplay }}</div>
+        <div class="device-meta" :title="deviceDetailDisplay">
+          {{ deviceDetailDisplay }}
+        </div>
       </div>
       <ElTag type="success" size="small" class="online-tag">在线</ElTag>
       <!-- 坐标显示占位容器 -->
@@ -145,10 +162,18 @@ function handleScreenshot() {
 
     <!-- 中间操作按钮（桌面端） -->
     <div v-if="isDesktop" class="navbar-center">
-      <button class="toolbar-btn light" @click="handleKeyPress">
+      <button
+        v-if="props.showKeypress"
+        class="toolbar-btn light"
+        @click="handleKeyPress"
+      >
         ⌨ 按键操作
       </button>
-      <button class="toolbar-btn light" @click="handleInput">
+      <button
+        v-if="props.showInput"
+        class="toolbar-btn light"
+        @click="handleInput"
+      >
         📝 输入文本
       </button>
       <button

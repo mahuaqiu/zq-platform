@@ -42,7 +42,9 @@ function handleCancel() {
     :close-on-click-modal="false"
   >
     <div class="unlock-content">
-      <div class="unlock-tip">如果设备无密码锁，可直接解锁</div>
+      <div class="unlock-tip">
+        输入密码后 Worker 会执行解锁；成功后远程画面会自动恢复。
+      </div>
       <ElInput
         v-model="password"
         placeholder="输入解锁密码（可选）"
