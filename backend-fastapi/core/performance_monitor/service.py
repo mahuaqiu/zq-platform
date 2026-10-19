@@ -30,7 +30,7 @@ from core.performance_monitor.schema import (
     MetricMappingCreate, MetricMappingUpdate,
     MarkerCreate, MarkerUpdate, AdvancedMetricsQuery,
     DataResponse, CollectResponse, ExportTaskCreate,
-    LinuxAuthInfo
+    LinuxAuthInfo, format_timestamp_utc_milliseconds
 )
 from core.performance_monitor.compare_schema import CompareTagCreate, CompareTagUpdate
 from utils.excel import SummaryData, DetailData, ExcelHandler, TEMP_EXPORTS_DIR
@@ -586,7 +586,7 @@ class PerformanceDataService(BaseService):
         """获取采集数据"""
         stmt = select(PerformanceData).where(
             PerformanceData.collect_id == collect_id
-        ).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
+        ).order_by(PerformanceData.timestamp, PerformanceData.sequence)
 
         # 计算总数
         count_stmt = select(func.count()).select_from(PerformanceData).where(PerformanceData.collect_id == collect_id)
@@ -605,7 +605,7 @@ class PerformanceDataService(BaseService):
         """获取最新数据"""
         stmt = select(PerformanceData).where(
             PerformanceData.collect_id == collect_id
-        ).order_by(desc(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000)), desc(PerformanceData.sequence), desc(PerformanceData.relative_time)).limit(limit)
+        ).order_by(PerformanceData.timestamp.desc(), PerformanceData.sequence.desc()).limit(limit)
         result = await db.execute(stmt)
         items = result.scalars().all()
         return list(reversed(items))
@@ -633,7 +633,7 @@ class PerformanceDataService(BaseService):
 
         stmt = select(PerformanceData).where(
             and_(*conditions)
-        ).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
+        ).order_by(PerformanceData.timestamp, PerformanceData.sequence)
         result = await db.execute(stmt)
         items = result.scalars().all()
         return items
@@ -736,7 +736,7 @@ class PerformanceDataService(BaseService):
         # 查询数据
         stmt = select(PerformanceData).where(
             and_(*conditions)
-        ).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
+        ).order_by(PerformanceData.timestamp, PerformanceData.sequence)
         result = await db.execute(stmt)
         items = result.scalars().all()
 
@@ -783,6 +783,7 @@ class PerformanceDataService(BaseService):
                     value = getattr(item, field_name, None)
                     if value is not None:
                         metrics_data[key]["data"].append({
+                            "timestamp": format_timestamp_utc_milliseconds(item.timestamp),
                             "relative_time": item.relative_time,
                             "value": value
                         })
@@ -800,6 +801,7 @@ class PerformanceDataService(BaseService):
                         else:
                             value = value_info
                         metrics_data[key]["data"].append({
+                            "timestamp": format_timestamp_utc_milliseconds(item.timestamp),
                             "relative_time": item.relative_time,
                             "value": value
                         })
@@ -924,7 +926,7 @@ class PerformanceVersionService(BaseService):
                     collect = await db.get(PerformanceCollect, cid)
                     if collect:
                         # 获取该采集的数据，并根据时间范围筛选
-                        stmt = select(PerformanceData).where(PerformanceData.collect_id == cid).order_by(func.coalesce(PerformanceData.elapsed_ms, PerformanceData.relative_time * 1000), PerformanceData.sequence, PerformanceData.relative_time)
+                        stmt = select(PerformanceData).where(PerformanceData.collect_id == cid).order_by(PerformanceData.timestamp, PerformanceData.sequence)
                         result = await db.execute(stmt)
                         all_data = result.scalars().all()
 

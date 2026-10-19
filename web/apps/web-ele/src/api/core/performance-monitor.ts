@@ -182,7 +182,7 @@ export interface MetricTimeSeries {
   hwinfo_key: string;
   display_name?: string;
   unit?: string;
-  data: { relative_time: number; value: number }[];
+  data: { timestamp: string; relative_time: number; value: number }[];
 }
 
 export interface AdvancedMetricsResponse {

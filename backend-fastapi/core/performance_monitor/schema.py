@@ -9,6 +9,15 @@ from typing import Any, Dict, List, Optional, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 
+def format_timestamp_utc_milliseconds(value: datetime) -> str:
+    """将采样时间格式化为带毫秒精度和 Z 后缀的 UTC 字符串。"""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
 # ===== 请求 Schema =====
 
 
@@ -343,15 +352,18 @@ class DataResponse(BaseModel):
     sys_create_datetime: Optional[datetime] = Field(None, description="创建时间")
     sys_update_datetime: Optional[datetime] = Field(None, description="更新时间")
 
-    @field_serializer('timestamp', 'sys_create_datetime', 'sys_update_datetime')
-    def serialize_datetime_as_utc(self, value: Optional[datetime]) -> Optional[str]:
-        """将 naive datetime 序列化为带 Z 后缀的 UTC 格式"""
+    @field_serializer('timestamp')
+    def serialize_timestamp_as_utc(self, value: datetime) -> str:
+        """将采样时间序列化为带毫秒精度和 Z 后缀的 UTC 格式"""
+        return format_timestamp_utc_milliseconds(value)
+
+    @field_serializer('sys_create_datetime', 'sys_update_datetime')
+    def serialize_metadata_datetime_as_utc(self, value: Optional[datetime]) -> Optional[str]:
+        """将记录元数据时间序列化为带 Z 后缀的 UTC 格式"""
         if value is None:
             return None
-        # 如果是 naive datetime，视为 UTC，添加 Z 后缀
         if value.tzinfo is None:
             return value.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
-        # 如果是 aware datetime，转换为 UTC 后序列化
         return value.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
 
     model_config = ConfigDict(from_attributes=True)
