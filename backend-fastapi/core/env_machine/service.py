@@ -571,7 +571,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
                 case((EnvMachine.extra_message.is_not(None), 1), else_=0).desc(),
                 EnvMachine.available.desc(),
                 EnvMachine.sys_update_datetime.desc(),
-            )
+            ).execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
 
@@ -596,6 +596,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
                 EnvMachine.available.desc(),
                 EnvMachine.sys_update_datetime.desc(),
             )
+            .execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
 
@@ -1064,6 +1065,7 @@ async def _get_registration_machine(
     ip: str,
     device_type: str,
     device_sn: Optional[str],
+    cache_removals: set[tuple[str, str]],
 ) -> Optional[EnvMachine]:
     """获取注册主记录，并合并切换命名空间产生的历史重复记录。
 
@@ -1121,11 +1123,13 @@ async def _get_registration_machine(
             # 采纳重复记录的在用状态（唯一写入口校验并同步缓存）
             from core.env_machine.state_service import MachineStateService
             await MachineStateService.transition(
-                db, primary, "using", source="register_merge"
+                db,
+                primary,
+                "using",
+                source="register_merge",
+                sync_cache=False,
             )
-        await EnvPoolManager.remove_machine_from_cache(
-            str(duplicate.id), duplicate.namespace
-        )
+        cache_removals.add((str(duplicate.id), duplicate.namespace))
         await db.delete(duplicate)
         logger.warning(
             "合并重复执行机记录: primary_id=%s, duplicate_id=%s, ip=%s, device_type=%s",
@@ -1180,6 +1184,7 @@ async def _register_env_machine(
     """
     now = datetime.now()
     has_upgrading_machine = False  # 标记是否有从 upgrading 变为 online 的机器
+    cache_removals: set[tuple[str, str]] = set()
 
     try:
         # 遍历 devices 字典
@@ -1190,7 +1195,8 @@ async def _register_env_machine(
                     db,
                     ip=data.ip,
                     device_type=device_type,
-                    device_sn=None
+                    device_sn=None,
+                    cache_removals=cache_removals,
                 )
 
                 if existing_machine:
@@ -1214,7 +1220,11 @@ async def _register_env_machine(
                     if existing_machine.status != "using":
                         from core.env_machine.state_service import MachineStateService
                         await MachineStateService.transition(
-                            db, existing_machine, "online", source="register"
+                            db,
+                            existing_machine,
+                            "online",
+                            source="register",
+                            sync_cache=False,
                         )
                         # 标记是否有从 upgrading 变为 online 的机器
                         if old_status == "upgrading":
@@ -1223,9 +1233,7 @@ async def _register_env_machine(
                         # using 状态保持不变，记录日志
                         logger.info(f"机器正在使用中，保持状态: id={existing_machine.id}, ip={data.ip}, device_type={device_type}")
                     if old_namespace != data.namespace:
-                        await EnvPoolManager.remove_machine_from_cache(
-                            str(existing_machine.id), old_namespace
-                        )
+                        cache_removals.add((str(existing_machine.id), old_namespace))
                 else:
                     # 不存在则插入
                     new_machine = EnvMachine(
@@ -1265,7 +1273,8 @@ async def _register_env_machine(
                         db,
                         ip=data.ip,
                         device_type=device_type,
-                        device_sn=device_sn
+                        device_sn=device_sn,
+                        cache_removals=cache_removals,
                     )
 
                     if existing_machine:
@@ -1289,7 +1298,11 @@ async def _register_env_machine(
                         if existing_machine.status != "using":
                             from core.env_machine.state_service import MachineStateService
                             await MachineStateService.transition(
-                                db, existing_machine, "online", source="register"
+                                db,
+                                existing_machine,
+                                "online",
+                                source="register",
+                                sync_cache=False,
                             )
                             # 标记是否有从 upgrading 变为 online 的机器
                             if old_status == "upgrading":
@@ -1298,9 +1311,7 @@ async def _register_env_machine(
                             # using 状态保持不变，记录日志
                             logger.info(f"机器正在使用中，保持状态: id={existing_machine.id}, ip={data.ip}, device_type={device_type}, device_sn={device_sn}")
                         if old_namespace != data.namespace:
-                            await EnvPoolManager.remove_machine_from_cache(
-                                str(existing_machine.id), old_namespace
-                            )
+                            cache_removals.add((str(existing_machine.id), old_namespace))
                     else:
                         # 不存在则插入
                         new_machine = EnvMachine(
@@ -1320,6 +1331,10 @@ async def _register_env_machine(
 
         # 提交数据库更改
         await db.commit()
+
+        # DB 提交成功后再移除旧池和已合并记录的缓存，避免事务回滚后丢失可申请设备。
+        for machine_id, old_namespace in cache_removals:
+            await EnvPoolManager.remove_machine_from_cache(machine_id, old_namespace)
 
         # 如果有从 upgrading 变为 online 的机器，触发队列处理
         if has_upgrading_machine:

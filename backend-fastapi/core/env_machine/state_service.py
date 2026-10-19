@@ -54,6 +54,7 @@ class MachineStateService:
         new_status: str,
         *,
         source: str,
+        sync_cache: bool = True,
     ) -> TransitionResult:
         """机器状态唯一写入口。失败不抛异常，由调用方按原分支语义处理。
 
@@ -62,6 +63,7 @@ class MachineStateService:
             machine: EnvMachine ORM 对象
             new_status: 目标状态
             source: 触发来源标识（allocate/release/register/offline_check 等），用于日志追踪
+            sync_cache: 是否立即同步 Redis；跨 DB 事务写入时可关闭，提交后再同步
         """
         previous = machine.status
         if not validate_transition(previous, new_status):
@@ -76,7 +78,8 @@ class MachineStateService:
             "机器状态转移: machine_id=%s, %s -> %s, source=%s",
             machine.id, previous, new_status, source,
         )
-        # 统一缓存收尾：sync_machine_to_cache 自带幂等准入规则，
-        # 等价于原先各写点自行调用的 sync/remove 两种收尾
-        await EnvPoolManager.sync_machine_to_cache(machine)
+        if sync_cache:
+            # 默认兼容现有调用；需要确保 DB 提交后再写缓存的流程应传 False，
+            # 并在提交成功后自行同步缓存。
+            await EnvPoolManager.sync_machine_to_cache(machine)
         return TransitionResult(True, previous, new_status)

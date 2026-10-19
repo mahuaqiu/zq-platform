@@ -200,7 +200,14 @@ class EnvLockManager:
     async def acquire_lock_keys(cls, lock_keys: list[str]) -> tuple[bool, str, list[str]]:
         """按固定顺序获取一组 Redis 锁。"""
         holder_id = str(uuid.uuid4())
-        locks_to_acquire = sorted(set(lock_keys))
+        # 注册锁必须先于设备池锁，和注册/申请流程保持一致，避免启动全量重建时反向拿锁。
+        locks_to_acquire = sorted(
+            set(lock_keys),
+            key=lambda lock_key: (
+                lock_key != cls.REGISTRATION_LOCK_KEY,
+                lock_key,
+            ),
+        )
 
         start_time = time.monotonic()
 

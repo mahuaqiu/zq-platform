@@ -7,9 +7,11 @@
 @File: pool_manager.py
 @Desc: 执行机池缓存管理器 - Redis 缓存操作和机器分配逻辑
 """
+import asyncio
 import json
 import re
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from typing import Optional
 
 from redis.asyncio import Redis
@@ -173,38 +175,91 @@ class EnvPoolManager:
     @classmethod
     async def load_machine_pool(cls, db: AsyncSession) -> None:
         """
-        服务启动时加载机器池到 Redis
+        服务启动时按数据库完整重建机器池 Redis 缓存
 
-        查询所有 online + 启用的机器，按 namespace 存入 Redis
+        先锁住注册流程和涉及的机器池，避免重建期间申请/注册并发修改缓存；
+        再用数据库中 online 且启用的机器替换旧缓存，清除上次运行留下的失效条目。
 
         Args:
             db: 数据库会话
         """
-        # 查询所有 online 且启用的机器
-        stmt = select(EnvMachine).where(
-            EnvMachine.status == "online",
-            EnvMachine.available.is_(True),
-            EnvMachine.is_deleted.is_(False),
-            EnvMachine.namespace != cls.MANUAL_NAMESPACE,
-        )
-        result = await db.execute(stmt)
-        machines = result.scalars().all()
-
         client = await cls._get_redis_client()
+        pool_key_prefix = cache._make_key(cls.POOL_PREFIX)
 
-        # 按 namespace 分组
-        namespace_machines: dict[str, dict[str, str]] = {}
-        for machine in machines:
-            ns = machine.namespace
-            if ns not in namespace_machines:
-                namespace_machines[ns] = {}
-            namespace_machines[ns][str(machine.id)] = cls._machine_to_cache_value(machine)
+        async def discover_namespaces() -> set[str]:
+            namespace_result = await db.execute(
+                select(EnvMachine.namespace).where(EnvMachine.namespace.is_not(None)).distinct()
+            )
+            namespaces = {name for name in namespace_result.scalars().all() if name}
+            async for key in client.scan_iter(match=f"{pool_key_prefix}*"):
+                if key.startswith(pool_key_prefix):
+                    namespace = key[len(pool_key_prefix):]
+                    if namespace:
+                        namespaces.add(namespace)
+            return namespaces
 
-        # 批量写入 Redis
-        for namespace, machine_data in namespace_machines.items():
-            pool_key = cls._get_pool_key(namespace)
-            if machine_data:
-                await client.hset(pool_key, mapping=machine_data)
+        # 先拿注册锁，再锁住所有已知机器池。锁到位后重新检查命名空间集合，
+        # 防止锁列表生成期间恰好注册出一个新 namespace。
+        lock_wait_deadline = time.monotonic() + EnvLockManager.LOCK_TTL + 35
+        while True:
+            namespaces = await discover_namespaces()
+            pool_lock_keys = {
+                lock_key
+                for namespace in namespaces
+                for lock_key in EnvLockManager._get_required_locks(namespace)
+            }
+            requested_locks = [EnvLockManager.REGISTRATION_LOCK_KEY, *pool_lock_keys]
+            acquired, holder_id, acquired_locks = await EnvLockManager.acquire_lock_keys(
+                requested_locks
+            )
+            if not acquired:
+                if time.monotonic() >= lock_wait_deadline:
+                    raise LockAcquireError("重建设备池缓存时获取 Redis 锁超时")
+                # 异常退出的旧进程无法主动释放锁，等待其 TTL 到期后再重试。
+                await asyncio.sleep(1)
+                continue
+
+            current_namespaces = await discover_namespaces()
+            current_pool_lock_keys = {
+                lock_key
+                for namespace in current_namespaces
+                for lock_key in EnvLockManager._get_required_locks(namespace)
+            }
+            if current_pool_lock_keys.issubset(pool_lock_keys):
+                break
+
+            await EnvLockManager.release_env_locks(holder_id, acquired_locks)
+
+        async with EnvLockManager._hold_locks(acquired_locks, holder_id):
+            # 锁持有期间重新读取 DB，确保快照不会覆盖申请或释放的结果。
+            stmt = select(EnvMachine).where(
+                EnvMachine.status == "online",
+                EnvMachine.available.is_(True),
+                EnvMachine.is_deleted.is_(False),
+                EnvMachine.namespace != cls.MANUAL_NAMESPACE,
+            )
+            result = await db.execute(stmt)
+            machines = result.scalars().all()
+
+            # 按 namespace 分组
+            namespace_machines: dict[str, dict[str, str]] = {}
+            for machine in machines:
+                ns = machine.namespace
+                if ns not in namespace_machines:
+                    namespace_machines[ns] = {}
+                namespace_machines[ns][str(machine.id)] = cls._machine_to_cache_value(machine)
+
+            # 一次 Redis 事务替换全部池，避免先清空后逐池写入时暴露半成品缓存。
+            old_pool_keys = []
+            async for key in client.scan_iter(match=f"{pool_key_prefix}*"):
+                old_pool_keys.append(key)
+            pipe = client.pipeline(transaction=True)
+            for key in old_pool_keys:
+                pipe.delete(key)
+            for namespace, machine_data in namespace_machines.items():
+                if machine_data:
+                    pipe.hset(cls._get_pool_key(namespace), mapping=machine_data)
+            await pipe.execute()
 
         logger.info(f"执行机池加载完成 | 机器数: {len(machines)}")
 
@@ -592,13 +647,39 @@ class EnvPoolManager:
 
                 stmt = (
                     update(EnvMachine)
-                    .where(EnvMachine.id.in_(allocated_machine_ids))
+                    .where(
+                        EnvMachine.id.in_(allocated_machine_ids),
+                        EnvMachine.namespace.in_(pool_hierarchy),
+                        EnvMachine.status == "online",
+                        EnvMachine.available.is_(True),
+                        EnvMachine.is_deleted.is_(False),
+                    )
                     .values(
                         status="using",
                         last_keepusing_time=now,
                     )
                 )
-                await db.execute(stmt)
+                reserve_result = await db.execute(stmt)
+                if reserve_result.rowcount != len(allocated_machine_ids):
+                    # Redis 可能残留旧候选；DB 条件更新失败时整单回滚，
+                    # 再按 DB 当前状态修复这些候选，绝不返回未成功占用的设备。
+                    await db.rollback()
+                    current_result = await db.execute(
+                        select(EnvMachine).where(
+                            EnvMachine.id.in_(allocated_machine_ids)
+                        )
+                    )
+                    current_machines = {
+                        str(machine.id): machine
+                        for machine in current_result.scalars().all()
+                    }
+                    for machine_id in allocated_machine_ids:
+                        for pool_ns in pool_hierarchy:
+                            await cls.remove_machine_from_cache(machine_id, pool_ns)
+                        current_machine = current_machines.get(machine_id)
+                        if current_machine:
+                            await cls.sync_machine_to_cache(current_machine)
+                    return False, "设备状态已变化，请重试申请"
 
                 # 8.2 记录申请成功日志
                 for user, allocated in allocations.items():
@@ -619,10 +700,18 @@ class EnvPoolManager:
                 await db.commit()
 
                 # 9. 更新 Redis 缓存（移除已分配的机器）
-                for machine_id in allocated_machine_ids:
-                    # 从所有涉及的池中移除
-                    for pool_ns in pool_hierarchy:
-                        await cls.remove_machine_from_cache(machine_id, pool_ns)
+                try:
+                    for machine_id in allocated_machine_ids:
+                        # 从所有涉及的池中移除
+                        for pool_ns in pool_hierarchy:
+                            await cls.remove_machine_from_cache(machine_id, pool_ns)
+                except Exception:
+                    # DB 已成功占用；缓存删除失败不能让调用方误以为申请失败并重试。
+                    # 后续申请会由 DB 条件更新拒绝旧缓存，并在失败分支修复缓存。
+                    logger.exception(
+                        "设备已写入 using，但从 Redis 池移除失败 | machine_ids=%s",
+                        allocated_machine_ids,
+                    )
 
                 # 申请成功汇总日志
                 logger.info(
@@ -642,7 +731,57 @@ class EnvPoolManager:
         cls,
         db: AsyncSession,
         machine_id: str,
+        namespace: Optional[str] = None,
+        *,
+        source: str = "release",
+    ) -> tuple[bool, str]:
+        """按 DB 中设备当前命名空间加池锁，避免与申请、注册并发交错。"""
+        registration_success, registration_holder, registration_locks = (
+            await EnvLockManager.acquire_lock_keys(
+                [EnvLockManager.REGISTRATION_LOCK_KEY]
+            )
+        )
+        if not registration_success:
+            return False, "获取设备注册锁超时，请重试"
+
+        try:
+            machine_result = await db.execute(
+                select(EnvMachine)
+                .where(EnvMachine.id == machine_id)
+                .execution_options(populate_existing=True)
+            )
+            machine = machine_result.scalar_one_or_none()
+            if not machine:
+                return False, "机器不存在"
+
+            # 命名空间可能已在接口预读后被注册更新；以锁内 DB 当前值决定要锁的池。
+            current_namespace = machine.namespace
+            pool_acquired, pool_holder, pool_locks = (
+                await EnvLockManager.acquire_env_locks(current_namespace)
+            )
+        except LockAcquireError as e:
+            return False, e.message
+        finally:
+            await EnvLockManager.release_env_locks(
+                registration_holder, registration_locks
+            )
+
+        if not pool_acquired:
+            return False, "获取设备池锁超时，请重试"
+
+        async with EnvLockManager._hold_locks(pool_locks, pool_holder):
+            return await cls._release_machine_locked(
+                db, machine_id, current_namespace, source=source
+            )
+
+    @classmethod
+    async def _release_machine_locked(
+        cls,
+        db: AsyncSession,
+        machine_id: str,
         namespace: str,
+        *,
+        source: str,
     ) -> tuple[bool, str]:
         """
         释放机器
@@ -658,12 +797,21 @@ class EnvPoolManager:
             tuple: (是否成功, 错误信息)
         """
         # 查询机器状态
-        stmt = select(EnvMachine).where(EnvMachine.id == machine_id)
+        stmt = (
+            select(EnvMachine)
+            .where(EnvMachine.id == machine_id)
+            .execution_options(populate_existing=True)
+        )
         result = await db.execute(stmt)
         machine = result.scalar_one_or_none()
 
         if not machine:
             return False, "机器不存在"
+
+        # 重复释放保持幂等：只有当前确实处于 using 才关闭申请日志并改变状态。
+        if machine.status != "using":
+            await cls.sync_machine_to_cache(machine)
+            return True, ""
 
         now = datetime.now()
 
@@ -676,18 +824,35 @@ class EnvPoolManager:
                 duration_minutes=duration_minutes
             ))
 
-        # 更新数据库状态为 online（经唯一写入口校验并同步缓存）
+        # 超时释放时，只有心跳仍在离线阈值内才重新进入在线池；
+        # 心跳过期的设备先置离线，避免释放后短暂分配给新任务。
+        from core.env_machine.scheduler import EnvMachineScheduler
+        online_threshold = now - timedelta(
+            minutes=EnvMachineScheduler.OFFLINE_THRESHOLD_MINUTES
+        )
+        next_status = (
+            "online"
+            if machine.sync_time and machine.sync_time >= online_threshold
+            else "offline"
+        )
+
+        # 先提交 DB，再按提交后的状态更新 Redis。
         from core.env_machine.state_service import MachineStateService
         transition = await MachineStateService.transition(
-            db, machine, "online", source="release"
+            db,
+            machine,
+            next_status,
+            source=source,
+            sync_cache=False,
         )
         if not transition.ok:
             logger.error(
                 f"释放机器状态转移被拒绝: machine_id={machine_id}, "
-                f"{transition.previous_status} -> online"
+                f"{transition.previous_status} -> {next_status}"
             )
         machine.last_keepusing_time = None
         await db.commit()
+        await cls.sync_machine_to_cache(machine)
 
         # 检查升级队列，触发延迟升级
         from core.env_machine.upgrade_service import (
@@ -706,12 +871,18 @@ class EnvPoolManager:
                 machine = await EnvMachineService.get_by_id(db, machine_id)
                 success, message = await send_upgrade_to_worker(machine, config.version, config.download_url)
                 if success:
-                    # 更新状态为 upgrading（transition 统一收尾缓存：非 online 即出池）
+                    # 升级状态先提交，再同步 Redis，避免 DB 失败时缓存先变化。
                     await MachineStateService.transition(
-                        db, machine, "upgrading", source="release_with_upgrade"
+                        db,
+                        machine,
+                        "upgrading",
+                        source="release_with_upgrade",
+                        sync_cache=False,
                     )
                     # 更新队列状态
                     await WorkerUpgradeQueueService.mark_completed(db, queue_item.id)
+                    await db.commit()
+                    await cls.sync_machine_to_cache(machine)
                     logger.info(f"释放后触发升级: machine_id={machine_id}")
                 else:
                     logger.warning(f"释放后升级失败: machine_id={machine_id}, reason={message}")

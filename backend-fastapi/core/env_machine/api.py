@@ -266,24 +266,29 @@ async def release_env_machines(
 
     逻辑：
     1. 遍历请求中的机器 ID
-    2. 对于每台机器：调用 pool_manager.release_machine 更新状态和日志
+    2. 对于每台机器：在设备池锁内重新读取并释放，更新状态和日志
     3. 忽略不存在的机器
     """
     client_ip = get_client_ip(request)
     try:
         for item in data:
-            machine = await EnvMachineService.get_by_id(db, item.id)
-
-            if not machine:
+            # release_machine 在锁内读取最新命名空间，避免注册改 namespace 时锁错池。
+            success, error = await EnvPoolManager.release_machine(db, item.id)
+            if not success and error == "机器不存在":
                 logger.debug(f"机器不存在，忽略: {item.id}")
                 continue
-
-            # 调用 pool_manager.release_machine 释放机器（会更新日志的 duration_minutes）
-            await EnvPoolManager.release_machine(db, item.id, machine.namespace)
+            if not success:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"释放执行机失败，请稍后重试: {error}",
+                )
 
         logger.info(f"释放执行机成功 | source_ip={client_ip} | count={len(data)}")
 
         return EnvSuccessResponse(status="success", data=None)
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         logger.error(f"释放执行机失败 | source_ip={client_ip} | error={e}")

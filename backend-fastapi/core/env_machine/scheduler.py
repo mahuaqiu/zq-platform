@@ -16,6 +16,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, update
 
 from app.database import AsyncSessionLocal
+from core.env_machine.lock_manager import EnvLockManager
 from core.env_machine.model import EnvMachine
 from core.scheduler.service import scheduler_service
 from utils.logging_config import get_logger
@@ -126,14 +127,13 @@ async def check_timeout_machines(job_code: str = None, **kwargs) -> int:
             logger.debug("未检测到超时的使用机器")
             return 0
 
-        release_count = len(machines)
         machine_ids = []
 
         # 批量释放机器
         from core.env_machine.pool_manager import EnvPoolManager
         for machine in machines:
             success, error = await EnvPoolManager.release_machine(
-                db, str(machine.id), machine.namespace
+                db, str(machine.id), machine.namespace, source="timeout_release"
             )
             if success:
                 machine_ids.append(str(machine.id))
@@ -141,6 +141,7 @@ async def check_timeout_machines(job_code: str = None, **kwargs) -> int:
             else:
                 logger.error(f"超时释放机器失败: {machine.id}, error={error}")
 
+        release_count = len(machine_ids)
         logger.info(f"使用超时检测完成，共释放 {release_count} 台机器")
         return release_count
 
@@ -196,11 +197,12 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
     upgrade_threshold = datetime.now() - timedelta(minutes=EnvMachineScheduler.UPGRADE_TIMEOUT_MINUTES)
 
     async with AsyncSessionLocal() as db:
-        # 查询 sync_time 超过阈值的 online/using 状态机器
+        # using 表示仍有申请占用，只能由释放接口或保活超时结束；
+        # 离线检测不能把占用状态改成 offline。
         # 排除 Linux 设备：Linux 设备没有心跳机制，不参与离线检测
         stmt = select(EnvMachine).where(
             EnvMachine.sync_time < threshold,
-            EnvMachine.status.in_(["online", "using"]),
+            EnvMachine.status == "online",
             EnvMachine.is_deleted == False,  # noqa: E712
             EnvMachine.is_virtual.is_(False),
             EnvMachine.device_type != 'linux',  # 排除 Linux 设备
@@ -224,56 +226,99 @@ async def check_offline_machines(job_code: str = None, **kwargs) -> int:
             logger.debug("未检测到离线机器")
             return 0
 
-        offline_count = len(machines)
-
         from core.env_machine.state_service import MachineStateService
+        from core.env_machine.pool_manager import EnvPoolManager
 
-        # 处理 online/using 状态超时的机器
-        for machine in machines:
-            # 更新状态（transition 统一收尾缓存）
-            await MachineStateService.transition(
-                db, machine, "offline", source="offline_check"
-            )
-            logger.info(f"机器 {machine.id} 已标记为离线")
+        offline_count = 0
+
+        # 锁住对应机器池并重新读取状态，避免离线检测覆盖刚完成的申请。
+        for snapshot in machines:
+            async with EnvLockManager.env_locks_or_raise({snapshot.namespace}):
+                current_result = await db.execute(
+                    select(EnvMachine)
+                    .where(EnvMachine.id == snapshot.id)
+                    .execution_options(populate_existing=True)
+                )
+                machine = current_result.scalar_one_or_none()
+                if (
+                    machine is None
+                    or machine.status != "online"
+                    or machine.sync_time >= threshold
+                ):
+                    continue
+                await MachineStateService.transition(
+                    db,
+                    machine,
+                    "offline",
+                    source="offline_check",
+                    sync_cache=False,
+                )
+                await db.commit()
+                await EnvPoolManager.sync_machine_to_cache(machine)
+                offline_count += 1
+                logger.info(f"机器 {machine.id} 已标记为离线")
 
         # 处理 upgrading 状态超时的机器：先探测 Worker 是否存活再定状态。
         # Worker 不可达时置 offline；可达时结束超时升级状态并恢复 online。
         from core.env_machine.upgrade_service import WorkerUpgradeConfigService
 
-        for machine in upgrading_machines:
-            alive, reported_version = await _probe_worker_alive(machine)
-            if not alive:
+        for snapshot in upgrading_machines:
+            alive, reported_version = await _probe_worker_alive(snapshot)
+            async with EnvLockManager.env_locks_or_raise({snapshot.namespace}):
+                current_result = await db.execute(
+                    select(EnvMachine)
+                    .where(EnvMachine.id == snapshot.id)
+                    .execution_options(populate_existing=True)
+                )
+                machine = current_result.scalar_one_or_none()
+                if (
+                    machine is None
+                    or machine.status != "upgrading"
+                    or machine.sync_time >= upgrade_threshold
+                ):
+                    continue
+                if not alive:
+                    await MachineStateService.transition(
+                        db,
+                        machine,
+                        "offline",
+                        source="offline_check_upgrade_timeout",
+                        sync_cache=False,
+                    )
+                    await db.commit()
+                    await EnvPoolManager.sync_machine_to_cache(machine)
+                    offline_count += 1
+                    logger.warning(
+                        f"升级超时且 Worker 不可达，置为离线: machine_id={machine.id}, ip={machine.ip}"
+                    )
+                    continue
+
+                config = await WorkerUpgradeConfigService.get_by_device_type(
+                    db, machine.device_type
+                )
+                if config and reported_version and compare_versions(reported_version, config.version) < 0:
+                    # 已超过升级超时仍未达到目标版本，按升级失败收敛状态，允许后续重试。
+                    logger.warning(
+                        f"升级超时且 Worker 仍可达但版本未到位，恢复在线: machine_id={machine.id}, "
+                        f"ip={machine.ip}, reported_version={reported_version}, target_version={config.version}"
+                    )
+                else:
+                    logger.info(
+                        f"升级超时且 Worker 仍可达，恢复在线: machine_id={machine.id}, ip={machine.ip}"
+                    )
+
+                machine.sync_time = datetime.now()
+                if reported_version:
+                    machine.version = reported_version
                 await MachineStateService.transition(
-                    db, machine, "offline", source="offline_check_upgrade_timeout"
+                    db,
+                    machine,
+                    "online",
+                    source="upgrade_timeout_recovery",
+                    sync_cache=False,
                 )
-                offline_count += 1
-                logger.warning(
-                    f"升级超时且 Worker 不可达，置为离线: machine_id={machine.id}, ip={machine.ip}"
-                )
-                continue
-
-            config = await WorkerUpgradeConfigService.get_by_device_type(
-                db, machine.device_type
-            )
-            if config and reported_version and compare_versions(reported_version, config.version) < 0:
-                # 已超过升级超时仍未达到目标版本，按升级失败收敛状态，允许后续重试。
-                logger.warning(
-                    f"升级超时且 Worker 仍可达但版本未到位，恢复在线: machine_id={machine.id}, "
-                    f"ip={machine.ip}, reported_version={reported_version}, target_version={config.version}"
-                )
-            else:
-                logger.info(
-                    f"升级超时且 Worker 仍可达，恢复在线: machine_id={machine.id}, ip={machine.ip}"
-                )
-
-            machine.sync_time = datetime.now()
-            if reported_version:
-                machine.version = reported_version
-            await MachineStateService.transition(
-                db, machine, "online", source="upgrade_timeout_recovery"
-            )
-
-        await db.commit()
+                await db.commit()
+                await EnvPoolManager.sync_machine_to_cache(machine)
 
         logger.info(f"离线检测完成，共标记 {offline_count} 台机器为离线")
         return offline_count
@@ -547,101 +592,148 @@ async def reload_machine_status_after_restart() -> Dict:
             results = await asyncio.gather(*tasks)
 
             now = datetime.now()
-            batch_machine_ids: List[str] = []
 
-            # 第二步：每批独立短 session，落库即提交，单批失败不影响其他批次
+            # 每批独立短 session；串行化注册和相关机器池，避免重载覆盖并发申请。
             async with AsyncSessionLocal() as db:
                 batch_ids = [s["id"] for _, group in batch_items for s in group]
-                rows = await db.execute(
-                    select(EnvMachine).where(EnvMachine.id.in_(batch_ids))
-                )
-                machines_by_id = {str(m.id): m for m in rows.scalars().all()}
-
-                # 处理当前批次结果
-                for worker_key, worker_machines, success, data in results:
-                    if success and data:
+                async with EnvLockManager.env_registration_lock_or_raise():
+                    rows = await db.execute(
+                        select(EnvMachine).where(EnvMachine.id.in_(batch_ids))
+                    )
+                    namespaces = {
+                        machine.namespace
+                        for machine in rows.scalars().all()
+                        if machine.namespace
+                    }
+                    for _, worker_machines, success, data in results:
+                        if not success or not data:
+                            continue
                         devices = data.get("devices", {})
-                        version = data.get("version")
-                        config_version = data.get("config_version")
-
                         for snapshot in worker_machines:
-                            machine = machines_by_id.get(snapshot["id"])
-                            if machine is None:
-                                continue
                             device_type = snapshot["device_type"]
                             if device_type in ("windows", "mac"):
-                                # Windows/Mac 不需要检查 device_sn
-                                await MachineStateService.transition(
-                                    db, machine, "online", source="reload_after_restart"
+                                namespaces.add(
+                                    _get_reported_namespace(data, device_type)
                                 )
-                                machine.sync_time = now
-                                namespace = _get_reported_namespace(data, device_type)
-                                if namespace != machine.namespace:
-                                    old_namespace = machine.namespace
-                                    machine.namespace = namespace
-                                    await EnvPoolManager.remove_machine_from_cache(
-                                        str(machine.id), old_namespace
-                                    )
-                                if version:
-                                    machine.version = version
-                                if config_version:
-                                    machine.config_version = config_version
-                                online_count += 1
-                                batch_machine_ids.append(str(machine.id))
-                            elif device_type in ("android", "ios", "harmony_mobile", "harmony_pc"):
-                                # 移动端需要检查 device_sn 是否在列表中
-                                # 支持两种格式：字符串列表 ["udid1"] 或对象列表 [{"udid": "udid1"}]
+                            elif device_type in (
+                                "android", "ios", "harmony_mobile", "harmony_pc"
+                            ):
                                 device_items = devices.get(device_type, [])
-                                device_sns = []
-                                for item in device_items:
-                                    if isinstance(item, dict):
-                                        device_sns.append(item.get("udid"))
-                                    elif isinstance(item, str):
-                                        device_sns.append(item)
-
-                                if machine.device_sn in device_sns:
-                                    await MachineStateService.transition(
-                                        db, machine, "online", source="reload_after_restart"
-                                    )
-                                    machine.sync_time = now
-                                    namespace = _get_reported_namespace(
-                                        data, device_type, machine.device_sn
-                                    )
-                                    if namespace != machine.namespace:
-                                        old_namespace = machine.namespace
-                                        machine.namespace = namespace
-                                        await EnvPoolManager.remove_machine_from_cache(
-                                            str(machine.id), old_namespace
+                                device_sns = {
+                                    item.get("udid") if isinstance(item, dict) else item
+                                    for item in device_items
+                                    if isinstance(item, (dict, str))
+                                }
+                                if snapshot["device_sn"] in device_sns:
+                                    namespaces.add(
+                                        _get_reported_namespace(
+                                            data,
+                                            device_type,
+                                            snapshot["device_sn"],
                                         )
+                                    )
+
+                    async with EnvLockManager.env_locks_or_raise(namespaces):
+                        # 锁后重读，避免探测期间刚申请的 using 被启动重载覆盖。
+                        rows = await db.execute(
+                            select(EnvMachine)
+                            .where(EnvMachine.id.in_(batch_ids))
+                            .execution_options(populate_existing=True)
+                        )
+                        machines_by_id = {
+                            str(machine.id): machine
+                            for machine in rows.scalars().all()
+                        }
+                        machines_to_sync = {}
+                        cache_removals = set()
+
+                        for worker_key, worker_machines, success, data in results:
+                            devices = data.get("devices", {}) if success and data else {}
+                            version = data.get("version") if success and data else None
+                            config_version = data.get("config_version") if success and data else None
+
+                            for snapshot in worker_machines:
+                                machine = machines_by_id.get(snapshot["id"])
+                                if machine is None:
+                                    continue
+
+                                device_type = snapshot["device_type"]
+                                if device_type not in (
+                                    "windows",
+                                    "mac",
+                                    "android",
+                                    "ios",
+                                    "harmony_mobile",
+                                    "harmony_pc",
+                                ):
+                                    continue
+                                device_present = bool(success and data)
+                                if device_present and device_type in (
+                                    "android", "ios", "harmony_mobile", "harmony_pc"
+                                ):
+                                    # 移动设备还需确认 SN 仍出现在 Worker 上报列表中。
+                                    device_items = devices.get(device_type, [])
+                                    device_sns = [
+                                        item.get("udid") if isinstance(item, dict) else item
+                                        for item in device_items
+                                        if isinstance(item, (dict, str))
+                                    ]
+                                    device_present = machine.device_sn in device_sns
+
+                                if device_present:
+                                    machine.sync_time = now
                                     if version:
                                         machine.version = version
                                     if config_version:
                                         machine.config_version = config_version
+                                    reported_namespace = _get_reported_namespace(
+                                        data,
+                                        device_type,
+                                        machine.device_sn
+                                        if device_type in (
+                                            "android", "ios", "harmony_mobile", "harmony_pc"
+                                        )
+                                        else None,
+                                    )
+                                    if reported_namespace != machine.namespace:
+                                        cache_removals.add(
+                                            (str(machine.id), machine.namespace)
+                                        )
+                                        machine.namespace = reported_namespace
+                                    if machine.status != "using":
+                                        await MachineStateService.transition(
+                                            db,
+                                            machine,
+                                            "online",
+                                            source="reload_after_restart",
+                                            sync_cache=False,
+                                        )
+                                    # using 表示申请仍占用，只刷新心跳，不释放状态。
                                     online_count += 1
-                                    batch_machine_ids.append(str(machine.id))
-                                else:
-                                    # 设备不在列表中，标记为 offline
+                                elif machine.status != "using":
                                     await MachineStateService.transition(
-                                        db, machine, "offline", source="reload_after_restart"
+                                        db,
+                                        machine,
+                                        "offline",
+                                        source="reload_after_restart",
+                                        sync_cache=False,
                                     )
                                     offline_count += 1
-                                    batch_machine_ids.append(str(machine.id))
 
-                        logger.info(f"Worker {worker_key} 访问成功，更新 {len(worker_machines)} 台机器")
+                                machines_to_sync[str(machine.id)] = machine
 
-                    else:
-                        # 访问失败，标记为 offline
-                        for snapshot in worker_machines:
-                            machine = machines_by_id.get(snapshot["id"])
-                            if machine is None:
-                                continue
-                            await MachineStateService.transition(
-                                db, machine, "offline", source="reload_after_restart"
+                            logger.info(
+                                f"Worker {worker_key} 状态重载完成，设备数={len(worker_machines)}"
                             )
-                            offline_count += 1
-                            batch_machine_ids.append(str(machine.id))
 
-                # 提交数据库更改（缓存已由 transition 逐台同步）
+                        # DB 是最终状态来源；提交成功后再按最终状态刷新 Redis。
+                        await db.commit()
+                        for machine_id, old_namespace in cache_removals:
+                            await EnvPoolManager.remove_machine_from_cache(
+                                machine_id, old_namespace
+                            )
+                        for machine in machines_to_sync.values():
+                            await EnvPoolManager.sync_machine_to_cache(machine)
 
             # 当前批次处理完成后，继续下一批
             logger.info(f"第 {batch_idx + 1}/{total_batches} 批处理完成")
