@@ -543,7 +543,7 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         根据物理身份获取机器。
 
         namespace 是机器池归属，可由 Worker 配置切换，不属于物理设备身份。
-        宿主机使用 IP + 设备类型，移动设备使用 IP + 设备类型 + SN。
+        宿主机使用 IP + 设备类型；带 SN 的设备使用设备类型 + SN，IP 仅是可变连接地址。
 
         :param db: 数据库会话
         :param ip: 机器 IP
@@ -552,17 +552,17 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         :return: 按配置完整度排序的匹配记录列表
         """
         query = select(EnvMachine).where(
-            EnvMachine.ip == ip,
             EnvMachine.device_type == device_type,
             EnvMachine.is_virtual == False,  # noqa: E712
             EnvMachine.is_deleted == False  # noqa: E712
         )
 
-        if device_sn is not None:
+        if device_sn:
             query = query.where(EnvMachine.device_sn == device_sn)
         else:
-            # Windows/Mac 注册上报 null；历史编辑接口可能保存成空字符串，按同一身份处理。
+            # 无 SN 的宿主机以 IP + 类型识别；历史编辑接口可能把 SN 保存成空字符串。
             query = query.where(
+                EnvMachine.ip == ip,
                 or_(EnvMachine.device_sn.is_(None), EnvMachine.device_sn == "")
             )
 
@@ -1045,8 +1045,7 @@ async def _get_registration_lock_matches(
 ) -> List[EnvMachine]:
     """返回注册可能更新到的记录，确保旧命名空间也被加锁。
 
-    带 SN 的设备必须按完整物理身份匹配，不能因为同一 IP 和设备类型
-    下恰好只有一条记录就锁定并复用另一台设备。
+    带 SN 的设备按设备类型和 SN 匹配；IP 变化时仍需锁定原记录所在机器池。
     """
     matches = await EnvMachineService.get_by_device_identity(
         db, ip=ip, device_type=device_type, device_sn=device_sn
@@ -1069,9 +1068,8 @@ async def _get_registration_machine(
 ) -> Optional[EnvMachine]:
     """获取注册主记录，并合并切换命名空间产生的历史重复记录。
 
-    Windows/Mac 不带 SN 时允许按 IP + 设备类型复用历史记录；移动设备
-    和鸿蒙设备带有 SN/UDID，必须按完整物理身份匹配，避免多台设备注册
-    时互相覆盖。
+    Windows/Mac 不带 SN 时按 IP + 设备类型匹配；移动设备和鸿蒙设备
+    按设备类型 + SN/UDID 匹配，Worker IP 变化时更新原记录的 IP。
     """
     matches = await EnvMachineService.get_by_device_identity(
         db,
@@ -1175,8 +1173,9 @@ async def _register_env_machine(
     2. 对于每个 device_type：
        - windows/mac：device_sn 为 null，每个 IP 插入一条记录
        - android/ios/harmony_mobile/harmony_pc：根据 device_sn 列表，每个 sn 插入一条记录
-       - 带 SN 的设备只按完整物理身份匹配，不回退到 IP + device_type
-    3. 查询条件：ip + device_type + device_sn（namespace 变更时更新原记录）
+       - 带 SN 的设备按 device_type + device_sn 匹配，不回退到宿主机身份
+    3. 查询条件：宿主机按 ip + device_type；带 SN 设备按 device_type + device_sn
+       （namespace 或 IP 变化时更新原记录）
     4. 不存在则插入：状态设为 online，available 设为 False
     5. 存在则更新 sync_time、status=online
     6. 同步更新 Redis 缓存
@@ -1281,7 +1280,9 @@ async def _register_env_machine(
                         # 存在则更新 sync_time
                         old_status = existing_machine.status
                         old_namespace = existing_machine.namespace
+                        old_ip = existing_machine.ip
                         existing_machine.namespace = data.namespace
+                        existing_machine.ip = data.ip
                         existing_machine.sync_time = now
                         existing_machine.port = data.port
                         if data.version:
@@ -1290,6 +1291,16 @@ async def _register_env_machine(
                             existing_machine.config_version = data.config_version
                         if data.scripts:
                             existing_machine.scripts = data.scripts
+                        if old_ip != data.ip:
+                            logger.info(
+                                "SN 设备上报 IP 变更，更新原设备记录: id=%s, device_type=%s, "
+                                "device_sn=%s, old_ip=%s, new_ip=%s",
+                                existing_machine.id,
+                                device_type,
+                                device_sn,
+                                old_ip,
+                                data.ip,
+                            )
 
                         # 状态更新规则：
                         # - using: 保持不变，只更新心跳时间（机器正在被使用）
