@@ -8,7 +8,7 @@ import {
   useTemplateRef,
   watch,
 } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { useTabs } from '@vben/hooks';
 
@@ -36,7 +36,6 @@ import {
 const KEYBOARD_TEXT_FLUSH_DELAY_MS = 250;
 
 const route = useRoute();
-const router = useRouter();
 const isRemotePopup = route.query.remotePopup === '1';
 const { setTabTitle } = useTabs();
 
@@ -373,18 +372,6 @@ async function loadDeviceDetail() {
   } finally {
     loading.value = false;
   }
-}
-
-// 返回上一页
-async function handleBack() {
-  disconnect(true);
-  clearDisplayedScreen();
-  await releaseSession();
-  if (isRemotePopup) {
-    window.close();
-    return;
-  }
-  router.back();
 }
 
 // 断开连接：完全断开——清空画面、禁用操作（userDisconnected）、
@@ -961,6 +948,7 @@ onUnmounted(() => {
   keyboardTextBuffer = '';
   pressedKeyboardModifiers.clear();
   disconnect();
+  void releaseSession();
 });
 </script>
 
@@ -984,7 +972,6 @@ onUnmounted(() => {
       :os-version="osVersion"
       :show-keypress="!isNativeKeyboardDevice"
       :show-input="!isNativeKeyboardDevice"
-      @back="handleBack"
       @disconnect="handleDisconnect"
       @reconnect="handleReconnect"
       @keypress="handleOpenKeyPressDialog"

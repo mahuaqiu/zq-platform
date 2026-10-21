@@ -26,7 +26,6 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'back'): void;
   (e: 'disconnect'): void;
   (e: 'reconnect'): void;
   (e: 'keypress'): void;
@@ -110,10 +109,6 @@ const deviceDetailDisplay = computed(() => {
   return parts.join(' | ') || '未知设备';
 });
 
-function handleBack() {
-  emit('back');
-}
-
 function handleDisconnect() {
   emit('disconnect');
 }
@@ -143,7 +138,6 @@ function handleScreenshot() {
   <div class="top-navbar" :class="{ 'navbar-fixed': navbarFixed }">
     <!-- 设备信息 -->
     <div class="navbar-left">
-      <button class="back-btn" @click="handleBack">← 返回设备列表</button>
       <span class="device-icon">{{ isDesktop ? '💻' : '📱' }}</span>
       <div class="device-info">
         <div class="device-name">{{ deviceDisplayName }}</div>
@@ -255,21 +249,6 @@ function handleScreenshot() {
   display: flex;
   gap: 24px;
   align-items: center;
-}
-
-.back-btn {
-  padding: 8px 16px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  background: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.back-btn:hover {
-  background: #e8e8e8;
 }
 
 .device-icon {
