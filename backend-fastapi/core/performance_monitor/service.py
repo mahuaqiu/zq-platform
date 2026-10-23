@@ -374,6 +374,22 @@ class PerformanceCollectService(BaseService):
         }
         deleted_count = 0
 
+        # 版本引用一次性载入并按 collect_id 建立索引（expire_on_commit=False，
+        # ORM 对象可跨批复用），批内只处理与本批被删采集相交的版本，
+        # 避免每批全量扫描版本表。
+        versions_result = await db.execute(
+            select(PerformanceVersion).where(
+                PerformanceVersion.is_protected.is_(False),
+                PerformanceVersion.is_deleted.is_(False),
+            )
+        )
+        versions_by_collect: dict[str, list[PerformanceVersion]] = {}
+        for version in versions_result.scalars().all():
+            if isinstance(version.collect_ids, list):
+                for collect_id in set(version.collect_ids):
+                    versions_by_collect.setdefault(collect_id, []).append(version)
+        deleted_version_ids: set[str] = set()
+
         while True:
             conditions = [
                 PerformanceCollect.start_time < cutoff_time,
@@ -394,15 +410,16 @@ class PerformanceCollectService(BaseService):
             if not collect_ids:
                 break
 
-            versions_result = await db.execute(
-                select(PerformanceVersion).where(
-                    PerformanceVersion.is_protected.is_(False),
-                    PerformanceVersion.is_deleted.is_(False),
-                )
-            )
-            for version in versions_result.scalars().all():
+            collect_id_set = set(collect_ids)
+            for version in {
+                version
+                for collect_id in collect_id_set
+                for version in versions_by_collect.get(collect_id, ())
+            }:
+                if version.id in deleted_version_ids:
+                    continue
                 existing_ids = version.collect_ids if isinstance(version.collect_ids, list) else []
-                remaining_ids = [item for item in existing_ids if item not in collect_ids]
+                remaining_ids = [item for item in existing_ids if item not in collect_id_set]
                 if len(remaining_ids) == len(existing_ids):
                     continue
                 if remaining_ids:
@@ -415,6 +432,7 @@ class PerformanceCollectService(BaseService):
                     }
                 else:
                     await db.delete(version)
+                    deleted_version_ids.add(str(version.id))
 
             await db.execute(delete(PerformanceData).where(PerformanceData.collect_id.in_(collect_ids)))
             await db.execute(delete(PerformanceTag).where(PerformanceTag.collect_id.in_(collect_ids)))
