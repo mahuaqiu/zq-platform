@@ -1,6 +1,6 @@
 import { useAppConfig } from '@vben/hooks';
 
-import { requestClient } from '#/api/request';
+import { baseRequestClient, requestClient } from '#/api/request';
 
 /**
  * 执行机类型定义
@@ -421,9 +421,24 @@ export interface UploadProgressEvent {
   total?: number;
 }
 
-/** 上传文件(原始字节流经平台流式转发,≤1GB,worker 端限速) */
-export function uploadWorkerFileApi(
-  machineId: string,
+/** 直连上传结果(worker 返回 {name,size,rel_path}) */
+export interface WorkerFileUploadResult {
+  name: string;
+  size: number;
+  rel_path: string;
+}
+
+/**
+ * 上传文件直连 worker(不经平台转发):worker 端 1MB/s 慢读背压会真实
+ * 拖住浏览器发送,onUploadProgress 即真实进度。浏览器跨域由 worker 端
+ * CORS 放行;worker 不可达/预检失败时抛错(code ERR_NETWORK 等),由调用
+ * 方提示。上限 1GiB 与 worker files.max_upload_size_mb 统一。
+ * 用 baseRequestClient 的裸 axios 实例(无拦截器/无 baseURL 改写,绝对
+ * URL 直指 worker;绝对 URL 下 axios 忽略 baseURL)。
+ */
+export function uploadWorkerFileDirectApi(
+  ip: string,
+  port: number | string,
   options: {
     file: File;
     name: string;
@@ -438,17 +453,17 @@ export function uploadWorkerFileApi(
     overwrite: String(options.overwrite ?? false),
   };
   if (options.path) params.path = options.path;
-  return requestClient.post(
-    `/api/core/env/machine/${machineId}/files/upload`,
+  return baseRequestClient.instance.post<WorkerFileUploadResult>(
+    `http://${ip}:${port}/files/upload`,
     options.file,
     {
       headers: { 'Content-Type': 'application/octet-stream' },
       onUploadProgress: options.onUploadProgress,
       params,
-      // 1GB / 1MB/s 可达 17 分钟,不设超时
+      // 1GiB / 1MB/s 可达 17 分钟,不设超时
       timeout: 0,
       signal: options.signal,
-    } as any,
+    },
   );
 }
 

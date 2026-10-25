@@ -22,7 +22,7 @@ import {
   deleteWorkerFileApi,
   getWorkerFileDownloadUrl,
   listWorkerFilesApi,
-  uploadWorkerFileApi,
+  uploadWorkerFileDirectApi,
 } from '#/api/core/env-machine';
 
 interface Props {
@@ -121,8 +121,12 @@ async function handleDelete(row: WorkerFileEntry) {
     { type: 'warning' },
   ).catch(() => false);
   if (!confirmed) return;
-  await deleteWorkerFileApi(props.machineId, rowPath(row));
-  ElMessage.success('已删除');
+  try {
+    await deleteWorkerFileApi(props.machineId, rowPath(row));
+    ElMessage.success('已删除');
+  } catch {
+    // 全局拦截器已提示(如文件正被下载时 worker 返回 409 占用)
+  }
   loadList();
 }
 
@@ -130,36 +134,35 @@ function triggerUpload() {
   fileInputRef.value?.click();
 }
 
-async function handleFileChosen(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  input.value = '';
-  if (!file || !props.machineId) return;
+function confirmOverwrite(name: string) {
+  return ElMessageBox.confirm(`「${name}」已存在,是否覆盖?`, '覆盖确认', {
+    type: 'warning',
+  }).catch(() => false);
+}
 
-  if (file.size > MAX_UPLOAD_BYTES) {
-    ElMessage.error(`文件超过大小限制(最大 1GB),当前 ${formatSize(file.size)}`);
-    return;
+/** 直连上传错误转可读提示;取消上传返回空串(静默) */
+function uploadErrorMessage(error: any): string {
+  if (error?.code === 'ERR_CANCELED') return '';
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail === 'file_exists' ? '同名文件已存在' : detail;
   }
+  // 无 response:网络不通/CORS 预检失败/页面为 HTTPS 而 worker 为 HTTP 被拦
+  return `无法连接到执行机 ${props.ip}:${props.port},请检查网络与防火墙`;
+}
 
-  // 同名预检:存在则确认覆盖(worker 端 409 兜底)
-  let overwrite = false;
-  const exists = entries.value.some((e) => e.name === file.name && !e.is_dir);
-  if (exists) {
-    const confirmed = await ElMessageBox.confirm(
-      `「${file.name}」已存在,是否覆盖?`,
-      '覆盖确认',
-      { type: 'warning' },
-    ).catch(() => false);
-    if (!confirmed) return;
-    overwrite = true;
-  }
+type UploadOutcome = 'exists' | 'fail' | 'ok';
 
+async function performUpload(
+  file: File,
+  overwrite: boolean,
+): Promise<UploadOutcome> {
   uploading.value = true;
   uploadProgress.value = 0;
   uploadLabel.value = file.name;
   uploadAbort = new AbortController();
   try {
-    await uploadWorkerFileApi(props.machineId, {
+    await uploadWorkerFileDirectApi(props.ip as string, props.port as string, {
       path: currentPath.value || undefined,
       name: file.name,
       file,
@@ -172,13 +175,57 @@ async function handleFileChosen(event: Event) {
         }
       },
     });
-    ElMessage.success('上传完成');
-    loadList();
-  } catch {
-    // 取消或失败:全局拦截器已提示,静默
+    return 'ok';
+  } catch (error: any) {
+    if (
+      error?.response?.status === 409 &&
+      error?.response?.data?.detail === 'file_exists'
+    ) {
+      // 本地预检列表过期:worker 端 409 兜底,交由调用方确认覆盖后重传
+      return 'exists';
+    }
+    ElMessage.error(uploadErrorMessage(error));
+    return 'fail';
   } finally {
     uploading.value = false;
     uploadAbort = null;
+  }
+}
+
+async function handleFileChosen(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || !props.machineId) return;
+
+  if (!props.ip || !props.port) {
+    ElMessage.error('执行机 IP 或端口未配置,无法上传');
+    return;
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    ElMessage.error(`文件超过大小限制(最大 1GB),当前 ${formatSize(file.size)}`);
+    return;
+  }
+
+  // 同名预检:存在则先确认覆盖;列表过期时 worker 端 409 兜底再触发一次
+  let overwrite = false;
+  const exists = entries.value.some((e) => e.name === file.name && !e.is_dir);
+  if (exists) {
+    const confirmed = await confirmOverwrite(file.name);
+    if (!confirmed) return;
+    overwrite = true;
+  }
+
+  let outcome = await performUpload(file, overwrite);
+  if (outcome === 'exists') {
+    const confirmed = await confirmOverwrite(file.name);
+    if (!confirmed) return;
+    outcome = await performUpload(file, true);
+  }
+  if (outcome === 'ok') {
+    ElMessage.success('上传完成');
+    loadList();
   }
 }
 
@@ -285,7 +332,7 @@ watch(
       共 {{ entries.length }} 项<template v-if="truncated">
         (目录过大,仅显示前 2000 项)
       </template>
-      · 下载/上传经平台流式代理,限速 1 MB/s(worker 端可配)
+      · 上传直连执行机(不经平台转发);下载经平台流式代理。限速 1 MB/s
     </div>
   </ElDialog>
 </template>

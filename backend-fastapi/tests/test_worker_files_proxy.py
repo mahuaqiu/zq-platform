@@ -11,7 +11,6 @@ from core.env_machine.worker_client import (
     delete_worker_file,
     download_worker_file,
     list_worker_files,
-    upload_worker_file,
 )
 
 
@@ -118,54 +117,8 @@ async def test_download_worker_file_404():
     assert exc.value.status_code == 404
 
 
-async def test_upload_worker_file_sends_raw_body():
-    captured = {}
-
-    async def gen():
-        yield b"part1-"
-        yield b"part2"
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        captured["body"] = (await request.aread()).decode()
-        captured["params"] = dict(request.url.params)
-        captured["content_type"] = request.headers.get("content-type")
-        return httpx.Response(200, json={"name": "a.bin", "size": 12})
-
-    with _patch_client(handler):
-        result = await upload_worker_file(
-            _machine(), path="d", name="a.bin", overwrite=False, content_stream=gen()
-        )
-
-    assert result == {"name": "a.bin", "size": 12}
-    assert captured["body"] == "part1-part2"
-    assert captured["content_type"] == "application/octet-stream"
-    assert captured["params"]["name"] == "a.bin"
-    assert captured["params"]["overwrite"] == "false"
-    assert captured["params"]["path"] == "d"
-
-
-async def test_upload_worker_file_409_passthrough():
-    async def gen():
-        yield b"x"
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(409, text="file_exists")
-
-    with _patch_client(handler):
-        with pytest.raises(HTTPException) as exc:
-            await upload_worker_file(
-                _machine(), path=None, name="x", overwrite=False, content_stream=gen()
-            )
-
-    assert exc.value.status_code == 409
-
-
 async def test_error_detail_passthrough_from_worker_json():
     """worker 的中文 detail 应透传给前端,不再被状态码硬编码覆盖。"""
-
-    async def gen():
-        yield b"x"
-
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(400, json={"detail": "目录非空,无法删除"})
 
@@ -179,18 +132,12 @@ async def test_error_detail_passthrough_from_worker_json():
 
 async def test_error_409_file_exists_translated():
     """worker 的机器码 file_exists 翻译成中文,不再原样弹给用户。"""
-
-    async def gen():
-        yield b"x"
-
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(409, json={"detail": "file_exists"})
 
     with _patch_client(handler):
         with pytest.raises(HTTPException) as exc:
-            await upload_worker_file(
-                _machine(), path=None, name="x", overwrite=False, content_stream=gen()
-            )
+            await delete_worker_file(_machine(), "x")
 
     assert exc.value.detail == "同名文件已存在"
 
@@ -204,33 +151,6 @@ async def test_error_non_json_body_falls_back_to_status_map():
             await list_worker_files(_machine(), "d")
 
     assert exc.value.detail == "非法路径或文件名"
-
-
-async def test_upload_over_platform_cap_413_before_worker(monkeypatch):
-    """平台侧在转发流中先行判定 413:超限时不再依赖 worker 断流,
-    避免 httpx 把 worker 提前返回误报成 502。"""
-    from core.env_machine import worker_client
-
-    monkeypatch.setattr(worker_client, "_PLATFORM_MAX_UPLOAD_BYTES", 10)
-    seen = []
-
-    async def gen():
-        seen.append(b"12345678")
-        yield b"12345678"
-        seen.append(b"12345678")
-        yield b"12345678"
-
-    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
-        return httpx.Response(200, json={"name": "x", "size": 0})
-
-    with _patch_client(handler):
-        with pytest.raises(HTTPException) as exc:
-            await upload_worker_file(
-                _machine(), path=None, name="x", overwrite=False, content_stream=gen()
-            )
-
-    assert exc.value.status_code == 413
-    assert b"".join(seen) == b"12345678" * 2  # 第二块发出前即被拒绝
 
 
 async def test_download_forwards_content_encoding_identity():

@@ -4,6 +4,13 @@
 状态:待用户审阅(修订 v2:上传限速 1 MB/s、上传上限 1GB)
 涉及仓库:`zq-platform`(平台前后端)、`autotest`(worker)
 
+> **2026-10-25 架构变更**:上传已改为**前端直连 worker** `/files/upload`
+> (worker 端放开 CORS,前端经 `machine.ip/port` 直传;worker 不可达时
+> 前端直接报错),平台侧 `/machine/{id}/files/upload` 代理路由已删除。
+> 原因:平台 RequestLogMiddleware 会把请求体整体读进内存,"流式代理"
+> 实际失效,1GB 上传占平台 1GB 内存且进度条失真。**下载仍走本设计的
+> 平台流式代理**。上传大小上限三处统一为 1024MiB(1GiB)。
+
 ## 1. 背景与目标
 
 Worker 侧脚本会收集各类产物到本机目录:移动设备日志、Windows app 测试日志、桌面录屏、安装包等。目前从平台侧无法获取这些文件,必须远程登录 worker,操作繁琐。

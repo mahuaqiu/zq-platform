@@ -212,17 +212,13 @@ async def fetch_worker_logs(
 
 
 # ============ 产物文件管理代理 ============
-# Worker /files/* 接口的代理出口。错误映射与上方日志代理一致;
-# 下载/上传走流式转发,平台不落盘。read/write 不设超时:worker 端限速
-# 慢速产出,且并发下载排队时首字节延迟可达分钟级。
+# Worker /files/* 接口的代理出口。错误映射与上方日志代理一致。
+# 下载走流式转发,平台不落盘。read 不设超时:worker 端限速慢速产出,
+# 且并发下载排队时首字节延迟可达分钟级。
+# 上传不经过平台:前端拿到 machine.ip/port 直连 worker /files/upload
+# (worker 端已放开 CORS),避免大文件在平台内存中缓冲。
 
 _WORKER_FILES_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=None, pool=None)
-
-# 平台侧上传大小上限,与 worker 默认 max_upload_size_mb(1000MB)对齐。
-# 平台在转发流中先行判定 413:worker 端 413 时已停止读 body,若只依赖
-# worker 判定,httpx 发送端常以 RemoteProtocolError 中断并被映射成
-# 502"无法连接到设备",真实语义丢失。
-_PLATFORM_MAX_UPLOAD_BYTES = 1000 * 1024 * 1024
 
 
 def _worker_files_url(machine: EnvMachine, endpoint: str) -> str:
@@ -320,46 +316,6 @@ async def download_worker_file(machine: EnvMachine, path: str) -> StreamingRespo
         media_type=resp.headers.get("content-type", "application/octet-stream"),
         headers=headers,
     )
-
-
-async def _capped_stream(content_stream, max_bytes: int):
-    """包一层字节计数,超平台侧上限时确定性抛 413(不再依赖 worker 端断流)。"""
-    written = 0
-    async for chunk in content_stream:
-        written += len(chunk)
-        if written > max_bytes:
-            raise HTTPException(status_code=413, detail="文件超过大小限制(1GB)")
-        yield chunk
-
-
-async def upload_worker_file(
-    machine: EnvMachine,
-    *,
-    path: str | None,
-    name: str,
-    overwrite: bool,
-    content_stream,
-) -> dict:
-    """把浏览器上传的原始字节流转发给 worker /files/upload(不缓冲整包)。"""
-    params: dict[str, str] = {"name": name, "overwrite": str(overwrite).lower()}
-    if path:
-        params["path"] = path
-    try:
-        async with httpx.AsyncClient(
-            timeout=_WORKER_FILES_TIMEOUT, trust_env=False, verify=False
-        ) as client:
-            resp = await client.post(
-                _worker_files_url(machine, "upload"),
-                params=params,
-                content=_capped_stream(content_stream, _PLATFORM_MAX_UPLOAD_BYTES),
-                headers={"Content-Type": "application/octet-stream"},
-            )
-    except httpx.HTTPError as e:
-        raise _connect_error(e)
-    if resp.status_code == 200:
-        return resp.json()
-    _raise_files_error(resp)
-    raise HTTPException(status_code=502, detail="设备返回异常")  # pragma: no cover
 
 
 async def delete_worker_file(machine: EnvMachine, path: str) -> dict:

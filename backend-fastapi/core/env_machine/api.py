@@ -56,7 +56,6 @@ from core.env_machine.worker_client import (
     execute_single_machine,
     fetch_worker_logs,
     list_worker_files,
-    upload_worker_file,
 )
 from utils.client_info import get_client_ip
 from utils.logging_config import get_logger
@@ -667,25 +666,6 @@ async def download_machine_file(
 ):
     machine = await _get_file_machine(machine_id, db)
     return await download_worker_file(machine, path)
-
-
-@router.post("/machine/{machine_id}/files/upload", summary="上传文件到执行机产物目录")
-async def upload_machine_file(
-    machine_id: str,
-    request: Request,
-    name: str = Query(...),
-    path: Optional[str] = Query(default=None),
-    overwrite: bool = Query(default=False),
-    db: AsyncSession = Depends(get_db),
-):
-    machine = await _get_file_machine(machine_id, db)
-    return await upload_worker_file(
-        machine,
-        path=path,
-        name=name,
-        overwrite=overwrite,
-        content_stream=request.stream(),
-    )
 
 
 @router.delete("/machine/{machine_id}/files", summary="删除执行机产物文件")
