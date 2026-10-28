@@ -1130,9 +1130,11 @@ onMounted(async () => {
                       v-if="item.type === 'command'"
                       class="template-script-info"
                     >
-                      <code class="script-name command-preview">{{
-                        item.command
-                      }}</code>
+                      <code
+                        class="script-name command-preview"
+                        :title="item.command"
+                        >{{ item.command }}</code
+                      >
                       <div class="command-timeout-badge">
                         超时 {{ item.command_timeout ?? 120 }} 秒
                       </div>
@@ -2188,7 +2190,9 @@ onMounted(async () => {
 }
 
 .template-info {
+  min-width: 0;
   margin-bottom: 8px;
+  overflow-wrap: anywhere;
 }
 
 .template-name {
@@ -2215,6 +2219,8 @@ onMounted(async () => {
 
 .template-script-info {
   display: flex;
+  gap: 8px;
+  align-items: center;
   justify-content: space-between;
   margin-top: 4px;
   font-size: 12px;
@@ -2225,7 +2231,9 @@ onMounted(async () => {
 }
 
 .script-os {
+  flex-shrink: 0;
   color: #666;
+  white-space: nowrap;
 }
 
 .template-actions {
@@ -2879,6 +2887,8 @@ onMounted(async () => {
 
 .command-preview {
   display: block;
+  flex: 1;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2886,11 +2896,16 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-/* 命令模板卡片上的超时角标 */
+/* 命令模板卡片上的超时角标：不收缩不换行，避免被长命令挤压竖排 */
 .command-timeout-badge {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #8c8c8c;
+  white-space: nowrap;
+  background: #f5f5f5;
+  border-radius: 3px;
 }
 
 /* 操作按钮行 */
