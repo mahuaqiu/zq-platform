@@ -33,6 +33,17 @@ settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
+# 设备列表固定排序：自定义 sort 与创建时间之后，按物理身份（IP/类型/SN）自然排序。
+# 同事务创建的设备创建时间完全相同，必须以业务键区分先后；唯一主键 id 由
+# BaseService.get_list 自动追加兜底，保证全序不受物理行位置影响。
+MACHINE_LIST_ORDER_BY = [
+    EnvMachine.sort.desc(),
+    EnvMachine.sys_create_datetime.desc(),
+    EnvMachine.ip,
+    EnvMachine.device_type,
+    EnvMachine.device_sn,
+]
+
 
 class EnvMachineCreateSchema(BaseModel):
     """
@@ -360,7 +371,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         :return: (机器列表, 总数)
         """
         filters = [EnvMachine.namespace == namespace]
-        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+        return await cls.get_list(
+            db, page=page, page_size=page_size, filters=filters, order_by=MACHINE_LIST_ORDER_BY
+        )
 
     @classmethod
     async def get_list_with_filters(
@@ -424,7 +437,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
             escaped_note = note.replace("%", r"\%").replace("_", r"\_")
             filters.append(EnvMachine.note.ilike(f"%{escaped_note}%"))
 
-        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+        return await cls.get_list(
+            db, page=page, page_size=page_size, filters=filters, order_by=MACHINE_LIST_ORDER_BY
+        )
 
     @classmethod
     async def get_online_machines(
@@ -456,7 +471,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         if device_type:
             filters.append(EnvMachine.device_type == device_type)
 
-        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+        return await cls.get_list(
+            db, page=page, page_size=page_size, filters=filters, order_by=MACHINE_LIST_ORDER_BY
+        )
 
     @classmethod
     async def get_by_ip(
@@ -634,7 +651,9 @@ class EnvMachineService(BaseService[EnvMachine, EnvMachineCreateSchema, EnvMachi
         if namespace:
             filters.append(EnvMachine.namespace == namespace)
 
-        return await cls.get_list(db, page=page, page_size=page_size, filters=filters)
+        return await cls.get_list(
+            db, page=page, page_size=page_size, filters=filters, order_by=MACHINE_LIST_ORDER_BY
+        )
 
     @classmethod
     async def update_status(

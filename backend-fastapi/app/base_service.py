@@ -78,17 +78,27 @@ class BaseService(Generic[T, CreateSchema, UpdateSchema]):
         db: AsyncSession,
         page: int = 1,
         page_size: int = 20,
-        filters: Optional[List[Any]] = None
+        filters: Optional[List[Any]] = None,
+        order_by: Optional[List[Any]] = None
     ) -> Tuple[List[Any], int]:
         """
         获取列表（分页，排除已删除）
-        
+
         :param db: 数据库会话
         :param page: 页码
         :param page_size: 每页数量
         :param filters: 额外的过滤条件列表
+        :param order_by: 自定义排序键列表，默认按 sort、sys_create_datetime 倒序。
+                         无论哪种排序，末尾都以唯一主键 id 兜底：排序键并列时
+                         （如 sort 全为默认值、同事务创建的记录时间戳相同），
+                         若没有唯一键兜底，PostgreSQL 返回顺序取决于物理行位置，
+                         任何一次 UPDATE 都会改变这些行在列表中的先后。
         :return: (数据列表, 总数)
         """
+        if order_by is None:
+            order_by = [desc(cls.model.sort), desc(cls.model.sys_create_datetime)]
+        order_by = [*order_by, cls.model.id]
+
         base_query = select(cls.model).where(cls.model.is_deleted == False)  # noqa: E712
         
         # 添加额外过滤条件
@@ -107,10 +117,7 @@ class BaseService(Generic[T, CreateSchema, UpdateSchema]):
         
         # 获取分页数据
         result = await db.execute(
-            base_query.order_by(
-                desc(cls.model.sort),
-                desc(cls.model.sys_create_datetime)
-            )
+            base_query.order_by(*order_by)
             .offset(offset)
             .limit(page_size)
         )
