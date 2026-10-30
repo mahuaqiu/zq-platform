@@ -72,20 +72,40 @@ export function useWebSocket() {
     onFallback: () => {
       fallbackToJpeg('MSE/JMuxer 不支持或初始化失败');
     },
+    onStreamRebuild: () => {
+      // 软重建后请求 Worker 唤醒+新关键帧，静止画面下也能尽快恢复出画。
+      try {
+        ws?.send(JSON.stringify({ type: 'wake' }));
+      } catch {
+        // 连接不可用时忽略；后续用户操作会随 activity 恢复
+      }
+    },
+    onRepeatedRebuild: (reason) => {
+      fallbackToJpeg(reason);
+    },
   });
 
   // 由 ScreenDisplay 在 <video> 挂载后调用，绑定元素并初始化 MSE 解码器
   // 保存当前绑定的 video 元素和监听器，用于 disconnect 时清理
   let currentVideoEl: HTMLVideoElement | null = null;
   let loadedMetaHandler: (() => void) | null = null;
+  let videoErrorHandler: (() => void) | null = null;
+
+  function detachVideoListeners(): void {
+    if (currentVideoEl && loadedMetaHandler) {
+      currentVideoEl.removeEventListener('loadedmetadata', loadedMetaHandler);
+    }
+    if (currentVideoEl && videoErrorHandler) {
+      currentVideoEl.removeEventListener('error', videoErrorHandler);
+    }
+    currentVideoEl = null;
+    loadedMetaHandler = null;
+    videoErrorHandler = null;
+  }
 
   function attachVideoEl(el: HTMLVideoElement | null): void {
     // 先清理之前的监听器
-    if (currentVideoEl && loadedMetaHandler) {
-      currentVideoEl.removeEventListener('loadedmetadata', loadedMetaHandler);
-      currentVideoEl = null;
-      loadedMetaHandler = null;
-    }
+    detachVideoListeners();
 
     videoEl.value = el;
     if (!el) return;
@@ -100,6 +120,18 @@ export function useWebSocket() {
     el.addEventListener('loadedmetadata', onLoadedMeta);
     currentVideoEl = el;
     loadedMetaHandler = onLoadedMeta;
+
+    // video 元素致命错误（如 MEDIA_ERR_DECODE）不会自动恢复：软重建解码管线，
+    // 不动 WebSocket 连接；code=1 是 src 切换时的正常中断，忽略。
+    videoErrorHandler = () => {
+      const mediaError = el.error;
+      if (!mediaError || mediaError.code === 1) return;
+      console.warn(
+        `[MSE] video 元素错误 code=${mediaError.code} message=${mediaError.message}`,
+      );
+      mseDecoder.softRebuild(`video error code=${mediaError.code}`);
+    };
+    el.addEventListener('error', videoErrorHandler);
 
     if (videoMode.value) {
       mseDecoder.init();
@@ -547,11 +579,7 @@ export function useWebSocket() {
     videoMode.value = false;
 
     // 清理 video 元素的事件监听器，防止内存泄漏
-    if (currentVideoEl && loadedMetaHandler) {
-      currentVideoEl.removeEventListener('loadedmetadata', loadedMetaHandler);
-      currentVideoEl = null;
-      loadedMetaHandler = null;
-    }
+    detachVideoListeners();
     videoEl.value = null;
 
     status.value = 'disconnected';

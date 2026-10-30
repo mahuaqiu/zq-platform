@@ -30,6 +30,10 @@ export interface MseDecoderOptions {
   onError?: (e: unknown) => void;
   /** 不可恢复错误回调，触发降级到 JPEG 模式 */
   onFallback?: () => void;
+  /** 解码管线软重建完成后触发；调用方应向 Worker 请求唤醒+新关键帧 */
+  onStreamRebuild?: (reason: string) => void;
+  /** 软重建过于频繁时触发；调用方应降级（如回退 JPEG） */
+  onRepeatedRebuild?: (reason: string) => void;
 }
 
 type MsePlaybackProfile = 'default' | 'harmony';
@@ -85,6 +89,24 @@ export function useMseDecoder(options: MseDecoderOptions) {
   let harmonyMediaTimeSeconds = 0;
   let harmonyKeyframePositions: number[] = [];
   let harmonyCleanupPending = false;
+
+  // —— 解码管线软重建 ——
+  // MSE/video 出现致命错误时无需重连 WebSocket，重建 jmuxer/MSE 即可恢复；
+  // 重建后由调用方向 Worker 请求唤醒+新关键帧，静止画面也能重新出画。
+  const SOFT_REBUILD_MIN_INTERVAL_MS = 10_000;
+  const SOFT_REBUILD_ERROR_WINDOW_MS = 15_000;
+  const SOFT_REBUILD_ERROR_THRESHOLD = 3;
+  const SOFT_REBUILD_FATAL_LIMIT = 3;
+  // 有帧持续喂入但画面持续不更新（致命 MediaError 后 video 可能静默停摆）
+  // 超过该时长时软重建。
+  const PRESENTATION_STALL_REBUILD_MS = 5000;
+  let jmuxerErrorTimestamps: number[] = [];
+  // 软重建频率与次数限制跨 dispose 保留，避免重建循环风暴。
+  let lastSoftRebuildAtMs = 0;
+  let softRebuildCount = 0;
+  let stallWatchdogLastFeedCount = 0;
+  let stallWatchdogLastPresentedCount = 0;
+  let stallWatchdogSinceMs: null | number = null;
 
   // Windows 使用额外的 buffer 清理定时器。鸿蒙使用自己的保守清理，避免
   // JMuxer 在没有设备时间戳时把当前可播放区间误判为旧数据。
@@ -218,6 +240,16 @@ export function useMseDecoder(options: MseDecoderOptions) {
       },
       onError: (data: unknown) => {
         options.onError?.(data);
+        const now = performance.now();
+        jmuxerErrorTimestamps.push(now);
+        jmuxerErrorTimestamps = jmuxerErrorTimestamps.filter(
+          (timestamp) => now - timestamp <= SOFT_REBUILD_ERROR_WINDOW_MS,
+        );
+        if (jmuxerErrorTimestamps.length >= SOFT_REBUILD_ERROR_THRESHOLD) {
+          softRebuild(
+            `jmuxer ${SOFT_REBUILD_ERROR_WINDOW_MS / 1000}s 内报错 ${jmuxerErrorTimestamps.length} 次`,
+          );
+        }
       },
       onMissingVideoFrames: () => {
         missingVideoFrameCount += 1;
@@ -559,8 +591,44 @@ export function useMseDecoder(options: MseDecoderOptions) {
     return sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
   }
 
+  /**
+   * 出帧停滞看门狗：帧持续喂入但 requestVideoFrameCallback 持续不出帧
+   * （典型如致命 MediaError 后 video 静默停摆、无 error 事件可监听的场景）
+   * 超过阈值时软重建。仅在支持 rVC 的浏览器启用；页面隐藏（rVC 不触发）
+   * 或播放未启动时跳过；静止画面因没有新帧喂入天然不会触发。
+   */
+  function checkPresentationStall(): void {
+    const el = options.videoEl.value as
+      | (HTMLVideoElement & { requestVideoFrameCallback?: unknown })
+      | null;
+    if (!el || !el.requestVideoFrameCallback) return;
+    if (document.hidden || el.paused) {
+      stallWatchdogSinceMs = null;
+      stallWatchdogLastFeedCount = feedCount;
+      stallWatchdogLastPresentedCount = presentedFrameCount;
+      return;
+    }
+    if (feedCount - stallWatchdogLastFeedCount < 5) {
+      // 新帧不足：无法判断是"喂了不渲染"还是"本来就没有新帧"，复位停滞计时。
+      stallWatchdogSinceMs = null;
+      return;
+    }
+    const now = performance.now();
+    if (presentedFrameCount === stallWatchdogLastPresentedCount) {
+      stallWatchdogSinceMs ??= now;
+      if (now - stallWatchdogSinceMs >= PRESENTATION_STALL_REBUILD_MS) {
+        softRebuild('帧持续喂入但画面未更新超过 5s');
+      }
+      return;
+    }
+    stallWatchdogSinceMs = null;
+    stallWatchdogLastFeedCount = feedCount;
+    stallWatchdogLastPresentedCount = presentedFrameCount;
+  }
+
   function syncToLiveEdge(): void {
     const el = options.videoEl.value;
+    checkPresentationStall();
     const bufferedEnd = getBufferedEnd();
     if (!el || bufferedEnd === null) return;
 
@@ -770,9 +838,38 @@ export function useMseDecoder(options: MseDecoderOptions) {
     sourceBufferAbortCount = 0;
     lastSourceBufferUpdateEndAtMs = null;
     harmonyCleanupPending = false;
+    // 软重建的跨管线状态（lastSoftRebuildAtMs/softRebuildCount）不在此重置：
+    // 需要跨重建保留以限制重建频率并支持多次重建后降级。
+    jmuxerErrorTimestamps = [];
+    stallWatchdogLastFeedCount = 0;
+    stallWatchdogLastPresentedCount = 0;
+    stallWatchdogSinceMs = null;
   }
 
   onUnmounted(dispose);
+
+  /**
+   * 软重建解码管线：销毁并重建 jmuxer/MSE，不动 WebSocket 连接。
+   * 频率受限；重建后回调 onStreamRebuild 让调用方向 Worker 请求唤醒+新关键帧，
+   * 超过次数上限则回调 onRepeatedRebuild 交给调用方降级（如回退 JPEG）。
+   */
+  function softRebuild(reason: string): void {
+    if (fallback) return;
+    const now = performance.now();
+    if (now - lastSoftRebuildAtMs < SOFT_REBUILD_MIN_INTERVAL_MS) return;
+    lastSoftRebuildAtMs = now;
+    softRebuildCount += 1;
+    console.warn(`[MSE] 软重建解码管线(第${softRebuildCount}次): ${reason}`);
+    dispose();
+    init();
+    if (softRebuildCount > SOFT_REBUILD_FATAL_LIMIT) {
+      options.onRepeatedRebuild?.(
+        `MSE 解码管线软重建已达 ${softRebuildCount} 次: ${reason}`,
+      );
+      return;
+    }
+    options.onStreamRebuild?.(reason);
+  }
 
   return {
     init,
@@ -781,5 +878,6 @@ export function useMseDecoder(options: MseDecoderOptions) {
     setPlaybackProfile,
     getDiagnostics,
     dispose,
+    softRebuild,
   };
 }
