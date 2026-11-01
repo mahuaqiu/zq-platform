@@ -470,15 +470,11 @@ function handleBatchCommand(command: string) {
   }
 }
 
-// 行内「更多」菜单命令分发:文件/编辑/删除
+// 行内「更多」菜单命令分发:文件/删除(日志/远程/编辑内联)
 function handleRowCommand(command: string, row: EnvMachine) {
   switch (command) {
     case 'delete': {
       handleDelete(row);
-      break;
-    }
-    case 'edit': {
-      handleEdit(row);
       break;
     }
     case 'files': {
@@ -889,7 +885,7 @@ onMounted(async () => {
               <span class="nowrap">{{ row.version || '-' }}</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="operation" label="操作" min-width="128">
+          <ElTableColumn prop="operation" label="操作" min-width="150">
             <template #default="{ row }">
               <span class="nowrap">
                 <!-- 内联只保留高频操作:日志(worker 日志,windows/mac 宿主机)与远程 -->
@@ -915,6 +911,7 @@ onMounted(async () => {
                 >
                   远程
                 </a>
+                <a class="env-link" @click="handleEdit(row)">编辑</a>
                 <ElDropdown
                   trigger="click"
                   popper-class="env-row-menu"
@@ -936,7 +933,6 @@ onMounted(async () => {
                       >
                         文件
                       </ElDropdownItem>
-                      <ElDropdownItem command="edit">编辑</ElDropdownItem>
                       <ElDropdownItem
                         command="delete"
                         divided
