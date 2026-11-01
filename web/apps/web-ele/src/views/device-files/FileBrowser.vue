@@ -51,6 +51,9 @@ interface Props {
 
 const props = defineProps<Props>();
 
+// 向窗口头部上报产物根目录绝对路径(展示"这是哪台机器上哪个目录")
+const emit = defineEmits<{ root: [value: string] }>();
+
 const loading = ref(false);
 const entries = ref<WorkerFileEntry[]>([]);
 const truncated = ref(false);
@@ -112,6 +115,7 @@ async function loadList() {
     entries.value = res.entries;
     truncated.value = res.truncated === true;
     workerRoot.value = res.root || '';
+    if (workerRoot.value) emit('root', workerRoot.value);
     loadFailed.value = false;
     selectedRows.value = [];
   } catch {

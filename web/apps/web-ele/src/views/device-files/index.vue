@@ -20,6 +20,8 @@ const isRemotePopup = route.query.remotePopup === '1';
 
 const machine = ref<EnvMachine | null>(null);
 const loadFailed = ref(false);
+/** worker 端产物根目录绝对路径(文件列表接口 root 字段) */
+const workerRoot = ref('');
 
 const deviceName = computed(() => {
   const m = machine.value;
@@ -72,9 +74,8 @@ function handleClose() {
           </span>
         </div>
         <div class="dfw-meta">
-          资产 {{ machine.asset_number || '—' }} ·
-          {{ getDeviceTypeText(machine.device_type) }} · 命名空间
-          {{ machine.namespace || '—' }} · Worker {{ machine.version || '—' }}
+          {{ getDeviceTypeText(machine.device_type) }} · Worker
+          {{ machine.version || '—' }}
         </div>
       </div>
       <div v-else-if="loadFailed" class="dfw-meta">设备信息加载失败</div>
@@ -86,7 +87,9 @@ function handleClose() {
         {{ STATUS_LABEL[machine.status] }}
       </ElTag>
       <div class="dfw-spacer"></div>
-      <span class="dfw-sub">文件管理 · 产物目录 data/collected</span>
+      <span class="dfw-sub" :title="workerRoot">
+        产物目录 {{ workerRoot || '加载中…' }}
+      </span>
       <ElButton v-if="isRemotePopup" size="small" @click="handleClose">
         关闭
       </ElButton>
@@ -97,6 +100,7 @@ function handleClose() {
         :machine-id="machine.id"
         :ip="machine.ip || ''"
         :port="machine.port || ''"
+        @root="workerRoot = $event"
       />
       <div v-else-if="!loadFailed" class="dfw-tip">正在加载设备信息…</div>
       <div v-else class="dfw-tip">
