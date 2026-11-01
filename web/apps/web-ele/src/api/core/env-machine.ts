@@ -386,6 +386,8 @@ export interface WorkerFileEntry {
 
 export interface WorkerFileList {
   path: string;
+  /** worker 端产物根目录绝对路径(老版本 worker 无该字段) */
+  root?: string;
   entries: WorkerFileEntry[];
   /** 目录条目超过 worker 端上限(2000)时为 true,列表被截断 */
   truncated?: boolean;
@@ -409,9 +411,11 @@ export function getWorkerFileDownloadUrl(
   machineId: string,
   path: string,
   token: string,
+  options?: { zip?: boolean },
 ): string {
   const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
   const params = new URLSearchParams({ path, token });
+  if (options?.zip) params.set('zip', 'true');
   return `${apiURL}/api/core/env/machine/${machineId}/files/download?${params.toString()}`;
 }
 
