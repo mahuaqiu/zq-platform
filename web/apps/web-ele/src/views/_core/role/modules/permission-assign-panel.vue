@@ -65,6 +65,7 @@ const loadingPermissions = ref(false);
 const treeData = ref<MenuNode[]>([]);
 const selectedMenuIds = ref<Set<string>>(new Set());
 const selectedPermissions = ref<Set<string>>(new Set());
+const selectedPermissionsByMenu = ref<Record<string, string[]>>({});
 const expandedMenuIds = ref<Set<string>>(new Set());
 const selectedMenuId = ref<string>();
 const menuPermissionsCache = ref<Record<string, PermissionNode[]>>({});
@@ -165,13 +166,16 @@ async function loadMenuTree() {
     // 使用后端返回的菜单树结构
     treeData.value = data.menu_tree || [];
 
-    // 初始化已选菜单
+    // 后端已把"已授权限所属菜单"合并进 selected_menu_ids，菜单勾选与权限保持一致
     const selectedMenuIdsList = data.selected_menu_ids || [];
     selectedMenuIds.value = new Set(selectedMenuIdsList);
 
-    // 清空权限缓存和选中状态
+    // 清空权限缓存
     menuPermissionsCache.value = {};
-    selectedPermissions.value.clear();
+
+    // 初始化已选权限：不依赖逐个点开菜单，避免保存时丢失未点开菜单的已授权限
+    selectedPermissions.value = new Set(data.selected_permission_ids || []);
+    selectedPermissionsByMenu.value = data.selected_permissions_by_menu || {};
 
     // 默认展开全部菜单
     expandAllMenus();
@@ -202,9 +206,9 @@ async function loadMenuPermissions(menuId: string) {
     // 缓存权限数据
     menuPermissionsCache.value[menuId] = data.permissions || [];
 
-    // 初始化已选中的权限
+    // 初始化已选中的权限（菜单已被取消勾选时，不把该菜单的已授权限加回选择集）
     data.permissions.forEach((perm: any) => {
-      if (perm.checked) {
+      if (perm.checked && selectedMenuIds.value.has(menuId)) {
         selectedPermissions.value.add(perm.id);
       }
     });
@@ -300,14 +304,32 @@ function hasSelectedDescendants(menuId: string): boolean {
 }
 
 /**
+ * 检查菜单及其所有子孙菜单是否全部选中
+ */
+function isMenuFullySelected(menuId: string): boolean {
+  if (!selectedMenuIds.value.has(menuId)) return false;
+  const descendants = getDescendantMenuIds(menuId);
+  return descendants.every((id) => selectedMenuIds.value.has(id));
+}
+
+/**
+ * 移除一组菜单下已勾选的权限（取消菜单勾选时级联）
+ */
+function removePermissionsOfMenus(menuIds: Iterable<string>) {
+  for (const menuId of menuIds) {
+    const permissionIds = selectedPermissionsByMenu.value[menuId] || [];
+    permissionIds.forEach((id) => selectedPermissions.value.delete(id));
+  }
+}
+
+/**
  * 切换菜单选中状态（级联选择）
  */
 function toggleMenu(menuId: string) {
-  if (selectedMenuIds.value.has(menuId)) {
-    // 取消选中：取消该菜单及其所有子孙菜单
-    selectedMenuIds.value.delete(menuId);
-    const descendants = getDescendantMenuIds(menuId);
-    descendants.forEach((id) => selectedMenuIds.value.delete(id));
+  if (isMenuFullySelected(menuId)) {
+    // 取消选中：取消该菜单及其所有子孙菜单，并级联移除这些菜单下的已选权限
+    const removedMenuIds = new Set([menuId, ...getDescendantMenuIds(menuId)]);
+    removedMenuIds.forEach((id) => selectedMenuIds.value.delete(id));
 
     // 检查父级菜单是否还应该保持选中
     const ancestors = getAncestorMenuIds(menuId);
@@ -315,11 +337,14 @@ function toggleMenu(menuId: string) {
       // 如果父级菜单没有任何子节点被选中，则取消选中父级
       if (!hasSelectedDescendants(ancestorId)) {
         selectedMenuIds.value.delete(ancestorId);
+        removedMenuIds.add(ancestorId);
       }
     });
 
-    // 如果取消选中的菜单正好是当前显示权限的菜单，清除右侧显示
-    if (selectedMenuId.value === menuId) {
+    removePermissionsOfMenus(removedMenuIds);
+
+    // 如果取消的菜单正好是当前显示权限的菜单，清除右侧显示
+    if (selectedMenuId.value && removedMenuIds.has(selectedMenuId.value)) {
       selectedMenuId.value = undefined;
     }
   } else {
@@ -365,6 +390,12 @@ function togglePermission(permissionId: string) {
     selectedPermissions.value.delete(permissionId);
   } else {
     selectedPermissions.value.add(permissionId);
+    // 勾选权限时自动勾选所属菜单（后端回显会把权限所属菜单合并为勾选，保持保存/回显一致）
+    const menuId = selectedMenuId.value;
+    if (menuId) {
+      selectedMenuIds.value.add(menuId);
+      getAncestorMenuIds(menuId).forEach((id) => selectedMenuIds.value.add(id));
+    }
   }
 }
 
@@ -392,6 +423,8 @@ function selectAllMenus() {
  */
 function unselectAllMenus() {
   selectedMenuIds.value.clear();
+  // 菜单全部取消时同步清空已选权限，避免保存后权限残留导致菜单被重新回显勾选
+  selectedPermissions.value.clear();
 }
 
 /**
@@ -480,6 +513,7 @@ watch(
       treeData.value = [];
       selectedMenuIds.value.clear();
       selectedPermissions.value.clear();
+      selectedPermissionsByMenu.value = {};
       expandedMenuIds.value.clear();
       selectedMenuId.value = undefined;
     }

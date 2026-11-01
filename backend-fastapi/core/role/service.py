@@ -487,14 +487,28 @@ class RoleService(BaseService[Role, RoleCreate, RoleUpdate]):
         """获取角色的菜单列表"""
         from core.menu.model import Menu
         from core.permission.model import Permission
-        
-        # 获取该角色已选中的菜单ID
+
+        # 获取该角色已选中的菜单ID和权限ID
         role_menu_ids = set(m.id for m in role.menus) if role.menus else set()
-        
+        role_permissions = list(role.permissions) if role.permissions else []
+        role_permission_ids = set(p.id for p in role_permissions)
+
         # 获取所有菜单
         result = await db.execute(select(Menu).where(Menu.is_deleted == False))  # noqa: E712
         all_menus = list(result.scalars().all())
-        
+        existing_menu_ids = set(menu.id for menu in all_menus)
+
+        # 权限挂在菜单下：已授权限所属菜单一并视为选中，
+        # 否则"有权限无菜单"的角色打开后菜单全不勾，且直接保存会丢失权限
+        permission_menu_ids = set(p.menu_id for p in role_permissions if p.menu_id)
+        selected_menu_ids = (role_menu_ids | permission_menu_ids) & existing_menu_ids
+
+        # 已授权限按所属菜单分组，供前端取消菜单勾选时级联移除对应权限
+        selected_permissions_by_menu: Dict[str, List[str]] = {}
+        for p in role_permissions:
+            if p.menu_id:
+                selected_permissions_by_menu.setdefault(p.menu_id, []).append(p.id)
+
         # 统计每个菜单的权限数量
         permission_counts = {}
         for menu in all_menus:
@@ -506,35 +520,37 @@ class RoleService(BaseService[Role, RoleCreate, RoleUpdate]):
                 )
             )
             permission_counts[menu.id] = count_result.scalar() or 0
-        
+
         # 构建菜单树
         menu_map = {}
         root_menus = []
-        
+
         for menu in all_menus:
             menu_node = {
                 'id': menu.id,
                 'label': menu.title or menu.name,
                 'name': menu.name,
                 'parent_id': menu.parent_id,
-                'checked': menu.id in role_menu_ids,
+                'checked': menu.id in selected_menu_ids,
                 'permission_count': permission_counts.get(menu.id, 0),
                 'children': [],
             }
             menu_map[menu.id] = menu_node
-            
+
             if not menu.parent_id:
                 root_menus.append(menu_node)
-        
+
         # 建立父子关系
         for menu_id, menu_node in menu_map.items():
             parent_id = menu_node['parent_id']
             if parent_id and parent_id in menu_map:
                 menu_map[parent_id]['children'].append(menu_node)
-        
+
         return {
             'menu_tree': root_menus,
-            'selected_menu_ids': list(role_menu_ids),
+            'selected_menu_ids': list(selected_menu_ids),
+            'selected_permission_ids': list(role_permission_ids),
+            'selected_permissions_by_menu': selected_permissions_by_menu,
         }
     
     @classmethod

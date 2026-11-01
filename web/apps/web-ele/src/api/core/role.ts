@@ -223,7 +223,12 @@ export async function updateRoleMenusPermissionsApi(
 export async function getRoleMenusApi(roleId: string) {
   return requestClient.get<{
     menu_tree: any[];
+    /** 已选菜单ID（已包含已授权限所属菜单） */
     selected_menu_ids: string[];
+    /** 角色已授权限ID */
+    selected_permission_ids: string[];
+    /** 已授权限按所属菜单分组，用于取消菜单时级联移除权限 */
+    selected_permissions_by_menu: Record<string, string[]>;
   }>(`/api/core/role/${roleId}/menus`);
 }
 

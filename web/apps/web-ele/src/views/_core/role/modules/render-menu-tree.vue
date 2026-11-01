@@ -1,6 +1,8 @@
 <!-- eslint-disable vue/no-unused-vars -->
 <script lang="ts" setup>
-import { inject } from 'vue';
+import type { Ref } from 'vue';
+
+import { computed, inject } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 import { $t } from '@vben/locales';
@@ -18,7 +20,7 @@ interface Props {
   level?: number;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   level: 0,
 });
 
@@ -26,9 +28,47 @@ const toggleMenu = inject<(menuId: string) => void>('toggleMenu');
 const selectMenu = inject<(menuId: string) => void>('selectMenu');
 const toggleMenuExpanded =
   inject<(menuId: string) => void>('toggleMenuExpanded');
-const selectedMenuIds = inject<Set<string>>('selectedMenuIds');
+const selectedMenuIds = inject<Ref<Set<string>>>('selectedMenuIds');
 const selectedMenuId = inject<string>('selectedMenuId');
 const expandedMenuIds = inject<Set<string>>('expandedMenuIds');
+
+function isMenuNode(node: any): node is MenuNode {
+  return node && !('code' in node);
+}
+
+function allMenuDescendantsSelected(menu: MenuNode): boolean {
+  const children = (menu.children || []).filter((child) => isMenuNode(child));
+  if (children.length === 0) return true;
+  return children.every(
+    (child) =>
+      selectedMenuIds?.value.has(child.id) && allMenuDescendantsSelected(child),
+  );
+}
+
+function anyMenuDescendantSelected(menu: MenuNode): boolean {
+  return (menu.children || []).some(
+    (child) =>
+      isMenuNode(child) &&
+      (selectedMenuIds?.value.has(child.id) ||
+        anyMenuDescendantSelected(child)),
+  );
+}
+
+/**
+ * 菜单复选框状态：仅部分子孙菜单选中时显示半选
+ */
+const checkState = computed<'checked' | 'indeterminate' | 'unchecked'>(() => {
+  const selfSelected = selectedMenuIds?.value.has(props.menu.id) ?? false;
+  if (!(props.menu.children || []).some((child) => isMenuNode(child))) {
+    return selfSelected ? 'checked' : 'unchecked';
+  }
+  if (selfSelected && allMenuDescendantsSelected(props.menu)) {
+    return 'checked';
+  }
+  return selfSelected || anyMenuDescendantSelected(props.menu)
+    ? 'indeterminate'
+    : 'unchecked';
+});
 </script>
 
 <template>
@@ -62,7 +102,8 @@ const expandedMenuIds = inject<Set<string>>('expandedMenuIds');
         <!-- 菜单复选框 -->
         <input
           type="checkbox"
-          :checked="selectedMenuIds?.has(menu.id)"
+          :checked="checkState === 'checked'"
+          :indeterminate="checkState === 'indeterminate'"
           class="size-4 cursor-pointer rounded border-gray-300 transition-colors"
           @change="toggleMenu?.(menu.id)"
           @click.stop
