@@ -433,10 +433,10 @@ export interface WorkerFileUploadResult {
 }
 
 /**
- * 上传文件直连 worker(不经平台转发):worker 端 1MB/s 慢读背压会真实
- * 拖住浏览器发送,onUploadProgress 即真实进度。浏览器跨域由 worker 端
- * CORS 放行;worker 不可达/预检失败时抛错(code ERR_NETWORK 等),由调用
- * 方提示。上限 1GiB 与 worker files.max_upload_size_mb 统一。
+ * 上传文件直连 worker(不经平台转发):worker 端限速(默认 5MB/s)的慢读
+ * 背压会真实拖住浏览器发送,onUploadProgress 即真实进度。浏览器跨域由
+ * worker 端 CORS 放行;worker 不可达/预检失败时抛错(code ERR_NETWORK 等),
+ * 由调用方提示。上限 1GiB 与 worker files.max_upload_size_mb 统一。
  * 用 baseRequestClient 的裸 axios 实例(无拦截器/无 baseURL 改写,绝对
  * URL 直指 worker;绝对 URL 下 axios 忽略 baseURL)。
  */
@@ -464,7 +464,7 @@ export function uploadWorkerFileDirectApi(
       headers: { 'Content-Type': 'application/octet-stream' },
       onUploadProgress: options.onUploadProgress,
       params,
-      // 1GiB / 1MB/s 可达 17 分钟,不设超时
+      // 1GiB / 5MB/s 约 3.5 分钟,不设超时
       timeout: 0,
       signal: options.signal,
     },

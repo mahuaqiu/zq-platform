@@ -634,7 +634,7 @@ watch(
       <div class="fb-spacer"></div>
       <ElIcon><InfoFilled /></ElIcon>
       <span
-        >上传直连执行机（不经平台转发）· 文件夹下载 zip 打包 · 限速 1 MB/s</span
+        >上传直连执行机（不经平台转发）· 文件夹下载 zip 打包 · 限速 5 MB/s</span
       >
     </div>
   </div>
