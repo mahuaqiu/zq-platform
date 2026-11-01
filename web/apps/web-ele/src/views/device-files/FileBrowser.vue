@@ -101,6 +101,23 @@ const filteredEntries = computed(() => {
   return entries.value.filter((e) => e.name.toLowerCase().includes(kw));
 });
 
+// 队列面板最多显示的条数:上传中的始终保留,其余只展示最近的
+const MAX_VISIBLE = 10;
+const visibleQueue = computed(() => {
+  const list = queueItems.value;
+  if (list.length <= MAX_VISIBLE) return list;
+  const uploading = list.filter((i) => i.status === 'uploading');
+  const others = list.filter((i) => i.status !== 'uploading');
+  return [...uploading, ...others.slice(-(MAX_VISIBLE - uploading.length))];
+});
+
+/** 终态任务自动从面板消失,避免传大目录后记录堆积 */
+function scheduleDismiss(item: UploadItem, delayMs: number) {
+  setTimeout(() => {
+    queueItems.value = queueItems.value.filter((i) => i.id !== item.id);
+  }, delayMs);
+}
+
 async function loadList() {
   if (!props.machineId) return;
   loading.value = true;
@@ -345,10 +362,12 @@ async function uploadOne(item: UploadItem) {
         },
       );
       item.status = 'done';
+      scheduleDismiss(item, 4000);
       return;
     } catch (error: any) {
       if (error?.code === 'ERR_CANCELED') {
         item.status = 'canceled';
+        scheduleDismiss(item, 4000);
         return;
       }
       if (
@@ -363,6 +382,7 @@ async function uploadOne(item: UploadItem) {
         ).catch(() => false);
         if (!confirmed) {
           item.status = 'canceled';
+          scheduleDismiss(item, 4000);
           return;
         }
         overwrite = true;
@@ -371,6 +391,8 @@ async function uploadOne(item: UploadItem) {
       item.status = 'failed';
       item.error = uploadErrorMessage(error);
       ElMessage.error(item.error);
+      // 失败多留一会便于看错误,仍会自动消失
+      scheduleDismiss(item, 15_000);
       return;
     }
   }
@@ -461,7 +483,10 @@ watch(
     />
 
     <div v-if="queueItems.length > 0" class="fb-uploads">
-      <div v-for="item in queueItems" :key="item.id" class="fb-upl">
+      <div v-if="queueItems.length > visibleQueue.length" class="fb-upl-head">
+        上传队列共 {{ queueItems.length }} 项,仅显示最近 {{ MAX_VISIBLE }} 项
+      </div>
+      <div v-for="item in visibleQueue" :key="item.id" class="fb-upl">
         <span
           class="fb-upl-name"
           :title="item.dir ? `${item.dir}/${item.name}` : item.name"
@@ -713,6 +738,12 @@ watch(
   background: #fafbfc;
   border: 1px solid #ebeef5;
   border-radius: 6px;
+}
+
+.fb-upl-head {
+  padding: 6px 0 2px;
+  font-size: 11.5px;
+  color: var(--el-text-color-secondary);
 }
 
 .fb-upl {
