@@ -41,7 +41,6 @@ import {
 } from '#/api/core/env-machine';
 import CodeEditor from '#/components/zq-form/code-editor/code-editor.vue';
 
-import FileManageDialog from './FileManageDialog.vue';
 import LogDialogV2 from './LogDialogV2.vue';
 import {
   buildEnableBlockMessage,
@@ -129,13 +128,23 @@ function handleViewLogs(row: EnvMachine) {
   logDialogVisible.value = true;
 }
 
-// 文件管理弹窗
-const filesDialogVisible = ref(false);
-const filesMachine = ref<EnvMachine | null>(null);
-
+// 为每台设备打开独立文件管理弹窗(同「远程」模式),设备列表页面保持原样。
 function handleFiles(row: EnvMachine) {
-  filesMachine.value = row;
-  filesDialogVisible.value = true;
+  const url = router.resolve({
+    name: 'DeviceFilesWindow',
+    params: { deviceId: row.id },
+    query: { remotePopup: '1' },
+  }).href;
+  const popup = window.open(
+    url,
+    `device-files-${row.id}`,
+    'popup=yes,width=1200,height=860,resizable=yes,scrollbars=yes',
+  );
+  if (!popup) {
+    ElMessage.error('窗口被浏览器拦截,请允许本站弹出窗口后重试');
+    return;
+  }
+  popup.focus();
 }
 
 // 为每台设备打开独立浏览器弹窗，设备列表页面保持原样。
@@ -1041,14 +1050,6 @@ onMounted(async () => {
       :machine-id="logMachineId"
       :machine-ip="logMachineIp"
       :machine-port="logMachinePort"
-    />
-
-    <FileManageDialog
-      v-model:visible="filesDialogVisible"
-      :machine-id="filesMachine?.id || ''"
-      :machine-name="filesMachine?.asset_number || filesMachine?.ip || ''"
-      :ip="filesMachine?.ip || ''"
-      :port="filesMachine?.port || ''"
     />
 
     <!-- 批量导入弹窗 -->
