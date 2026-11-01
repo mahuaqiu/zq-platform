@@ -25,22 +25,25 @@ export async function filesFromDataTransfer(
   dt: DataTransfer,
 ): Promise<UploadSource[]> {
   const out: UploadSource[] = [];
-  const roots: Array<{ entry: any; prefix: string }> = [];
   for (const item of dt.items || []) {
     const entry = (item as any).webkitGetAsEntry?.();
-    if (entry) {
-      roots.push({ entry, prefix: entry.isDirectory ? entry.name : '' });
-    }
-  }
-  async function walk(entry: any, prefix: string): Promise<void> {
+    if (!entry) continue;
     if (entry.isFile) {
       const file: File = await new Promise((resolve, reject) =>
         entry.file(resolve, reject),
       );
-      out.push({ dir: prefix, file });
-      return;
+      out.push({ dir: '', file });
+    } else if (entry.isDirectory) {
+      // 拖入文件夹:以其名称为子目录,内部结构原样保留。
+      // 注意 prefix 是"文件所在的父目录",文件自己的名字只作上传名,
+      // 不能再拼进目录,否则每个文件都会被套进一层同名文件夹
+      await walkDir(entry, entry.name);
     }
-    const reader = entry.createReader();
+  }
+  return out;
+
+  async function walkDir(dirEntry: any, base: string): Promise<void> {
+    const reader = dirEntry.createReader();
     // readEntries 每次最多返回 100 条,读到空为止
     const readAll = async (): Promise<any[]> => {
       const batch: any[] = await new Promise((resolve, reject) =>
@@ -49,9 +52,14 @@ export async function filesFromDataTransfer(
       return batch.length > 0 ? [...batch, ...(await readAll())] : [];
     };
     for (const child of await readAll()) {
-      await walk(child, prefix ? `${prefix}/${child.name}` : child.name);
+      if (child.isFile) {
+        const file: File = await new Promise((resolve, reject) =>
+          child.file(resolve, reject),
+        );
+        out.push({ dir: base, file });
+      } else if (child.isDirectory) {
+        await walkDir(child, `${base}/${child.name}`);
+      }
     }
   }
-  for (const root of roots) await walk(root.entry, root.prefix);
-  return out;
 }
