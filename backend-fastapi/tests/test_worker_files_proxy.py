@@ -193,3 +193,29 @@ async def test_delete_worker_file():
 
     with _patch_client(handler):
         assert await delete_worker_file(_machine(), "x.log") == {"deleted": "x.log"}
+
+
+async def test_download_worker_file_forwards_zip():
+    """zip=true 时透传给 worker(目录打包下载),不带 zip 时不发该参数。"""
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["params"] = dict(request.url.params)
+        return httpx.Response(
+            200,
+            content=b"zip-bytes",
+            headers={"Content-Disposition": "attachment; filename*=UTF-8''logs.zip"},
+        )
+
+    with _patch_client(handler):
+        resp = await download_worker_file(_machine(), "logs", zip_flag=True)
+
+    assert captured["params"]["path"] == "logs"
+    assert captured["params"]["zip"] == "true"
+    chunks = [c async for c in resp.body_iterator]
+    assert b"".join(chunks) == b"zip-bytes"
+
+    captured.clear()
+    with _patch_client(handler):
+        await download_worker_file(_machine(), "a.log")
+    assert "zip" not in captured["params"]

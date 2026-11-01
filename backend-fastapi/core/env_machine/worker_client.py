@@ -271,15 +271,20 @@ async def list_worker_files(machine: EnvMachine, path: str | None = None) -> dic
     raise HTTPException(status_code=502, detail="设备返回异常")  # pragma: no cover
 
 
-async def download_worker_file(machine: EnvMachine, path: str) -> StreamingResponse:
+async def download_worker_file(
+    machine: EnvMachine, path: str, zip_flag: bool = False
+) -> StreamingResponse:
     """代理 worker /files/download,返回边收边转发的 StreamingResponse。"""
+    params: dict[str, str] = {"path": path}
+    if zip_flag:
+        params["zip"] = "true"
     try:
         client = httpx.AsyncClient(
             timeout=_WORKER_FILES_TIMEOUT, trust_env=False, verify=False
         )
         resp = await client.send(
             client.build_request(
-                "GET", _worker_files_url(machine, "download"), params={"path": path}
+                "GET", _worker_files_url(machine, "download"), params=params
             ),
             stream=True,
         )

@@ -662,10 +662,11 @@ async def list_machine_files(
 async def download_machine_file(
     machine_id: str,
     path: str = Query(...),
+    zip: bool = Query(default=False, description="目录打包为 zip 下载"),
     db: AsyncSession = Depends(get_db),
 ):
     machine = await _get_file_machine(machine_id, db)
-    return await download_worker_file(machine, path)
+    return await download_worker_file(machine, path, zip_flag=zip)
 
 
 @router.delete("/machine/{machine_id}/files", summary="删除执行机产物文件")
