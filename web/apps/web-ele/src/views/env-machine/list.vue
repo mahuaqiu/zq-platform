@@ -9,7 +9,7 @@ import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import { Grid } from '@element-plus/icons-vue';
+import { ArrowDown, Grid } from '@element-plus/icons-vue';
 import {
   ElButton,
   ElDialog,
@@ -18,6 +18,7 @@ import {
   ElDropdownMenu,
   ElForm,
   ElFormItem,
+  ElIcon,
   ElInput,
   ElMessage,
   ElMessageBox,
@@ -460,6 +461,24 @@ function handleBatchCommand(command: string) {
   }
 }
 
+// 行内「更多」菜单命令分发:文件/编辑/删除
+function handleRowCommand(command: string, row: EnvMachine) {
+  switch (command) {
+    case 'delete': {
+      handleDelete(row);
+      break;
+    }
+    case 'edit': {
+      handleEdit(row);
+      break;
+    }
+    case 'files': {
+      handleFiles(row);
+      break;
+    }
+  }
+}
+
 // 获取选中的设备列表
 function getSelectedMachines(): EnvMachine[] {
   return [...selectedMachinesMap.value.values()];
@@ -861,10 +880,10 @@ onMounted(async () => {
               <span class="nowrap">{{ row.version || '-' }}</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" min-width="160">
+          <ElTableColumn prop="operation" label="操作" min-width="128">
             <template #default="{ row }">
               <span class="nowrap">
-                <!-- 操作按钮：日志只对 windows/mac 宿主机展示（日志内容是 worker 日志，鸿蒙/Linux 设备无 worker 进程） -->
+                <!-- 内联只保留高频操作:日志(worker 日志,windows/mac 宿主机)与远程 -->
                 <a
                   v-if="
                     !row.is_virtual &&
@@ -879,17 +898,6 @@ onMounted(async () => {
                 <a
                   v-if="
                     !row.is_virtual &&
-                    supportsWorkerLog(row.device_type) &&
-                    row.status === 'online'
-                  "
-                  class="env-link"
-                  @click="handleFiles(row)"
-                >
-                  文件
-                </a>
-                <a
-                  v-if="
-                    !row.is_virtual &&
                     (row.status === 'online' || row.status === 'using') &&
                     row.device_type !== 'linux'
                   "
@@ -898,10 +906,38 @@ onMounted(async () => {
                 >
                   远程
                 </a>
-                <a class="env-link" @click="handleEdit(row)">编辑</a>
-                <a class="env-link env-link-danger" @click="handleDelete(row)"
-                  >删除</a
+                <ElDropdown
+                  trigger="click"
+                  popper-class="env-row-menu"
+                  @command="(command: string) => handleRowCommand(command, row)"
                 >
+                  <a class="env-more" title="更多操作">
+                    <ElIcon :size="14"><ArrowDown /></ElIcon>
+                  </a>
+                  <template #dropdown>
+                    <ElDropdownMenu>
+                      <!-- 文件管理:windows/mac 宿主机且在线 -->
+                      <ElDropdownItem
+                        v-if="
+                          !row.is_virtual &&
+                          supportsWorkerLog(row.device_type) &&
+                          row.status === 'online'
+                        "
+                        command="files"
+                      >
+                        文件
+                      </ElDropdownItem>
+                      <ElDropdownItem command="edit">编辑</ElDropdownItem>
+                      <ElDropdownItem
+                        command="delete"
+                        divided
+                        class="env-dropdown-danger"
+                      >
+                        删除
+                      </ElDropdownItem>
+                    </ElDropdownMenu>
+                  </template>
+                </ElDropdown>
               </span>
             </template>
           </ElTableColumn>
@@ -1212,9 +1248,22 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
-.env-link-danger {
-  margin-right: 0;
-  color: #ff4d4f;
+.env-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 2px;
+  color: #666;
+  vertical-align: middle;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.env-more:hover {
+  color: #1890ff;
+  background: #f0f0f0;
 }
 
 .env-pagination {
@@ -1289,5 +1338,17 @@ onMounted(async () => {
 
 .import-result-failed li {
   margin-bottom: 4px;
+}
+</style>
+
+<style>
+/* 行操作下拉菜单(popper 挂 body),scoped 样式够不到,需全局样式 */
+.el-popper.env-row-menu .env-dropdown-danger {
+  color: #ff4d4f;
+}
+
+.el-popper.env-row-menu .env-dropdown-danger:hover {
+  color: #ff4d4f;
+  background: #fef0f0;
 }
 </style>
