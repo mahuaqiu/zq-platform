@@ -1,10 +1,12 @@
 <script lang="ts" setup>
+import type { DeviceType } from './types';
+
 import type {
   EnvMachine,
   EnvMachineUpdateParams,
 } from '#/api/core/env-machine';
 
-import { nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -470,18 +472,93 @@ function handleBatchCommand(command: string) {
   }
 }
 
-// 行内「更多」菜单命令分发:文件/删除(日志/远程/编辑内联)
-function handleRowCommand(command: string, row: EnvMachine) {
-  switch (command) {
+// 行操作定义:内联最多 3 个,超过部分收进「更多」下拉;总数 <=3 时全部内联
+interface RowOp {
+  key: 'delete' | 'edit' | 'files' | 'logs' | 'remote';
+  label: string;
+}
+
+// 行内「更多」菜单命令分发(下拉项与内联项共用)
+function handleRowOp(key: string, row: EnvMachine) {
+  switch (key) {
     case 'delete': {
       handleDelete(row);
+      break;
+    }
+    case 'edit': {
+      handleEdit(row);
       break;
     }
     case 'files': {
       handleFiles(row);
       break;
     }
+    case 'logs': {
+      handleViewLogs(row);
+      break;
+    }
+    case 'remote': {
+      handleDebug(row);
+      break;
+    }
   }
+}
+
+// 该行可见操作(按展示顺序:日志/远程/编辑优先内联,文件/删除靠后)
+function getRowOps(row: EnvMachine): RowOp[] {
+  const ops: Array<RowOp & { show: boolean }> = [
+    {
+      key: 'logs',
+      label: '日志',
+      // 日志只对 windows/mac 宿主机展示(worker 日志),离线不可看
+      show:
+        !row.is_virtual &&
+        supportsWorkerLog(row.device_type as DeviceType) &&
+        row.status !== 'offline',
+    },
+    {
+      key: 'remote',
+      label: '远程',
+      show:
+        !row.is_virtual &&
+        (row.status === 'online' || row.status === 'using') &&
+        row.device_type !== 'linux',
+    },
+    { key: 'edit', label: '编辑', show: true },
+    {
+      key: 'files',
+      label: '文件',
+      // 文件管理:windows/mac 宿主机且在线
+      show:
+        !row.is_virtual &&
+        supportsWorkerLog(row.device_type as DeviceType) &&
+        row.status === 'online',
+    },
+    { key: 'delete', label: '删除', show: true },
+  ];
+  return ops.filter((op) => op.show);
+}
+
+// 按行预计算内联与下拉分组,避免模板里重复计算
+const rowOpsMap = computed(() => {
+  const map = new Map<string, { inline: RowOp[]; more: RowOp[] }>();
+  for (const row of tableData.value) {
+    const all = getRowOps(row);
+    map.set(row.id, {
+      inline: all.length > 3 ? all.slice(0, 3) : all,
+      more: all.length > 3 ? all.slice(3) : [],
+    });
+  }
+  return map;
+});
+
+function opsOf(row: EnvMachine) {
+  return (
+    rowOpsMap.value.get(row.id) ?? {
+      inline: [] as RowOp[],
+      more: [] as RowOp[],
+    }
+  );
 }
 
 // 获取选中的设备列表
@@ -888,57 +965,41 @@ onMounted(async () => {
           <ElTableColumn prop="operation" label="操作" min-width="150">
             <template #default="{ row }">
               <span class="nowrap">
-                <!-- 内联只保留高频操作:日志(worker 日志,windows/mac 宿主机)与远程 -->
                 <a
-                  v-if="
-                    !row.is_virtual &&
-                    supportsWorkerLog(row.device_type) &&
-                    row.status !== 'offline'
+                  v-for="op in opsOf(row).inline"
+                  :key="op.key"
+                  :class="
+                    op.key === 'delete'
+                      ? 'env-link env-link-danger'
+                      : 'env-link'
                   "
-                  class="env-link"
-                  @click="handleViewLogs(row)"
+                  @click="handleRowOp(op.key, row)"
                 >
-                  日志
+                  {{ op.label }}
                 </a>
-                <a
-                  v-if="
-                    !row.is_virtual &&
-                    (row.status === 'online' || row.status === 'using') &&
-                    row.device_type !== 'linux'
-                  "
-                  class="env-link"
-                  @click="handleDebug(row)"
-                >
-                  远程
-                </a>
-                <a class="env-link" @click="handleEdit(row)">编辑</a>
                 <ElDropdown
+                  v-if="opsOf(row).more.length > 0"
                   trigger="click"
                   popper-class="env-row-menu"
-                  @command="(command: string) => handleRowCommand(command, row)"
+                  @command="(command: string) => handleRowOp(command, row)"
                 >
                   <a class="env-more" title="更多操作">
                     <ElIcon :size="14"><ArrowDown /></ElIcon>
                   </a>
                   <template #dropdown>
                     <ElDropdownMenu>
-                      <!-- 文件管理:windows/mac 宿主机且在线 -->
                       <ElDropdownItem
-                        v-if="
-                          !row.is_virtual &&
-                          supportsWorkerLog(row.device_type) &&
-                          row.status === 'online'
+                        v-for="op in opsOf(row).more"
+                        :key="op.key"
+                        :command="op.key"
+                        :divided="
+                          op.key === 'delete' && opsOf(row).more.length > 1
                         "
-                        command="files"
+                        :class="
+                          op.key === 'delete' ? 'env-dropdown-danger' : ''
+                        "
                       >
-                        文件
-                      </ElDropdownItem>
-                      <ElDropdownItem
-                        command="delete"
-                        divided
-                        class="env-dropdown-danger"
-                      >
-                        删除
+                        {{ op.label }}
                       </ElDropdownItem>
                     </ElDropdownMenu>
                   </template>
@@ -1243,6 +1304,10 @@ onMounted(async () => {
 
 .env-link:hover {
   text-decoration: underline;
+}
+
+.env-link-danger {
+  color: #ff4d4f;
 }
 
 .env-more {
