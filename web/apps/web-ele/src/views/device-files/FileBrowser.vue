@@ -164,10 +164,28 @@ function iconType(row: WorkerFileEntry): string {
 
 async function copyPath() {
   if (!workerPath.value) return;
-  try {
-    await navigator.clipboard.writeText(workerPath.value);
+  // navigator.clipboard 仅在安全上下文(HTTPS/localhost)可用,
+  // 内网 HTTP 部署下为 undefined 或直接拒绝,退回 execCommand 兜底
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(workerPath.value);
+      ElMessage.success('已复制路径');
+      return;
+    } catch {
+      // 落到下方 execCommand 兜底
+    }
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = workerPath.value;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.append(textarea);
+  textarea.select();
+  const ok = document.execCommand('copy');
+  textarea.remove();
+  if (ok) {
     ElMessage.success('已复制路径');
-  } catch {
+  } else {
     ElMessage.error('复制失败,请手动选择路径复制');
   }
 }
