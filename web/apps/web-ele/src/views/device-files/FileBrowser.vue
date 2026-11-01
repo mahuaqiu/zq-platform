@@ -189,7 +189,7 @@ function handleDownload(row: WorkerFileEntry) {
 
 async function handleDelete(row: WorkerFileEntry) {
   const confirmed = await ElMessageBox.confirm(
-    `确定删除「${row.name}」吗?${row.is_dir ? '(仅可删除空目录)' : ''}`,
+    `确定删除「${row.name}」吗?${row.is_dir ? '(目录将连同全部内容一起删除)' : ''}`,
     '删除确认',
     { type: 'warning' },
   ).catch(() => false);
@@ -207,7 +207,7 @@ async function handleBatchDelete() {
   const rows = selectedRows.value;
   if (rows.length === 0) return;
   const confirmed = await ElMessageBox.confirm(
-    `确定删除选中的 ${rows.length} 项吗?目录仅可删除空目录。`,
+    `确定删除选中的 ${rows.length} 项吗?目录将连同全部内容一起删除。`,
     '批量删除确认',
     { type: 'warning' },
   ).catch(() => false);
