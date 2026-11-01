@@ -22,6 +22,8 @@ const machine = ref<EnvMachine | null>(null);
 const loadFailed = ref(false);
 /** worker 端产物根目录绝对路径(文件列表接口 root 字段) */
 const workerRoot = ref('');
+/** 文件列表是否已返回过(区分"加载中"与"worker 无 root 字段") */
+const rootLoaded = ref(false);
 
 const deviceName = computed(() => {
   const m = machine.value;
@@ -88,7 +90,10 @@ function handleClose() {
       </ElTag>
       <div class="dfw-spacer"></div>
       <span class="dfw-sub" :title="workerRoot">
-        产物目录 {{ workerRoot || '加载中…' }}
+        {{
+          workerRoot ||
+          (rootLoaded ? '产物目录未知(worker 需升级)' : '产物目录加载中…')
+        }}
       </span>
       <ElButton v-if="isRemotePopup" size="small" @click="handleClose">
         关闭
@@ -100,7 +105,12 @@ function handleClose() {
         :machine-id="machine.id"
         :ip="machine.ip || ''"
         :port="machine.port || ''"
-        @root="workerRoot = $event"
+        @root="
+          (value: string) => {
+            workerRoot = value;
+            rootLoaded = true;
+          }
+        "
       />
       <div v-else-if="!loadFailed" class="dfw-tip">正在加载设备信息…</div>
       <div v-else class="dfw-tip">

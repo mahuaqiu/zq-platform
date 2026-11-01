@@ -115,13 +115,15 @@ async function loadList() {
     entries.value = res.entries;
     truncated.value = res.truncated === true;
     workerRoot.value = res.root || '';
-    if (workerRoot.value) emit('root', workerRoot.value);
+    // 成功与失败都要上报一次,窗口头部据此结束"加载中"占位
+    emit('root', workerRoot.value);
     loadFailed.value = false;
     selectedRows.value = [];
   } catch {
     // 全局拦截器已 toast 错误;这里标记失败态,空态给重试入口
     entries.value = [];
     loadFailed.value = true;
+    emit('root', workerRoot.value);
   } finally {
     loading.value = false;
   }
