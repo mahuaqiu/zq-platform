@@ -812,7 +812,10 @@ watch(
 
 .fb-upl-cancel {
   flex: none;
+  width: 18px;
+  height: 18px;
   padding: 2px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   cursor: pointer;
   border-radius: 3px;
@@ -891,8 +894,13 @@ watch(
 }
 
 .fb-act {
+  /* .el-icon 自身 width/height 是 1em(border-box),不显式给尺寸时
+     padding+border 会把 svg 压缩到 2px,视觉上只剩一个点 */
+  width: 26px;
+  height: 26px;
   padding: 4px;
   margin: 0 3px;
+  font-size: 15px;
   color: var(--el-text-color-secondary);
   cursor: pointer;
   border: 1px solid transparent;
