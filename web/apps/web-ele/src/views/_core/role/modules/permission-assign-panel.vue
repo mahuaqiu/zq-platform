@@ -314,11 +314,21 @@ function isMenuFullySelected(menuId: string): boolean {
 
 /**
  * 移除一组菜单下已勾选的权限（取消菜单勾选时级联）
+ *
+ * 需要同时覆盖两类权限，否则本次会话新勾选的权限会残留在
+ * selectedPermissions 中，保存后出现"有权限无菜单"的脏数据：
+ * - selectedPermissionsByMenu：后端回显的已授权限
+ * - menuPermissionsCache：菜单权限列表（含本次新勾选、尚未保存的权限）
  */
 function removePermissionsOfMenus(menuIds: Iterable<string>) {
   for (const menuId of menuIds) {
-    const permissionIds = selectedPermissionsByMenu.value[menuId] || [];
-    permissionIds.forEach((id) => selectedPermissions.value.delete(id));
+    const savedPermissionIds = selectedPermissionsByMenu.value[menuId] || [];
+    savedPermissionIds.forEach((id) => selectedPermissions.value.delete(id));
+
+    const cachedPermissions = menuPermissionsCache.value[menuId] || [];
+    cachedPermissions.forEach((perm) =>
+      selectedPermissions.value.delete(perm.id),
+    );
   }
 }
 
