@@ -49,28 +49,32 @@ def _get_reported_namespace(
     raise ValueError(f"Worker 响应缺少 {device_type}/{device_sn} 的 namespace")
 
 
-def _validate_worker_namespace_payload(worker_data: Dict, machines: List[EnvMachine]) -> None:
-    """在更新状态前校验 Worker 的在线设备均具有明确 namespace。"""
+def _validate_worker_namespace_payload(worker_data: Dict, machines: List[dict]) -> None:
+    """在更新状态前校验 Worker 的在线设备均具有明确 namespace。
+
+    machines 为机器快照 dict（id/ip/port/device_type/device_sn）。
+    """
     devices = worker_data.get("devices")
     if not isinstance(devices, dict):
         raise ValueError("Worker 响应缺少 devices")
 
     for machine in machines:
-        if machine.device_type in ("windows", "mac"):
-            _get_reported_namespace(worker_data, machine.device_type)
+        device_type = machine["device_type"]
+        if device_type in ("windows", "mac"):
+            _get_reported_namespace(worker_data, device_type)
             continue
 
-        if machine.device_type not in ("android", "ios", "harmony_mobile", "harmony_pc"):
+        if device_type not in ("android", "ios", "harmony_mobile", "harmony_pc"):
             continue
 
-        device_items = devices.get(machine.device_type, [])
+        device_items = devices.get(device_type, [])
         device_sns = {
             item.get("udid") if isinstance(item, dict) else item
             for item in device_items
             if isinstance(item, (dict, str))
         }
-        if machine.device_sn in device_sns:
-            _get_reported_namespace(worker_data, machine.device_type, machine.device_sn)
+        if machine.get("device_sn") in device_sns:
+            _get_reported_namespace(worker_data, device_type, machine["device_sn"])
 
 
 class EnvMachineScheduler:

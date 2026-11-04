@@ -31,11 +31,7 @@ def test_device_namespace_requires_explicit_mapping() -> None:
 
 def test_worker_namespace_validation_rejects_missing_connected_device_mapping() -> None:
     """在线设备没有精确 namespace 时，平台不应部分恢复该 Worker。"""
-    machine = type(
-        "Machine",
-        (),
-        {"device_type": "android", "device_sn": "device-001"},
-    )()
+    machine = {"id": "m-1", "device_type": "android", "device_sn": "device-001"}
     worker_data = {
         "devices": {"android": [{"udid": "device-001"}]},
         "device_namespaces": {"android": {}},
