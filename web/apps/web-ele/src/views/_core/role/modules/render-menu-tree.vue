@@ -28,9 +28,10 @@ const toggleMenu = inject<(menuId: string) => void>('toggleMenu');
 const selectMenu = inject<(menuId: string) => void>('selectMenu');
 const toggleMenuExpanded =
   inject<(menuId: string) => void>('toggleMenuExpanded');
+// 父组件 permission-assign-panel provide 的均为 Ref，保持类型一致
 const selectedMenuIds = inject<Ref<Set<string>>>('selectedMenuIds');
-const selectedMenuId = inject<string>('selectedMenuId');
-const expandedMenuIds = inject<Set<string>>('expandedMenuIds');
+const selectedMenuId = inject<Ref<string | undefined>>('selectedMenuId');
+const expandedMenuIds = inject<Ref<Set<string>>>('expandedMenuIds');
 
 function isMenuNode(node: any): node is MenuNode {
   return node && !('code' in node);
