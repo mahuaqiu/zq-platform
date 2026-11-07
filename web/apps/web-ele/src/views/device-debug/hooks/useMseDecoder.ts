@@ -97,6 +97,13 @@ export function useMseDecoder(options: MseDecoderOptions) {
   const SOFT_REBUILD_ERROR_WINDOW_MS = 15_000;
   const SOFT_REBUILD_ERROR_THRESHOLD = 3;
   const SOFT_REBUILD_FATAL_LIMIT = 3;
+  // 重建计数的时间衰减窗口：距上次重建超过该时长视为孤立的偶发抖动，
+  // 计数清零重新累计。否则页面生命周期内累计 4 次即不可逆降级 JPEG，
+  // 用户只能刷新页面找回 H264。
+  const SOFT_REBUILD_COUNT_RESET_MS = 600_000;
+  // 鸿蒙 buffer 清理挂起超时：sb.remove() 的 updateend 丢失（管线异常中断）
+  // 会让 cleanupPending 永久为 true、清理彻底停摆，超时强制复位重试。
+  const HARMONY_CLEANUP_PENDING_TIMEOUT_MS = 5000;
   // 有帧持续喂入但画面持续不更新（致命 MediaError 后 video 可能静默停摆）
   // 超过该时长时软重建。
   const PRESENTATION_STALL_REBUILD_MS = 5000;
@@ -107,6 +114,12 @@ export function useMseDecoder(options: MseDecoderOptions) {
   let stallWatchdogLastFeedCount = 0;
   let stallWatchdogLastPresentedCount = 0;
   let stallWatchdogSinceMs: null | number = null;
+  // 播放恢复尝试节流：video 可见但 paused 时定期尝试 play()。
+  let lastPlayRecoveryAttemptAtMs = 0;
+  const PLAY_RECOVERY_RETRY_MS = 2000;
+  // 鸿蒙 buffer 清理挂起时间戳：超过 HARMONY_CLEANUP_PENDING_TIMEOUT_MS
+  // 仍未等到 updateend 时强制复位。
+  let harmonyCleanupPendingAtMs = 0;
 
   // Windows 使用额外的 buffer 清理定时器。鸿蒙使用自己的保守清理，避免
   // JMuxer 在没有设备时间戳时把当前可播放区间误判为旧数据。
@@ -602,7 +615,23 @@ export function useMseDecoder(options: MseDecoderOptions) {
       | (HTMLVideoElement & { requestVideoFrameCallback?: unknown })
       | null;
     if (!el || !el.requestVideoFrameCallback) return;
-    if (document.hidden || el.paused) {
+    if (document.hidden) {
+      // 后台标签页 rVC 不触发，跳过并复位计时，避免回前台时误判停滞重建。
+      stallWatchdogSinceMs = null;
+      stallWatchdogLastFeedCount = feedCount;
+      stallWatchdogLastPresentedCount = presentedFrameCount;
+      return;
+    }
+    if (el.paused) {
+      // 页面可见但 video 处于暂停：该 video 无 controls、无用户主动暂停路径，
+      // 只可能来自自动播放策略拦截或异常中断。节流尝试恢复播放（失败忽略，
+      // 不与浏览器策略对抗）；看门狗本身保持跳过——暂停期间出帧停滞不能
+      // 归咎于解码管线。
+      const now = performance.now();
+      if (now - lastPlayRecoveryAttemptAtMs >= PLAY_RECOVERY_RETRY_MS) {
+        lastPlayRecoveryAttemptAtMs = now;
+        void el.play().catch(() => {});
+      }
       stallWatchdogSinceMs = null;
       stallWatchdogLastFeedCount = feedCount;
       stallWatchdogLastPresentedCount = presentedFrameCount;
@@ -729,7 +758,16 @@ export function useMseDecoder(options: MseDecoderOptions) {
   }
 
   function cleanupHarmonyBuffer(sb: SourceBuffer, el: HTMLVideoElement): void {
-    if (harmonyCleanupPending) return;
+    if (harmonyCleanupPending) {
+      // updateend 丢失（remove 中途管线异常/销毁竞态）会让挂起永久卡死、
+      // buffer 清理彻底停摆：超时强制复位，让本次继续尝试。
+      if (
+        performance.now() - harmonyCleanupPendingAtMs < HARMONY_CLEANUP_PENDING_TIMEOUT_MS
+      ) {
+        return;
+      }
+      harmonyCleanupPending = false;
+    }
 
     const videoBufferController = (
       jmuxer as unknown as null | {
@@ -778,6 +816,7 @@ export function useMseDecoder(options: MseDecoderOptions) {
 
     try {
       harmonyCleanupPending = true;
+      harmonyCleanupPendingAtMs = performance.now();
       sb.remove(firstStart, removeEnd);
     } catch {
       harmonyCleanupPending = false;
@@ -838,8 +877,10 @@ export function useMseDecoder(options: MseDecoderOptions) {
     sourceBufferAbortCount = 0;
     lastSourceBufferUpdateEndAtMs = null;
     harmonyCleanupPending = false;
+    harmonyCleanupPendingAtMs = 0;
     // 软重建的跨管线状态（lastSoftRebuildAtMs/softRebuildCount）不在此重置：
-    // 需要跨重建保留以限制重建频率并支持多次重建后降级。
+    // 需要跨重建保留以限制重建频率并支持多次重建后降级；计数在 softRebuild
+    // 内按时间衰减复位（SOFT_REBUILD_COUNT_RESET_MS），孤立抖动不累积。
     jmuxerErrorTimestamps = [];
     stallWatchdogLastFeedCount = 0;
     stallWatchdogLastPresentedCount = 0;
@@ -857,6 +898,11 @@ export function useMseDecoder(options: MseDecoderOptions) {
     if (fallback) return;
     const now = performance.now();
     if (now - lastSoftRebuildAtMs < SOFT_REBUILD_MIN_INTERVAL_MS) return;
+    // 距上次重建超过衰减窗口：视为孤立的偶发抖动而非持续性故障，
+    // 计数清零重新累计，避免页面开久了因历史抖动被不可逆降级 JPEG。
+    if (now - lastSoftRebuildAtMs >= SOFT_REBUILD_COUNT_RESET_MS) {
+      softRebuildCount = 0;
+    }
     lastSoftRebuildAtMs = now;
     softRebuildCount += 1;
     console.warn(`[MSE] 软重建解码管线(第${softRebuildCount}次): ${reason}`);

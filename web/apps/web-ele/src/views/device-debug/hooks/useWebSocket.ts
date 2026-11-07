@@ -32,6 +32,10 @@ export function useWebSocket() {
   // 操作禁用、通知 Worker 停止常驻会话；而推流失败导致的断开仍保留
   // 鸿蒙截图兜底 + 操作触发出图的能力，重连后自动复位。
   const userDisconnected = ref(false);
+  // 是否为空闲超时断开（前端 15 分钟自断，或 Worker 空闲回收以
+  // reason="idle_timeout" 正常关闭）。用于断开提示给出专门文案，
+  // 与推流失败/异常断开区分；新连接建立时复位。
+  const idleDisconnected = ref(false);
 
   let ws: null | WebSocket = null;
   let websocketGeneration = 0;
@@ -219,6 +223,7 @@ export function useWebSocket() {
       if (elapsed >= IDLE_TIMEOUT && ws && status.value === 'connected') {
         // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
         console.log('WebSocket 因 15 分钟无操作已自动断开');
+        idleDisconnected.value = true;
         disconnect();
         return;
       }
@@ -260,6 +265,7 @@ export function useWebSocket() {
     const generation = ++websocketGeneration;
     // 新的连接意图清除"用户主动断开"状态。
     userDisconnected.value = false;
+    idleDisconnected.value = false;
     // 保存参数用于重连
     savedHost = host;
     savedPort = port;
@@ -490,6 +496,11 @@ export function useWebSocket() {
       stopIdleTimer(); // 停止超时检测
       status.value = 'disconnected';
       closeInfo.value = { code: event.code, reason: event.reason };
+      // Worker 空闲回收以 reason="idle_timeout" 正常关闭（code 1000 不会触发
+      // 自动重连），与前端 15 分钟自断共用"长时间未操作"断开文案。
+      if (event.code === 1000 && event.reason === 'idle_timeout') {
+        idleDisconnected.value = true;
+      }
 
       // eslint-disable-next-line no-console -- WebSocket 连接诊断日志
       console.log(
@@ -642,6 +653,7 @@ export function useWebSocket() {
   return {
     status,
     userDisconnected,
+    idleDisconnected,
     screenshotBase64,
     screenSize,
     fps,

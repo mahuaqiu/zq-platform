@@ -64,6 +64,7 @@ const currentCodec = computed(() => {
 const {
   status: wsStatus,
   userDisconnected,
+  idleDisconnected,
   waitingUnlock,
   hasReceivedFrame,
   screenshotBase64,
@@ -245,6 +246,30 @@ const streamBusy = computed(
     wsStatus.value === 'connecting' ||
     (wsStatus.value === 'connected' && !hasDisplayedFrame.value),
 );
+// 断开后的屏幕中央提示：streamHint 只在从未出帧时显示，出过帧后的断开画面
+// （冻结的最后一帧或截图兜底）没有任何提示，用户无法察觉连接已断。与锁屏
+// 提示共用 ScreenDisplay 的中央卡片；无帧场景仍由 streamHint 占位文案负责，
+// 两者互斥不叠加。
+const disconnectHint = computed(() => {
+  if (!hasDisplayedFrame.value) return '';
+  if (userDisconnected.value) return '';
+  // 解锁流程有自己的提示与弹窗，短暂的断开重连不打扰。
+  if (isUnlocking.value) return '';
+  // 重连后设备已锁屏：waiting_unlock 已到达，但断开时的兜底截图/冻结帧仍在
+  // （hasDisplayedFrame=true），streamHint 的锁屏提示被压制——由中央卡片兜底。
+  if (wsStatus.value === 'connected' && waitingUnlock.value) {
+    return '设备当前处于锁屏状态，请点击顶部"解锁屏幕"；解锁后画面会自动开始推流';
+  }
+  if (wsStatus.value === 'connecting') return '正在重新连接设备画面…';
+  if (wsStatus.value === 'error') return '实时画面连接异常，请点击右上"重连"重新连接';
+  if (wsStatus.value === 'disconnected') {
+    if (idleDisconnected.value) {
+      return '长时间未操作，实时画面已断开，请点击右上"重连"重新连接';
+    }
+    return '实时画面已断开，请点击右上"重连"重新连接';
+  }
+  return '';
+});
 
 watch(hasReceivedFrame, (received) => {
   if (received) unlockCompletedWaitingFrame.value = false;
@@ -999,6 +1024,7 @@ onUnmounted(() => {
           :video-mode="videoMode"
           :stream-hint="isDesktop ? streamHint : ''"
           :stream-busy="isDesktop && streamBusy"
+          :disconnect-hint="disconnectHint"
           @pointerdown="handleScreenPointerDown"
           @pointermove="handleScreenPointerMove"
           @pointerup="handleScreenPointerUp"
@@ -1025,6 +1051,7 @@ onUnmounted(() => {
               :drag-start="dragStart"
               :drag-end="dragEnd"
               :video-mode="videoMode"
+              :disconnect-hint="disconnectHint"
               @pointerdown="handleScreenPointerDown"
               @pointermove="handleScreenPointerMove"
               @pointerup="handleScreenPointerUp"

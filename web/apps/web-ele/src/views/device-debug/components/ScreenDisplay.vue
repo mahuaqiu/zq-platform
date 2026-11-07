@@ -20,6 +20,12 @@ interface Props {
   streamHint?: string;
   streamBusy?: boolean;
   keyboardHint?: string;
+  /**
+   * 断开后的屏幕中央提示（与锁屏提示同一张中央卡片）。
+   * streamHint 只在从未出帧时显示，出过帧后的断开画面（冻结的最后一帧或
+   * 截图兜底）需要这条提示让用户知道连接已断、应点击右上"重连"。
+   */
+  disconnectHint?: string;
 }
 
 interface Emits {
@@ -198,6 +204,14 @@ onUnmounted(() => {
             <span v-if="props.streamBusy" class="stream-spinner"></span>
             <div class="placeholder-icon">🖥</div>
             <div class="placeholder-text">{{ props.streamHint }}</div>
+          </div>
+        </div>
+
+        <!-- 断开提示：与锁屏提示同一张中央卡片，盖在冻结画面/截图兜底之上 -->
+        <div v-if="props.disconnectHint" class="stream-hint-overlay">
+          <div class="stream-hint-card">
+            <div class="placeholder-icon">🔌</div>
+            <div class="placeholder-text">{{ props.disconnectHint }}</div>
           </div>
         </div>
 
