@@ -125,36 +125,24 @@ class PerformanceCollectService(BaseService):
         # Worker 重启后可能残留 starting/stopping，先对账再创建
         await cls.reconcile_stale_collects(db, device_id)
 
-        # stopping 不再阻塞新采集：用户已点停止，允许立刻重开；旧任务标记 interrupted
-        stopping = await db.execute(
-            select(PerformanceCollect).where(
-                and_(
-                    PerformanceCollect.device_id == device_id,
-                    PerformanceCollect.status == "stopping",
-                )
-            )
-        )
-        now = datetime.utcnow()
-        for old in stopping.scalars().all():
-            old.status = "interrupted"
-            old.end_time = now
-            old.end_reason = "superseded_by_new_collect"
-            old.failure_code = old.failure_code or "SUPERSEDED"
-            old.failure_message = old.failure_message or "用户在停止过程中启动了新采集"
-
+        # 设备上未结束的旧任务（running/stopping 等）不再阻塞新采集：
+        # 标记 interrupted 让位，Worker 侧 start 会抢占结束旧任务，
+        # 避免上一用例未停止时新 start 永远 409、任务卡死无法恢复。
         active = await db.execute(
             select(PerformanceCollect).where(
                 and_(
                     PerformanceCollect.device_id == device_id,
-                    PerformanceCollect.status.in_(list(cls.COLLECTING_STATUSES)),
+                    PerformanceCollect.status.in_(list(cls.ACTIVE_STATUSES)),
                 )
-            ).order_by(desc(PerformanceCollect.start_time)).limit(1)
-        )
-        existing = active.scalar_one_or_none()
-        if existing:
-            raise ValueError(
-                f"设备已有采集任务（{existing.id}, status={existing.status}），请先停止"
             )
+        )
+        now = datetime.utcnow()
+        for old in active.scalars().all():
+            old.status = "interrupted"
+            old.end_time = now
+            old.end_reason = "superseded_by_new_collect"
+            old.failure_code = old.failure_code or "SUPERSEDED"
+            old.failure_message = old.failure_message or "新采集任务启动，自动结束未完成的旧采集"
 
         # 使用 timezone-aware UTC 时间
         start_time_utc = datetime.now(timezone.utc)

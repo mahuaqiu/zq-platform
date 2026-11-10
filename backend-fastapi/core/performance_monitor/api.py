@@ -192,6 +192,8 @@ async def start_collect(
 
         try:
             ssh_auth = await PerformanceCollectService.probe_ssh_connection(db, device, collect_id)
+            # 旧任务未结束时先停止再启动（与 Worker 抢占语义一致），不再报 400。
+            stop_linux_collect_task(resolved_device_id)
             started = start_linux_collect_task(
                 device_id=resolved_device_id,
                 collect_id=collect_id,

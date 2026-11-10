@@ -12,8 +12,12 @@ import httpx
 
 from fastapi import HTTPException
 
+import logging
+
 from app.database import AsyncSessionLocal
 from core.performance_monitor.model import PerformanceCollect
+
+logger = logging.getLogger(__name__)
 
 
 async def get_worker_processes(
@@ -66,6 +70,14 @@ async def notify_worker_start(
     match_mode: str | None = None,
 ) -> None:
     """后台通知 Worker 开始采集；失败时把平台记录标为 failed。"""
+    # 下发前复核：记录可能已被新采集抢占（interrupted），迟到通知不再下发，
+    # 否则旧任务会在 Worker 端反过来抢占刚启动的新任务。
+    async with AsyncSessionLocal() as db:
+        collect = await db.get(PerformanceCollect, collect_id)
+        if not collect or collect.status not in ("pending", "starting", "running"):
+            logger.info("跳过迟到/已失效的 Worker 启动通知: collect_id=%s", collect_id)
+            return
+
     worker_url = f"http://{device_ip}:{device_port}/api/worker/{device_id}/collect/start"
     worker_request = {
         "collect_id": collect_id,
@@ -82,6 +94,22 @@ async def notify_worker_start(
             resp = await client.post(worker_url, json=worker_request)
             if resp.status_code in (200, 201):
                 return
+            if resp.status_code == 409:
+                # Worker 端被上一任务占用：先停掉当前任务再重试一次（自愈）。
+                # 旧版本 Worker 不具备 start 抢占能力，靠这里兜底打通。
+                logger.warning(
+                    "Worker 返回 409，尝试停掉当前任务后重试: device_id=%s collect_id=%s",
+                    device_id,
+                    collect_id,
+                )
+                stop_url = worker_url.replace("/collect/start", "/collect/stop")
+                stop_request = {"device_type": device_type}
+                if device_sn:
+                    stop_request["device_sn"] = device_sn
+                await client.post(stop_url, json=stop_request)
+                resp = await client.post(worker_url, json=worker_request)
+                if resp.status_code in (200, 201):
+                    return
             failure_message = resp.text[:500]
     except httpx.ConnectError:
         failure_message = f"无法连接到 Worker: {device_ip}:{device_port}"
