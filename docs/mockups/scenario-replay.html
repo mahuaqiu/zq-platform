@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>场景回放 · UI 高保真原型 v2 · zq-platform</title>
+<style>
+/* ================= 设计令牌（对齐 Element Plus / Vben Admin） ================= */
+:root{
+  --p:#409EFF; --p-h:#66b1ff; --p-l:#ecf5ff; --p-b:#d9ecff;
+  --ok:#67C23A; --ok-l:#f0f9eb; --ok-b:#e1f3d8;
+  --warn:#E6A23C; --warn-l:#fdf6ec; --warn-b:#faecd8;
+  --dg:#F56C6C; --dg-l:#fef0f0; --dg-b:#fde2e2;
+  --info:#909399; --info-l:#f4f4f5; --info-b:#e9e9eb;
+  --teal:#00A6A6; --teal-l:#e6f7f7; --teal-b:#cceeee;
+  --purple:#8B5CF6; --purple-l:#f3efff; --purple-b:#e4dcfb;
+  --border:#dcdfe6; --border-l:#ebeef5; --border-ll:#f2f4f8;
+  --t1:#303133; --t2:#606266; --t3:#909399; --t4:#c0c4cc;
+  --bg:#f5f7fa; --card:#fff;
+  --sb:#131822; --sb-t:#8b93a5;
+  --mono:"JetBrains Mono","Cascadia Code",Consolas,monospace;
+  --shadow:0 2px 12px rgba(0,0,0,.08);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.18);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;font-size:14px;color:var(--t1);background:var(--bg);overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit;outline:none}
+svg{flex:none;display:inline-block;vertical-align:-3px}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#c9cdd6;border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ================= 应用骨架 ================= */
+.app{display:flex;height:100vh}
+.sidebar{width:224px;background:var(--sb);display:flex;flex-direction:column;flex:none}
+.sb-logo{height:56px;display:flex;align-items:center;gap:10px;padding:0 18px;color:#fff;font-weight:600;font-size:15px;letter-spacing:.5px}
+.sb-logo .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#409EFF,#2b7fd4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+.sb-logo small{color:var(--sb-t);font-weight:400;font-size:11px;margin-left:auto}
+.sb-scroll{flex:1;overflow-y:auto;padding:6px 10px 20px}
+.sb-scroll::-webkit-scrollbar-thumb{background:#2a3245}
+.sb-group{color:#5d6575;font-size:12px;padding:14px 10px 6px;letter-spacing:.5px}
+.sb-item{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;border-radius:6px;color:#b7bdc9;font-size:13.5px;cursor:pointer;user-select:none;margin-bottom:2px}
+.sb-item:hover{background:rgba(255,255,255,.06);color:#e6e9ef}
+.sb-item.on{background:linear-gradient(90deg,rgba(64,158,255,.22),rgba(64,158,255,.10));color:#5aabff;font-weight:600}
+.sb-item .new-badge{margin-left:auto;background:var(--dg);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{height:50px;background:#fff;border-bottom:1px solid var(--border-l);display:flex;align-items:center;padding:0 20px;gap:8px;flex:none}
+.crumb{color:var(--t3);font-size:13px}
+.crumb b{color:var(--t1);font-weight:600}
+.crumb .sep{margin:0 8px;color:var(--t4)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:16px;color:var(--t2)}
+.top-right .ic-btn{color:var(--t3);cursor:pointer;display:flex}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#409EFF,#67C23A);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:600}
+.content{flex:1;overflow-y:auto;padding:14px 18px;position:relative}
+.view{display:none}
+.view.show{display:block}
+
+/* ================= 通用组件 ================= */
+.card{background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.04);border:1px solid var(--border-ll)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 15px;border-radius:4px;border:1px solid var(--border);background:#fff;color:var(--t2);font-size:13.5px;transition:.15s;white-space:nowrap}
+.btn:hover{color:var(--p);border-color:var(--p-b);background:var(--p-l)}
+.btn.pri{background:var(--p);border-color:var(--p);color:#fff}
+.btn.pri:hover{background:var(--p-h);border-color:var(--p-h)}
+.btn.dg{color:var(--dg);border-color:var(--dg-b);background:var(--dg-l)}
+.btn.dg:hover{background:var(--dg);border-color:var(--dg);color:#fff}
+.btn.ghost-dg{background:#fff;color:var(--dg);border-color:var(--dg-b)}
+.btn.sm{height:26px;padding:0 11px;font-size:12.5px;border-radius:4px}
+.btn.text{border:none;background:none;color:var(--p);padding:0 6px}
+.btn.text:hover{background:none;color:var(--p-h)}
+.btn.text.dg{color:var(--dg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.inp{height:32px;border:1px solid var(--border);border-radius:4px;padding:0 10px;font-size:13.5px;color:var(--t1);background:#fff;width:100%;transition:.15s}
+.inp:focus{border-color:var(--p);box-shadow:0 0 0 2px rgba(64,158,255,.12)}
+.inp::placeholder{color:var(--t4)}
+textarea.inp{height:auto;padding:8px 10px;resize:none;line-height:1.6}
+.sel{height:32px;border:1px solid var(--border);border-radius:4px;padding:0 8px 0 10px;font-size:13.5px;color:var(--t1);background:#fff;display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;white-space:nowrap}
+.sel:hover{border-color:var(--t4)}
+.sel svg{color:var(--t4)}
+.tag{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:4px;font-size:12px;white-space:nowrap;line-height:1}
+.tag.sm{height:20px;padding:0 7px;font-size:11px}
+.t-blue{color:var(--p);background:var(--p-l);border:1px solid var(--p-b)}
+.t-green{color:var(--ok);background:var(--ok-l);border:1px solid var(--ok-b)}
+.t-orange{color:var(--warn);background:var(--warn-l);border:1px solid var(--warn-b)}
+.t-red{color:var(--dg);background:var(--dg-l);border:1px solid var(--dg-b)}
+.t-gray{color:var(--info);background:var(--info-l);border:1px solid var(--info-b)}
+.t-teal{color:var(--teal);background:var(--teal-l);border:1px solid var(--teal-b)}
+.t-purple{color:var(--purple);background:var(--purple-l);border:1px solid var(--purple-b)}
+.dot-live{width:7px;height:7px;border-radius:50%;background:var(--dg);display:inline-block;animation:pulse 1.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(245,108,108,.5)}70%{box-shadow:0 0 0 6px rgba(245,108,108,0)}100%{box-shadow:0 0 0 0 rgba(245,108,108,0)}}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
+.tbl th{background:#f7f9fc;color:var(--t3);font-weight:600;text-align:left;padding:11px 12px;border-bottom:1px solid var(--border-l);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border-l);color:var(--t2);vertical-align:middle}
+.tbl tbody tr:hover{background:#f7f9fc}
+.mono{font-family:var(--mono);font-size:12.5px}
+.checkbox{width:14px;height:14px;border:1px solid var(--border);border-radius:3px;display:inline-block;vertical-align:-2px;background:#fff;cursor:pointer;flex:none}
+.checkbox.on{background:var(--p);border-color:var(--p);position:relative}
+.checkbox.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.switch{width:34px;height:18px;border-radius:9px;background:var(--border);position:relative;display:inline-block;transition:.2s;cursor:pointer;flex:none}
+.switch.on{background:var(--p)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch.on::after{left:18px}
+.pop{position:fixed;background:#fff;border-radius:6px;box-shadow:var(--shadow-lg);border:1px solid var(--border-l);padding:5px;min-width:150px;z-index:900;max-height:70vh;overflow-y:auto}
+.pop .pg{font-size:11px;color:var(--t4);padding:7px 12px 3px;letter-spacing:.5px}
+.pop .pi{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:4px;font-size:13px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.pop .pi:hover{background:var(--p-l);color:var(--p)}
+.pop .pi.dg{color:var(--dg)}
+.pop .pi.dg:hover{background:var(--dg-l)}
+.pop .pi.dis{color:var(--t4);cursor:not-allowed}
+.pop .pi.dis:hover{background:none;color:var(--t4)}
+.pop .pdiv{height:1px;background:var(--border-l);margin:4px 6px}
+.pop .pnote{font-size:11px;color:var(--t4);padding:6px 12px 4px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;display:flex;align-items:center;justify-content:center;animation:fadeIn .15s}
+.modal{background:#fff;border-radius:10px;box-shadow:var(--shadow-lg);width:560px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;animation:popIn .18s}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes popIn{from{opacity:0;transform:scale(.96) translateY(8px)}}
+.m-head{display:flex;align-items:center;padding:18px 22px 0;font-size:16px;font-weight:600}
+.m-head .x{margin-left:auto;color:var(--t3);cursor:pointer;display:flex;padding:4px;border-radius:4px}
+.m-head .x:hover{background:var(--info-l);color:var(--t1)}
+.m-body{padding:16px 22px;overflow-y:auto}
+.m-foot{padding:0 22px 20px;display:flex;justify-content:flex-end;gap:10px}
+.frm-row{margin-bottom:16px}
+.frm-lab{font-size:13px;color:var(--t2);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.frm-lab .req{color:var(--dg)}
+.frm-hint{font-size:12px;color:var(--t4);margin-top:6px;display:flex;align-items:center;gap:4px}
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--t1);color:#fff;font-size:13px;padding:10px 18px;border-radius:6px;box-shadow:var(--shadow-lg);z-index:1000;display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;transition:.25s;max-width:70vw}
+#toast.show{opacity:1}
+#toast.ok svg{color:#8ee68a}#toast.err svg{color:#ff9c9c}
+.ubadge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;color:#fff;flex:none}
+.ubadge.a{background:#409EFF}.ubadge.b{background:#67C23A}.ubadge.c{background:#8B5CF6}.ubadge.d{background:#E6A23C}
+.u-dot{width:8px;height:8px;border-radius:50%;flex:none}
+
+/* ================= 假设备画面（480×270 逻辑坐标） ================= */
+.scr{position:relative;overflow:hidden;background:#e8ebf0;border-radius:4px}
+.scr-in{width:480px;height:270px;position:absolute;top:0;left:0;transform-origin:0 0;background:#fff}
+.scr-in .ab{position:absolute}
+.bch{left:0;top:0;width:480px;height:26px;background:#eef1f5;border-bottom:1px solid #e2e6ec}
+.bch .dot{width:8px;height:8px;border-radius:50%;position:absolute;top:9px}
+.bch .d1{left:10px;background:#ff5f57}.bch .d2{left:24px;background:#febc2e}.bch .d3{left:38px;background:#28c840}
+.burl{left:64px;right:64px;top:5px;height:17px;background:#fff;border-radius:9px;font-size:10px;color:#7a8494;display:flex;align-items:center;padding:0 10px}
+.nav{left:0;top:26px;bottom:0;width:96px;background:#fafbfd;border-right:1px solid #eef1f5}
+.nav .lg{left:10px;top:8px;width:14px;height:14px;border-radius:4px;background:var(--p)}
+.ni{left:0;width:96px;height:28px;line-height:28px;padding-left:14px;font-size:11.5px;color:#5f6b7a}
+.ni.on{background:var(--p-l);color:var(--p);box-shadow:inset 2px 0 0 var(--p)}
+.mt{left:96px;top:26px;right:0;bottom:0;background:#f7f9fc}
+.httl{font-size:13px;font-weight:600;color:var(--t1)}
+.pbtn{height:24px;line-height:24px;padding:0 10px;background:var(--p);color:#fff;font-size:10.5px;border-radius:4px}
+.lrow{height:32px;background:#fff;border:1px solid #eef1f5;border-radius:5px;font-size:11px;color:var(--t2);display:flex;align-items:center;justify-content:space-between;padding:0 10px}
+.lrow .st{font-size:10px;padding:1px 7px;border-radius:8px}
+.lrow .st.ok{color:var(--ok);background:var(--ok-l)}
+.lrow .st.gray{color:var(--t3);background:var(--info-l)}
+.dim{left:0;top:0;width:480px;height:270px;background:rgba(15,20,30,.45)}
+.modal2{background:#fff;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.mtl{font-size:12.5px;font-weight:600;color:var(--t1)}
+.flab{font-size:10.5px;color:var(--t2)}
+.fin{height:24px;background:#fff;border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--t1);display:flex;align-items:center;padding:0 8px}
+.fin.focus{border-color:var(--p);box-shadow:0 0 0 2px rgba(64,158,255,.14)}
+.caret{width:1px;height:12px;background:var(--p);margin-left:2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.sw2{width:28px;height:15px;border-radius:8px;background:var(--p);position:relative}
+.sw2::after{content:"";position:absolute;top:2px;right:2px;width:11px;height:11px;border-radius:50%;background:#fff}
+.btn2{height:24px;line-height:24px;text-align:center;font-size:10.5px;border-radius:4px;padding:0 12px}
+.btn2.g{background:#fff;border:1px solid var(--border);color:var(--t2)}
+.btn2.p{background:var(--p);color:#fff}
+.ttop{left:0;top:0;width:480px;height:30px;background:#1a1f28;color:#c9d2de;font-size:11px;display:flex;align-items:center;padding:0 12px;gap:10px}
+.ttop .trec{margin-left:auto;font-size:10px;color:#ffd66b;background:rgba(255,214,107,.12);padding:2px 8px;border-radius:8px}
+.tile{background:#22262e;border-radius:5px;overflow:hidden}
+.tile .av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:600}
+.tile .av.az{background:#3f6fe0}.tile .av.ag{background:#2f9e6a}
+.tile .tname{position:absolute;bottom:6px;left:10px;font-size:10px;color:#aeb6c2}
+.tbar{left:0;bottom:0;width:480px;height:34px;background:#1a1f28;display:flex;align-items:center;justify-content:center;gap:4px}
+.tbar .tb{font-size:10.5px;color:#c9d2de;padding:5px 9px;border-radius:4px}
+.tbar .tb.on{color:#5aabff;background:rgba(64,158,255,.15)}
+.tbar .tb.off{color:#ff8b8b;background:rgba(245,108,108,.14)}
+.scr-in.dark{background:#1f242c}
+.wtb{left:0;top:0;width:480px;height:24px;background:#171b22;color:#aeb6c2;font-size:10.5px;display:flex;align-items:center;padding:0 10px}
+.wtb .wbtns{margin-left:auto;color:#6b7382;letter-spacing:6px;font-size:10px}
+.wnav{left:0;top:24px;bottom:0;width:64px;background:#171b22}
+.wni{height:30px;line-height:30px;text-align:center;font-size:10.5px;color:#7a8494}
+.wni.on{color:#5aabff;background:rgba(64,158,255,.12)}
+.wmt{left:64px;top:24px;right:0;bottom:0;padding:12px;background:#1f242c}
+.wttl{font-size:12px;color:#e2e7ee;font-weight:600}
+.wrow{height:26px;background:#262c36;border-radius:4px;font-size:10px;color:#9aa3b0;display:flex;align-items:center;padding:0 8px;margin-bottom:5px}
+.wrow .st{margin-left:auto;font-size:9.5px;color:#57c98a}
+.wfin{height:24px;background:#262c36;border:1px solid #3a4150;border-radius:4px;font-size:10.5px;color:#e2e7ee;display:flex;align-items:center;padding:0 8px}
+.wfin.focus{border-color:var(--p)}
+.wbtn{height:25px;line-height:25px;text-align:center;background:var(--p);color:#fff;font-size:10.5px;border-radius:4px}
+.wstatus{position:absolute;bottom:8px;right:12px;font-size:9.5px;color:#6b7382}
+.lob-c{left:0;top:70px;width:480px;text-align:center}
+.lob-ic{width:44px;height:44px;border-radius:50%;background:var(--warn-l);color:var(--warn);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.lob-t{font-size:15px;font-weight:600;color:var(--t1)}
+.lob-s{font-size:11px;color:var(--t3);margin-top:6px}
+.spin{width:16px;height:16px;border:2px solid var(--p-b);border-top-color:var(--p);border-radius:50%;margin:12px auto 0;animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.share-bar{left:0;top:0;width:480px;height:26px;background:#2f6fe0;color:#fff;font-size:10.5px;display:flex;align-items:center;padding:0 12px}
+.share-bar .stop{margin-left:auto;background:rgba(255,255,255,.2);padding:2px 9px;border-radius:8px;font-size:10px}
+.docline{height:9px;border-radius:3px;background:#e8eaf0;margin-bottom:8px}
+.thumb{position:relative;overflow:hidden;background:#dde2ea;border-radius:4px;border:1px solid rgba(0,0,0,.08);flex:none;display:inline-block;vertical-align:middle}
+.mshot{position:absolute;right:-5px;bottom:-5px;background:var(--t1);color:#fff;font-size:9.5px;padding:1px 6px;border-radius:8px;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+
+/* ================= 页面：场景列表 ================= */
+.filter-bar{display:flex;align-items:center;gap:10px;padding:14px 16px;flex-wrap:wrap}
+.filter-bar .inp{width:190px}
+.filter-bar .spacer{flex:1}
+.page-foot{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 16px;color:var(--t3);font-size:13px}
+.pg{min-width:26px;height:26px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--t2);cursor:pointer}
+.pg:hover{background:var(--p-l);color:var(--p)}
+.pg.on{background:var(--p);color:#fff}
+.users-cell{display:flex;gap:6px;align-items:center}
+.uchip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;font-size:11.5px;border:1px solid}
+.uchip.a{color:#409EFF;background:#ecf5ff;border-color:#d9ecff}
+.uchip.b{color:#67C23A;background:#f0f9eb;border-color:#e1f3d8}
+.uchip.c{color:#8B5CF6;background:#f3efff;border-color:#e4dcfb}
+.uchip.d{color:#E6A23C;background:#fdf6ec;border-color:#faecd8}
+.row-actions{display:flex;gap:4px;justify-content:flex-end}
+.scene-name{color:var(--t1);font-weight:600;cursor:pointer}
+.scene-name:hover{color:var(--p)}
+.rec-note{display:inline-flex;align-items:center;gap:5px;color:var(--dg);font-size:11.5px;margin-left:8px}
+
+/* ================= 页面：录制工作台 ================= */
+.rec-topbar{display:flex;align-items:center;gap:14px;padding:10px 16px;margin-bottom:12px}
+.rec-title{font-size:16px;font-weight:600}
+.rec-state{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px;border-radius:14px;font-size:12.5px;font-weight:600}
+.rec-state.rec{background:var(--dg-l);color:var(--dg);border:1px solid var(--dg-b)}
+.rec-state.pause{background:var(--warn-l);color:var(--warn);border:1px solid var(--warn-b)}
+.rec-timer{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:1px}
+.rec-topbar .grow{flex:1}
+.dev-note{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3)}
+.utabs{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.utab{display:flex;align-items:center;gap:9px;height:42px;padding:0 16px;background:#fff;border:1px solid var(--border-l);border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--t2);box-shadow:0 1px 3px rgba(0,0,0,.04);flex:none;transition:.15s}
+.utab:hover{border-color:var(--p-b)}
+.utab.on{border-color:var(--p);background:var(--p-l);color:var(--t1);font-weight:600}
+.utab .pav{width:24px;height:24px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.utab .pav.a{background:#409EFF}.utab .pav.b{background:#67C23A}.utab .pav.c{background:#8B5CF6}.utab .pav.d{background:#E6A23C}
+.utab .dev{color:var(--t3);font-size:12px;font-weight:400}
+.utab.on .dev{color:#5a8fd6}
+.panel{overflow:hidden;display:flex;flex-direction:column}
+.panel-h{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border-l)}
+.panel-h .pav{width:24px;height:24px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.panel-h .pav.a{background:#409EFF}.panel-h .pav.b{background:#67C23A}.panel-h .pav.c{background:#8B5CF6}.panel-h .pav.d{background:#E6A23C}
+.panel-h .pname{font-weight:600;font-size:13.5px}
+.panel-h .pinfo{color:var(--t3);font-size:12px;display:flex;gap:8px;align-items:center}
+.panel-h .pinfo .sep{color:var(--t4)}
+.panel-h .live{margin-left:auto;font-size:11px;color:var(--ok);display:flex;align-items:center;gap:5px}
+.panel-h .live i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block;animation:pulse 1.5s infinite}
+.panel-h .hint{font-size:11.5px;color:var(--t4)}
+.panel-body{position:relative;background:#0e1116;cursor:crosshair;height:50vh;display:flex;align-items:center;justify-content:center}
+.panel-body .fit{position:relative}
+.rec-actions{display:flex;align-items:center;gap:14px;padding:10px 16px;margin:12px 0}
+.rec-actions .hint{font-size:12.5px;color:var(--t4)}
+.ripple{position:absolute;width:14px;height:14px;border:2.5px solid rgba(255,120,80,.95);border-radius:50%;pointer-events:none;animation:rip .55s ease-out forwards;z-index:5}
+@keyframes rip{from{transform:translate(-50%,-50%) scale(.4);opacity:1}to{transform:translate(-50%,-50%) scale(2.2);opacity:0}}
+.timeline-card{margin:12px 0 14px}
+.tl-head{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border-l)}
+.tl-head .tt{font-weight:600;font-size:14px}
+.tl-head .cnt{color:var(--t3);font-size:12px;margin-left:10px}
+.tl-body{height:224px;overflow-y:auto}
+.tl-row{display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border-ll);animation:slideIn .3s}
+@keyframes slideIn{from{opacity:0;transform:translateY(6px)}}
+.tl-row:hover{background:#f7f9fc}
+.tl-c1{width:72px;flex:none;position:relative}
+.tl-c2{width:56px;flex:none}
+.tl-c3{width:130px;flex:none}
+.tl-c4{flex:1;color:var(--t2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-c5{width:84px;flex:none;color:var(--t3)}
+.tl-c6{width:56px;flex:none;text-align:right}
+.type-tag{cursor:pointer}
+.type-tag:hover{filter:brightness(.96);box-shadow:0 0 0 1.5px rgba(64,158,255,.35)}
+.st-ic{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+.st-ic.wait{background:var(--warn-l);color:var(--warn)}
+.st-ic.ok{background:var(--ok-l);color:var(--ok)}
+.spin-sm{width:12px;height:12px;border:2px solid var(--warn-b);border-top-color:var(--warn);border-radius:50%;animation:rot .8s linear infinite}
+
+/* ================= 页面：场景编辑（时间线为主） ================= */
+.ed-head{display:flex;align-items:center;gap:12px;padding:10px 16px;margin-bottom:12px}
+.ed-title{font-size:16px;font-weight:600}
+.ed-users{display:flex;gap:8px}
+.ed-head .grow{flex:1}
+.ed-tools{display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap}
+.fchip{height:26px;padding:0 12px;border-radius:13px;font-size:12.5px;color:var(--t2);border:1px solid var(--border);background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.fchip:hover{color:var(--p);border-color:var(--p-b)}
+.fchip.on{background:var(--p);border-color:var(--p);color:#fff}
+.ed-tools .inp{width:200px;height:30px}
+.ed-tools .hint-r{margin-left:auto;font-size:12px;color:var(--t4)}
+.steps-card{margin-bottom:16px}
+.batch-bar{position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:10px;background:var(--p-l);border-bottom:1px solid var(--p-b);padding:9px 16px;font-size:13px;color:#3273c4;border-radius:8px 8px 0 0}
+.batch-bar b{font-weight:700}
+/* Git 图风格竖向时间线（参考 IDEA 提交历史） */
+.gscroll{max-height:calc(100vh - 250px);overflow-y:auto}
+.gwrap{position:relative;padding:0 14px 10px}
+.gheads{position:sticky;top:0;z-index:7;height:48px;background:#fff;border-bottom:1px solid var(--border-l);margin:0 -14px;padding:0 14px;display:flex;align-items:center;justify-content:center;gap:10px}
+.gheads .gh{display:flex;align-items:center;gap:6px;background:#fff;padding:3px 10px;border-radius:14px;border:1px solid var(--border-l);white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.gheads .gh .dev{color:var(--t3);font-size:11.5px}
+.glines{position:absolute;top:48px;bottom:0;left:0;right:0;pointer-events:none}
+.glines .ln{position:absolute;top:0;bottom:0;width:8px;border-radius:4px;opacity:.42;transform:translateX(-50%)}
+.grow{position:relative;margin:10px 0;cursor:pointer}
+.grow.side-l .gcard{margin-left:auto;margin-right:calc(50% + 70px)}
+.grow.side-r .gcard{margin-left:calc(50% + 70px);margin-right:auto}
+.grow.sel-b .gcard{border-color:var(--p);background:var(--p-l)}
+.grow.dis .gcard{opacity:.5}
+.gdot{position:absolute;top:50%;transform:translate(-50%,-50%);left:0;width:13px;height:13px;border-radius:50%;background:#fff;border:3.5px solid var(--p);z-index:2}
+.gdot.sq{border-radius:3px}
+.gtick{position:absolute;top:50%;transform:translateY(-50%);height:0;border-top:2px dashed var(--p);opacity:.45;z-index:1}
+.gcard{display:flex;align-items:center;gap:12px;width:fit-content;min-width:300px;max-width:calc(50% - 84px);background:#fff;border:1px solid var(--border-l);border-radius:10px;padding:10px 14px;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.04);position:relative;z-index:1}
+.gcard:hover{border-color:var(--p-b);box-shadow:0 4px 14px rgba(64,158,255,.13)}
+.gcard .sthumb{cursor:zoom-in;position:relative;flex:none}
+.gcard .no-sh{width:72px;height:41px;border-radius:4px;background:var(--info-l);border:1px dashed var(--t4);display:flex;align-items:center;justify-content:center;color:var(--t4)}
+.gcard .smeta{flex:1;min-width:0}
+.gcard .r1{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.gcard .r1 .n{font-family:var(--mono);font-size:11px;color:var(--t4);font-weight:700}
+.gcard .r2{font-size:13px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gcard .sops{display:none;gap:2px;flex:none}
+.gcard:hover .sops{display:flex}
+.op{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:var(--t3);cursor:pointer}
+.op:hover{background:var(--p-l);color:var(--p)}
+.op.dg:hover{background:var(--dg-l);color:var(--dg)}
+.src-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t4)}
+.empty-tip{padding:40px;text-align:center;color:var(--t4);font-size:13px}
+/* 抽屉 */
+.drawer{position:fixed;top:0;right:-580px;width:560px;bottom:0;background:#fff;box-shadow:-10px 0 34px rgba(0,0,0,.14);z-index:600;transition:right .22s ease;display:flex;flex-direction:column}
+.drawer.open{right:0}
+.dw-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-l);flex:none}
+.dw-head .tt{font-weight:600;font-size:15px}
+.dw-body{flex:1;overflow-y:auto;padding:16px 18px}
+.dw-foot{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border-l);flex:none}
+.dw-stage{background:#eef1f6;border-radius:8px;padding:12px;margin-bottom:14px}
+.dw-footbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.prop-sec{margin-bottom:18px}
+.prop-sec .ps-t{font-size:12px;color:var(--t3);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;letter-spacing:.3px}
+.prop-sec .ps-t .line{flex:1;height:1px;background:var(--border-l)}
+.vitem{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--warn-l);border:1px solid var(--warn-b);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--t2)}
+.vitem .vi-x{margin-left:auto;color:var(--t3);cursor:pointer;display:flex}
+.vitem .vi-x:hover{color:var(--dg)}
+/* 灯箱 */
+.lb-ov{position:fixed;inset:0;background:rgba(10,14,22,.82);z-index:950;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;animation:fadeIn .15s}
+.lb-cap{color:#cfd6e0;font-size:13px;display:flex;align-items:center;gap:12px}
+.lb-img{background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative}
+.seg{display:inline-flex;background:rgba(255,255,255,.14);border-radius:5px;padding:2px;gap:2px}
+.seg .sg{height:24px;padding:0 12px;border-radius:4px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;border:none;background:none;color:#cfd6e0}
+.seg .sg.on{background:#fff;color:var(--p);font-weight:600}
+.seg.light .sg{color:var(--t2)}
+.seg.light{background:var(--info-l)}
+.seg.light .sg.on{color:var(--p);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.hz{position:absolute;border:1.5px dashed rgba(64,158,255,.75);background:rgba(64,158,255,.10);border-radius:3px;cursor:pointer;z-index:4}
+.hz:hover{background:rgba(64,158,255,.22)}
+.hz.sel{border-style:solid;border-color:var(--p);background:rgba(64,158,255,.22);box-shadow:0 0 0 2px rgba(64,158,255,.25)}
+.hz .hzl{position:absolute;top:-18px;left:-1.5px;background:var(--p);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.kv{display:flex;align-items:center;font-size:12.5px;color:var(--t2);margin-bottom:6px;gap:8px}
+.kv .k{color:var(--t3);width:110px;flex:none}
+/* 原型导航 */
+.proto-nav{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid var(--border-l);border-radius:10px;box-shadow:var(--shadow-lg);padding:8px;z-index:700;display:flex;flex-direction:column;gap:5px}
+.proto-nav .pn-t{font-size:10px;color:var(--t4);text-align:center;letter-spacing:1px;margin-bottom:2px}
+.proto-nav .pn{height:28px;padding:0 12px;border-radius:6px;font-size:12px;color:var(--t2);border:none;background:none;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.proto-nav .pn:hover{background:var(--p-l);color:var(--p)}
+.proto-nav .pn.on{background:var(--p);color:#fff;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-logo"><span class="mark">ZQ</span>zq-platform<small>v2.4</small></div>
+    <div class="sb-scroll" id="sidebar"></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb" id="crumb"></div>
+      <div class="top-right">
+        <span class="ic-btn" id="bell"></span>
+        <div class="avatar">张</div>
+      </div>
+    </header>
+    <main class="content">
+      <!-- ============ 视图：场景列表 ============ -->
+      <section class="view" id="view-list">
+        <div class="card">
+          <div class="filter-bar">
+            <input class="inp" placeholder="场景名称 / 描述">
+            <input class="inp" placeholder="创建人" style="width:130px">
+            <div class="sel" style="width:130px">标签</div>
+            <button class="btn pri" id="btn-search"></button>
+            <button class="btn">重置</button>
+            <div class="spacer"></div>
+            <button class="btn pri" id="btn-new-scene"></button>
+          </div>
+          <table class="tbl">
+            <thead><tr>
+              <th style="width:36px"><span class="checkbox"></span></th>
+              <th>场景名称</th><th>场景用户</th><th style="width:80px">创建人</th>
+              <th style="width:130px">最近更新</th><th style="width:230px;text-align:right">操作</th>
+            </tr></thead>
+            <tbody id="scene-rows"></tbody>
+          </table>
+          <div class="page-foot">
+            <span>共 4 条</span><span class="pg">‹</span><span class="pg on">1</span><span class="pg">›</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 视图：录制工作台 ============ -->
+      <section class="view" id="view-record">
+        <div class="card rec-topbar">
+          <span class="btn text" style="padding:0" id="rec-back"></span>
+          <span class="rec-title" id="rec-title">会议等候室功能</span>
+          <span class="rec-state rec" id="rec-state"><span class="dot-live"></span>录制中</span>
+          <span class="rec-timer" id="rec-timer">00:02:13</span>
+          <div class="grow"></div>
+          <div class="dev-note" id="dev-note"></div>
+          <button class="btn" id="btn-abandon"></button>
+          <button class="btn dg" id="btn-stop"></button>
+        </div>
+        <div class="utabs" id="utabs"></div>
+        <div class="card panel">
+          <div class="panel-h" id="panel-head"></div>
+          <div class="panel-body" id="panel-cur"><div class="fit" data-fit="contain"></div></div>
+        </div>
+        <div class="card rec-actions">
+          <button class="btn pri" id="btn-insert-step" title="一次性截取全部设备当前画面，插入一个步骤节点"></button>
+          <span class="hint">场景里 A 操作后、B 收到了提示？点这里一次截取<b>全部设备</b>画面插入步骤，不用切换 Tab 抢时间 · 新步骤自动出现在下方操作流最顶部</span>
+        </div>
+        <div class="card timeline-card">
+          <div class="tl-head"><span class="tt">操作流</span><span class="cnt" id="tl-cnt"></span>
+            <span style="margin-left:auto;font-size:12px;color:var(--t4)">点击操作类型标签可重新归类（OCR / 图片 / 坐标 / 输入…）· 每次操作自动截取操作前画面 · 需要操作后画面请点上方「插入步骤」</span>
+          </div>
+          <div class="tl-body">
+            <table class="tbl"><thead><tr>
+              <th style="padding-left:16px">截图</th><th style="width:56px">用户</th><th style="width:130px">操作</th><th>内容</th><th style="width:84px">时间</th><th style="width:70px;text-align:right;padding-right:16px">状态</th>
+            </tr></thead><tbody id="tl-rows"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 视图：场景编辑 ============ -->
+      <section class="view" id="view-editor">
+        <div class="card ed-head">
+          <span class="btn text" style="padding:0" id="ed-back"></span>
+          <span class="ed-title" id="ed-title">会议等候室功能</span>
+          <div class="ed-users" id="ed-users"></div>
+          <span class="tag sm t-gray" id="ed-save-state">已保存 · 刚刚</span>
+          <div class="grow"></div>
+          <button class="btn" id="btn-insert-aw"></button>
+          <button class="btn" id="btn-undo" title="Ctrl+Z"></button>
+          <button class="btn" id="btn-export"></button>
+          <button class="btn pri" id="btn-save">保存</button>
+        </div>
+        <div class="card ed-tools">
+          <span id="ed-filters"></span>
+          <input class="inp" id="ed-search" placeholder="搜索步骤内容 / 目标">
+          <span class="hint-r">点击缩略图看大图 · 点击类型标签改归类 · 勾选步骤可批量操作</span>
+        </div>
+        <div class="card steps-card">
+          <div id="batch-slot"></div>
+          <div id="ed-list" class="gscroll"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="drawer-root"></div>
+<div id="lightbox-root"></div>
+<div id="modal-root"></div>
+<div id="toast"></div>
+<div class="proto-nav" id="proto-nav">
+  <div class="pn-t">原型导航</div>
+  <button class="pn" data-go="list">1 · 场景列表</button>
+  <button class="pn" data-go="record">2 · 录制工作台</button>
+  <button class="pn" data-go="editor">3 · 场景编辑</button>
+</div>
+
+<script>
+/* ============================================================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* ---------- 图标 ---------- */
+const I={
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"/>',
+  pause:'<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  back:'<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  trash:'<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
+  camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  dots:'<circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="5" cy="12" r="1.3"/>',
+  chevD:'<polyline points="6 9 12 15 18 9"/>',
+  chevR:'<polyline points="9 6 15 12 9 18"/>',
+  chevU:'<polyline points="18 15 12 9 6 15"/>',
+  terminal:'<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+  keyboard:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  hourglass:'<path d="M5 22h14M5 2h14M7 2v4l5 5 5-5V2M7 22v-4l5-5 5 5v4"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
+  eyeoff:'<path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 10 8 10 8a13.2 13.2 0 0 1-1.7 2.9M6.6 6.6A13.4 13.4 0 0 0 2 12s3 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><line x1="2" y1="2" x2="22" y2="22"/>',
+  eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  film:'<rect x="2" y="2" width="20" height="20" rx="2.5"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/>',
+  clocki:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>',
+  type:'<polyline points="4 7 4 4 20 4 20 7M9 20h6M12 4v16"/>',
+  package:'<path d="M16.5 9.4 7.5 4.21M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  refresh:'<polyline points="23 4 23 10 17 10"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/>',
+  crop:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
+  note:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  move:'<polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 22"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/>',
+  undo:'<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.7 3L3 13"/>',
+  grip:'<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>'
+};
+function ic(n,s=15){return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]||''}</svg>`}
+
+/* ---------- 假设备画面（480×270） ---------- */
+const SCREEN={
+  web_home(){return `
+    <div class="ab bch"><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span><span class="burl">meeting.example.com/#/home</span></div>
+    <div class="ab nav"><span class="ab lg"></span>
+      <div class="ab ni on" style="top:44px">我的会议</div>
+      <div class="ab ni" style="top:74px">快速会议</div>
+      <div class="ab ni" style="top:104px">加入会议</div>
+      <div class="ab ni" style="top:134px">通讯录</div>
+    </div>
+    <div class="ab mt">
+      <span class="ab httl" style="left:14px;top:12px">我的会议</span>
+      <span class="ab pbtn" style="right:14px;top:10px">＋ 预约会议</span>
+      <div class="ab lrow" style="left:14px;right:14px;top:46px"><span>项目周会 · 今天 14:00</span><span class="st ok">进行中</span></div>
+      <div class="ab lrow" style="left:14px;right:14px;top:84px"><span>部门例会 · 今天 16:30</span><span class="st gray">未开始</span></div>
+      <div class="ab lrow" style="left:14px;right:14px;top:122px"><span>客户沟通 · 明天 10:00</span><span class="st gray">未开始</span></div>
+      <div class="ab lrow" style="left:14px;right:14px;top:160px"><span>架构评审 · 周五 15:00</span><span class="st gray">未开始</span></div>
+    </div>`},
+  web_join(){return SCREEN.web_home()+`
+    <div class="ab dim"></div>
+    <div class="ab modal2" style="left:130px;top:36px;width:220px;height:162px">
+      <span class="ab mtl" style="left:16px;top:12px">快速会议</span>
+      <span class="ab flab" style="left:16px;top:42px">会议主题</span>
+      <div class="ab fin focus" style="left:16px;top:58px;width:188px">项目周会<span class="caret"></span></div>
+      <span class="ab flab" style="left:16px;top:96px">开启等候室</span>
+      <span class="ab sw2" style="right:16px;top:96px"></span>
+      <div class="ab btn2 g" style="left:16px;top:128px">取消</div>
+      <div class="ab btn2 p" style="left:132px;top:128px;width:72px">开始会议</div>
+    </div>`},
+  web_meeting(){return `
+    <div class="ab ttop">项目周会（2）<span class="mono" style="font-size:10px;color:#8a93a2">00:41:22</span><span class="trec">等候室：1 人等待中</span></div>
+    <div class="ab" style="left:0;top:30px;width:480px;height:206px;background:#12161d">
+      <div class="ab tile" style="left:40px;top:26px;width:190px;height:154px"><span class="ab av az" style="left:77px;top:52px">张</span><span class="ab tname">主持人 · 张三</span></div>
+      <div class="ab tile" style="left:250px;top:26px;width:190px;height:154px"><span class="ab av ag" style="left:77px;top:52px">李</span><span class="ab tname">李四（已入会）</span></div>
+    </div>
+    <div class="ab tbar"><span class="tb">静音</span><span class="tb">视频</span><span class="tb">共享屏幕</span><span class="tb">成员</span><span class="tb on">邀请入会</span><span class="tb off">离开会议</span></div>`},
+  web_lobby(){return `
+    <div class="ab bch"><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span><span class="burl">meeting.example.com/#/lobby/928711</span></div>
+    <div class="ab lob-c">
+      <div class="lob-ic">${ic('shield',22)}</div>
+      <div class="lob-t">您正在等候室中</div>
+      <div class="lob-s">主持人已开启等候室，请耐心等待主持人邀请入会</div>
+      <div class="spin"></div>
+    </div>`},
+  win_client(){return `
+    <div class="ab wtb">会议云 · Windows 客户端<span class="wbtns">—  □  ×</span></div>
+    <div class="ab wnav"><div class="wni on" style="margin-top:6px">首页</div><div class="wni">会议</div><div class="wni">设置</div></div>
+    <div class="ab wmt">
+      <span class="ab wttl" style="left:12px;top:10px">我的会议</span>
+      <div class="ab wrow" style="left:12px;right:12px;top:38px"><span>部门例会 · 16:30</span><span class="st">未开始</span></div>
+      <div class="ab wrow" style="left:12px;right:12px;top:72px"><span>客户沟通 · 明天 10:00</span><span class="st">未开始</span></div>
+      <span class="ab flab" style="left:12px;top:118px;color:#9aa3b0">入会链接</span>
+      <div class="ab wfin focus" style="left:12px;top:134px;width:236px">https://mtg.example.com/j/928711<span class="caret"></span></div>
+      <div class="ab wbtn" style="left:12px;top:170px;width:110px">加入会议</div>
+      <div class="ab wbtn" style="left:130px;top:170px;width:80px;background:#262c36;color:#c9d2de">摄像头预览</div>
+      <span class="wstatus">已登录：userB（windows 域账号）</span>
+    </div>`},
+  win_prompt(){return `
+    <div class="ab wtb">会议云 · Windows 客户端<span class="wbtns">—  □  ×</span></div>
+    <div class="ab wmt">
+      <span class="ab wttl" style="left:12px;top:10px">我的会议</span>
+      <div class="ab" style="left:90px;top:70px;width:280px;height:110px;background:#262c36;border:1px solid #3a4150;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.5)">
+        <span class="ab" style="left:16px;top:14px;font-size:12px;color:#e2e7ee;font-weight:600">入会邀请</span>
+        <span class="ab" style="left:16px;top:40px;font-size:10.5px;color:#9aa3b0">主持人邀请您加入会议：项目周会</span>
+        <div class="ab wbtn" style="left:16px;top:68px;width:110px">接受并加入</div>
+        <div class="ab wbtn" style="left:134px;top:68px;width:80px;background:#3a4150;color:#c9d2de">稍后</div>
+      </div>
+      <span class="wstatus">已登录：userB（windows 域账号）</span>
+    </div>`},
+  hm_client(){return `
+    <div class="ab" style="left:0;top:0;width:480px;height:270px;background:#0b0f14"></div>
+    <div class="ab" style="left:150px;top:8px;width:180px;height:254px;background:#161b22;border:1px solid #2a3140;border-radius:14px;overflow:hidden">
+      <span class="ab" style="left:16px;top:6px;font-size:9px;color:#7a8494">9:41</span>
+      <span class="ab" style="right:16px;top:6px;font-size:9px;color:#7a8494">5G ▮▮▮</span>
+      <span class="ab" style="left:16px;top:26px;font-size:12px;color:#e2e7ee;font-weight:600">会议云</span>
+      <span class="ab flab" style="left:16px;top:76px;color:#7a8494">入会链接 / 会议 ID</span>
+      <div class="ab" style="left:16px;top:90px;width:148px;height:22px;background:#262c36;border:1px solid #3a4150;border-radius:4px;font-size:10px;color:#e2e7ee;display:flex;align-items:center;padding:0 8px">928711</div>
+      <span class="ab flab" style="left:16px;top:120px;color:#7a8494">会议密码</span>
+      <div class="ab" style="left:16px;top:134px;width:148px;height:22px;background:#262c36;border:1px solid #3a4150;border-radius:4px;font-size:10px;color:#e2e7ee;display:flex;align-items:center;padding:0 8px">826610</div>
+      <div class="ab wbtn" style="left:16px;top:168px;width:148px">加入会议</div>
+      <div class="ab" style="left:16px;top:204px;width:148px;height:20px;display:flex;justify-content:space-between;font-size:9.5px;color:#9aa3b0">
+        <span>📷 摄像头 · 已开</span><span>🎤 麦克风 · 已开</span>
+      </div>
+      <span class="ab" style="left:0;bottom:0;width:180px;height:22px;background:#10141b;font-size:9px;color:#6b7382;display:flex;align-items:center;justify-content:center">已登录：userC（harmony 手机端）</span>
+    </div>`},
+  web_meeting3(){return `
+    <div class="ab ttop">三端协同会议（3）<span class="mono" style="font-size:10px;color:#8a93a2">00:18:05</span><span class="trec">3 端在线</span></div>
+    <div class="ab" style="left:0;top:30px;width:480px;height:206px;background:#12161d">
+      <div class="ab tile" style="left:16px;top:22px;width:144px;height:158px"><span class="ab av az" style="left:54px;top:56px">张</span><span class="ab tname">主持人 · 张三</span></div>
+      <div class="ab tile" style="left:168px;top:22px;width:144px;height:158px"><span class="ab av ag" style="left:54px;top:56px">李</span><span class="ab tname">李四（Windows）</span></div>
+      <div class="ab tile" style="left:320px;top:22px;width:144px;height:158px"><span class="ab av" style="left:54px;top:56px;background:#8B5CF6">王</span><span class="ab tname">王五（鸿蒙手机）</span></div>
+    </div>
+    <div class="ab tbar"><span class="tb">静音</span><span class="tb">视频</span><span class="tb on">共享屏幕</span><span class="tb">成员</span><span class="tb">更多</span><span class="tb off">离开会议</span></div>`}
+};
+function thumb(v,w){const h=Math.round(w*270/480);return `<span class="thumb" style="width:${w}px;height:${h}px"><span class="scr-in" style="transform:scale(${(w/480).toFixed(4)})">${SCREEN[v]?SCREEN[v]():''}</span></span>`}
+
+/* ---------- 适配逻辑坐标 → 实际宽度 ---------- */
+function setPanelBy(panelBodyId,v){
+  const body=document.getElementById(panelBodyId);
+  if(!body)return;
+  const host=body.querySelector('.fit');
+  host.innerHTML=`<div class="scr-in">${SCREEN[v]?SCREEN[v]():''}</div>`;
+  fitAll(body.parentElement);
+}
+function fitAll(root=document){
+  root.querySelectorAll('.fit').forEach(el=>{
+    const parent=el.parentElement;
+    const w=parent.clientWidth,h=parent.clientHeight;
+    if(!w)return;
+    const inner=el.querySelector('.scr-in');if(!inner)return;
+    const mode=el.dataset.fit||'width';
+    const s=mode==='contain'?Math.min(w/480,h/270):w/480;
+    inner.style.transform=`scale(${s})`;
+    el.style.width=(480*s)+'px';
+    el.style.height=(270*s)+'px';
+  });
+}
+window.addEventListener('resize',()=>fitAll());
+
+/* ---------- AW 类型（对齐 testcase BaseAW 常用原子操作） ---------- */
+const TYPES={
+  manual:{label:'手动截图',cls:'t-gray',icon:'camera'},
+  ocr_click:{label:'点击OCR文字',cls:'t-blue',icon:'target'},
+  image_click:{label:'点击图片',cls:'t-purple',icon:'image'},
+  click:{label:'点击坐标',cls:'t-blue',icon:'target'},
+  ocr_input:{label:'OCR输入',cls:'t-teal',icon:'type'},
+  input:{label:'直接输入',cls:'t-teal',icon:'type'},
+  paste:{label:'粘贴',cls:'t-teal',icon:'copy'},
+  swipe:{label:'滑动',cls:'t-gray',icon:'move'},
+  scroll:{label:'滚动',cls:'t-gray',icon:'chevD'},
+  press:{label:'按键',cls:'t-gray',icon:'keyboard'},
+  ocr_wait:{label:'等待文字出现',cls:'t-orange',icon:'hourglass',v:1},
+  ocr_assert:{label:'断言文字',cls:'t-orange',icon:'flag',v:1},
+  image_assert:{label:'断言图片',cls:'t-orange',icon:'flag',v:1},
+  ocr_exist:{label:'文字存在检查',cls:'t-orange',icon:'check',v:1},
+  image_exist:{label:'图片存在检查',cls:'t-orange',icon:'check',v:1},
+  start_app:{label:'拉起APP',cls:'t-gray',icon:'package'},
+  stop_app:{label:'停止APP',cls:'t-gray',icon:'x'},
+  cmd_exec:{label:'命令行',cls:'t-gray',icon:'terminal'},
+  navigate:{label:'打开网页',cls:'t-gray',icon:'globe'},
+  wait:{label:'等待',cls:'t-gray',icon:'hourglass'},
+  verify:{label:'验证点',cls:'t-orange',icon:'flag'},
+};
+const SUB_LABEL={ocr_wait:'等待出现',ocr_assert:'断言存在',image_assert:'断言图片存在',ocr_exist:'存在检查',image_exist:'图片存在检查'};
+const TYPE_MENU=[
+  {group:'点击'},{k:'ocr_click'},{k:'image_click'},{k:'click'},
+  {group:'输入'},{k:'ocr_input'},{k:'input'},{k:'paste'},
+  {group:'手势 / 按键'},{k:'swipe'},{k:'scroll'},{k:'press'},
+  {group:'验证（回放时作为断言）'},{k:'ocr_wait'},{k:'ocr_assert'},{k:'image_assert'},{k:'ocr_exist'},
+  {group:'应用 / 系统'},{k:'start_app'},{k:'stop_app'},{k:'cmd_exec'},{k:'navigate'},{k:'wait'},
+];
+function showTypeMenu(anchor,onPick){
+  showPop(anchor,TYPE_MENU.map(it=>it.group?{group:it.group}:{k:it.k,label:TYPES[it.k].label+(TYPES[it.k].v?' ⚑':''),icon:TYPES[it.k].icon,onClick:()=>onPick(it.k)}));
+}
+function applyType(t,k){
+  if(TYPES[k]&&TYPES[k].v){t.type='verify';t.sub=k;if(!t.timeout)t.timeout=5}
+  else{t.type=k;if('sub' in t)delete t.sub}
+}
+function contentFor(s){
+  if(s.type==='verify')return `${SUB_LABEL[s.sub]||s.sub}「${s.target||''}」${s.timeout?' · '+s.timeout+'s':''}`;
+  if(s.type==='ocr_click')return s.target?`OCR 点击「${s.target}」`:`坐标点击 (${s.x??512},${s.y??384})`;
+  if(s.type==='image_click')return `图片点击「${s.target||s.tpl||'模板'}」`;
+  if(s.type==='click')return `坐标点击 (${s.x??512},${s.y??384})`;
+  if(s.type==='ocr_input'||s.type==='input')return `「${s.target||'输入框'}」= ${s.value||''}`;
+  if(s.type==='paste')return '粘贴剪贴板内容';
+  if(s.type==='swipe')return `滑动 (${s.fx??200},${s.fy??200} → ${s.tx??400},${s.ty??400})`;
+  if(s.type==='scroll')return `滚动 ${s.value||3} 格`;
+  if(s.type==='press')return `按键 ${s.value||'enter'}`;
+  if(s.type==='wait')return `等待 ${s.value||2} 秒`;
+  if(s.type==='cmd_exec')return `$ ${s.value||''}`;
+  if(s.type==='start_app')return `拉起 ${s.value||'应用'}`;
+  if(s.type==='stop_app')return `停止 ${s.value||'应用'}`;
+  if(s.type==='navigate')return `打开 ${s.value||'URL'}`;
+  return s.content||'';
+}
+
+/* ---------- Toast / Pop / Modal ---------- */
+let toastT;
+function toast(msg,type='ok'){
+  const el=$('#toast');
+  el.className=type;el.innerHTML=`${ic(type==='ok'?'check':'x')}<span>${msg}</span>`;
+  el.classList.add('show');clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),2200);
+}
+let popEl=null;
+function closePop(){if(popEl){popEl.remove();popEl=null;document.removeEventListener('click',onPopDoc)}}
+function onPopDoc(e){if(popEl&&!popEl.contains(e.target))closePop()}
+function showPop(anchor,items,opts={}){
+  closePop();
+  popEl=document.createElement('div');popEl.className='pop';
+  popEl.innerHTML=items.map(i=>{
+    if(i.group)return `<div class="pg">${i.group}</div>`;
+    if(i.div)return '<div class="pdiv"></div>';
+    return `<div class="pi ${i.cls||''}" data-k="${i.k||''}" ${i.dis?'data-dis="1"':''}>${i.icon?ic(i.icon):''}<span>${i.label}</span>${i.note?`<span class="pnote" style="padding:0">${i.note}</span>`:''}</div>`;
+  }).join('');
+  document.body.appendChild(popEl);
+  const r=anchor.getBoundingClientRect();
+  let top=r.bottom+6,left=r.left;
+  if(opts.align==='right')left=r.right-popEl.offsetWidth;
+  if(top+popEl.offsetHeight>innerHeight-8)top=r.top-popEl.offsetHeight-6;
+  if(left+popEl.offsetWidth>innerWidth-8)left=innerWidth-8-popEl.offsetWidth;
+  popEl.style.top=Math.max(8,top)+'px';popEl.style.left=Math.max(8,left)+'px';
+  popEl.querySelectorAll('.pi').forEach(p=>p.addEventListener('click',ev=>{
+    if(p.dataset.dis){ev.stopPropagation();return}
+    const it=items.find(i=>i.k===p.dataset.k);
+    closePop();it&&it.onClick&&it.onClick();
+  }));
+  setTimeout(()=>document.addEventListener('click',onPopDoc),0);
+}
+function openModal(html,{width=560}={}){
+  const root=$('#modal-root');
+  root.innerHTML=`<div class="overlay"><div class="modal" style="width:${width}px">${html}</div></div>`;
+  root.querySelector('.overlay').addEventListener('mousedown',e=>{if(e.target===e.currentTarget)closeModal()});
+  root.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModal));
+  return root;
+}
+function closeModal(){$('#modal-root').innerHTML=''}
+
+/* =============================================================
+   路由
+============================================================= */
+const VIEWS={
+  list:{el:'view-list',crumb:'<b>场景列表</b>'},
+  record:{el:'view-record',crumb:'<b>录制工作台</b>'},
+  editor:{el:'view-editor',crumb:'<b>场景编辑</b>'},
+};
+let timers=[];
+function clearTimers(){timers.forEach(t=>clearInterval(t));timers=[]}
+let curView='list';
+function go(v){
+  clearTimers();closePop();closeModal();closeDrawer();closeLightbox();
+  curView=v;
+  $$('.view').forEach(el=>el.classList.remove('show'));
+  $('#'+VIEWS[v].el).classList.add('show');
+  $('#crumb').innerHTML=`<span style="color:var(--t4)">场景回放</span><span class="sep">/</span> ${VIEWS[v].crumb}`;
+  $$('#proto-nav .pn').forEach(b=>b.classList.toggle('on',b.dataset.go===v));
+  if(v==='record')initRecord();
+  if(v==='editor')renderEditor();
+  requestAnimationFrame(()=>fitAll());
+}
+$$('#proto-nav .pn').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+
+/* =============================================================
+   侧边栏
+============================================================= */
+const MENU=[
+  {g:'设备管理',icon:'monitor',items:['设备监控','设备列表','升级管理','设备配置']},
+  {g:'性能监控',icon:'activity',items:['性能监控','版本对比']},
+  {g:'测试报告',icon:'file',items:['报告列表']},
+  {g:'场景回放',icon:'film',items:['场景列表','录制场景'],isNew:true},
+  {g:'定时任务',icon:'clocki',items:['任务列表','执行日志']},
+  {g:'系统管理',icon:'settings',items:['用户管理','角色管理','菜单管理','部门管理','登录日志']},
+  {g:'配置中心',icon:'package',items:['参数配置']},
+];
+function renderSidebar(){
+  $('#sidebar').innerHTML=MENU.map(m=>`
+    <div class="sb-group">${m.g}${m.isNew?'<span class="new-badge" style="margin-left:6px">NEW</span>':''}</div>
+    ${m.items.map(it=>{
+      const active=m.isNew&&it==='场景列表';
+      const key=m.isNew?(it==='场景列表'?'list':'new-record'):'demo';
+      return `<div class="sb-item ${active?'on':''}" data-nav="${key}">${ic(m.icon,15)}<span>${it}</span></div>`;
+    }).join('')}`).join('');
+  $$('#sidebar .sb-item').forEach(el=>el.addEventListener('click',()=>{
+    const k=el.dataset.nav;
+    if(k==='list')go('list');
+    else if(k==='new-record')openConfigModal();
+    else toast('演示原型：仅「场景回放」模块可交互','err');
+    renderSidebar();
+  }));
+}
+
+/* =============================================================
+   页面 1：场景列表
+============================================================= */
+const SCENES=[
+  {name:'会议等候室功能',users:[['A','web'],['B','windows']],owner:'张三',time:'2026-11-14 15:20',rec:0,key:'lobby'},
+  {name:'三端协同入会',users:[['A','web'],['B','windows'],['C','harmony']],owner:'李四',time:'2026-11-14 16:40',rec:0,key:'three'},
+  {name:'会议中发言权限',users:[['A','web'],['B','web']],owner:'李四',time:'2026-11-13 10:02',rec:0,key:'lobby'},
+  {name:'多端入会流程',users:[['A','web'],['B','harmony']],owner:'张三',time:'2026-11-14 09:12',rec:1,key:'lobby'},
+];
+function exportSteps(name){
+  toast(`已导出「${name}」操作步骤.md（含 screenshots/ 截图包）· 可直接交给 SKILL 生成脚本（模拟）`);
+}
+function renderList(){
+  $('#btn-search').innerHTML=`${ic('search')}搜索`;
+  $('#btn-new-scene').innerHTML=`${ic('plus')}新建录制场景`;
+  $('#scene-rows').innerHTML=SCENES.map((s,i)=>{
+    const actions=s.rec
+      ?`<button class="btn sm pri" data-act="resume" data-i="${i}">${ic('play',12)}继续录制</button>
+        <button class="btn sm ghost-dg" data-act="abandon" data-i="${i}">${ic('x',12)}放弃</button>`
+      :`<button class="btn sm" data-act="edit" data-i="${i}">${ic('edit',13)}编辑</button>
+        <button class="btn sm" data-act="export" data-i="${i}">${ic('download',13)}导出步骤</button>
+        <button class="btn sm" data-act="more" data-i="${i}" style="padding:0 8px">${ic('dots',14)}</button>`;
+    return `<tr>
+      <td><span class="checkbox"></span></td>
+      <td><span class="scene-name" data-act="${s.rec?'resume':'edit'}" data-i="${i}">${s.name}</span>${s.rec?'<span class="rec-note"><span class="dot-live"></span>录制中 · 未保存</span>':''}</td>
+      <td><div class="users-cell">${s.users.map(u=>`<span class="uchip ${uCls(u[0])}"><span class="u-dot" style="background:${USER_COLORS[u[0]]||'#909399'}"></span>${u[0]} · ${u[1]}</span>`).join('')}</div></td>
+      <td>${s.owner}</td>
+      <td style="color:var(--t3)">${s.time}</td>
+      <td><div class="row-actions">${actions}</div></td>
+    </tr>`;
+  }).join('');
+  $$('#scene-rows [data-act]').forEach(el=>el.addEventListener('click',e=>{
+    e.stopPropagation();
+    const i=+el.dataset.i,act=el.dataset.act,s=SCENES[i];
+    if(act==='edit'){loadScene(s);toast('进入场景编辑：'+s.name);go('editor')}
+    else if(act==='resume'){recCtx={name:s.name,users:s.users};toast('恢复录制：'+s.name);go('record')}
+    else if(act==='abandon')confirmAbandonScene(i);
+    else if(act==='export')exportSteps(s.name);
+    else if(act==='more'){
+      showPop(el,[
+        {k:'copy',label:'复制场景',icon:'copy',onClick:()=>toast('已复制场景（模拟）')},
+        {div:1},
+        {k:'del',label:'删除',icon:'trash',cls:'dg',onClick:()=>confirmDelete(s.name)},
+      ],{align:'right'});
+    }
+  }));
+}
+function confirmAbandonScene(i){
+  const s=SCENES[i];
+  openModal(`
+    <div class="m-head">放弃本次录制？<span class="x" data-close>${ic('x')}</span></div>
+    <div class="m-body" style="color:var(--t2);font-size:13.5px;line-height:1.9">
+      场景 <b>「${s.name}」</b> 尚未保存，放弃后将从列表移除，已录制的操作与截图不保留，占用的设备立即释放。
+    </div>
+    <div class="m-foot"><button class="btn" data-close>继续录制</button><button class="btn dg" id="m-abandon-scene">放弃并退出</button></div>`,{width:440});
+  $('#m-abandon-scene').addEventListener('click',()=>{
+    SCENES.splice(i,1);closeModal();renderList();
+    toast('已放弃本次录制，设备已释放');
+  });
+}
+function confirmDelete(name){
+  openModal(`
+    <div class="m-head">删除场景<span class="x" data-close>${ic('x')}</span></div>
+    <div class="m-body" style="color:var(--t2);font-size:13.5px;line-height:1.7">
+      确定删除场景 <b>「${name}」</b> 吗？<br>
+      <span style="color:var(--t3);font-size:12.5px">删除后其关联的录制截图与操作步骤将一并清理，且不可恢复。</span>
+    </div>
+    <div class="m-foot"><button class="btn" data-close>取消</button><button class="btn dg" id="m-del">删除</button></div>`,{width:440});
+  $('#m-del').addEventListener('click',()=>{closeModal();toast('已删除（模拟）')});
+}
+$('#btn-new-scene').addEventListener('click',openConfigModal);
+
+/* ---------- 新建录制场景 · 配置弹窗 ---------- */
+function userRow(lt,tag){
+  return `<div class="frm-row" data-u="${lt}" data-tag="${tag}" style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+    <span class="ubadge ${uCls(lt)}" style="width:56px;justify-content:center">user${lt}</span>
+    <span style="color:var(--t3);font-size:13px">标签</span>
+    <div class="sel" style="flex:1">${tag}${ic('chevD',13)}</div>
+    <button class="btn sm" style="color:var(--dg);border-color:var(--dg-b)" data-del-user>${ic('trash',13)}</button>
+  </div>`;
+}
+function openConfigModal(){
+  openModal(`
+    <div class="m-head">新建录制场景<span class="x" data-close>${ic('x')}</span></div>
+    <div class="m-body">
+      <div class="frm-row"><div class="frm-lab">场景名称 <span class="req">*</span></div><input class="inp" id="cfg-name" value="会议等候室功能" placeholder="例如：多端入会流程"></div>
+      <div class="frm-row"><div class="frm-lab">场景描述</div><textarea class="inp" rows="2" placeholder="一句话描述这个场景要验证什么，生成用例时会作为参考">验证主持人开启等候室后，与会者需经邀请才能入会</textarea></div>
+      <div class="frm-row"><div class="frm-lab">设备池（namespace）</div>
+        <div class="sel" style="width:220px">Gamma<span style="margin-left:auto">${ic('chevD',13)}</span></div>
+        <div class="frm-hint">${ic('monitor',13)}标签候选 = 当前设备池下所有设备的 mark 去重集合</div>
+      </div>
+      <div class="frm-row"><div class="frm-lab" style="font-weight:600;color:var(--t1)">场景用户 <span style="font-weight:400;color:var(--t4);font-size:12px">— 每个用户按标签自动分配一台设备并占用，支持任意多个</span></div>
+        <div id="cfg-users">
+          ${userRow('A','web')}
+          ${userRow('B','windows')}
+        </div>
+        <button class="btn sm" id="cfg-add">${ic('plus',13)}添加用户</button>
+      </div>
+      <div class="frm-hint">${ic('users',13)}分配成功后进入录制工作台，顶部 Tab 切换用户画面；占用期间自动续期，退出时提示释放</div>
+    </div>
+    <div class="m-foot"><button class="btn" data-close>取消</button><button class="btn pri" id="cfg-apply">${ic('play',13)}申请设备并开始录制</button></div>`);
+  $$('#cfg-users [data-del-user]').forEach(b=>b.addEventListener('click',()=>b.closest('.frm-row').remove()));
+  $('#cfg-add').addEventListener('click',()=>{
+    const n=$('#cfg-users').children.length;
+    $('#cfg-users').insertAdjacentHTML('beforeend',userRow('CDEF'[n-2]||'X','web'));
+    $$('#cfg-users [data-del-user]').forEach(b=>{if(!b._w){b._w=1;b.addEventListener('click',()=>b.closest('.frm-row').remove())}});
+  });
+  $('#cfg-apply').addEventListener('click',()=>{
+    const name=($('#cfg-name').value||'').trim()||'未命名场景';
+    const users=[...document.querySelectorAll('#cfg-users [data-u]')].map(r=>[r.dataset.u,r.dataset.tag]);
+    recCtx={name,users};
+    $('#cfg-apply').disabled=true;$('#cfg-apply').innerHTML='申请设备中…';
+    setTimeout(()=>{
+      openModal(`
+        <div class="m-head">设备分配成功<span class="x" data-close>${ic('x')}</span></div>
+        <div class="m-body">
+          ${users.map(([u,tag])=>`<div class="kv"><span class="k">user${u} · ${tag}</span><span class="tag t-green">${USER_INFO[u]?USER_INFO[u].dev:'待分配'} · ${USER_INFO[u]?USER_INFO[u].ip:''}</span></div>`).join('')}
+          <div class="frm-hint" style="margin-top:12px">${ic('clocki',13)}单次最多占用 30 分钟，录制页打开期间自动续期；超时未保存将自动释放</div>
+        </div>
+        <div class="m-foot"><button class="btn" data-close>返回</button><button class="btn pri" id="cfg-go">${ic('play',13)}进入录制工作台</button></div>`);
+      $('#cfg-go').addEventListener('click',()=>{closeModal();go('record')});
+    },900);
+  });
+}
+
+/* =============================================================
+   页面 2：录制工作台（Tab 切换用户）
+============================================================= */
+let recSec=133,recSeqIdx=0,tlCount=0,rid=0,occLeft=1800;
+let activeUser='A';
+const USER_INFO={
+  A:{name:'userA',tag:'web',dev:'rfa-web-01',ip:'192.168.1.10',res:'1920×1080'},
+  B:{name:'userB',tag:'windows',dev:'pc-win-07',ip:'192.168.1.11',res:'2560×1440'},
+  C:{name:'userC',tag:'harmony',dev:'hm-p50-01',ip:'192.168.1.12',res:'2340×1080'},
+  D:{name:'userD',tag:'mac',dev:'mbp-14-01',ip:'192.168.1.13',res:'3024×1664'},
+};
+let recCtx={name:'会议等候室功能',users:[['A','web'],['B','windows']]};
+const REC_USERS=()=>recCtx.users.map(u=>u[0]);
+const REC_CUR={A:'web_home',B:'win_client'};
+const REC_SEQ=[
+  {user:'A',type:'ocr_click',content:'OCR 命中「快速会议」',shot:'web_join',x:40,y:120},
+  {user:'A',type:'ocr_input',content:'输入「项目周会」',shot:'web_join'},
+  {user:'A',type:'ocr_click',content:'OCR 命中「开启等候室」',shot:'web_join',x:230,y:150},
+  {user:'A',type:'ocr_click',content:'OCR 命中「开始会议」',shot:'web_join',x:270,y:180},
+  {user:'B',type:'input',content:'粘贴入会链接',shot:'win_client'},
+  {user:'B',type:'ocr_click',content:'OCR 命中「加入会议」',shot:'win_client',x:140,y:220},
+  {user:'B',type:'manual',content:'B 收到「入会邀请」弹窗（观察）',shot:'win_prompt'},
+];
+function fmtSec(s){return [s/3600|0,(s/60|0)%60,s%60].map(n=>String(n|0).padStart(2,'0')).join(':')}
+function renderUserTabs(){
+  $('#utabs').innerHTML=REC_USERS().map(id=>{
+    const u=USER_INFO[id];
+    return `<div class="utab ${id===activeUser?'on':''}" data-u="${id}">
+      <span class="pav ${uCls(id)}">${id}</span>
+      <span>${u.name}</span><span class="tag sm ${TAG_CLS[id]||'t-gray'}">${u.tag}</span>
+      <span class="dev">${u.dev} · ${u.ip}</span>
+    </div>`;
+  }).join('');
+  $$('#utabs .utab[data-u]').forEach(el=>el.addEventListener('click',()=>{
+    activeUser=el.dataset.u;
+    renderUserTabs();renderPanelHead();
+    setPanelBy('panel-cur',REC_CUR[activeUser]);
+  }));
+}
+function renderPanelHead(){
+  const u=USER_INFO[activeUser];
+  $('#panel-head').innerHTML=`
+    <span class="pav ${uCls(activeUser)}">${activeUser}</span><span class="pname">${u.name}</span>
+    <span class="pinfo"><span class="tag sm ${TAG_CLS[activeUser]||'t-gray'}">${u.tag}</span><span class="sep">·</span>${u.dev}<span class="sep">·</span>${u.ip}</span>
+    <span class="hint">在画面上直接操作即自动录制 · 多用户操作请切换上方 Tab</span>
+    <span class="live"><i></i>15 fps · ${u.res}</span>`;
+}
+function addTLRow(row){
+  tlCount++;rid++;
+  row.rid=rid;
+  const u=row.user;
+  const shotHtml=row.shot?thumb(row.shot,64):'<span style="display:inline-flex;width:64px;height:36px;background:var(--info-l);border-radius:4px;align-items:center;justify-content:center;color:var(--t4)">'+ic('terminal',14)+'</span>';
+  $('#tl-rows').insertAdjacentHTML('afterbegin',`
+    <tr class="tl-row" id="tlr-${rid}">
+      <td style="padding-left:16px"><span style="position:relative;display:inline-block">${shotHtml}${row.multi?`<span class="mshot">${row.multi}</span>`:''}</span></td>
+      <td><span class="ubadge ${u.toLowerCase()}">${u}</span></td>
+      <td><span class="tag sm ${TYPES[row.type].cls} type-tag" data-rid="${rid}" title="点击重新归类">${ic(TYPES[row.type].icon,11)}${TYPES[row.type].label}</span></td>
+      <td class="tl-c4" data-cell="content-${rid}">${row.content}</td>
+      <td class="mono" style="color:var(--t3)">${fmtSec(recSec)}</td>
+      <td style="text-align:right;padding-right:16px"><span class="st-ic wait"><span class="spin-sm"></span></span></td>
+    </tr>`);
+  const tr=$('#tlr-'+rid);
+  setTimeout(()=>{const icEl=tr.querySelector('.st-ic');icEl.className='st-ic ok';icEl.innerHTML=ic('check',11)},700);
+  $('#tl-cnt').textContent=`已录制 ${tlCount} 个操作`;
+  REC_CUR[u]=row.shot||REC_CUR[u];
+  if(u===activeUser)setPanelBy('panel-cur',REC_CUR[u]);
+  tr.querySelector('.type-tag').addEventListener('click',e=>{
+    e.stopPropagation();
+    showTypeMenu(e.currentTarget,k=>{
+      applyType(row,k);row.label=TYPES[row.type].label;
+      const tag=tr.querySelector('.type-tag');
+      tag.className=`tag sm ${TYPES[row.type].cls} type-tag`;
+      tag.innerHTML=`${ic(TYPES[row.type].icon,11)}${TYPES[row.type].label}`;
+      toast(`该操作已归类为：${TYPES[row.type].label}${TYPES[row.type].v?'（验证点）':''}`);
+    });
+  });
+}
+function initRecord(){
+  $('#rec-back').innerHTML=ic('back',16);
+  $('#rec-title').textContent=recCtx.name;
+  occLeft=1800;
+  $('#dev-note').innerHTML=`${ic('clocki',13)}设备占用 · 自动续期中 · 剩余 <span class="mono" id="occ-left">30:00</span>`;
+  $('#btn-insert-step').innerHTML=`${ic('camera',14)}插入步骤（截取全部设备）`;
+  $('#btn-abandon').innerHTML=`${ic('x',13)}放弃退出`;
+  $('#btn-stop').innerHTML=`${ic('check',13)}结束并保存`;
+  $('#rec-back').onclick=confirmAbandon;
+  activeUser='A';
+  REC_CUR.A='web_home';REC_CUR.B='win_client';
+  renderUserTabs();renderPanelHead();
+  setPanelBy('panel-cur',REC_CUR.A);
+  $('#tl-rows').innerHTML='';tlCount=0;
+  [['A','ocr_click','OCR 命中「我的会议」','web_home'],['B','click','点击画面空白处','win_client'],['A','ocr_click','OCR 命中「快速会议」','web_join']].forEach(r=>addTLRow({user:r[0],type:r[1],content:r[2],shot:r[3]}));
+  recSec=133;recSeqIdx=0;
+  $('#rec-timer').textContent=fmtSec(recSec);
+  $('#rec-state').className='rec-state rec';$('#rec-state').innerHTML='<span class="dot-live"></span>录制中';
+  timers.push(setInterval(()=>{
+    recSec++;$('#rec-timer').textContent=fmtSec(recSec);
+    occLeft--;
+    const occEl=document.getElementById('occ-left');
+    if(occEl)occEl.textContent=fmtSec(occLeft);
+    if(occLeft<=0){toast('设备占用已达 30 分钟上限，设备已自动释放','err');go('list');return}
+    if(recSec%3===0&&recSeqIdx<REC_SEQ.length){addTLRow(REC_SEQ[recSeqIdx++]);}
+  },1000));
+  /* 画面点击 → 录制当前 Tab 用户的点击 */
+  $('#panel-cur').onclick=e=>{
+    const r=$('#panel-cur').getBoundingClientRect();
+    const rip=document.createElement('span');rip.className='ripple';
+    rip.style.left=(e.clientX-r.left)+'px';rip.style.top=(e.clientY-r.top)+'px';
+    $('#panel-cur').appendChild(rip);setTimeout(()=>rip.remove(),600);
+    addTLRow({user:activeUser,type:'click',content:`坐标点击 (${Math.round(e.clientX-r.left)},${Math.round(e.clientY-r.top)})`,shot:REC_CUR[activeUser]});
+  };
+  /* 插入步骤：一次截取全部设备画面 */
+  $('#btn-insert-step').onclick=()=>{
+    const us=REC_USERS();
+    addTLRow({user:activeUser,type:'manual',multi:us.length,content:`快照插入 · 已捕获 ${us.map(x=>'user'+x).join(' / ')} 当前画面各 1 张`,shot:REC_CUR[activeUser]});
+    toast(`已插入步骤：一次捕获 ${us.length} 台设备画面（不用切换 Tab）`);
+  };
+  $('#btn-abandon').onclick=confirmAbandon;
+  $('#btn-stop').onclick=()=>{
+    openModal(`
+      <div class="m-head">结束录制<span class="x" data-close>${ic('x')}</span></div>
+      <div class="m-body" style="color:var(--t2);font-size:13.5px;line-height:1.9">
+        <div class="kv"><span class="k">已录制</span><b>${tlCount} 个操作</b>（含插入的快照步骤）</div>
+        <div class="kv"><span class="k">用时</span><span class="mono">${fmtSec(recSec)}</span></div>
+        <div class="kv"><span class="k">截图</span><span>共 ${tlCount} 张（操作前画面），已随步骤保存</span></div>
+        <div style="height:10px"></div>
+        <div class="frm-row" style="display:flex;align-items:center;gap:10px;margin-bottom:0">
+          <span class="checkbox on" id="rel-cb"></span><span>保存后释放本次占用的设备</span>
+        </div>
+      </div>
+      <div class="m-foot"><button class="btn" data-close>返回录制</button><button class="btn pri" id="m-save">保存并进入编辑</button></div>`,{width:460});
+    $('#rel-cb').addEventListener('click',()=>$('#rel-cb').classList.toggle('on'));
+    $('#m-save').addEventListener('click',()=>{
+      closeModal();
+      const scene={name:recCtx.name,users:recCtx.users,owner:'张三',time:'刚刚',rec:0,key:'lobby'};
+      const idx=SCENES.findIndex(x=>x.name===recCtx.name);
+      if(idx>=0)SCENES[idx]=scene;else SCENES.unshift(scene);
+      loadScene(scene);renderList();
+      toast('场景已保存'+($('#rel-cb').classList.contains('on')?'，设备已释放':'')+'，列表中可编辑/导出');
+      go('editor');
+    });
+  };
+}
+function confirmAbandon(){
+  openModal(`
+    <div class="m-head">放弃本次录制？<span class="x" data-close>${ic('x')}</span></div>
+    <div class="m-body" style="color:var(--t2);font-size:13.5px;line-height:1.9">
+      <div class="kv"><span class="k">已录制</span><b>${tlCount} 个操作</b>与全部截图将不保存</div>
+      <div class="kv"><span class="k">设备</span>本次占用的设备将立即释放</div>
+    </div>
+    <div class="m-foot"><button class="btn" data-close>继续录制</button><button class="btn dg" id="m-abandon">放弃并退出</button></div>`,{width:440});
+  $('#m-abandon').addEventListener('click',()=>{
+    const idx=SCENES.findIndex(x=>x.name===recCtx.name&&x.rec===1);
+    if(idx>=0){SCENES.splice(idx,1);renderList()}
+    closeModal();toast('已放弃本次录制，设备已释放');go('list');
+  });
+}
+
+/* =============================================================
+   页面 3：场景编辑（时间线为主工作区）
+============================================================= */
+/* 场景步骤数据（按场景 key 组织） */
+const SCENE_DATA={
+  lobby:[
+    {id:1,user:'A',type:'manual',shot:'web_home',content:'进入「我的会议」页面',note:'前置确认界面加载完成'},
+    {id:2,user:'A',type:'ocr_click',shot:'web_home',target:'快速会议'},
+    {id:3,user:'A',type:'ocr_input',shot:'web_join',target:'会议主题',value:'项目周会'},
+    {id:4,user:'A',type:'ocr_click',shot:'web_join',target:'开启等候室',verify:[{sub:'ocr_wait',target:'等候室',timeout:5}]},
+    {id:5,user:'A',type:'ocr_click',shot:'web_join',target:'开始会议'},
+    {id:6,user:'A',type:'wait',shot:'web_lobby',value:'2'},
+    {id:7,user:'B',type:'cmd_exec',shot:null,value:'@tools/clean_env.ps1',source:'insert',note:'清理 B 端环境 · 后台执行'},
+    {id:8,user:'B',type:'image_click',shot:'win_client',target:'入会链接输入框',tpl:'tpl_join_input.png'},
+    {id:9,user:'B',type:'ocr_input',shot:'win_client',target:'入会链接',value:'https://mtg.example.com/j/928711'},
+    {id:10,user:'B',type:'ocr_click',shot:'win_client',target:'加入会议'},
+    {id:11,user:'B',type:'verify',sub:'ocr_wait',shot:'web_lobby',target:'等候室',timeout:5,source:'verify'},
+    {id:12,user:'A',type:'verify',sub:'ocr_assert',shot:'web_meeting',target:'reg_等候室\\(1\\)',source:'verify'},
+    {id:13,user:'A',type:'ocr_click',shot:'web_meeting',target:'邀请入会'},
+    {id:14,user:'B',type:'manual',shot:'web_meeting',content:'进入会议成功（留证）',disabled:true},
+  ],
+  three:[
+    {id:1,user:'A',type:'manual',shot:'web_home',content:'进入「我的会议」页面',note:'前置确认界面加载完成'},
+    {id:2,user:'A',type:'ocr_click',shot:'web_home',target:'快速会议'},
+    {id:3,user:'A',type:'ocr_input',shot:'web_join',target:'会议主题',value:'三端协同会议'},
+    {id:4,user:'A',type:'ocr_click',shot:'web_join',target:'开始会议'},
+    {id:5,user:'B',type:'cmd_exec',shot:null,value:'@tools/prepare_env.ps1',source:'insert',note:'B 端环境准备 · 后台执行'},
+    {id:6,user:'B',type:'ocr_input',shot:'win_client',target:'入会链接',value:'https://mtg.example.com/j/928711'},
+    {id:7,user:'B',type:'ocr_click',shot:'win_client',target:'加入会议'},
+    {id:8,user:'C',type:'ocr_click',shot:'hm_client',target:'加入会议'},
+    {id:9,user:'C',type:'ocr_input',shot:'hm_client',target:'会议密码',value:'826610'},
+    {id:10,user:'C',type:'image_click',shot:'hm_client',target:'摄像头开关',tpl:'hm_camera_on.png'},
+    {id:11,user:'A',type:'verify',sub:'ocr_assert',shot:'web_meeting3',target:'reg_会议中\\(3\\)',source:'verify'},
+    {id:12,user:'A',type:'ocr_click',shot:'web_meeting3',target:'共享屏幕'},
+    {id:13,user:'B',type:'verify',sub:'ocr_wait',shot:'win_share',target:'共享中',timeout:5,source:'verify'},
+    {id:14,user:'C',type:'manual',shot:'hm_client',content:'手机端显示共享画面（留证）'},
+  ],
+};
+let steps=SCENE_DATA.lobby.slice();
+let curScene=null;
+const uCls=u=>({A:'a',B:'b',C:'c',D:'d'})[u]||'a';
+let selSet=new Set(),hist=[],drawerSid=null,lbSid=null,edFilter='all',edSearch='';
+
+function pushHist(){
+  hist.push(JSON.stringify(steps));
+  if(hist.length>30)hist.shift();
+  updUndoBtn();
+}
+function undo(){
+  if(!hist.length){toast('没有可撤销的操作','err');return}
+  steps=JSON.parse(hist.pop());
+  if(drawerSid&&!steps.find(s=>s.id===drawerSid))closeDrawer();
+  updUndoBtn();renderFilters();renderRows();renderBatchBar();
+  toast('已撤销上一步操作');
+}
+function updUndoBtn(){$('#btn-undo').disabled=!hist.length}
+function loadScene(s){
+  curScene=s;
+  steps=SCENE_DATA[s.key].slice();
+  hist=[];selSet.clear();drawerSid=null;lbSid=null;
+  $('#drawer-root').innerHTML='';$('#lightbox-root').innerHTML='';
+}
+function renderEditor(){
+  $('#ed-back').innerHTML=ic('back',16);
+  $('#ed-title').textContent=curScene?curScene.name:'未命名场景';
+  const eus=[...new Set(steps.map(x=>x.user))].sort();
+  $('#ed-users').innerHTML=eus.map(u=>`<span class="uchip ${uCls(u)}"><span class="u-dot" style="background:${USER_COLORS[u]||'#909399'}"></span>user${u} · ${USER_INFO[u]?USER_INFO[u].tag:u}</span>`).join('');
+  $('#btn-insert-aw').innerHTML=`${ic('plus',13)}插入 AW`;
+  $('#btn-undo').innerHTML=`${ic('undo',14)}撤销`;
+  $('#btn-export').innerHTML=`${ic('download',13)}导出步骤`;
+  $('#ed-back').onclick=()=>go('list');
+  $('#btn-save').onclick=()=>{$('#ed-save-state').textContent='已保存 · 刚刚';toast('场景已保存')};
+  $('#btn-undo').onclick=undo;
+  $('#btn-insert-aw').onclick=e=>{
+    showPop(e.currentTarget,[
+      {k:'cmd_exec',label:'命令行 cmd_exec',icon:'terminal',onClick:()=>openInsertModal('cmd_exec')},
+      {k:'start_app',label:'拉起应用 start_app',icon:'package',onClick:()=>openInsertModal('start_app')},
+      {k:'stop_app',label:'停止应用 stop_app',icon:'x',onClick:()=>openInsertModal('stop_app')},
+      {k:'navigate',label:'打开网页 navigate',icon:'globe',onClick:()=>openInsertModal('navigate')},
+      {k:'press',label:'按键 press',icon:'keyboard',onClick:()=>openInsertModal('press')},
+      {k:'wait',label:'等待 wait',icon:'hourglass',onClick:()=>openInsertModal('wait')},
+    ]);
+  };
+  $('#btn-export').onclick=()=>exportSteps(curScene?curScene.name:'未命名场景');
+  $('#ed-search').oninput=e=>{edSearch=e.target.value.trim();renderRows()};
+  renderFilters();renderRows();renderBatchBar();updUndoBtn();
+}
+function filteredSteps(){
+  return steps.filter(s=>{
+    if(edFilter==='dis'){if(!s.disabled)return false}
+    else if(edFilter!=='all'&&s.user!==edFilter)return false;
+    if(edSearch){
+      const txt=(contentFor(s)+' '+(s.target||'')+' '+(s.note||'')+' '+(s.value||'')).toLowerCase();
+      if(!txt.includes(edSearch.toLowerCase()))return false;
+    }
+    return true;
+  });
+}
+function renderFilters(){
+  const us=[...new Set(steps.map(x=>x.user))].sort();
+  const cnt=u=>steps.filter(s=>u==='dis'?s.disabled:(s.user===u&&!s.disabled)).length;
+  $('#ed-filters').innerHTML=[['all',`全部 ${steps.length}`],...us.map(u=>[u,`user${u} ${cnt(u)}`]),['dis',`已禁用 ${cnt('dis')}`]]
+    .map(([k,l])=>`<span class="fchip ${edFilter===k?'on':''}" data-f="${k}" style="margin-right:6px">${l}</span>`).join('');
+  $$('#ed-filters .fchip').forEach(c=>c.addEventListener('click',()=>{edFilter=c.dataset.f;renderFilters();renderRows()}));
+}
+function renderBatchBar(){
+  const n=selSet.size;
+  if(!n){$('#batch-slot').innerHTML='';return}
+  $('#batch-slot').innerHTML=`<div class="batch-bar">
+    <b>已选 ${n} 步</b>
+    <button class="btn sm dg" id="bb-del">${ic('trash',12)}批量删除</button>
+    <button class="btn sm" id="bb-dis">${ic('eyeoff',12)}批量禁用</button>
+    <button class="btn sm" id="bb-en">${ic('eye',12)}批量启用</button>
+    <button class="btn sm text" id="bb-all">全选当前显示</button>
+    <button class="btn sm text" id="bb-none" style="color:var(--t3)">取消选择</button>
+    <span style="margin-left:auto;font-size:12px;color:#7ba6d9">Ctrl+Z 可撤销</span>
+  </div>`;
+  $('#bb-del').onclick=()=>{
+    pushHist();
+    const n0=selSet.size;
+    steps=steps.filter(s=>!selSet.has(s.id));
+    if(drawerSid&&selSet.has(drawerSid))closeDrawer();
+    selSet.clear();renderFilters();renderRows();renderBatchBar();
+    toast(`已删除 ${n0} 个步骤（Ctrl+Z 撤销）`);
+  };
+  $('#bb-dis').onclick=()=>{pushHist();steps.forEach(s=>{if(selSet.has(s.id))s.disabled=true});renderRows();toast(`已禁用 ${selSet.size} 个步骤`)};
+  $('#bb-en').onclick=()=>{pushHist();steps.forEach(s=>{if(selSet.has(s.id))s.disabled=false});renderRows();toast(`已启用 ${selSet.size} 个步骤`)};
+  $('#bb-all').onclick=()=>{filteredSteps().forEach(s=>selSet.add(s.id));renderRows();renderBatchBar()};
+  $('#bb-none').onclick=()=>{selSet.clear();renderRows();renderBatchBar()};
+}
+function verifyCount(s){return (s.verify||[]).length+(s.type==='verify'?1:0)}
+const USER_COLORS={A:'#409EFF',B:'#67C23A',C:'#8B5CF6',D:'#E6A23C',E:'#00A6A6'};
+const TAG_CLS={A:'t-blue',B:'t-green',C:'t-purple',D:'t-orange',E:'t-teal'};
+const hexA=(h,a)=>h+Math.round(a*255).toString(16).padStart(2,'0');
+function renderRows(){
+  const list=filteredSteps();
+  const wrap=$('#ed-list');
+  if(!list.length){wrap.innerHTML='<div class="empty-tip">没有匹配的步骤</div>';return}
+  const users=[...new Set(list.map(s=>s.user))].sort();
+  const n=users.length;
+  const off=i=>Math.round((i-(n-1)/2)*52);
+  const heads=users.map(u=>`<div class="gh" style="border-color:${(USER_COLORS[u]||'#909399')}55">
+      <span class="ubadge ${uCls(u)}">${u}</span>
+      <span style="font-weight:600;font-size:12.5px">${USER_INFO[u]?USER_INFO[u].name:('user'+u)}</span>
+      <span class="tag sm ${TAG_CLS[u]||'t-gray'}">${USER_INFO[u]?USER_INFO[u].tag:u}</span>
+      <span class="dev">${USER_INFO[u]?USER_INFO[u].dev:''}</span>
+    </div>`).join('');
+  const lines=users.map((u,i)=>`<div class="ln" style="left:calc(50% + ${off(i)}px);background:${USER_COLORS[u]||'#909399'}"></div>`).join('');
+  const rows=list.map(s=>{
+    const o=off(users.indexOf(s.user));
+    const side=o<0?'side-l':'side-r';
+    const c=USER_COLORS[s.user]||'#909399';
+    const t=TYPES[s.type];
+    const tagCls=s.type==='verify'?'t-orange':t.cls;
+    const tagLabel=s.type==='verify'?'验证点':t.label;
+    const vc=verifyCount(s);
+    const tick=side==='side-l'
+      ?`style="left:calc(50% - 70px);width:${70+o}px;border-color:${c}"`
+      :`style="left:calc(50% + ${o}px);width:${70-o}px;border-color:${c}"`;
+    return `<div class="grow ${side} ${selSet.has(s.id)?'sel-b':''} ${s.disabled?'dis':''}" data-sid="${s.id}">
+      <span class="gdot ${s.source==='insert'?'sq':''}" style="left:calc(50% + ${o}px);border-color:${c};box-shadow:0 0 0 3px ${hexA(c,.15)}"></span>
+      <span class="gtick" ${tick}></span>
+      <div class="gcard">
+        <span class="checkbox ${selSet.has(s.id)?'on':''}" data-op="check"></span>
+        <span class="sthumb" data-op="zoom">${s.shot?thumb(s.shot,72):`<span class="no-sh">${ic('terminal',16)}</span>`}${s.multi?`<span class="mshot">${s.multi}</span>`:''}</span>
+        <div class="smeta">
+          <div class="r1">
+            <span class="n">${String(s.id).padStart(2,'0')}</span>
+            <span class="ubadge ${uCls(s.user)}">${s.user}</span>
+            <span class="tag sm ${tagCls} type-tag" data-op="type" title="点击重新归类">${ic(s.type==='verify'?TYPES[s.sub||'ocr_assert'].icon:t.icon,10)}${tagLabel}</span>
+            ${s.source==='insert'?'<span class="src-chip">· 手动插入</span>':''}
+            ${s.source==='verify'?'<span class="src-chip">· 验证</span>':''}
+            ${vc?`<span class="tag sm t-orange">${ic('flag',10)}${vc}</span>`:''}
+            ${s.disabled?'<span class="tag sm t-red">已禁用</span>':''}
+          </div>
+          <div class="r2">${contentFor(s)}${s.note?` <span style="color:var(--t4)">— ${s.note}</span>`:''}</div>
+        </div>
+        <div class="sops">
+          <span class="op" data-op="edit" title="编辑">${ic('edit',14)}</span>
+          <span class="op" data-op="up" title="上移">${ic('chevU',14)}</span>
+          <span class="op" data-op="down" title="下移">${ic('chevD',14)}</span>
+          <span class="op" data-op="dis" title="${s.disabled?'启用':'禁用'}">${ic(s.disabled?'eye':'eyeoff',14)}</span>
+          <span class="op dg" data-op="del" title="删除">${ic('trash',14)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.innerHTML=`<div class="gwrap"><div class="gheads">${heads}</div><div class="glines">${lines}</div>${rows}</div>`;
+  $$('#ed-list .grow').forEach(el=>{
+    el.addEventListener('click',e=>{
+      const op=e.target.closest('[data-op]');
+      const sid=+el.dataset.sid;
+      if(!op){openDrawer(sid);return}
+      const s=steps.find(x=>x.id===sid);
+      const kind=op.dataset.op;
+      if(kind==='check'){
+        selSet.has(sid)?selSet.delete(sid):selSet.add(sid);
+        renderRows();renderBatchBar();
+      }else if(kind==='zoom')openLightbox(sid);
+      else if(kind==='type'){
+        e.stopPropagation();
+        showTypeMenu(op,k=>{
+          pushHist();applyType(s,k);
+          renderRows();if(drawerSid===sid)renderDrawer();
+          toast(`步骤 ${String(sid).padStart(2,'0')} 已归类为：${TYPES[s.type==='verify'?s.sub:s.type].label}`);
+        });
+      }else if(kind==='edit')openDrawer(sid);
+      else if(kind==='up'||kind==='down'){
+        pushHist();
+        const idx=steps.indexOf(s),to=kind==='up'?idx-1:idx+1;
+        if(to<0||to>=steps.length){toast('已经到边界了','err');return}
+        steps.splice(to,0,steps.splice(idx,1)[0]);
+        renderRows();
+      }else if(kind==='dis'){
+        pushHist();s.disabled=!s.disabled;renderRows();
+        toast(s.disabled?'步骤已禁用（导出时标注为跳过）':'步骤已启用');
+      }else if(kind==='del'){
+        pushHist();steps=steps.filter(x=>x.id!==sid);
+        if(drawerSid===sid)closeDrawer();
+        renderFilters();renderRows();renderBatchBar();
+        toast('步骤已删除（Ctrl+Z 撤销）');
+      }
+    });
+  });
+}
+/* ---------- 抽屉：步骤编辑 ---------- */
+const HOTZONES={
+  web_home:[{x:0,y:100,w:96,h:28,label:'快速会议'},{x:370,y:36,w:96,h:24,label:'预约会议'}],
+  web_join:[{x:146,y:92,w:188,h:24,label:'会议主题'},{x:146,y:128,w:188,h:20,label:'开启等候室'},{x:262,y:162,w:72,h:26,label:'开始会议'}],
+  web_meeting:[{x:300,y:238,w:72,h:26,label:'邀请入会'},{x:310,y:4,w:160,h:20,label:'等候室：1'}],
+  win_client:[{x:76,y:156,w:240,h:26,label:'入会链接'},{x:76,y:192,w:114,h:27,label:'加入会议'}],
+  web_lobby:[{x:160,y:122,w:160,h:22,label:'等候室中'}],
+  win_prompt:[{x:106,y:138,w:110,h:25,label:'接受并加入'},{x:224,y:138,w:80,h:25,label:'稍后'}],
+  hm_client:[{x:166,y:174,w:148,h:27,label:'加入会议'},{x:166,y:96,w:148,h:22,label:'入会链接'}],
+  web_meeting3:[{x:192,y:238,w:70,h:26,label:'共享屏幕'},{x:306,y:4,w:80,h:20,label:'3 端在线'}],
+};
+function openDrawer(sid){drawerSid=sid;renderDrawer()}
+function closeDrawer(){drawerSid=null;$('#drawer-root').innerHTML=''}
+function renderDrawer(){
+  const s=steps.find(x=>x.id===drawerSid);
+  if(!s){closeDrawer();return}
+  const shot=s.shot;
+  const zones=(HOTZONES[shot]||[]).filter(z=>s.type==='ocr_click'||s.type==='ocr_input'||s.type==='verify');
+  const t=TYPES[s.type==='verify'?(s.sub||'ocr_assert'):s.type];
+  $('#drawer-root').innerHTML=`<div class="drawer open">
+    <div class="dw-head">
+      <span class="mono" style="color:var(--t3)">STEP ${String(s.id).padStart(2,'0')}</span>
+      <span class="tt">编辑步骤</span>
+      <span class="ubadge ${s.user.toLowerCase()}">${s.user}</span>
+      ${s.disabled?'<span class="tag sm t-red">已禁用</span>':''}
+      <span class="op" style="margin-left:auto" id="dw-close">${ic('x',16)}</span>
+    </div>
+    <div class="dw-body">
+      ${s.shot?`
+      <div style="font-size:12px;color:var(--t4);margin-bottom:10px">${ic('camera',13)} 步骤截图 = 操作瞬间画面（用于标注定位目标）· 需要操作结果画面请在录制时用「插入步骤」单独截取</div>
+      <div class="dw-stage"><div class="fit" style="position:relative"><div class="scr-in">${SCREEN[shot]()}</div>
+        ${zones.map(z=>{
+          const on=(s.type==='ocr_click'||s.type==='ocr_input'||s.type==='verify')&&s.target===z.label;
+          return `<div class="hz ${on?'sel':''}" data-z="${z.label}" style="left:${z.x/480*100}%;top:${z.y/270*100}%;width:${z.w/480*100}%;height:${z.h/270*100}%"><span class="hzl">${z.label}</span></div>`;
+        }).join('')}
+      </div></div>
+      <div class="dw-footbar">
+        <button class="btn sm" id="dw-verify">${ic('flag',13)}设为验证点</button>
+        <button class="btn sm" id="dw-tpl">${ic('crop',13)}框选图片模板</button>
+        <button class="btn sm" id="dw-reshot">${ic('camera',13)}重截此图</button>
+        <span style="align-self:center;font-size:12px;color:var(--t4)">点击图中文字热区 → 选为 OCR 目标</span>
+      </div>`:`
+      <div class="dw-stage" style="display:flex;align-items:center;justify-content:center;height:120px;color:var(--t3);font-size:13px">${ic('terminal',22)}　非界面操作（${TYPES[s.type].label}）· 无截图</div>`}
+      ${propForm(s)}
+    </div>
+    <div class="dw-foot">
+      <button class="btn ghost-dg" id="dw-dis">${ic(s.disabled?'eye':'eyeoff',13)}${s.disabled?'启用':'禁用'}</button>
+      <button class="btn dg" id="dw-del">${ic('trash',13)}删除</button>
+      <div style="flex:1"></div>
+      <button class="btn pri" id="dw-done">完成</button>
+    </div>
+  </div>`;
+  fitAll($('#drawer-root'));
+  $('#dw-close').onclick=closeDrawer;
+  $('#dw-done').onclick=()=>{closeDrawer();toast('步骤已更新')};
+  $$('#drawer-root .hz').forEach(z=>z.addEventListener('click',()=>{
+    s.target=z.dataset.z;renderDrawer();renderRows();
+    toast(`已选为定位目标：「${z.dataset.z}」`);
+  }));
+  const fv=$('#dw-verify');
+  if(fv)fv.onclick=()=>{pushHist();(s.verify=s.verify||[]).push({sub:'ocr_wait',target:s.target||'',timeout:5});renderDrawer();renderRows();toast('已添加验证点：ocr_wait')};
+  const tp=$('#dw-tpl');if(tp)tp.onclick=()=>toast('进入框选模式：在截图上拖拽框选区域（模拟）');
+  const rs=$('#dw-reshot');if(rs)rs.onclick=()=>toast('已向设备下发重新截图（模拟）');
+  $('#dw-dis').onclick=()=>{pushHist();s.disabled=!s.disabled;renderDrawer();renderRows();renderFilters()};
+  $('#dw-del').onclick=()=>{pushHist();steps=steps.filter(x=>x.id!==s.id);closeDrawer();renderFilters();renderRows();renderBatchBar();toast('步骤已删除（Ctrl+Z 撤销）')};
+  bindPropForm(s);
+}
+function propForm(s){
+  const t=TYPES[s.type==='verify'?(s.sub||'ocr_assert'):s.type];
+  let body='';
+  body+=`<div style="display:flex;gap:12px;margin-bottom:14px">
+    <div style="flex:1"><div class="frm-lab">归属用户</div><div class="sel" style="width:100%"><span class="ubadge ${s.user.toLowerCase()}">${s.user}</span>${ic('chevD',13)}</div></div>
+    <div style="flex:1.4"><div class="frm-lab">操作类型</div><div class="sel" style="width:100%" id="pf-type">${ic(t.icon,13)}${t.label}${ic('chevD',13)}</div></div>
+  </div>`;
+  if(s.type==='ocr_click'||s.type==='ocr_input'){
+    body+=`<div class="frm-row"><div class="frm-lab">目标文字${s.type==='ocr_input'?'（定位元素）':''}</div><input class="inp" value="${s.target||''}" id="pf-target"></div>`;
+    body+=`<div class="frm-row"><div class="frm-lab">OCR 候选 <span style="color:var(--t4);font-weight:400">（点击直接填入）</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${['开启等候室','等候室','会议主题','快速会议'].map(x=>`<span class="tag sm t-blue" data-cand="${x}" style="cursor:pointer">${x}</span>`).join('')}</div></div>`;
+    body+=`<div style="display:flex;gap:12px;margin-bottom:14px">
+      <div style="flex:1"><div class="frm-lab">匹配模式</div><div class="sel" style="width:100%">精确 ${ic('chevD',13)}</div></div>
+      <div style="flex:1"><div class="frm-lab">超时 (ms)</div><input class="inp" value="5000"></div></div>`;
+    if(s.type==='ocr_input')body+=`<div class="frm-row"><div class="frm-lab">输入内容</div><textarea class="inp" rows="2">${s.value||''}</textarea></div>`;
+  }
+  if(s.type==='click_image'){
+    body+=`<div class="frm-row"><div class="frm-lab">图片模板</div>
+      <div style="display:flex;gap:10px;align-items:center;padding:10px;border:1px dashed var(--border);border-radius:6px">
+        ${thumb('win_client',120)}
+        <div style="font-size:12.5px;color:var(--t2)"><div class="mono">${s.tpl||'tpl_xxx.png'}</div>
+        <div style="color:var(--t4);margin:4px 0 8px">120×68 · 匹配阈值 0.9</div>
+        <button class="btn sm" id="pf-retpl">${ic('crop',12)}重新框选</button></div>
+      </div></div>`;
+  }
+  if(s.type==='wait')body+=`<div class="frm-row"><div class="frm-lab">等待时长 (秒)</div><input class="inp" value="${s.value||''}" style="width:120px"></div>`;
+  if(s.type==='cmd_exec'){
+    body+=`<div class="frm-row"><div class="frm-lab">命令</div><textarea class="inp mono" rows="3">${s.value||''}</textarea></div>
+    <div class="frm-row" style="display:flex;align-items:center;gap:10px"><span class="switch on"></span><span style="font-size:13px;color:var(--t2)">后台执行（不阻塞后续步骤）</span></div>
+    <div class="frm-hint" style="margin-bottom:14px">${ic('terminal',13)}支持 @tools/ 占位符指向 worker tools 目录</div>`;
+  }
+  if(s.type==='verify'){
+    body+=`<div style="display:flex;gap:12px;margin-bottom:14px">
+      <div style="flex:1"><div class="frm-lab">验证方式</div><div class="sel" style="width:100%">${s.sub}${ic('chevD',13)}</div></div>
+      <div style="flex:1"><div class="frm-lab">超时 (秒)</div><input class="inp" value="${s.timeout||5}"></div></div>
+    <div class="frm-row"><div class="frm-lab">目标</div><input class="inp" value="${s.target||''}" id="pf-target"></div>
+    <div class="frm-row" style="display:flex;align-items:center;gap:10px"><span class="switch"></span><span style="font-size:13px;color:var(--t2)">取反（断言不存在）</span></div>`;
+  }
+  if(s.type==='manual'){
+    body+=`<div class="frm-hint" style="margin-bottom:10px">${ic('camera',13)}快照/手动节点：作为界面证据保留，可转为验证点或等待</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn sm" id="pf-tov">${ic('flag',12)}转为验证点</button><button class="btn sm" id="pf-tow">${ic('hourglass',12)}转为等待</button></div>`;
+  }
+  const vs=s.verify||[];
+  body+=`<div class="prop-sec"><div class="ps-t">验证点 <span class="line"></span><button class="btn text sm" id="pf-addv" style="height:22px">${ic('plus',12)}添加</button></div>
+    ${vs.length?vs.map((v,i)=>`<div class="vitem">${ic('flag',13)}<span class="mono" style="font-size:11.5px;color:var(--warn)">${v.sub}</span><span>「${v.target}」${v.timeout?v.timeout+'s':''}</span><span class="vi-x" data-vi="${i}">${ic('x',13)}</span></div>`).join(''):'<div style="font-size:12px;color:var(--t4)">暂无验证点 — 导出文档时将标注为 EXPECT 步骤</div>'}
+  </div>`;
+  body+=`<div class="frm-row" style="margin-bottom:4px"><div class="frm-lab">备注 <span style="color:var(--t4);font-weight:400;font-size:12px">（生成用例时合并进步骤描述）</span></div><textarea class="inp" rows="2" placeholder="补充说明">${s.note||''}</textarea></div>`;
+  return body;
+}
+function bindPropForm(s){
+  const tt=$('#pf-type');
+  if(tt)tt.addEventListener('click',e=>{
+    showTypeMenu(e.currentTarget,k=>{
+      pushHist();applyType(s,k);renderDrawer();renderRows();
+      toast(`已归类为：${TYPES[s.type==='verify'?s.sub:s.type].label}`);
+    });
+  });
+  $$('[data-cand]').forEach(c=>c.addEventListener('click',()=>{const inp=$('#pf-target');if(inp){inp.value=c.dataset.cand;s.target=c.dataset.cand;renderRows();renderDrawer()}}));
+  const pv=$('#pf-target');if(pv)pv.addEventListener('input',()=>{s.target=pv.value;renderRows()});
+  const av=$('#pf-addv');if(av)av.onclick=()=>{pushHist();(s.verify=s.verify||[]).push({sub:'ocr_wait',target:s.target||'',timeout:5});renderDrawer();renderRows()};
+  $$('[data-vi]').forEach(x=>x.addEventListener('click',()=>{pushHist();s.verify.splice(+x.dataset.vi,1);renderDrawer();renderRows()}));
+  const tv=$('#pf-tov');if(tv)tv.onclick=()=>{pushHist();s.type='verify';s.sub='ocr_assert';renderDrawer();renderRows()};
+  const tw=$('#pf-tow');if(tw)tw.onclick=()=>{pushHist();s.type='wait';s.value='2';renderDrawer();renderRows()};
+  const rt=$('#pf-retpl');if(rt)rt.onclick=()=>toast('进入框选模式（模拟）');
+}
+/* ---------- 灯箱 ---------- */
+function openLightbox(sid){lbSid=sid;renderLightbox()}
+function closeLightbox(){lbSid=null;$('#lightbox-root').innerHTML=''}
+function renderLightbox(){
+  const s=steps.find(x=>x.id===lbSid);
+  if(!s){closeLightbox();return}
+  const shot=s.shot;
+  const t=TYPES[s.type==='verify'?(s.sub||'ocr_assert'):s.type];
+  $('#lightbox-root').innerHTML=`<div class="lb-ov" id="lb-ov">
+    <div class="lb-cap">
+      <span class="mono">STEP ${String(s.id).padStart(2,'0')}</span>
+      <span class="ubadge ${s.user.toLowerCase()}">${s.user}</span>
+      <span>${t.label}</span>
+      <span style="color:#8a93a2">${contentFor(s)}</span>
+    </div>
+    <div class="lb-img" id="lb-img"><div class="fit"><div class="scr-in">${SCREEN[shot]?SCREEN[shot]():''}</div></div></div>
+    <div style="color:#8a93a2;font-size:12px">点击空白处或按 Esc 关闭</div>
+  </div>`;
+  const img=$('#lb-img');
+  img.style.width=Math.min(920,innerWidth*0.72)+'px';
+  fitAll($('#lightbox-root'));
+  $('#lb-ov').addEventListener('click',e=>{if(e.target.id==='lb-ov'||e.target.id==='lb-img')closeLightbox()});
+}
+/* ---------- 插入 AW 弹窗 ---------- */
+const INSERT_META={
+  cmd_exec:{title:'插入 · 命令行 cmd_exec',icon:'terminal',fields:()=>`
+    ${propRow('命令 <span class="req">*</span>',`<textarea class="inp mono" rows="3" id="ins-val" placeholder="例如：@tools/init_audio.ps1　或　net stop xxx"></textarea>`)}
+    <div class="frm-row" style="display:flex;align-items:center;gap:10px"><span class="switch on"></span><span style="font-size:13px;color:var(--t2)">后台执行</span></div>`},
+  start_app:{title:'插入 · 拉起应用 start_app',icon:'package',fields:()=>`
+    ${propRow('包名 / 应用路径 <span class="req">*</span>',`<input class="inp mono" id="ins-val" placeholder="Android/iOS 填包名，Windows 填 exe 路径">`)}`},
+  stop_app:{title:'插入 · 停止应用 stop_app',icon:'x',fields:()=>propRow('包名 / 应用名 <span class="req">*</span>',`<input class="inp mono" id="ins-val">`)},
+  navigate:{title:'插入 · 打开网页 navigate',icon:'globe',fields:()=>propRow('URL <span class="req">*</span>',`<input class="inp mono" id="ins-val" placeholder="https://">`)},
+  press:{title:'插入 · 按键 press',icon:'keyboard',fields:()=>propRow('按键 <span class="req">*</span>',`<input class="inp mono" id="ins-val" placeholder="enter / esc / tab / ctrl+c">`)},
+  wait:{title:'插入 · 等待 wait',icon:'hourglass',fields:()=>propRow('时长 (秒)',`<input class="inp" id="ins-val" value="3" style="width:120px">`)},
+};
+function propRow(label,ctrl){return `<div class="frm-row"><div class="frm-lab">${label}</div>${ctrl}</div>`}
+function openInsertModal(kind){
+  const m=INSERT_META[kind];
+  openModal(`
+    <div class="m-head">${ic(m.icon,18)} ${m.title}<span class="x" data-close>${ic('x')}</span></div>
+    <div class="m-body">
+      <div class="frm-row"><div class="frm-lab">插入位置</div>
+        <div class="sel" style="width:240px">时间线末尾 ${ic('chevD',13)}</div>
+        <div class="frm-hint">插入后可在时间线上用 ↑↓ 调整顺序</div></div>
+      <div class="frm-row"><div class="frm-lab">归属用户</div>
+        <div style="display:flex;gap:8px">
+          <span class="uchip a" style="cursor:pointer"><span class="u-dot" style="background:var(--p)"></span>userA · web</span>
+          <span class="uchip b" style="cursor:pointer;opacity:.45"><span class="u-dot" style="background:var(--ok)"></span>userB · windows</span>
+        </div></div>
+      ${m.fields()}
+    </div>
+    <div class="m-foot"><button class="btn" data-close>取消</button><button class="btn pri" id="ins-ok">插入步骤</button></div>`,{width:520});
+  $('#ins-ok').addEventListener('click',()=>{
+    const val=$('#ins-val')?$('#ins-val').value:'';
+    if(!val){toast('请填写必填项','err');return}
+    pushHist();
+    const ns={id:Date.now()%100000,user:'A',type:kind,value:val,shot:null,source:'insert'};
+    steps.push(ns);
+    closeModal();renderFilters();renderRows();updUndoBtn();
+    toast('已插入步骤：'+TYPES[kind].label+'（时间线末尾，可 ↑↓ 调序）');
+    const el=$(`#ed-list .grow[data-sid="${ns.id}"]`);el&&el.scrollIntoView({block:'center',behavior:'smooth'});
+  });
+}
+/* ---------- 快捷键 ---------- */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(lbSid){closeLightbox();return}
+    if($('#modal-root').innerHTML){closeModal();return}
+    if(drawerSid){closeDrawer();return}
+  }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&curView==='editor'&&!e.shiftKey){
+    const tag=document.activeElement.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA')return;
+    e.preventDefault();undo();
+  }
+});
+
+/* ---------- 启动 ---------- */
+$('#bell').innerHTML=ic('bell',17);
+$('#btn-search').addEventListener('click',()=>toast('搜索（模拟）'));
+renderSidebar();
+renderList();
+go('list');
+setTimeout(()=>toast('原型 v2 · 已按反馈更新：列表精简+导出 / 工作台Tab+插入步骤 / 编辑器时间线为主+批量+撤销'),400);
+</script>
+</body>
+</html>
